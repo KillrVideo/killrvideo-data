@@ -135,37 +135,3 @@ CREATE TABLE IF NOT EXISTS comments_by_user (
     comment text,
     PRIMARY KEY (userid, commentid)
 ) WITH CLUSTERING ORDER BY (commentid DESC);
-
-// Uploaded video assets that have been created in Azure Media Services
-CREATE TABLE IF NOT EXISTS uploaded_video_destinations (
-    upload_url text,
-    assetid text,
-    filename text,
-    locatorid text,
-    PRIMARY KEY (upload_url)
-);
-
-CREATE TABLE IF NOT EXISTS uploaded_video_jobs (
-    videoid uuid,
-    upload_url text,
-    jobid text,
-    PRIMARY KEY (videoid)
-);
-
-CREATE TABLE IF NOT EXISTS uploaded_video_jobs_by_jobid (
-    jobid text,
-    videoid uuid,
-    upload_url text,
-    PRIMARY KEY (jobid)
-);
-
-// Log of notifications from Azure Media Services encoding jobs (latest updates first)
-CREATE TABLE IF NOT EXISTS encoding_job_notifications (
-    videoid uuid,
-    status_date timestamp,
-    etag text,
-    jobid text,
-    newstate text,
-    oldstate text,
-    PRIMARY KEY (videoid, status_date, etag)
-) WITH CLUSTERING ORDER BY (status_date DESC, etag ASC);
