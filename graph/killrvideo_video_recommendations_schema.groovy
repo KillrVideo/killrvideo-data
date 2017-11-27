@@ -1,6 +1,5 @@
 :remote connect tinkerpop.server conf/remote.yaml session-managed
 :remote config timeout max
-:remote console
 system.graph("killrvideo_video_recommendations").
   replication("{'class' : 'SimpleStrategy', 'replication_factor': '1' }").
   systemReplication("{'class' : 'SimpleStrategy', 'replication_factor': '1' }").
