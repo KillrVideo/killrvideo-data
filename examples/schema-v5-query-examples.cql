@@ -1,224 +1,286 @@
 -- KillrVideo Sample Queries for Cassandra 5.0
--- Using the sample data to demonstrate key Cassandra 5.0 features
+-- This script demonstrates the advanced querying capabilities
+-- introduced in Cassandra 5.0 using the KillrVideo schema.
 
--- 1. Storage-Attached Indexes (SAI)
--- New in Cassandra 5.0: Efficient secondary indexing
+-- Note: These queries assume that the vector dimensions in the schema
+-- have been adjusted to match our sample data (vector<float, 16> instead of 512).
+-- Make sure your schema is updated accordingly before running these queries.
 
--- Find videos by tag using SAI instead of denormalized table
-SELECT videoid, name, preview_image_location, added_date 
+------------------------------------------------------------------
+-- Storage-Attached Indexes (SAI) Queries
+------------------------------------------------------------------
+
+-- 1. Find videos by tag using SAI
+-- Before 5.0: Required a denormalized table (videos_by_tag)
+-- Now: Direct query on videos table with SAI
+SELECT videoid, name, added_date, preview_image_location 
 FROM killrvideo.videos 
-WHERE 'tutorial' IN tags;
+WHERE tags CONTAINS 'cassandra';
 
--- Find videos by category using SAI
+-- 2. Find videos by category using SAI
 SELECT videoid, name, preview_image_location 
 FROM killrvideo.videos 
 WHERE category = 'Education';
 
--- Find videos by language using SAI
+-- 3. Find videos by language using SAI
 SELECT videoid, name 
 FROM killrvideo.videos 
 WHERE language = 'English';
 
--- Find videos with multiple tag criteria using SAI
-SELECT videoid, name 
+-- 4. Find videos with multiple SAI conditions
+SELECT videoid, name, category
 FROM killrvideo.videos 
-WHERE 'programming' IN tags AND 'tutorial' IN tags;
+WHERE tags CONTAINS 'tutorial' AND category = 'Education';
 
--- Find videos by user using SAI instead of denormalized table
+-- 5. Find videos by user (SAI replaces the user_videos table)
 SELECT videoid, name, added_date 
 FROM killrvideo.videos 
-WHERE userid = killrvideo.sample_uuid('user1')
-ORDER BY added_date DESC;
+WHERE userid = 11111111-1111-1111-1111-111111111111;
 
--- 2. Vector Search (ANN)
--- New in Cassandra 5.0: Approximate Nearest Neighbor search
+-- 6. Complex filtering with multiple indexes
+SELECT videoid, name, added_date
+FROM killrvideo.videos
+WHERE category = 'Education'
+  AND content_rating = 'G'
+  AND tags CONTAINS 'programming';
 
--- Find similar videos using content feature vectors
-SELECT videoid, name, 
-       similarity_cosine(content_features, [0.30, 0.10, 0.05, 0.35, 0.15, 0.00, 0.05, 0.10, 0.15, 0.20, 0.35, 0.40, 0.30, 0.10]) as similarity
+------------------------------------------------------------------
+-- Vector Search (ANN) Queries
+------------------------------------------------------------------
+
+-- 1. Find similar videos using content feature vectors
+-- This enables ML-based content recommendations
+SELECT videoid, name,
+       similarity_cosine(content_features, [0.2, 0.3, 0.1, 0.4, 0.6, 0.2, 0.1, 0.5, 0.3, 0.7, 0.8, 0.1, 0.2, 0.3, 0.4, 0.5]) as similarity
 FROM killrvideo.videos 
-ORDER BY ANN OF content_features [0.30, 0.10, 0.05, 0.35, 0.15, 0.00, 0.05, 0.10, 0.15, 0.20, 0.35, 0.40, 0.30, 0.10] LIMIT 3;
+LIMIT 5;
+-- Note: Sort by similarity in the application
 
--- Find similar videos to a specific video
-SELECT v2.videoid, v2.name, similarity_cosine(v1.content_features, v2.content_features) as similarity
-FROM killrvideo.videos v1, killrvideo.videos v2
-WHERE v1.videoid = killrvideo.sample_uuid('video1') AND v2.videoid != killrvideo.sample_uuid('video1')
-ORDER BY ANN OF v2.content_features [v1.content_features] LIMIT 3;
+-- 2. Find similar videos to a specific video
+-- Note: This would typically use a multi-query approach in Cassandra
+-- First query to get the reference vector:
+SELECT content_features
+FROM killrvideo.videos 
+WHERE videoid = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa;
 
--- Find similar tags using vector similarity
-SELECT tag, similarity_cosine(tag_vector, [0.40, 0.35, 0.25, 0.20, 0.15, 0.10, 0.05, 0.00]) as similarity
+-- Then use the retrieved vector in similarity calculation:
+-- Replace [content_features_value] with the actual vector retrieved above
+SELECT videoid, name,
+       similarity_cosine(content_features, [0.2, 0.3, 0.1, 0.4, 0.6, 0.2, 0.1, 0.5, 0.3, 0.7, 0.8, 0.1, 0.2, 0.3, 0.4, 0.5]) as similarity
+FROM killrvideo.videos 
+LIMIT 5;
+-- Note: Sort by similarity in the application
+
+-- 3. Find similar tags using vector similarity
+SELECT tag, 
+       similarity_cosine(tag_vector, [0.8, 0.1, 0.3, 0.2, 0.7, 0.1, 0.5, 0.3]) as similarity
 FROM killrvideo.tags
-ORDER BY ANN OF tag_vector [0.40, 0.35, 0.25, 0.20, 0.15, 0.10, 0.05, 0.00] LIMIT 5;
+LIMIT 5;
+-- Note: Sort by similarity in the application
 
--- Personalized recommendations using user preference vector
-SELECT v.videoid, v.name, similarity_cosine(up.preference_vector, v.content_features) as match_score
-FROM killrvideo.videos v, killrvideo.user_preferences up
-WHERE up.userid = killrvideo.sample_uuid('user1')
-ORDER BY ANN OF v.content_features [up.preference_vector] LIMIT 5;
+-- 4. Personalized recommendations using user preference vector
+-- First, query to get user preference vector:
+SELECT preference_vector
+FROM killrvideo.user_preferences
+WHERE userid = 11111111-1111-1111-1111-111111111111;
 
--- 3. Data Masking
--- New in Cassandra 5.0: Protected sensitive data
+-- Then use that vector in similarity calculation (separate query):
+SELECT videoid, name, category,
+       similarity_cosine(content_features, [0.2, 0.4, 0.3, 0.5, 0.7, 0.2, 0.3, 0.1, 0.6, 0.4, 0.2, 0.8, 0.3, 0.5, 0.1, 0.7]) as similarity
+FROM killrvideo.videos
+LIMIT 5;
+-- Note: Sort by similarity in the application
 
--- Select user data with masked email (users without UNMASK permission see masked data)
+-- 5. Different similarity metrics comparison
+-- a. Cosine similarity (angle between vectors)
+SELECT videoid, name, 
+       similarity_cosine(content_features, [0.2, 0.3, 0.1, 0.4, 0.6, 0.2, 0.1, 0.5, 0.3, 0.7, 0.8, 0.1, 0.2, 0.3, 0.4, 0.5]) as cosine_sim
+FROM killrvideo.videos 
+LIMIT 3;
+
+-- b. Euclidean similarity (distance between vectors)
+SELECT videoid, name, 
+       similarity_euclidean(content_features, [0.2, 0.3, 0.1, 0.4, 0.6, 0.2, 0.1, 0.5, 0.3, 0.7, 0.8, 0.1, 0.2, 0.3, 0.4, 0.5]) as euclidean_sim
+FROM killrvideo.videos 
+LIMIT 3;
+
+-- c. Dot product similarity (raw vector multiplication)
+SELECT videoid, name, 
+       similarity_dot_product(content_features, [0.2, 0.3, 0.1, 0.4, 0.6, 0.2, 0.1, 0.5, 0.3, 0.7, 0.8, 0.1, 0.2, 0.3, 0.4, 0.5]) as dot_product_sim
+FROM killrvideo.videos 
+LIMIT 3;
+
+------------------------------------------------------------------
+-- Data Masking Queries
+------------------------------------------------------------------
+
+-- 1. Query user data with masked email (for users without UNMASK permission)
+-- The email column will be automatically masked based on schema definition
 SELECT userid, firstname, lastname, email 
 FROM killrvideo.users 
 WHERE account_status = 'active';
 
--- Select password data with masked passwords (users without UNMASK permission see hashed data)
-SELECT email, password, account_locked 
-FROM killrvideo.user_credentials 
-WHERE email = 'john.doe@example.com';
+-- 2. Query payment information with masked card numbers
+-- The card_number column will be automatically masked
+SELECT userid, payment_id, card_number, card_expiry 
+FROM killrvideo.payment_info 
+WHERE userid = 11111111-1111-1111-1111-111111111111;
 
--- Select content moderation data with masked reasons (users without UNMASK permission see masked data)
+-- 3. Query moderation data with masked reasons
+-- The flagged_reason column will be automatically masked
+-- Note: Filtering on status requires ALLOW FILTERING or an index
 SELECT contentid, content_type, status, flagged_reason 
 FROM killrvideo.content_moderation 
-WHERE status = 'pending';
+ALLOW FILTERING;
 
--- 4. Mathematical Functions
--- New in Cassandra 5.0: Enhanced mathematical operations
+-- A better approach is to create an index first:
+-- CREATE INDEX moderation_status_idx ON killrvideo.content_moderation(status) USING 'StorageAttachedIndex';
 
--- Calculate average rating using built-in functions
+------------------------------------------------------------------
+-- Mathematical Operations
+------------------------------------------------------------------
+
+-- 1. Calculate average rating
+-- Query counters directly
 SELECT videoid, 
-       round(rating_total / rating_counter, 1) as avg_rating 
+       CAST(rating_total AS FLOAT) / CAST(rating_counter AS FLOAT) as avg_rating 
 FROM killrvideo.video_ratings 
-WHERE videoid = killrvideo.sample_uuid('video1');
+WHERE videoid = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa;
 
--- Calculate video popularity score
-SELECT videoid, 
-       exp(log(views) * 0.5 + log(rating_total / rating_counter) * 0.5) as popularity_score
-FROM killrvideo.video_playback_stats vs
-JOIN killrvideo.video_ratings vr USING (videoid)
-WHERE videoid = killrvideo.sample_uuid('video4');
+-- 2. Calculate video popularity score 
+-- Simple counter-based calculation
+SELECT videoid, views
+FROM killrvideo.video_playback_stats
+WHERE videoid = dddddddd-dddd-dddd-dddd-dddddddddddd;
 
--- 5. Collection Operations
--- New in Cassandra 5.0: Enhanced collection functions
+-- 3. Find videos with above average watch time
+SELECT videoid, views, total_play_time
+FROM killrvideo.video_playback_stats
+LIMIT 5;
+-- Note: Filter for views > 0 in application code
 
--- Count tags per video
-SELECT videoid, name, collection_count(tags) as tag_count 
+-- 4. Calculate completion rate percentage
+-- Note: Calculate in application code:
+-- completion_rate = (complete_views * 100.0) / views
+SELECT videoid, complete_views, views
+FROM killrvideo.video_playback_stats
+LIMIT 5;
+-- Note: Filter for views > 0 in application code
+
+------------------------------------------------------------------
+-- Collection Operation Queries
+------------------------------------------------------------------
+
+-- 1. Count tags per video
+-- Simple collection query to get tags
+SELECT videoid, name, tags 
 FROM killrvideo.videos 
-WHERE collection_count(tags) >= 3;
+LIMIT 5;
+-- Note: Count tags in application code
 
--- Get maximum preference value from user
-SELECT userid, collection_max(map_values(tag_preferences)) as max_preference
+-- 2. Access preference data 
+SELECT userid, tag_preferences
 FROM killrvideo.user_preferences
-WHERE userid = killrvideo.sample_uuid('user2');
+WHERE userid = 11111111-1111-1111-1111-111111111111;
 
--- Get weighted tag preferences for recommendation
-SELECT v.videoid, v.name, 
-       collection_sum(map_values(map_filter(
-         map_entries(up.tag_preferences),
-         (k, v) -> k.key IN v.tags
-       ))) as preference_score
-FROM killrvideo.videos v, killrvideo.user_preferences up
-WHERE up.userid = killrvideo.sample_uuid('user2')
-ORDER BY preference_score DESC
-LIMIT 3;
+-- 3. Access category preferences
+SELECT userid, category_preferences
+FROM killrvideo.user_preferences
+WHERE userid = 22222222-2222-2222-2222-222222222222;
 
--- 6. Vector Type for Analytics
--- New in Cassandra 5.0: Vector types for metrics
 
--- Get engagement metrics for a video by hour
-SELECT hour, engagement_metrics 
-FROM killrvideo.video_engagement 
-WHERE videoid = killrvideo.sample_uuid('video1') 
-AND day = toDate('2023-06-10');
+------------------------------------------------------------------
+-- Time-Based Queries
+------------------------------------------------------------------
 
--- Extract specific engagement metrics
-SELECT hour, 
-       engagement_metrics[0] as views,
-       engagement_metrics[1] as watch_time,
-       engagement_metrics[2] as likes,
-       engagement_metrics[3] as completion_rate
-FROM killrvideo.video_engagement 
-WHERE videoid = killrvideo.sample_uuid('video1') 
-AND day = toDate('2023-06-10');
-
--- Calculate average engagement across hours
-SELECT videoid,
-       avg(engagement_metrics[0]) as avg_views,
-       avg(engagement_metrics[1]) as avg_watch_time,
-       avg(engagement_metrics[2]) as avg_likes
-FROM killrvideo.video_engagement 
-WHERE videoid = killrvideo.sample_uuid('video1') 
-AND day = toDate('2023-06-10')
-GROUP BY videoid;
-
--- 7. Prefix Search with SAI
--- New in Cassandra 5.0: Efficient prefix search
-
--- Find tags starting with 'c' (prefix search with SAI)
-SELECT tag 
-FROM killrvideo.tags 
-WHERE tag LIKE 'c%';
-
--- Find all programming-related tags
-SELECT tag 
-FROM killrvideo.tags 
-WHERE tag LIKE 'java%';
-
--- 8. Enhanced Time Functions and Extended TTL
--- New in Cassandra 5.0: Extended TTL capabilities
-
--- Set different TTLs based on content category
-UPDATE killrvideo.videos USING TTL 15552000 -- 180 days
-SET ttl_policy = 'standard' 
-WHERE videoid = killrvideo.sample_uuid('video1');
-
-UPDATE killrvideo.videos USING TTL 31536000 -- 365 days
-SET ttl_policy = 'premium' 
-WHERE videoid = killrvideo.sample_uuid('video2');
-
--- Find when specific content will expire
+-- 1. Find videos that will expire soon (TTL example)
+-- Cassandra 5.0 extends the max TTL significantly
 SELECT videoid, name, 
-       TTL(description) as seconds_until_expiry,
-       TTL(description)/86400 as days_until_expiry
+       TTL(description) as seconds_until_expiry
 FROM killrvideo.videos
-WHERE videoid = killrvideo.sample_uuid('video1');
+WHERE videoid = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa;
 
--- 9. Content Analysis with Sentiment Scores
--- New in Cassandra 5.0: Sentiment analysis support
+-- 2. Videos added in a specific date range
+SELECT videoid, name, added_date
+FROM killrvideo.videos
+WHERE added_date >= '2023-06-01' AND added_date <= '2023-06-10';
 
--- Find most positive comments
+-- 3. Get video engagement metrics for specific hours
+SELECT hour, engagement_metrics
+FROM killrvideo.video_engagement
+WHERE videoid = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+  AND day = '2023-06-10'
+ORDER BY hour;
+
+-- Note: In application code, extract metrics from vector by index
+
+------------------------------------------------------------------
+-- Sentiment Analysis Queries
+------------------------------------------------------------------
+
+-- 1. Get comments with sentiment scores
+-- Note: Can't order without partition key restriction
 SELECT videoid, comment, sentiment_score
 FROM killrvideo.comments
-ORDER BY sentiment_score DESC
+WHERE videoid = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
 LIMIT 5;
 
--- Get average sentiment by video
-SELECT videoid, avg(sentiment_score) as avg_sentiment
-FROM killrvideo.comments
-GROUP BY videoid;
-
--- Find potentially negative comments for moderation
+-- 2. Find negative comments requiring moderation
 SELECT videoid, comment, sentiment_score
 FROM killrvideo.comments
-WHERE sentiment_score < 0.3
+WHERE videoid = eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee
 LIMIT 5;
 
--- 10. Using Multiple Features Together
--- Combining Cassandra 5.0 features for powerful queries
+------------------------------------------------------------------
+-- Migration Path Queries
+------------------------------------------------------------------
 
--- Find similar educational videos in English with high ratings
-SELECT v.videoid, v.name, 
-       similarity_cosine(v.content_features, [0.30, 0.10, 0.05, 0.35, 0.15, 0.00, 0.05, 0.10, 0.15, 0.20, 0.35, 0.40, 0.30, 0.10]) as similarity,
-       round(vr.rating_total / vr.rating_counter, 1) as avg_rating
-FROM killrvideo.videos v
-JOIN killrvideo.video_ratings vr ON v.videoid = vr.videoid
-WHERE v.category = 'Education' 
-AND v.language = 'English'
-AND round(vr.rating_total / vr.rating_counter, 1) >= 4.0
-ORDER BY ANN OF v.content_features [0.30, 0.10, 0.05, 0.35, 0.15, 0.00, 0.05, 0.10, 0.15, 0.20, 0.35, 0.40, 0.30, 0.10]
-LIMIT 3;
+-- 1. Finding videos by tag
+-- Old pattern (Cassandra 3.x - if using a denormalized table)
+/* 
+SELECT videoid, name, added_date, preview_image_location 
+FROM killrvideo.videos_by_tag 
+WHERE tag = 'cassandra';
+*/
 
--- Personalized recommendations filtered by user tag preferences
-SELECT v.videoid, v.name,
-       similarity_cosine(up.preference_vector, v.content_features) as similarity_score,
-       collection_sum(map_values(map_filter(
-         map_entries(up.tag_preferences),
-         (k, v) -> k.key IN v.tags
-       ))) as tag_score
-FROM killrvideo.videos v, killrvideo.user_preferences up
-WHERE up.userid = killrvideo.sample_uuid('user1')
-AND v.category IN (SELECT map_keys(category_preferences) FROM killrvideo.user_preferences WHERE userid = killrvideo.sample_uuid('user1'))
-ORDER BY similarity_score + tag_score DESC
-LIMIT 5;
+-- New pattern (Cassandra 5.0)
+SELECT videoid, name, added_date, preview_image_location 
+FROM killrvideo.videos 
+WHERE tags CONTAINS 'cassandra';
+
+-- 2. Finding videos by user
+-- Old pattern (Cassandra 3.x - if using a denormalized table)
+/*
+SELECT videoid, name, added_date, preview_image_location 
+FROM killrvideo.user_videos 
+WHERE userid = 11111111-1111-1111-1111-111111111111;
+*/
+
+-- New pattern (Cassandra 5.0)
+SELECT videoid, name, added_date, preview_image_location 
+FROM killrvideo.videos 
+WHERE userid = 11111111-1111-1111-1111-111111111111;
+
+-- 3. Getting latest videos
+-- Old pattern (Cassandra 3.x)
+SELECT videoid, name, added_date, preview_image_location 
+FROM killrvideo.latest_videos 
+WHERE day = '2023-06-10';
+
+-- New pattern (Cassandra 5.0)
+SELECT videoid, name, added_date, preview_image_location 
+FROM killrvideo.videos 
+WHERE added_date >= '2023-06-10' AND added_date < '2023-06-11';
+
+-- 4. Calculating average rating
+-- Old pattern (Cassandra 3.x - if using a UDF)
+/*
+SELECT videoid, killrvideo.avg_rating(rating_counter, rating_total) 
+FROM killrvideo.video_ratings
+WHERE videoid = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa;
+*/
+
+-- New pattern (Cassandra 5.0)
+SELECT videoid, CAST(rating_total AS FLOAT) / CAST(rating_counter AS FLOAT) 
+FROM killrvideo.video_ratings
+WHERE videoid = aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa;

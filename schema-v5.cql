@@ -13,8 +13,7 @@
 -- denormalized tables instead of materialized views.
 
 CREATE KEYSPACE IF NOT EXISTS killrvideo 
-WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 3}
-AND durable_writes = true;
+WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 1};
 
 ------------------------------------------------------------------
 -- User Management Tables
@@ -29,11 +28,10 @@ AND durable_writes = true;
 -- New in Cassandra 5:
 -- * Data masking for PII protection (email)
 -- * Storage-Attached Index (SAI) for efficient filtering and lookups
--- * Default timestamp function from Cassandra 4.0
 CREATE TABLE IF NOT EXISTS killrvideo.users (
     userid uuid PRIMARY KEY,
-    created_date timestamp DEFAULT currentTimestamp(), -- Auto timestamp from Cassandra 4.0
-    email text MASKED WITH mask_inner('*', 1, 1),     -- Data masking from Cassandra 5.0
+    created_date timestamp,
+    email text MASKED WITH mask_inner(1, 1),     -- Data masking from Cassandra 5.0
     firstname text,
     lastname text,
     account_status text,
@@ -56,14 +54,33 @@ USING 'StorageAttachedIndex';
 -- Supports queries: Authenticate user, Check account status
 --
 -- New in Cassandra 5:
--- * Data masking with hash function for password security
--- * Hash algorithm specification for strong security
+-- * Data masking can be applied to password in queries using mask_hash('SHA-256')
 CREATE TABLE IF NOT EXISTS killrvideo.user_credentials (
     email text PRIMARY KEY,
-    password text MASKED WITH mask_hash('SHA-256'), -- Password hash masking from Cassandra 5.0
+    password text,                               -- Store password (hashed by application)
     userid uuid,
-    account_locked boolean,
-    failed_login_attempts counter                   -- Counter for tracking login attempts
+    account_locked boolean
+);
+
+-- Separate counter table for login attempts
+-- Counters must be in their own table
+CREATE TABLE IF NOT EXISTS killrvideo.login_attempts (
+    email text PRIMARY KEY,
+    failed_attempts counter                      -- Counter for tracking login attempts
+);
+
+-- User payment information with custom masking
+-- Supports queries: Get payment methods for a user
+--
+-- New in Cassandra 5:
+-- * Multiple masked columns with different masking functions
+CREATE TABLE IF NOT EXISTS killrvideo.payment_info (
+    userid uuid,
+    payment_id uuid,
+    card_number text MASKED WITH mask_replace('**** **** **** 1234'),
+    card_expiry date,
+    billing_address text,
+    PRIMARY KEY (userid, payment_id)
 );
 
 ------------------------------------------------------------------
@@ -79,23 +96,22 @@ CREATE TABLE IF NOT EXISTS killrvideo.user_credentials (
 --
 -- New in Cassandra 5:
 -- * Vector type for content feature vectors (enables AI/ML integration)
--- * Extended TTL capabilities for content lifecycle management
 -- * Storage-Attached Indexes for flexible querying (see indexes below)
 CREATE TABLE IF NOT EXISTS killrvideo.videos (
     videoid uuid PRIMARY KEY,
-    added_date timestamp DEFAULT currentTimestamp(),    -- Auto timestamp from Cassandra 4.0
+    added_date timestamp,
     description text,
     location text,
     location_type int,
     name text,
     preview_image_location text,
-    tags set<text>,                                     -- Collection for efficient tag storage
-    content_features vector<float, 512>,                -- Vector type from Cassandra 5.0 for ML features
+    tags set<text>,                              -- Collection for efficient tag storage
+    content_features vector<float, 16>,         -- Vector type from Cassandra 5.0 for ML features
     userid uuid,
-    content_rating text,                                -- 'G', 'PG', 'PG-13', 'R', etc.
+    content_rating text,                         -- 'G', 'PG', 'PG-13', 'R', etc.
     category text,
     language text
-) WITH default_time_to_live = 15552000;                 -- Extended TTL (180 days) from Cassandra 5.0
+);
 
 -- SAI indexes for the videos table
 -- These indexes replace multiple denormalized tables from Cassandra 3.x
@@ -135,14 +151,18 @@ USING 'StorageAttachedIndex';
 CREATE INDEX IF NOT EXISTS videos_language_idx ON killrvideo.videos(language) 
 USING 'StorageAttachedIndex';
 
+-- Vector search index with COSINE similarity function
+-- Enables ANN searches for content-based recommendations
+CREATE INDEX IF NOT EXISTS videos_content_features_idx 
+ON killrvideo.videos(content_features) 
+USING 'StorageAttachedIndex'
+WITH OPTIONS = { 'similarity_function': 'COSINE' };
+
 -- Denormalized table for latest videos
 -- Supports queries: Get latest videos in chronological order
--- 
--- New in Cassandra 5:
--- * Enhanced time functions for automatic date partitioning
--- * Improved performance for time-series data
+-- Note: We keep this table alongside SAI indexes for high-performance time-series access
 CREATE TABLE IF NOT EXISTS killrvideo.latest_videos (
-    day date DEFAULT currentDate(),
+    day date,
     added_date timestamp,
     videoid uuid,
     name text,
@@ -175,39 +195,41 @@ CREATE TABLE IF NOT EXISTS killrvideo.video_playback_stats (
 -- capabilities and vector similarity features in Cassandra 5.0.
 
 -- Tag metadata and similarity table
--- Supports queries: Tag search/autocomplete, Find similar tags,
--- Get tag usage statistics
+-- Supports queries: Tag search/autocomplete, Find similar tags
 --
 -- New in Cassandra 5:
 -- * Vector type for tag embeddings
--- * Counter performance improvements
 -- * SAI with PREFIX mode for autocomplete
 CREATE TABLE IF NOT EXISTS killrvideo.tags (
     tag text PRIMARY KEY,
-    tag_vector vector<float, 64>,  -- Vector type from Cassandra 5.0 for tag embeddings
-    tag_count counter,             -- Counter for tag popularity
-    related_tags set<text>,        -- Collection of related tags
-    category text                  -- Category classification
+    tag_vector vector<float, 8>,     -- Vector type from Cassandra 5.0 for tag embeddings
+    related_tags set<text>,           -- Collection of related tags
+    category text                     -- Category classification
 );
 
--- Prefix index for tag autocomplete
--- Enables efficient prefix search for typeahead/autocomplete
--- New in Cassandra 5: StorageAttachedIndex with PREFIX mode
-CREATE INDEX IF NOT EXISTS tags_prefix_idx ON killrvideo.tags(tag) 
-USING 'StorageAttachedIndex'
-WITH OPTIONS = {'mode': 'PREFIX'};
+-- Tag usage statistics table
+-- Separate counter table for tag popularity
+CREATE TABLE IF NOT EXISTS killrvideo.tag_counts (
+    tag text PRIMARY KEY,
+    count counter                     -- Counter for tag popularity
+);
 
 -- Category index for tag filtering
 -- Enables "Find all tags in category X" queries
 CREATE INDEX IF NOT EXISTS tags_category_idx ON killrvideo.tags(category) 
 USING 'StorageAttachedIndex';
 
+-- Vector search index for finding similar tags
+CREATE INDEX IF NOT EXISTS tags_vector_idx 
+ON killrvideo.tags(tag_vector) 
+USING 'StorageAttachedIndex'
+WITH OPTIONS = { 'similarity_function': 'COSINE' };
+
 ------------------------------------------------------------------
 -- Comments System Tables
 ------------------------------------------------------------------
 -- This section contains tables for the video comment system. 
--- These tables showcase materialized views, sentiment analysis with
--- vectors, and automatic timestamp generation.
+-- These tables showcase sentiment analysis with vectors.
 
 -- Video comments table
 -- Supports queries: Get comments for a video, Sort comments chronologically,
@@ -215,10 +237,9 @@ USING 'StorageAttachedIndex';
 --
 -- New in Cassandra 5:
 -- * Sentiment analysis support via float score
--- * Automatic TimeUUID generation with currentTimeUUID()
 CREATE TABLE IF NOT EXISTS killrvideo.comments (
     videoid uuid,
-    commentid timeuuid DEFAULT currentTimeUUID(),   -- Auto timestamp from Cassandra 4.0
+    commentid timeuuid,
     comment text,
     userid uuid,
     sentiment_score float,                          -- ML-derived sentiment score
@@ -230,7 +251,6 @@ CREATE TABLE IF NOT EXISTS killrvideo.comments (
 -- 
 -- New in Cassandra 5:
 -- * Sentiment score for content analysis
--- * Default TimeUUID for consistent ordering
 CREATE TABLE IF NOT EXISTS killrvideo.comments_by_user (
     userid uuid,
     commentid timeuuid,
@@ -251,7 +271,7 @@ CREATE TABLE IF NOT EXISTS killrvideo.comments_by_user (
 -- Supports queries: Get average rating for a video
 --
 -- New in Cassandra 5:
--- * Mathematical functions for calculating averages
+-- * Mathematical functions for calculating averages with round()
 -- * Enhanced counter reliability
 CREATE TABLE IF NOT EXISTS killrvideo.video_ratings (
     videoid uuid PRIMARY KEY,
@@ -259,17 +279,18 @@ CREATE TABLE IF NOT EXISTS killrvideo.video_ratings (
     rating_total counter          -- Sum of all ratings
 );
 
+-- Example query using built-in math functions for average calculation:
+-- SELECT videoid, round(rating_total / rating_counter, 1) as avg_rating 
+-- FROM killrvideo.video_ratings
+-- WHERE videoid = ?;
+
 -- Individual user ratings table
 -- Supports queries: Check if user rated a video, Get user's rating
---
--- New in Cassandra 4/5:
--- * Automatic timestamp with currentTimestamp()
--- * Better performance for counter operations
 CREATE TABLE IF NOT EXISTS killrvideo.video_ratings_by_user (
     videoid uuid,
     userid uuid,
     rating int,
-    rating_date timestamp DEFAULT currentTimestamp(),   -- Auto timestamp from Cassandra 4.0
+    rating_date timestamp,
     PRIMARY KEY (videoid, userid)
 ) WITH CLUSTERING ORDER BY (userid ASC);
 
@@ -279,45 +300,48 @@ CREATE TABLE IF NOT EXISTS killrvideo.video_ratings_by_user (
 -- New in Cassandra 5:
 -- * Vector type for user preference embeddings
 -- * Map collections with float values for weighted preferences
--- * Vector similarity search capabilities
+-- * Vector similarity search capabilities using similarity_cosine, similarity_euclidean, or similarity_dot_product
 CREATE TABLE IF NOT EXISTS killrvideo.user_preferences (
     userid uuid PRIMARY KEY,
-    preference_vector vector<float, 512>,      -- Vector type from Cassandra 5.0
+    preference_vector vector<float, 16>,      -- Vector type from Cassandra 5.0
     tag_preferences map<text, float>,          -- Weighted map of tag preferences
     category_preferences map<text, float>,     -- Weighted map of category preferences
-    last_updated timestamp DEFAULT currentTimestamp()
+    last_updated timestamp
 );
+
+-- Create SAI index on preference vector for similarity searches
+CREATE INDEX IF NOT EXISTS user_preferences_vector_idx 
+ON killrvideo.user_preferences(preference_vector) 
+USING 'StorageAttachedIndex'
+WITH OPTIONS = { 'similarity_function': 'COSINE' };
 
 ------------------------------------------------------------------
 -- Content Moderation Tables
 ------------------------------------------------------------------
 -- This section contains tables for content moderation and safety.
--- These tables showcase data masking for sensitive information and
--- automatic timestamps for audit trails.
+-- These tables showcase data masking for sensitive information.
 
 -- Content moderation tracking table
 -- Supports queries: Find content pending review, Track moderation history,
 -- Audit content decisions with protected reasons
 --
 -- New in Cassandra 5:
--- * Data masking for sensitive moderation reasons
--- * Role-based access to masked data
--- * Automatic timestamps for audit trail
+-- * Data masking for sensitive moderation reasons using mask_inner
+-- * Role-based access to masked data with UNMASK permission
 CREATE TABLE IF NOT EXISTS killrvideo.content_moderation (
-    contentid uuid PRIMARY KEY,                           -- Can be videoid or commentid
-    content_type text,                                    -- 'video' or 'comment'
-    status text,                                          -- 'approved', 'pending', 'rejected'
-    flagged_reason text MASKED WITH mask_inner('*', 0, 0), -- Data masking from Cassandra 5.0
+    contentid uuid PRIMARY KEY,                     -- Can be videoid or commentid
+    content_type text,                              -- 'video' or 'comment'
+    status text,                                    -- 'approved', 'pending', 'rejected'
+    flagged_reason text MASKED WITH mask_inner(0, 0), -- Data masking from Cassandra 5.0
     reviewer uuid,
-    review_date timestamp DEFAULT currentTimestamp()      -- Auto timestamp from Cassandra 4.0
+    review_date timestamp
 );
 
 ------------------------------------------------------------------
 -- Analytics Tables
 ------------------------------------------------------------------
 -- This section contains tables for analytics and user activity tracking.
--- These tables showcase vector types for metrics, date functions,
--- and efficient time-series data modeling.
+-- These tables showcase vector types for metrics and efficient time-series data modeling.
 
 -- Video engagement metrics time series
 -- Supports queries: Track hourly engagement, Analyze performance,
@@ -325,11 +349,10 @@ CREATE TABLE IF NOT EXISTS killrvideo.content_moderation (
 --
 -- New in Cassandra 5:
 -- * Vector type for compact storage of multiple metrics
--- * currentDate() function for automatic partitioning
 -- * Enhanced time-series performance
 CREATE TABLE IF NOT EXISTS killrvideo.video_engagement (
     videoid uuid,
-    day date DEFAULT currentDate(),               -- Auto date function from Cassandra 4.0
+    day date,
     hour int,
     engagement_metrics vector<float, 8>,          -- Vector type from Cassandra 5.0 for metrics
                                                   -- [views, avg_watch_time, likes, etc]
@@ -339,17 +362,12 @@ CREATE TABLE IF NOT EXISTS killrvideo.video_engagement (
 -- User activity time series
 -- Supports queries: Track user behavior, Analyze engagement patterns,
 -- Build user activity timeline
---
--- New in Cassandra 4/5:
--- * Auto date functions for partitioning
--- * Timestamp functions for ordering
--- * Efficient multi-level clustering
 CREATE TABLE IF NOT EXISTS killrvideo.user_activity (
     userid uuid,
-    day date DEFAULT currentDate(),               -- Auto date function from Cassandra 4.0
+    day date,
     activity_type text,                           -- 'view', 'comment', 'rate', etc.
     activity_id timeuuid,                         -- UUID of the activity
-    activity_timestamp timestamp DEFAULT currentTimestamp(),
+    activity_timestamp timestamp,
     PRIMARY KEY ((userid, day), activity_type, activity_timestamp, activity_id)
 ) WITH CLUSTERING ORDER BY (activity_type ASC, activity_timestamp DESC, activity_id ASC);
 
@@ -375,9 +393,15 @@ CREATE TABLE IF NOT EXISTS killrvideo.youtube_videos (
     description text,
     name text,
     used boolean,
-    content_features vector<float, 512>,        -- Vector type from Cassandra 5.0
+    content_features vector<float, 16>,        -- Vector type from Cassandra 5.0
     PRIMARY KEY (sourceid, published_at, youtube_video_id)
 ) WITH CLUSTERING ORDER BY (published_at DESC, youtube_video_id ASC);
+
+-- Create SAI index on YouTube video content features
+CREATE INDEX IF NOT EXISTS youtube_videos_features_idx 
+ON killrvideo.youtube_videos(content_features) 
+USING 'StorageAttachedIndex'
+WITH OPTIONS = { 'similarity_function': 'COSINE' };
 
 ------------------------------------------------------------------
 -- User-Defined Functions
@@ -394,38 +418,155 @@ CREATE TABLE IF NOT EXISTS killrvideo.youtube_videos (
 -- * Enhanced mathematical functions (round, division)
 -- * Could be replaced with: SELECT round(rating_total/rating_counter, 1) FROM ...
 CREATE OR REPLACE FUNCTION killrvideo.avg_rating(rating_counter counter, rating_total counter)
-RETURNS FLOAT
-LANGUAGE java
-AS 'return rating_counter.doubleValue() > 0 ? Math.round((rating_total.doubleValue() / rating_counter.doubleValue()) * 10) / 10.0 : 0.0;';
+CALLED ON NULL INPUT
+RETURNS double
+LANGUAGE java AS '
+  if (rating_counter > 0) {
+    double avg = rating_total.doubleValue() / rating_counter.doubleValue();
+    return Math.round(avg * 10.0) / 10.0;
+  } else {
+    return 0.0;
+  }
+';
+
+-- Example of a UDF that calculates a video popularity score based on views and ratings
+CREATE OR REPLACE FUNCTION killrvideo.popularity_score(views counter, rating_counter counter, rating_total counter)
+CALLED ON NULL INPUT
+RETURNS double
+LANGUAGE java AS '
+  if (views == 0 || rating_counter == 0) {
+    return 0.0;
+  }
+  double avgRating = rating_total.doubleValue() / rating_counter.doubleValue();
+  return Math.log10(views.doubleValue()) * avgRating;
+';
+
+-- Custom email domain redaction function for data masking
+CREATE OR REPLACE FUNCTION killrvideo.redact_email_domain(email text)
+CALLED ON NULL INPUT
+RETURNS text
+LANGUAGE java AS '
+    if (email == null) return null;
+    int atIndex = email.indexOf("@");
+    if (atIndex > 0) {
+        return email.substring(0, atIndex + 1) + "redacted.com";
+    }
+    return email;
+';
 
 ------------------------------------------------------------------
--- Role-Based Access Control
+-- Aggregate Functions
 ------------------------------------------------------------------
--- This section defines roles with specific permissions.
--- Cassandra 4.0 and 5.0 include enhanced role-based access control,
--- data center restrictions, and masking permissions.
+-- This section contains user-defined aggregate functions for custom analytics.
+-- Cassandra 5.0 enhances UDAs with improved performance and reliability.
 
--- Basic application user role
--- New in Cassandra 4.0: Enhanced role-based access control
-CREATE ROLE IF NOT EXISTS app_user WITH PASSWORD = 'password' AND LOGIN = true;
+-- State function for weighted rating aggregate
+CREATE OR REPLACE FUNCTION killrvideo.weighted_rating_state(state tuple<int, double>, video_id uuid, rating int, user_reputation int)
+CALLED ON NULL INPUT
+RETURNS tuple<int, double>
+LANGUAGE java AS '
+  if (rating == null || user_reputation == null) {
+    return state;
+  }
+  
+  // Weight rating by user reputation (1-10)
+  double weightedRating = rating * (user_reputation / 10.0);
+  
+  // Update state: count and weighted sum
+  state.setInt(0, state.getInt(0) + 1);
+  state.setDouble(1, state.getDouble(1) + weightedRating);
+  
+  return state;
+';
 
--- Content moderation role with unmasking privileges
--- New in Cassandra 5.0: UNMASK permission for accessing masked data
-CREATE ROLE IF NOT EXISTS content_manager WITH PASSWORD = 'password' AND LOGIN = true AND UNMASK ON killrvideo.content_moderation;
+-- Final function for weighted rating aggregate
+CREATE OR REPLACE FUNCTION killrvideo.weighted_rating_final(state tuple<int, double>)
+CALLED ON NULL INPUT
+RETURNS double
+LANGUAGE java AS '
+  if (state.getInt(0) == 0) {
+    return 0.0;
+  }
+  double result = state.getDouble(1) / state.getInt(0);
+  return Math.round(result * 10.0) / 10.0;
+';
+
+-- Weighted rating aggregate function
+-- This aggregate calculates ratings weighted by user reputation
+CREATE OR REPLACE AGGREGATE killrvideo.weighted_rating(uuid, int, int)
+SFUNC weighted_rating_state
+STYPE tuple<int, double>
+FINALFUNC weighted_rating_final
+INITCOND (0, 0.0);
 
 ------------------------------------------------------------------
--- Data Guardrails
+-- Role-Based Access Control Notes
 ------------------------------------------------------------------
--- This section defines guardrails to protect against common issues.
--- Cassandra 5.0 introduces configurable guardrails to prevent performance
--- problems from oversized partitions and other anti-patterns.
+-- In a production environment, you would typically set up roles with appropriate
+-- permissions for data masking. Below are examples of what these might look like:
 
--- Partition size guardrails
--- New in Cassandra 5.0: Configurable guardrails to prevent performance issues
--- These settings cap partition sizes to ensure consistent performance
+-- For regular users:
+-- CREATE ROLE app_user WITH LOGIN = true;
+-- GRANT SELECT ON KEYSPACE killrvideo TO app_user;
 
--- Limit video partition sizes to prevent hotspots
-ALTER TABLE killrvideo.videos WITH max_partition_size = '100MB';
+-- For applications that need to query on masked columns:
+-- GRANT SELECT, SELECT_MASKED ON killrvideo.users TO app_service;
+-- GRANT SELECT, SELECT_MASKED ON killrvideo.content_moderation TO app_service;
 
--- Limit comment partition sizes for busy videos
-ALTER TABLE killrvideo.comments WITH max_partition_size = '50MB';
+-- For content moderators who need to see unmasked sensitive data:
+-- GRANT SELECT ON killrvideo.content_moderation TO content_manager;
+-- GRANT UNMASK ON killrvideo.content_moderation TO content_manager;
+
+-- For administrators who need full access:
+-- GRANT ALL PERMISSIONS ON KEYSPACE killrvideo TO killrvideo_admin;
+-- GRANT UNMASK ON ALL TABLES IN KEYSPACE killrvideo TO killrvideo_admin;
+
+------------------------------------------------------------------
+-- Data Management Practices for Cassandra 5.0
+------------------------------------------------------------------
+-- This section outlines best practices for managing data in Cassandra 5.0.
+-- While these aren't schema elements, they're important guidelines for users.
+
+-- 1. TTL Management
+-- While we don't set default TTLs at the table level, you can apply TTLs selectively:
+-- 
+-- For temporary content:
+-- INSERT INTO killrvideo.videos (videoid, name, ...) VALUES (uuid(), 'Test Video', ...) USING TTL 604800; -- 7 days
+--
+-- For premium content:
+-- INSERT INTO killrvideo.videos (videoid, name, ...) VALUES (uuid(), 'Premium Video', ...) USING TTL 31536000; -- 1 year
+--
+-- Check TTL of content:
+-- SELECT videoid, name, TTL(description) FROM killrvideo.videos WHERE videoid = ?;
+
+-- 2. Partition Size Management
+-- Instead of table-level settings, use these practices:
+-- 
+-- - Choose appropriate partition keys that distribute data evenly
+-- - Limit time-series data per partition (e.g., day-level partitioning)
+-- - Monitor partition sizes through system tables
+-- - Use wide partitions carefully, especially with SAI indexes
+
+-- 3. Collection Best Practices
+-- New collection functions in 5.0 enable better collection handling:
+--
+-- - Working with maps: map_keys(), map_values()
+-- - Collection statistics: collection_count(), collection_min/max/sum/avg()
+-- - Example: SELECT videoid, collection_count(tags) FROM videos WHERE videoid = ?;
+
+-- 4. Vector Search Implementation
+-- Vector search is implemented using:
+--
+-- - SAI index on vector columns with appropriate similarity function
+-- - ANN query syntax: ORDER BY ANN OF column [vector]
+-- - Similarity functions: similarity_cosine, similarity_euclidean, similarity_dot_product
+-- - Example: SELECT * FROM videos ORDER BY ANN OF content_features [?] LIMIT 10;
+
+-- 5. Data Masking Best Practices
+-- Data masking should follow these guidelines:
+--
+-- - Focus on PII and sensitive data: emails, passwords, payment info
+-- - Grant UNMASK only to roles that need it
+-- - Use SELECT_MASKED for applications that need to query masked columns
+-- - Consider custom masking functions for domain-specific needs
+-- - Enable authentication to make data masking effective

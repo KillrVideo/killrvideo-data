@@ -30,7 +30,9 @@ killrvideo-database/
 ```
 
 ## Quick Start
-1. Create keyspace: `SOURCE schema-v5.cql;`
-2. Load sample data: `SOURCE examples/schema-v5-data-examples.cql;`
+1. Load schema: `cqlsh -f schema-v5.cql`
+2. Import sample data: `cqlsh -f examples/schema-v5-data-examples.cql`
+
+> **Note:** Requires [CQLSH](https://cassandra.apache.org/doc/latest/cassandra/tools/cqlsh.html) to be installed and configured for your Cassandra cluster.
 
 [Apache License 2.0](LICENSE)
