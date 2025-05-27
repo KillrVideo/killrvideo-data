@@ -329,13 +329,25 @@ WITH OPTIONS = { 'similarity_function': 'COSINE' };
 -- * Data masking for sensitive moderation reasons using mask_inner
 -- * Role-based access to masked data with UNMASK permission
 CREATE TABLE IF NOT EXISTS killrvideo.content_moderation (
-    contentid uuid PRIMARY KEY,                     -- Can be videoid or commentid
+    contentid uuid,                     -- Can be videoid or commentid
+    flagid timeuuid,
     content_type text,                              -- 'video' or 'comment'
     status text,                                    -- 'approved', 'pending', 'rejected'
     flagged_reason text MASKED WITH mask_inner(0, 0), -- Data masking from Cassandra 5.0
     reviewer uuid,
-    review_date timestamp
+    review_date timestamp,
+    PRIMARY KEY (contentid, flagid)
 );
+
+CREATE TABLE killrvideo.moderation_audit (
+    videoid uuid,
+    flagid timeuuid,
+    action text,          -- flagged, unmask, approve, reject
+    actor uuid,
+    ts timestamp,
+    details text,
+    PRIMARY KEY ((videoid), ts, flagid)
+) WITH CLUSTERING ORDER BY (ts DESC);
 
 ------------------------------------------------------------------
 -- Analytics Tables
