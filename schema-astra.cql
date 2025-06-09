@@ -1,10 +1,5 @@
--- KillrVideo Final Schema for Cassandra 5.0
+-- KillrVideo Final Schema for Astra as of June 2025
 -- Showcasing all modern data modeling features
---
--- This schema demonstrates the progression from Cassandra 3.x to 5.0,
--- highlighting new features and how they can be used to simplify and enhance
--- your data models. Tables are grouped by functional area with detailed
--- comments explaining the purpose and features used.
 
 -- Note on Materialized Views:
 -- Although Cassandra 4.0 and 5.0 include materialized views,
@@ -12,9 +7,10 @@
 -- performance and reliability concerns. This schema uses traditional
 -- denormalized tables instead of materialized views.
 
-CREATE KEYSPACE IF NOT EXISTS killrvideo 
-WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 1};
+-- CREATE KEYSPACE IF NOT EXISTS killrvideo 
+-- WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 1};
 
+-- For Astra, add the Keyspace via the UI 
 ------------------------------------------------------------------
 -- User Management Tables
 ------------------------------------------------------------------
@@ -25,13 +21,11 @@ WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 1}
 -- User profile information
 -- Supports queries: Get user by ID, Find user by email, List users by status
 --
--- New in Cassandra 5:
--- * Data masking for PII protection (email)
 -- * Storage-Attached Index (SAI) for efficient filtering and lookups
 CREATE TABLE IF NOT EXISTS killrvideo.users (
     userid uuid PRIMARY KEY,
     created_date timestamp,
-    email text MASKED WITH mask_inner(1, 1),     -- Data masking from Cassandra 5.0
+    email text,
     firstname text,
     lastname text,
     account_status text,
@@ -41,13 +35,13 @@ CREATE TABLE IF NOT EXISTS killrvideo.users (
 -- SAI index for email lookups
 -- Replaces the need for a separate email lookup table
 -- New in Cassandra 5: Storage-Attached Index with advanced indexing capabilities
-CREATE INDEX IF NOT EXISTS users_email_idx ON killrvideo.users(email) 
+CREATE CUSTOM INDEX IF NOT EXISTS users_email_idx ON killrvideo.users(email) 
 USING 'StorageAttachedIndex';
 
 -- SAI index for filtering users by account status
 -- Enables efficient filtering queries without separate tables
 -- New in Cassandra 5: Storage-Attached Index
-CREATE INDEX IF NOT EXISTS users_account_status_idx ON killrvideo.users(account_status) 
+CREATE CUSTOM INDEX IF NOT EXISTS users_account_status_idx ON killrvideo.users(account_status) 
 USING 'StorageAttachedIndex';
 
 -- User authentication credentials
@@ -69,19 +63,6 @@ CREATE TABLE IF NOT EXISTS killrvideo.login_attempts (
     failed_attempts counter                      -- Counter for tracking login attempts
 );
 
--- User payment information with custom masking
--- Supports queries: Get payment methods for a user
---
--- New in Cassandra 5:
--- * Multiple masked columns with different masking functions
-CREATE TABLE IF NOT EXISTS killrvideo.payment_info (
-    userid uuid,
-    payment_id uuid,
-    card_number text MASKED WITH mask_replace('**** **** **** 1234'),
-    card_expiry date,
-    billing_address text,
-    PRIMARY KEY (userid, payment_id)
-);
 
 ------------------------------------------------------------------
 -- Video Management Tables
@@ -119,41 +100,41 @@ CREATE TABLE IF NOT EXISTS killrvideo.videos (
 
 -- Name search index
 -- Enables text search on video titles
-CREATE INDEX IF NOT EXISTS videos_name_idx ON killrvideo.videos(name) 
+CREATE CUSTOM INDEX IF NOT EXISTS videos_name_idx ON killrvideo.videos(name) 
 USING 'StorageAttachedIndex';
 
 -- Tags collection index
 -- Enables queries like "Find all videos with tag X"
 -- Replaces the videos_by_tag table from earlier versions
-CREATE INDEX IF NOT EXISTS videos_tags_idx ON killrvideo.videos(tags) 
+CREATE CUSTOM INDEX IF NOT EXISTS videos_tags_idx ON killrvideo.videos(tags) 
 USING 'StorageAttachedIndex';
 
 -- User videos index
 -- Enables "Find all videos by user X" queries
 -- Replaces the user_videos table from earlier versions
-CREATE INDEX IF NOT EXISTS videos_userid_idx ON killrvideo.videos(userid) 
+CREATE CUSTOM INDEX IF NOT EXISTS videos_userid_idx ON killrvideo.videos(userid) 
 USING 'StorageAttachedIndex';
 
 -- Date index for chronological sorting
 -- Enables "Latest videos" queries
 -- Replaces the latest_videos table from earlier versions
-CREATE INDEX IF NOT EXISTS videos_added_date_idx ON killrvideo.videos(added_date) 
+CREATE CUSTOM INDEX IF NOT EXISTS videos_added_date_idx ON killrvideo.videos(added_date) 
 USING 'StorageAttachedIndex';
 
 -- Content filtering indexes
 -- Enable content discovery and filtering
-CREATE INDEX IF NOT EXISTS videos_content_rating_idx ON killrvideo.videos(content_rating) 
+CREATE CUSTOM INDEX IF NOT EXISTS videos_content_rating_idx ON killrvideo.videos(content_rating) 
 USING 'StorageAttachedIndex';
 
-CREATE INDEX IF NOT EXISTS videos_category_idx ON killrvideo.videos(category) 
+CREATE CUSTOM INDEX IF NOT EXISTS videos_category_idx ON killrvideo.videos(category) 
 USING 'StorageAttachedIndex';
 
-CREATE INDEX IF NOT EXISTS videos_language_idx ON killrvideo.videos(language) 
+CREATE CUSTOM INDEX IF NOT EXISTS videos_language_idx ON killrvideo.videos(language) 
 USING 'StorageAttachedIndex';
 
 -- Vector search index with COSINE similarity function
 -- Enables ANN searches for content-based recommendations
-CREATE INDEX IF NOT EXISTS videos_content_features_idx 
+CREATE CUSTOM INDEX IF NOT EXISTS videos_content_features_idx 
 ON killrvideo.videos(content_features) 
 USING 'StorageAttachedIndex'
 WITH OPTIONS = { 'similarity_function': 'COSINE' };
@@ -216,11 +197,11 @@ CREATE TABLE IF NOT EXISTS killrvideo.tag_counts (
 
 -- Category index for tag filtering
 -- Enables "Find all tags in category X" queries
-CREATE INDEX IF NOT EXISTS tags_category_idx ON killrvideo.tags(category) 
+CREATE CUSTOM INDEX IF NOT EXISTS tags_category_idx ON killrvideo.tags(category) 
 USING 'StorageAttachedIndex';
 
 -- Vector search index for finding similar tags
-CREATE INDEX IF NOT EXISTS tags_vector_idx 
+CREATE CUSTOM INDEX IF NOT EXISTS tags_vector_idx 
 ON killrvideo.tags(tag_vector) 
 USING 'StorageAttachedIndex'
 WITH OPTIONS = { 'similarity_function': 'COSINE' };
@@ -310,7 +291,7 @@ CREATE TABLE IF NOT EXISTS killrvideo.user_preferences (
 );
 
 -- Create SAI index on preference vector for similarity searches
-CREATE INDEX IF NOT EXISTS user_preferences_vector_idx 
+CREATE CUSTOM INDEX IF NOT EXISTS user_preferences_vector_idx 
 ON killrvideo.user_preferences(preference_vector) 
 USING 'StorageAttachedIndex'
 WITH OPTIONS = { 'similarity_function': 'COSINE' };
@@ -333,7 +314,7 @@ CREATE TABLE IF NOT EXISTS killrvideo.content_moderation (
     flagid timeuuid,
     content_type text,                              -- 'video' or 'comment'
     status text,                                    -- 'approved', 'pending', 'rejected'
-    flagged_reason text MASKED WITH mask_inner(0, 0), -- Data masking from Cassandra 5.0
+    flagged_reason text,
     reviewer uuid,
     review_date timestamp,
     PRIMARY KEY (contentid, flagid)
@@ -410,7 +391,7 @@ CREATE TABLE IF NOT EXISTS killrvideo.youtube_videos (
 ) WITH CLUSTERING ORDER BY (published_at DESC, youtube_video_id ASC);
 
 -- Create SAI index on YouTube video content features
-CREATE INDEX IF NOT EXISTS youtube_videos_features_idx 
+CREATE CUSTOM INDEX IF NOT EXISTS youtube_videos_features_idx 
 ON killrvideo.youtube_videos(content_features) 
 USING 'StorageAttachedIndex'
 WITH OPTIONS = { 'similarity_function': 'COSINE' };
@@ -418,167 +399,4 @@ WITH OPTIONS = { 'similarity_function': 'COSINE' };
 ------------------------------------------------------------------
 -- User-Defined Functions
 ------------------------------------------------------------------
--- This section contains user-defined functions that extend CQL capabilities.
--- Cassandra 5.0 includes enhanced mathematical functions that can replace
--- many custom UDFs from previous versions.
-
--- Average rating calculation function
--- This function can now be replaced with built-in mathematical functions in Cassandra 5.0,
--- but is kept for compatibility with existing code.
---
--- New in Cassandra 5:
--- * Enhanced mathematical functions (round, division)
--- * Could be replaced with: SELECT round(rating_total/rating_counter, 1) FROM ...
-CREATE OR REPLACE FUNCTION killrvideo.avg_rating(rating_counter counter, rating_total counter)
-CALLED ON NULL INPUT
-RETURNS double
-LANGUAGE java AS '
-  if (rating_counter > 0) {
-    double avg = rating_total.doubleValue() / rating_counter.doubleValue();
-    return Math.round(avg * 10.0) / 10.0;
-  } else {
-    return 0.0;
-  }
-';
-
--- Example of a UDF that calculates a video popularity score based on views and ratings
-CREATE OR REPLACE FUNCTION killrvideo.popularity_score(views counter, rating_counter counter, rating_total counter)
-CALLED ON NULL INPUT
-RETURNS double
-LANGUAGE java AS '
-  if (views == 0 || rating_counter == 0) {
-    return 0.0;
-  }
-  double avgRating = rating_total.doubleValue() / rating_counter.doubleValue();
-  return Math.log10(views.doubleValue()) * avgRating;
-';
-
--- Custom email domain redaction function for data masking
-CREATE OR REPLACE FUNCTION killrvideo.redact_email_domain(email text)
-CALLED ON NULL INPUT
-RETURNS text
-LANGUAGE java AS '
-    if (email == null) return null;
-    int atIndex = email.indexOf("@");
-    if (atIndex > 0) {
-        return email.substring(0, atIndex + 1) + "redacted.com";
-    }
-    return email;
-';
-
-------------------------------------------------------------------
--- Aggregate Functions
-------------------------------------------------------------------
--- This section contains user-defined aggregate functions for custom analytics.
--- Cassandra 5.0 enhances UDAs with improved performance and reliability.
-
--- State function for weighted rating aggregate
-CREATE OR REPLACE FUNCTION killrvideo.weighted_rating_state(state tuple<int, double>, video_id uuid, rating int, user_reputation int)
-CALLED ON NULL INPUT
-RETURNS tuple<int, double>
-LANGUAGE java AS '
-  if (rating == null || user_reputation == null) {
-    return state;
-  }
-  
-  // Weight rating by user reputation (1-10)
-  double weightedRating = rating * (user_reputation / 10.0);
-  
-  // Update state: count and weighted sum
-  state.setInt(0, state.getInt(0) + 1);
-  state.setDouble(1, state.getDouble(1) + weightedRating);
-  
-  return state;
-';
-
--- Final function for weighted rating aggregate
-CREATE OR REPLACE FUNCTION killrvideo.weighted_rating_final(state tuple<int, double>)
-CALLED ON NULL INPUT
-RETURNS double
-LANGUAGE java AS '
-  if (state.getInt(0) == 0) {
-    return 0.0;
-  }
-  double result = state.getDouble(1) / state.getInt(0);
-  return Math.round(result * 10.0) / 10.0;
-';
-
--- Weighted rating aggregate function
--- This aggregate calculates ratings weighted by user reputation
-CREATE OR REPLACE AGGREGATE killrvideo.weighted_rating(uuid, int, int)
-SFUNC weighted_rating_state
-STYPE tuple<int, double>
-FINALFUNC weighted_rating_final
-INITCOND (0, 0.0);
-
-------------------------------------------------------------------
--- Role-Based Access Control Notes
-------------------------------------------------------------------
--- In a production environment, you would typically set up roles with appropriate
--- permissions for data masking. Below are examples of what these might look like:
-
--- For regular users:
--- CREATE ROLE app_user WITH LOGIN = true;
--- GRANT SELECT ON KEYSPACE killrvideo TO app_user;
-
--- For applications that need to query on masked columns:
--- GRANT SELECT, SELECT_MASKED ON killrvideo.users TO app_service;
--- GRANT SELECT, SELECT_MASKED ON killrvideo.content_moderation TO app_service;
-
--- For content moderators who need to see unmasked sensitive data:
--- GRANT SELECT ON killrvideo.content_moderation TO content_manager;
--- GRANT UNMASK ON killrvideo.content_moderation TO content_manager;
-
--- For administrators who need full access:
--- GRANT ALL PERMISSIONS ON KEYSPACE killrvideo TO killrvideo_admin;
--- GRANT UNMASK ON ALL TABLES IN KEYSPACE killrvideo TO killrvideo_admin;
-
-------------------------------------------------------------------
--- Data Management Practices for Cassandra 5.0
-------------------------------------------------------------------
--- This section outlines best practices for managing data in Cassandra 5.0.
--- While these aren't schema elements, they're important guidelines for users.
-
--- 1. TTL Management
--- While we don't set default TTLs at the table level, you can apply TTLs selectively:
--- 
--- For temporary content:
--- INSERT INTO killrvideo.videos (videoid, name, ...) VALUES (uuid(), 'Test Video', ...) USING TTL 604800; -- 7 days
---
--- For premium content:
--- INSERT INTO killrvideo.videos (videoid, name, ...) VALUES (uuid(), 'Premium Video', ...) USING TTL 31536000; -- 1 year
---
--- Check TTL of content:
--- SELECT videoid, name, TTL(description) FROM killrvideo.videos WHERE videoid = ?;
-
--- 2. Partition Size Management
--- Instead of table-level settings, use these practices:
--- 
--- - Choose appropriate partition keys that distribute data evenly
--- - Limit time-series data per partition (e.g., day-level partitioning)
--- - Monitor partition sizes through system tables
--- - Use wide partitions carefully, especially with SAI indexes
-
--- 3. Collection Best Practices
--- New collection functions in 5.0 enable better collection handling:
---
--- - Working with maps: map_keys(), map_values()
--- - Collection statistics: collection_count(), collection_min/max/sum/avg()
--- - Example: SELECT videoid, collection_count(tags) FROM videos WHERE videoid = ?;
-
--- 4. Vector Search Implementation
--- Vector search is implemented using:
---
--- - SAI index on vector columns with appropriate similarity function
--- - ANN query syntax: ORDER BY ANN OF column [vector]
--- - Similarity functions: similarity_cosine, similarity_euclidean, similarity_dot_product
--- - Example: SELECT * FROM videos ORDER BY ANN OF content_features [?] LIMIT 10;
-
--- 5. Data Masking Best Practices
--- Data masking should follow these guidelines:
---
--- - Focus on PII and sensitive data: emails, passwords, payment info
--- - Grant UNMASK only to roles that need it
--- - Use SELECT_MASKED for applications that need to query masked columns
--- - Consider custom masking functions for domain-specific needs
--- - Enable authentication to make data masking effective
+-- User Defined functions are not allowed in Astra per gaurdrails. 
