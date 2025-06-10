@@ -364,6 +364,15 @@ CREATE TABLE IF NOT EXISTS killrvideo.user_activity (
     PRIMARY KEY ((userid, day), activity_type, activity_timestamp, activity_id)
 ) WITH CLUSTERING ORDER BY (activity_type ASC, activity_timestamp DESC, activity_id ASC);
 
+-- Total video activity time series
+-- Collects all video views as a time series by day
+CREATE TABLE IF NOT EXISTS killrvideo.video_activity (
+    videoid uuid,
+    day date,
+    watch_time timeUUID,
+    PRIMARY KEY (day, watch_time)
+) WITH CLUSTERING ORDER BY (watch_time DESC);
+
 ------------------------------------------------------------------
 -- External Integration Tables
 ------------------------------------------------------------------
