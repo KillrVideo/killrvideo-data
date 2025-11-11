@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS killrvideo.videos (
     name text,
     preview_image_location text,
     tags set<text>,                              -- Collection for efficient tag storage
-    content_features vector<float, 16>,         -- Vector type from Cassandra 5.0 for ML features
+    content_features vector<float, 384>,        -- Vector type from Cassandra 5.0 for ML features (IBM Granite 30M)
     userid uuid,
     content_rating text,                         -- 'G', 'PG', 'PG-13', 'R', etc.
     category text,
@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS killrvideo.video_playback_stats (
 -- * SAI with PREFIX mode for autocomplete
 CREATE TABLE IF NOT EXISTS killrvideo.tags (
     tag text PRIMARY KEY,
-    tag_vector vector<float, 8>,     -- Vector type from Cassandra 5.0 for tag embeddings
+    tag_vector vector<float, 384>,   -- Vector type from Cassandra 5.0 for tag embeddings (IBM Granite 30M)
     related_tags set<text>,           -- Collection of related tags
     category text                     -- Category classification
 );
@@ -303,7 +303,7 @@ CREATE TABLE IF NOT EXISTS killrvideo.video_ratings_by_user (
 -- * Vector similarity search capabilities using similarity_cosine, similarity_euclidean, or similarity_dot_product
 CREATE TABLE IF NOT EXISTS killrvideo.user_preferences (
     userid uuid PRIMARY KEY,
-    preference_vector vector<float, 16>,      -- Vector type from Cassandra 5.0
+    preference_vector vector<float, 384>,     -- Vector type from Cassandra 5.0 (IBM Granite 30M)
     tag_preferences map<text, float>,          -- Weighted map of tag preferences
     category_preferences map<text, float>,     -- Weighted map of category preferences
     last_updated timestamp
@@ -405,7 +405,7 @@ CREATE TABLE IF NOT EXISTS killrvideo.youtube_videos (
     description text,
     name text,
     used boolean,
-    content_features vector<float, 16>,        -- Vector type from Cassandra 5.0
+    content_features vector<float, 384>,       -- Vector type from Cassandra 5.0 (IBM Granite 30M)
     PRIMARY KEY (sourceid, published_at, youtube_video_id)
 ) WITH CLUSTERING ORDER BY (published_at DESC, youtube_video_id ASC);
 
