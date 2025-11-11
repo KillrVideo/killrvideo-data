@@ -91,7 +91,9 @@ CREATE TABLE IF NOT EXISTS killrvideo.videos (
     userid uuid,
     content_rating text,                         -- 'G', 'PG', 'PG-13', 'R', etc.
     category text,
-    language text
+    language text,
+    views int,
+    youtube_id text
 );
 
 -- SAI indexes for the videos table
