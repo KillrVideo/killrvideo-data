@@ -1,0 +1,156 @@
+# Schema Mapping: Tables → Collections
+# Defines how to transform the relational KillrVideo schema into JSON document collections
+
+# Collection Definitions
+# Each collection maps to one or more source tables
+collections:
+  # Users Collection
+  users:
+    description: "User profiles and authentication data"
+    primary_table: "users"
+    # Merge related tables into nested documents
+    joins:
+      - table: "user_credentials"
+        join_on: "userid"
+        nest_as: "credentials"
+        include_fields: ["email", "password", "created_date"]
+      - table: "user_preferences"
+        join_on: "userid"
+        nest_as: "preferences"
+        include_fields: ["tag_preferences", "category_preferences", "last_updated"]
+    # Document ID field
+    id_field: "userid"
+    # Vectorize configuration
+    vectorize:
+      enabled: false  # Users don't need vector search in this example
+    # Indexes (automatic in collections)
+    indexed_fields: ["email", "account_status", "created_date"]
+
+  # Videos Collection (primary use case for vector search)
+  videos:
+    description: "Video metadata with content similarity search"
+    primary_table: "videos"
+    joins:
+      # Denormalize playback stats
+      - table: "video_playback_stats"
+        join_on: "videoid"
+        nest_as: "stats"
+        include_fields: ["views", "total_play_time", "complete_views", "unique_viewers"]
+      # Denormalize rating aggregates
+      - table: "video_ratings"
+        join_on: "videoid"
+        nest_as: "ratings"
+        include_fields: ["rating_counter", "rating_total"]
+    id_field: "videoid"
+    # Vectorize from description field
+    vectorize:
+      enabled: true
+      text_field: "description"
+      # Astra will auto-generate embeddings
+      # Dimensions determined by provider (e.g., OpenAI: 1536, Hugging Face: 384)
+    indexed_fields: ["userid", "added_date", "name", "tags", "location_type"]
+
+  # Comments Collection
+  comments:
+    description: "Video comments with sentiment analysis"
+    primary_table: "comments"
+    id_field: "commentid"
+    # Include both videoid and userid for bidirectional queries
+    # Collections auto-index all fields, so no need for denormalized tables
+    vectorize:
+      enabled: false  # Could enable for comment similarity search
+    indexed_fields: ["videoid", "userid", "comment_timestamp"]
+
+  # Tags Collection
+  tags:
+    description: "Tag taxonomy with semantic search"
+    primary_table: "tags"
+    joins:
+      - table: "tag_counts"
+        join_on: "tag"
+        nest_as: "usage"
+        include_fields: ["count"]
+    id_field: "tag"  # Use tag name as document ID
+    # Vectorize from tag name for semantic tag search
+    vectorize:
+      enabled: true
+      text_field: "tag"
+    indexed_fields: ["category"]
+
+  # Video Ratings Collection (individual user ratings)
+  video_ratings:
+    description: "Individual user ratings for recommendations"
+    primary_table: "video_ratings_by_user"
+    # Composite ID: userid + videoid
+    id_field: "_composite"  # Will generate: f"{userid}_{videoid}"
+    vectorize:
+      enabled: false
+    indexed_fields: ["userid", "videoid", "rating", "rating_timestamp"]
+
+# Vectorize Provider Configuration (for Data API)
+# This is configured at the collection level when creating the collection
+vectorize_provider:
+  # Provider name (one of: openai, huggingface, mistral, voyageai, nvidia, jinaai, upstage, azureopenai)
+  name: "openai"
+
+  # Provider-specific model
+  model: "text-embedding-3-small"  # OpenAI: 1536 dimensions
+
+  # IMPORTANT: Provider choice is PERMANENT for a collection
+  # You cannot change providers without recreating the collection
+
+  # API key (stored as Astra credential)
+  # Set via environment variable: EMBEDDING_API_KEY
+  # Or configure in Astra Portal: Database → Embedding Providers
+
+# Data Transformation Rules
+transformations:
+  # How to handle missing/null values
+  null_handling:
+    strategy: "omit"  # Options: "omit", "include_as_null", "default_value"
+
+  # How to handle timestamp fields
+  timestamps:
+    format: "iso8601"  # Keep as ISO 8601 strings
+
+  # How to handle UUID fields
+  uuids:
+    format: "string"  # Convert UUIDs to strings
+
+  # How to handle sets/lists
+  collections:
+    sets: "arrays"  # Convert CQL sets to JSON arrays
+
+  # How to handle maps
+  maps:
+    format: "nested_object"  # Convert CQL maps to nested JSON objects
+
+  # Composite ID generation
+  composite_ids:
+    separator: "_"
+    format: "{userid}_{videoid}"  # Template for composite IDs
+
+# Loading Configuration
+loading:
+  # Batch size for document insertion
+  batch_size: 20  # Data API has lower limits than CQL
+
+  # Concurrent operations
+  max_concurrency: 5  # Data API is rate-limited
+
+  # Retry configuration
+  max_retries: 3
+  retry_delay: 2  # seconds
+
+# Collections to Skip (use tables instead)
+skip_collections:
+  - "latest_videos"  # Denormalized view, replaced by videos collection with date index
+  - "comments_by_user"  # Denormalized view, replaced by comments collection with userid index
+  - "user_videos"  # Denormalized view, same as above
+
+# Notes:
+# 1. Collections automatically index ALL fields - no manual index management needed
+# 2. This replaces many denormalized tables with a single collection + automatic indexing
+# 3. Vectorize is configured when creating the collection and cannot be changed later
+# 4. Data API has different rate limits than CQL (typically lower)
+# 5. Collections are schema-less - documents can have different fields

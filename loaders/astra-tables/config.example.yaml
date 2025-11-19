@@ -1,0 +1,84 @@
+# Astra Tables Configuration with IBM Granite Embeddings
+# Copy this file to config.yaml and fill in your credentials
+
+# Astra Database Configuration
+astra:
+  # Get these from Astra Portal → Database → Connect
+  database_id: "your-database-id-here"
+  region: "us-east-1"  # Your database region
+  keyspace: "killrvideo"
+
+  # Get token from Astra Portal → Settings → Tokens
+  # Requires Database Administrator permissions
+  token: "AstraCS:your-token-here"
+
+  # Path to Secure Connect Bundle (download from Astra Portal)
+  secure_bundle_path: "./secure-connect-killrvideo.zip"
+
+# Embedding Model Configuration
+# Using IBM Granite 30M English model (384 dimensions)
+# This model runs locally - no API keys needed!
+embedding:
+  model_name: "ibm-granite/granite-embedding-30m-english"
+  native_dimensions: 384
+
+  # The model will be downloaded automatically on first run (~120MB)
+  # Cached in ~/.cache/huggingface/
+
+# Vector Column Mappings
+# Define which text columns should be vectorized into which vector columns
+# The schema defines specific vector dimensions:
+#   - videos.content_features: vector<float, 16>
+#   - tags.tag_vector: vector<float, 8>
+#   - user_preferences.preference_vector: vector<float, 16>
+#
+# We'll reduce from 384D → 16D/8D using PCA
+
+vector_mappings:
+  # Videos table: vectorize description into content_features
+  videos:
+    text_column: "description"
+    vector_column: "content_features"
+    dimensions: 16
+
+  # Tags table: vectorize tag name into tag_vector
+  tags:
+    text_column: "tag"
+    vector_column: "tag_vector"
+    dimensions: 8
+
+  # User preferences: synthesize text from tag_preferences map
+  user_preferences:
+    # Generate text from the tag_preferences map keys
+    text_column: "_synthesized_preferences"
+    vector_column: "preference_vector"
+    dimensions: 16
+
+# Loading Options
+loading:
+  # Batch size for inserts
+  batch_size: 100
+
+  # Maximum concurrent operations
+  max_concurrency: 16
+
+  # Maximum operations per second (Astra throttles ~4000-5000)
+  max_ops_per_second: 4000
+
+  # CSV directory path
+  csv_dir: "../../data/csv"
+
+  # Enable verbose logging
+  verbose: true
+
+# Dimension Reduction Strategy
+# Granite produces 384D embeddings, we need 8D/16D for schema
+dimension_reduction:
+  # Method: "pca" (recommended) or "truncate" (faster but loses info)
+  method: "pca"
+
+  # PCA options
+  pca:
+    # Cache fitted PCA models for consistency across runs
+    cache_models: true
+    cache_dir: "./.pca_cache"
