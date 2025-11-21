@@ -24,6 +24,7 @@ Usage:
 
 import argparse
 import csv
+import json
 import sys
 import time
 import yaml
@@ -32,14 +33,14 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from uuid import UUID
 from collections import defaultdict
+#from sentence_transformers import SentenceTransformer
 
-try:
-    from astrapy.db import AstraDB, AstraDBCollection
-    from astrapy.ops import AstraDBOps
-except ImportError:
-    print("ERROR: astrapy not installed")
-    print("Install with: pip install astrapy")
-    sys.exit(1)
+#try:
+from astrapy import AsyncCollection, DataAPIClient
+#except ImportError:
+#    print("ERROR: astrapy not installed")
+#    print("Install with: pip install astrapy")
+#    sys.exit(1)
 
 # ANSI colors
 class Colors:
@@ -88,14 +89,16 @@ class CollectionLoader:
         log_info(f"Connecting to Astra Data API...")
 
         # Initialize AstraDB client
-        self.db = AstraDB(
-            token=astra_config['token'],
+        astraClient = DataAPIClient(token=astra_config['token'])
+        self.db = astraClient.get_database(
             api_endpoint=astra_config['api_endpoint'],
-            namespace=astra_config.get('namespace', 'killrvideo')
+            keyspace=astra_config.get('namespace', 'killrvideo')
         )
 
         log_success("Connected to Astra Data API")
-        log_info(f"Namespace: {astra_config.get('namespace', 'killrvideo')}")
+        #log_info(f"Namespace: {astra_config.get('namespace', 'killrvideo')}")
+        log_info(f"Namespace: {self.db.keyspace}")
+        log_info(f"API endpoint: {self.db.api_endpoint}")
 
         # Cache for loaded data (for joins)
         self.data_cache = {}
@@ -237,7 +240,7 @@ class CollectionLoader:
         return parsed
 
     def create_collection_with_vectorize(self, collection_name: str,
-                                        collection_config: dict) -> AstraDBCollection:
+                                        collection_config: dict) -> AsyncCollection:
         """
         Create collection with optional vectorize configuration
 
@@ -246,20 +249,22 @@ class CollectionLoader:
             collection_config: Collection configuration from schema_mapping
 
         Returns:
-            AstraDBCollection instance
+            AsyncCollection instance
         """
         log_info(f"Creating collection: {Colors.YELLOW}{collection_name}{Colors.NC}")
+        log_info(f"List of keyspaces: {self.db.get_database_admin().list_keyspaces()}")
 
         # Check if collection exists
-        existing_collections = self.db.get_collections()['status']['collections']
+        #existing_collections = self.db.get_collections()['status']['collections']
+        existing_collections = self.db.list_collection_names()
 
         if collection_name in existing_collections:
             if self.config.get('loading', {}).get('drop_existing', False):
                 log_warning(f"Dropping existing collection: {collection_name}")
-                self.db.delete_collection(collection_name)
+                self.db.drop_collection(collection_name)
             else:
                 log_info(f"Collection already exists: {collection_name}")
-                return self.db.collection(collection_name)
+                return self.db.get_collection(collection_name)
 
         # Prepare collection options
         options = {}
@@ -385,12 +390,15 @@ class CollectionLoader:
         # Create collection
         collection = self.create_collection_with_vectorize(collection_name, collection_config)
 
+        # embedding model
+        #model = SentenceTransformer('ibm-granite/granite-embedding-30m-english')
+
         # Load primary table data
         primary_table = collection_config['primary_table']
         csv_path = Path(self.config['data']['csv_dir']) / f"{primary_table}.csv"
 
-        if not csv_path.exists():
-            log_error(f"CSV file not found: {csv_path}")
+        if not csv_path.exists() or collection_config.get('skip',False):
+            log_error(f"CSV file not found or skip==True: {csv_path}")
             return 0, 0
 
         log_info(f"Loading from: {csv_path}")
@@ -414,13 +422,18 @@ class CollectionLoader:
                         document = self.build_document(parsed_row, collection_name, collection_config)
 
                         # Handle vectorize field
-                        vectorize_config = collection_config.get('vectorize', {})
-                        if vectorize_config.get('enabled', False):
-                            text_field = vectorize_config.get('text_field')
-                            if text_field and text_field in document:
+                        #vectorize_config = collection_config.get('vectorize', {})
+                        #if vectorize_config.get('enabled', False):
+                        if collection_name == "videos":
+                        #    text_field = vectorize_config.get('text_field')
+                        #    if text_field and text_field in document:
                                 # Use $vectorize for automatic embedding
                                 # Note: This requires vectorize to be configured on the collection
-                                document['$vectorize'] = document[text_field]
+                                #document['$vectorize'] = document[text_field]
+                            vector = json.loads(document['content_features'])
+                            if isinstance(vector, list):
+                                document['$vector'] = [float(x) for x in vector]
+                            document['content_features'] = ""
 
                         batch.append(document)
 
@@ -454,7 +467,7 @@ class CollectionLoader:
             log_error(f"Failed to load collection {collection_name}: {e}")
             return docs_loaded, docs_failed
 
-    def _insert_batch(self, collection: AstraDBCollection, batch: List[Dict]):
+    def _insert_batch(self, collection: AsyncCollection, batch: List[Dict]):
         """Insert batch of documents with retry logic"""
         max_retries = self.config.get('loading', {}).get('max_retries', 3)
         retry_delay = self.config.get('loading', {}).get('retry_delay', 2)
@@ -569,3 +582,4 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+    #asyncio.run(main())
