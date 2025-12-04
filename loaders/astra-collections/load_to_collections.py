@@ -30,13 +30,16 @@ import time
 import yaml
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 from collections import defaultdict
 #from sentence_transformers import SentenceTransformer
 
 #try:
 from astrapy import AsyncCollection, DataAPIClient
+#from astrapy.data_types import (
+#    DataAPIVector,
+#)
 #except ImportError:
 #    print("ERROR: astrapy not installed")
 #    print("Install with: pip install astrapy")
@@ -70,6 +73,14 @@ def log_section(msg: str):
     print(f"{Colors.BOLD}{'=' * 70}{Colors.NC}")
     print()
 
+def is_valid_float(strFloat):
+
+    try:
+        float(strFloat)
+        return True
+    except:
+        return False
+        
 class CollectionLoader:
     """Loader for KillrVideo data into Astra Collections"""
 
@@ -145,8 +156,10 @@ class CollectionLoader:
 
         for key, value in row.items():
             # Skip empty values
-            if value is None or value == '' or value.lower() == 'null':
+            if key is None or value is None or value == '':
                 continue
+
+            #print("key = " + key)
 
             # Try to parse as different types
             try:
@@ -159,6 +172,24 @@ class CollectionLoader:
                 # Check if it's an integer
                 elif value.isdigit() or (value[0] == '-' and value[1:].isdigit()):
                     parsed[key] = int(value)
+                # Check if it's an array
+                elif value.startswith('[') and ',' in value:
+                    # remove leading and trailing brackets []
+                    translation_table = str.maketrans("","", "[]")
+                    value = value.translate(translation_table)
+                    # split into array
+                    array = value.split(',')
+                    #print("key = " + key)
+                    #print("array[0] = " + array[0])
+
+                    # of float (vector)
+                    if is_valid_float(array[0]):
+                        #print("float array")
+                        parsed[key] = [float(x) for x in array]
+                    else: #string
+                        #print("string array")
+                        parsed[key] = array
+
                 # Check if it's a float
                 elif '.' in value:
                     try:
@@ -236,6 +267,7 @@ class CollectionLoader:
             except Exception as e:
                 # If parsing fails, keep as string
                 parsed[key] = value
+                continue
 
         return parsed
 
@@ -255,7 +287,6 @@ class CollectionLoader:
         log_info(f"List of keyspaces: {self.db.get_database_admin().list_keyspaces()}")
 
         # Check if collection exists
-        #existing_collections = self.db.get_collections()['status']['collections']
         existing_collections = self.db.list_collection_names()
 
         if collection_name in existing_collections:
@@ -390,8 +421,10 @@ class CollectionLoader:
         # Create collection
         collection = self.create_collection_with_vectorize(collection_name, collection_config)
 
-        # embedding model
+        ## embedding model
         #model = SentenceTransformer('ibm-granite/granite-embedding-30m-english')
+
+        date_format_string = "%Y-%m-%dT%H:%M:%S.%fZ"
 
         # Load primary table data
         primary_table = collection_config['primary_table']
@@ -409,8 +442,8 @@ class CollectionLoader:
         batch_size = self.config.get('loading', {}).get('batch_size', 20)
         batch = []
 
-        try:
-            with open(csv_path, 'r', encoding='utf-8') as f:
+        #try:
+        with open(csv_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
 
                 for row in reader:
@@ -422,18 +455,36 @@ class CollectionLoader:
                         document = self.build_document(parsed_row, collection_name, collection_config)
 
                         # Handle vectorize field
-                        #vectorize_config = collection_config.get('vectorize', {})
-                        #if vectorize_config.get('enabled', False):
                         if collection_name == "videos":
-                        #    text_field = vectorize_config.get('text_field')
+                            #vectorize_config = collection_config.get('vectorize', {})
+                        #if vectorize_config.get('enabled', False):
+                            #text_field = vectorize_config.get('text_field')
                         #    if text_field and text_field in document:
                                 # Use $vectorize for automatic embedding
                                 # Note: This requires vectorize to be configured on the collection
                                 #document['$vectorize'] = document[text_field]
-                            vector = json.loads(document['content_features'])
-                            if isinstance(vector, list):
-                                document['$vector'] = [float(x) for x in vector]
+                            vector = document['content_features']
+                            #vector = model.encode(document[text_field]).tolist()
+                            #if isinstance(vector, list):
+                            document['$vector'] = [float(x) for x in vector]
+                            
+                            #document['$vector'] = document['content_features']
+                            # blank-out content_features...don't need it in the DB
                             document['content_features'] = ""
+
+                            # convert added_date to datetime type
+                            addedDateStr = document['added_date']
+                            document['added_date'] = datetime.strptime(addedDateStr,date_format_string).replace(tzinfo=timezone.utc)
+
+                        elif collection_name == "users":
+                            document['hashed_password'] = ""
+                            document['roles'] = ""
+
+                            # convert created_date and last_login_date to datetime types
+                            createdDateStr = document['created_date']
+                            lastLoginDateStr = document['last_login_date']
+                            document['created_date'] = datetime.strptime(createdDateStr,date_format_string).replace(tzinfo=timezone.utc)
+                            document['last_login_date'] = datetime.strptime(lastLoginDateStr,date_format_string).replace(tzinfo=timezone.utc)
 
                         batch.append(document)
 
@@ -455,17 +506,17 @@ class CollectionLoader:
                     self._insert_batch(collection, batch)
                     docs_loaded += len(batch)
 
-            print()  # New line
-            log_success(f"{collection_name}: loaded {docs_loaded} documents")
+        print()  # New line
+        log_success(f"{collection_name}: loaded {docs_loaded} documents")
 
-            if docs_failed > 0:
+        if docs_failed > 0:
                 log_warning(f"{collection_name}: {docs_failed} documents failed")
 
-            return docs_loaded, docs_failed
+        return docs_loaded, docs_failed
 
-        except Exception as e:
-            log_error(f"Failed to load collection {collection_name}: {e}")
-            return docs_loaded, docs_failed
+        #except Exception as e:
+        #    log_error(f"Failed to load collection {collection_name}: {e}")
+        #    return docs_loaded, docs_failed
 
     def _insert_batch(self, collection: AsyncCollection, batch: List[Dict]):
         """Insert batch of documents with retry logic"""
@@ -475,8 +526,9 @@ class CollectionLoader:
         for attempt in range(max_retries):
             try:
                 # Data API insert_many
-                for doc in batch:
-                    collection.insert_one(doc)
+                #for doc in batch:
+                #    collection.insert_one(doc)
+                collection.insert_many(batch)
                 return
             except Exception as e:
                 if attempt < max_retries - 1:
