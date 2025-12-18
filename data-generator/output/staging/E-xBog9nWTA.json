@@ -1,0 +1,1818 @@
+{
+  "video_id": "E-xBog9nWTA",
+  "title": "DS101.2 Cassandra Overview",
+  "description": "#DataStaxAcademy #DS101\nThis beginner level introduction to Apache Cassandra™ outlines challenges encountered when attempting to scale with relational databases, and how NoSQL databases like Apache Cassandra™ address those challenges. It reviews the Apache Cassandra™ architecture, benefits, and how to use the Apache Cassandra™ read and write paths. Finally, it reviews Apache Cassandra™ distributions and helps you determine the best fit for your needs.\n\nLEARN FOR FREE at https://www.datastax.com/dev -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-09-28T23:43:28Z",
+  "thumbnail": "https://i.ytimg.com/vi/E-xBog9nWTA/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "nosql_database",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "tutorial",
+    "nosql",
+    "introduction",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=E-xBog9nWTA",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] all right that brings us to what is apache cassandra apache cassandra is a fast distributed database built for high availability and linear scalability we want to be able to get predictable performance out of our database that means that we can guarantee sla a very very low latency we know that as our cluster scales up we're going to have the same performance whether it's five nodes or ten nodes or a thousand nodes we know that we're not going to have any single points of failure one of the great things about cassandra is that it's a peer-to-peer technology so there's no master slave there's no failover there's no leader election there's none of this funny business that we really have to worry about anymore out of the box with open source we can do multi-dc when we're talking high availability we want to be able to withstand failure of an entire data center cassandra can do that you absolutely are not going to get that out of a relational database we also want to deploy everything commodity hardware we talked about how expensive it is to scale things up vertically with cassandra you're going to put it on cheap hardware and you're just going to use a whole bunch of it it's really really easy to manage and speaking of management it's extremely easy to manage operationally you can take the same three-man team and have them manage a three-node cluster or 30-node cluster or a 100 node cluster i have put this into production with that size team and it absolutely works one thing to keep in mind it is not a drop-in replacement for a relational database so you're not going to take the same data model and just throw it in cassandra and hope it works you are going to have to design your application around cassandra's data modeling rules but the net result is an application that will never go down if you want to think about cassandra conceptually you can think about it as a giant hash ring where all nodes in the cluster are equal so when i say nodes i basically mean virtual machines or machines could actually be physical computers all participating in a cluster all equal and each node owns a range of hashes so like a bucket of hashes and when you define a data model in cassandra and we won't be talking too much about cql in this video but when you define a data model and cassandra when you create a table one of the things that you specify is a primary key and part of that primary key is something called the partition key and the partition key is what's actually used when you insert data intake sander the value of that partition key is run through a consistent hashing function and depending on the output we can figure out which bucket or which range of hashes that value fits into and thus which node we need to go talk to to actually distribute the data around the cluster the other cool thing about cassandra is that data is replicated to multiple servers and that all of those servers all of them are equal so like john mentioned when we were just talking on the previous slide there's none of this master slave there's no zookeeper there's no config servers all nodes are equal any node in the cluster can service any given read or write request for the cluster okay let's talk about trade-offs one of the things that's really important to understand when looking at a database is how the cap theorem works so the cap theorem says that during a network partition which basically means when computers can't talk to each other either between data centers or on a single network that you can either choose consistency or actually you can't get consistency or you can get high availability so really what happens here is if two machines can't talk and you do a right to them and you have to be completely consistent they can't talk to each other the system is going to appear as if it's down so if we give up consistency that means we can be highly available so that's what cassandra chooses it chooses to be highly available in a network partition as opposed to being down in a lot of applications this is definitely way better than downtime another thing that we need to know is from data center to data center let's say we were to take three data centers around the world maybe one in the u.s one in europe one in asia it's completely impractical to try and be consistent across data centers we want to asynchronously replicate our data from one dc to another because it just takes way too long for data to travel from the u.s to asia we're limited by the speed of light here this is something that we are never going to get around it's just not going to happen that's why we choose availability and that's how consistency is affected now we want to talk about some of the dials that cassandra puts into your hands as a developer to kind of control this idea of fault tolerance so john talked about the cap theorem earlier this idea of being maybe more consistent or being more available it's kind of a sliding scale and cassandra doesn't impose one model on you you get a couple of dials that you get to turn to configure this like this idea of being more consistent or more available so first one we want to talk about is replication so replication usually this is called replication factor it's abbreviated as rf you'll see that a lot when you're looking at cassandra documentation and whatnot and a very typical replication factor for people running in production is a replication factor of three and essentially all this means is how many copies of each piece of data should there be in your cluster so when i do a write to cassandra you can see in this example on the slide here client's writing a the a node gets a copy the b node gets a copy and the c node there also gets a copy so three copies total for an rf of three data is always replicated in cassandra so we're going to talk on the next slide about consistency level data is always replicated in cassandra you set this replication factor when you configure a key space which in cassandra is essentially a collection of tables it's very similar to a schema in oracle or a database in mysql or microsoft sql server this replication happens asynchronously and if a machine is down while while this replication is supposed to go on whatever node you happen to be talking to is going to save what's called a hint and cassandra uses something called hinted handoffs to be able to replay when that node comes back up and rejoins the cluster to be able to replay all of the writes that that node that was down missed the other dial that cassandra gives you as a developer is something called consistency level so you get to set this on any given read or write request that you do as a developer from your application talking to cassandra so i'm going to show you an example of two of the most popular consistency levels with the hope that that'll kind of illustrate exactly what consistency level means but basically a consistency level means how many replicas do i need to hear when i do a read or write before that read or that write is considered successful so if i'm doing a read how many replicas do i need to hear from before cassandra gives the data back to the client or if i'm doing a write how many replicas need to say yep we got your data we've written it to disk before cassandra replies to the client and says yep got your data so the two most popular consistency levels are consistency level of one which like the name sort of implies just means one replica so you can see that first example there client is writing a to the cluster the a node gets its copy and since we're writing at consistency level of one we can acknowledge right back to the client immediately yep we got the data the dashed lines on that diagram there are there to indicate to you that just because you write with a consistency level of one doesn't mean that cassandra is not going to honor your replication factor still now the other most popular consistency level that people use a lot is quorum so quorum if you've never heard the term before essentially means a majority of replicas so in the case of replication factor of three uh this is two out of three uh for 51 or greater so in this example again we got a client writing a again and you can see the anode gets a copy the b node gets a copy and responds and at that point once we've got two out of the three replicas that have acknowledged we can acknowledge back to the client yes we've got your data now again dashed line indicates that uh you know we're still going to honor your replication factor we're just not waiting on that extra node to reply before we acknowledge back to the client you might say well why would i pick one consistency level versus another you know what kind of impact is it going to have well one pretty obvious one if you if you think about it is how fast you can read and write data is definitely going to be impacted by what consistency level you use so if i'm using a lower consistency level like say one if i'm only waiting on a single server i'm going to be able to read and write data really really quickly whereas if i'm using a higher consistency level gonna be much slower to read and write data now the other thing that you kind of have to keep in mind with consistency level is this is also going to impact your availability so john talked about the cap theorem and talked about c versus a and how you know it's kind of a sliding scale well if i choose a higher consistency level where i have to hear from more nodes where more nodes have to be online to be able to acknowledge reads and writes then i'm going to be less available i'm going to be less tolerant to nodes going down whereas if i choose a lower consistency level like 1 i'm going to be much more highly available i'm going to be able to withstand in this example here with an rf3 i'm going to be able to withstand two nodes going down and still be able to do reads and writes in my cluster and cassandra lets you pick this for every query you do so it's not going to impose one model you as a developer get to choose which consistency level is appropriate for which parts of your application one of the great things about cassandra because we get asynchronous replication is that it's really easy to do multiple data centers so when we do a write to a single data center we can specify our consistency level maybe we say one or quorum if we're doing multiple data centers we're going to say local one or local quorum now when that happens you get your write and it happens in your local data center and then it returns to the client and then let's say you had five data centers the information that you wrote to your first data center is going to be asynchronously replicated to the other data centers around the world this is very very powerful this is how you can get super super high availability even when an entire data center goes down so you can specify the replication factor per key space so you can have one key space that has five replicas one that has three one that has one it's completely up to you and completely configurable it's important to understand that a data center can be logical or physical one of the things that's great about cassandra is that you can run it with a tool like spark and if you're doing that you may want to have one data center which is your oltp you're serving your fast reads to your application and then one data center virtually that's serving your olap queries and then doing that you can make sure that your olap queries don't impact your oltp stuff [Music] you",
+    "segments": [
+      {
+        "start": 0.07,
+        "duration": 3.45,
+        "text": "[Music]"
+      },
+      {
+        "start": 8.4,
+        "duration": 2.8,
+        "text": "all right"
+      },
+      {
+        "start": 9.04,
+        "duration": 4.639,
+        "text": "that brings us to what is apache"
+      },
+      {
+        "start": 11.2,
+        "duration": 3.84,
+        "text": "cassandra apache cassandra is a fast"
+      },
+      {
+        "start": 13.679,
+        "duration": 3.201,
+        "text": "distributed database"
+      },
+      {
+        "start": 15.04,
+        "duration": 3.52,
+        "text": "built for high availability and linear"
+      },
+      {
+        "start": 16.88,
+        "duration": 2.96,
+        "text": "scalability we want to be able to get"
+      },
+      {
+        "start": 18.56,
+        "duration": 3.04,
+        "text": "predictable performance"
+      },
+      {
+        "start": 19.84,
+        "duration": 3.76,
+        "text": "out of our database that means that we"
+      },
+      {
+        "start": 21.6,
+        "duration": 4.4,
+        "text": "can guarantee sla"
+      },
+      {
+        "start": 23.6,
+        "duration": 3.919,
+        "text": "a very very low latency we know that as"
+      },
+      {
+        "start": 26.0,
+        "duration": 2.88,
+        "text": "our cluster scales up"
+      },
+      {
+        "start": 27.519,
+        "duration": 3.281,
+        "text": "we're going to have the same performance"
+      },
+      {
+        "start": 28.88,
+        "duration": 2.799,
+        "text": "whether it's five nodes or ten nodes or"
+      },
+      {
+        "start": 30.8,
+        "duration": 3.36,
+        "text": "a thousand nodes"
+      },
+      {
+        "start": 31.679,
+        "duration": 4.081,
+        "text": "we know that we're not going to have any"
+      },
+      {
+        "start": 34.16,
+        "duration": 3.04,
+        "text": "single points of failure one of the"
+      },
+      {
+        "start": 35.76,
+        "duration": 3.6,
+        "text": "great things about cassandra"
+      },
+      {
+        "start": 37.2,
+        "duration": 3.92,
+        "text": "is that it's a peer-to-peer technology"
+      },
+      {
+        "start": 39.36,
+        "duration": 3.6,
+        "text": "so there's no master slave there's no"
+      },
+      {
+        "start": 41.12,
+        "duration": 3.52,
+        "text": "failover there's no leader election"
+      },
+      {
+        "start": 42.96,
+        "duration": 3.2,
+        "text": "there's none of this funny business that"
+      },
+      {
+        "start": 44.64,
+        "duration": 3.759,
+        "text": "we really have to worry about anymore"
+      },
+      {
+        "start": 46.16,
+        "duration": 3.44,
+        "text": "out of the box with open source we can"
+      },
+      {
+        "start": 48.399,
+        "duration": 2.881,
+        "text": "do multi-dc"
+      },
+      {
+        "start": 49.6,
+        "duration": 3.36,
+        "text": "when we're talking high availability we"
+      },
+      {
+        "start": 51.28,
+        "duration": 1.919,
+        "text": "want to be able to withstand failure of"
+      },
+      {
+        "start": 52.96,
+        "duration": 2.56,
+        "text": "an"
+      },
+      {
+        "start": 53.199,
+        "duration": 4.161,
+        "text": "entire data center cassandra can do that"
+      },
+      {
+        "start": 55.52,
+        "duration": 3.519,
+        "text": "you absolutely are not going to get that"
+      },
+      {
+        "start": 57.36,
+        "duration": 3.039,
+        "text": "out of a relational database we also"
+      },
+      {
+        "start": 59.039,
+        "duration": 3.121,
+        "text": "want to deploy everything commodity"
+      },
+      {
+        "start": 60.399,
+        "duration": 3.681,
+        "text": "hardware we talked about how expensive"
+      },
+      {
+        "start": 62.16,
+        "duration": 3.279,
+        "text": "it is to scale things up vertically"
+      },
+      {
+        "start": 64.08,
+        "duration": 3.28,
+        "text": "with cassandra you're going to put it on"
+      },
+      {
+        "start": 65.439,
+        "duration": 3.04,
+        "text": "cheap hardware and you're just going to"
+      },
+      {
+        "start": 67.36,
+        "duration": 3.36,
+        "text": "use a whole bunch of it"
+      },
+      {
+        "start": 68.479,
+        "duration": 3.761,
+        "text": "it's really really easy to manage and"
+      },
+      {
+        "start": 70.72,
+        "duration": 3.84,
+        "text": "speaking of management it's"
+      },
+      {
+        "start": 72.24,
+        "duration": 4.239,
+        "text": "extremely easy to manage operationally"
+      },
+      {
+        "start": 74.56,
+        "duration": 2.72,
+        "text": "you can take the same three-man team and"
+      },
+      {
+        "start": 76.479,
+        "duration": 3.28,
+        "text": "have them"
+      },
+      {
+        "start": 77.28,
+        "duration": 3.04,
+        "text": "manage a three-node cluster or 30-node"
+      },
+      {
+        "start": 79.759,
+        "duration": 2.561,
+        "text": "cluster"
+      },
+      {
+        "start": 80.32,
+        "duration": 3.68,
+        "text": "or a 100 node cluster i have put this"
+      },
+      {
+        "start": 82.32,
+        "duration": 4.159,
+        "text": "into production with that size"
+      },
+      {
+        "start": 84.0,
+        "duration": 3.6,
+        "text": "team and it absolutely works one thing"
+      },
+      {
+        "start": 86.479,
+        "duration": 3.121,
+        "text": "to keep in mind"
+      },
+      {
+        "start": 87.6,
+        "duration": 3.04,
+        "text": "it is not a drop-in replacement for a"
+      },
+      {
+        "start": 89.6,
+        "duration": 2.08,
+        "text": "relational database"
+      },
+      {
+        "start": 90.64,
+        "duration": 2.24,
+        "text": "so you're not going to take the same"
+      },
+      {
+        "start": 91.68,
+        "duration": 2.56,
+        "text": "data model and just throw it in"
+      },
+      {
+        "start": 92.88,
+        "duration": 2.72,
+        "text": "cassandra and hope it works"
+      },
+      {
+        "start": 94.24,
+        "duration": 3.12,
+        "text": "you are going to have to design your"
+      },
+      {
+        "start": 95.6,
+        "duration": 3.839,
+        "text": "application around cassandra's data"
+      },
+      {
+        "start": 97.36,
+        "duration": 3.759,
+        "text": "modeling rules but the net result is an"
+      },
+      {
+        "start": 99.439,
+        "duration": 2.96,
+        "text": "application that will never go down"
+      },
+      {
+        "start": 101.119,
+        "duration": 2.96,
+        "text": "if you want to think about cassandra"
+      },
+      {
+        "start": 102.399,
+        "duration": 3.04,
+        "text": "conceptually you can think about it as a"
+      },
+      {
+        "start": 104.079,
+        "duration": 3.121,
+        "text": "giant hash ring"
+      },
+      {
+        "start": 105.439,
+        "duration": 3.36,
+        "text": "where all nodes in the cluster are equal"
+      },
+      {
+        "start": 107.2,
+        "duration": 3.199,
+        "text": "so when i say nodes i basically mean"
+      },
+      {
+        "start": 108.799,
+        "duration": 3.201,
+        "text": "virtual machines or machines could"
+      },
+      {
+        "start": 110.399,
+        "duration": 3.68,
+        "text": "actually be physical computers"
+      },
+      {
+        "start": 112.0,
+        "duration": 4.079,
+        "text": "all participating in a cluster all equal"
+      },
+      {
+        "start": 114.079,
+        "duration": 4.241,
+        "text": "and each node owns a"
+      },
+      {
+        "start": 116.079,
+        "duration": 4.32,
+        "text": "range of hashes so like a bucket of"
+      },
+      {
+        "start": 118.32,
+        "duration": 3.68,
+        "text": "hashes and when you define a data model"
+      },
+      {
+        "start": 120.399,
+        "duration": 3.68,
+        "text": "in cassandra and"
+      },
+      {
+        "start": 122.0,
+        "duration": 3.92,
+        "text": "we won't be talking too much about cql"
+      },
+      {
+        "start": 124.079,
+        "duration": 3.281,
+        "text": "in this video but when you define a data"
+      },
+      {
+        "start": 125.92,
+        "duration": 3.759,
+        "text": "model and cassandra when you create a"
+      },
+      {
+        "start": 127.36,
+        "duration": 3.84,
+        "text": "table one of the things that you specify"
+      },
+      {
+        "start": 129.679,
+        "duration": 2.881,
+        "text": "is a primary key and part of that"
+      },
+      {
+        "start": 131.2,
+        "duration": 2.64,
+        "text": "primary key is something called the"
+      },
+      {
+        "start": 132.56,
+        "duration": 3.44,
+        "text": "partition key"
+      },
+      {
+        "start": 133.84,
+        "duration": 4.16,
+        "text": "and the partition key is what's actually"
+      },
+      {
+        "start": 136.0,
+        "duration": 3.04,
+        "text": "used when you insert data intake sander"
+      },
+      {
+        "start": 138.0,
+        "duration": 2.8,
+        "text": "the value of that"
+      },
+      {
+        "start": 139.04,
+        "duration": 3.199,
+        "text": "partition key is run through a"
+      },
+      {
+        "start": 140.8,
+        "duration": 3.04,
+        "text": "consistent hashing function"
+      },
+      {
+        "start": 142.239,
+        "duration": 3.681,
+        "text": "and depending on the output we can"
+      },
+      {
+        "start": 143.84,
+        "duration": 2.88,
+        "text": "figure out which bucket or which range"
+      },
+      {
+        "start": 145.92,
+        "duration": 3.28,
+        "text": "of hashes"
+      },
+      {
+        "start": 146.72,
+        "duration": 4.239,
+        "text": "that value fits into and thus which node"
+      },
+      {
+        "start": 149.2,
+        "duration": 4.24,
+        "text": "we need to go talk to"
+      },
+      {
+        "start": 150.959,
+        "duration": 3.121,
+        "text": "to actually distribute the data around"
+      },
+      {
+        "start": 153.44,
+        "duration": 2.32,
+        "text": "the cluster"
+      },
+      {
+        "start": 154.08,
+        "duration": 3.2,
+        "text": "the other cool thing about cassandra is"
+      },
+      {
+        "start": 155.76,
+        "duration": 3.759,
+        "text": "that data is replicated"
+      },
+      {
+        "start": 157.28,
+        "duration": 4.0,
+        "text": "to multiple servers and that all of"
+      },
+      {
+        "start": 159.519,
+        "duration": 2.8,
+        "text": "those servers all of them are equal so"
+      },
+      {
+        "start": 161.28,
+        "duration": 2.0,
+        "text": "like john mentioned"
+      },
+      {
+        "start": 162.319,
+        "duration": 2.721,
+        "text": "when we were just talking on the"
+      },
+      {
+        "start": 163.28,
+        "duration": 3.36,
+        "text": "previous slide there's none of this"
+      },
+      {
+        "start": 165.04,
+        "duration": 3.6,
+        "text": "master slave there's no zookeeper"
+      },
+      {
+        "start": 166.64,
+        "duration": 3.599,
+        "text": "there's no config servers"
+      },
+      {
+        "start": 168.64,
+        "duration": 3.679,
+        "text": "all nodes are equal any node in the"
+      },
+      {
+        "start": 170.239,
+        "duration": 4.08,
+        "text": "cluster can service any given"
+      },
+      {
+        "start": 172.319,
+        "duration": 4.081,
+        "text": "read or write request for the cluster"
+      },
+      {
+        "start": 174.319,
+        "duration": 3.121,
+        "text": "okay let's talk about trade-offs one of"
+      },
+      {
+        "start": 176.4,
+        "duration": 3.04,
+        "text": "the things that's really important to"
+      },
+      {
+        "start": 177.44,
+        "duration": 4.0,
+        "text": "understand when looking at a database"
+      },
+      {
+        "start": 179.44,
+        "duration": 3.439,
+        "text": "is how the cap theorem works so the cap"
+      },
+      {
+        "start": 181.44,
+        "duration": 3.28,
+        "text": "theorem says that during a network"
+      },
+      {
+        "start": 182.879,
+        "duration": 3.44,
+        "text": "partition which basically means when"
+      },
+      {
+        "start": 184.72,
+        "duration": 3.12,
+        "text": "computers can't talk to each other"
+      },
+      {
+        "start": 186.319,
+        "duration": 3.041,
+        "text": "either between data centers or on a"
+      },
+      {
+        "start": 187.84,
+        "duration": 2.96,
+        "text": "single network that you can either"
+      },
+      {
+        "start": 189.36,
+        "duration": 3.599,
+        "text": "choose consistency"
+      },
+      {
+        "start": 190.8,
+        "duration": 4.0,
+        "text": "or actually you can't get consistency or"
+      },
+      {
+        "start": 192.959,
+        "duration": 3.841,
+        "text": "you can get high availability"
+      },
+      {
+        "start": 194.8,
+        "duration": 3.6,
+        "text": "so really what happens here is if two"
+      },
+      {
+        "start": 196.8,
+        "duration": 2.88,
+        "text": "machines can't talk and you do a right"
+      },
+      {
+        "start": 198.4,
+        "duration": 2.0,
+        "text": "to them and you have to be completely"
+      },
+      {
+        "start": 199.68,
+        "duration": 2.639,
+        "text": "consistent"
+      },
+      {
+        "start": 200.4,
+        "duration": 3.759,
+        "text": "they can't talk to each other the system"
+      },
+      {
+        "start": 202.319,
+        "duration": 3.92,
+        "text": "is going to appear as if it's down"
+      },
+      {
+        "start": 204.159,
+        "duration": 3.681,
+        "text": "so if we give up consistency that means"
+      },
+      {
+        "start": 206.239,
+        "duration": 3.28,
+        "text": "we can be highly available"
+      },
+      {
+        "start": 207.84,
+        "duration": 3.36,
+        "text": "so that's what cassandra chooses it"
+      },
+      {
+        "start": 209.519,
+        "duration": 3.841,
+        "text": "chooses to be highly available"
+      },
+      {
+        "start": 211.2,
+        "duration": 3.039,
+        "text": "in a network partition as opposed to"
+      },
+      {
+        "start": 213.36,
+        "duration": 2.56,
+        "text": "being down"
+      },
+      {
+        "start": 214.239,
+        "duration": 4.0,
+        "text": "in a lot of applications this is"
+      },
+      {
+        "start": 215.92,
+        "duration": 5.12,
+        "text": "definitely way better than downtime"
+      },
+      {
+        "start": 218.239,
+        "duration": 4.321,
+        "text": "another thing that we need to know is"
+      },
+      {
+        "start": 221.04,
+        "duration": 2.559,
+        "text": "from data center to data center let's"
+      },
+      {
+        "start": 222.56,
+        "duration": 2.319,
+        "text": "say we were to take"
+      },
+      {
+        "start": 223.599,
+        "duration": 3.601,
+        "text": "three data centers around the world"
+      },
+      {
+        "start": 224.879,
+        "duration": 4.961,
+        "text": "maybe one in the u.s one in europe"
+      },
+      {
+        "start": 227.2,
+        "duration": 4.399,
+        "text": "one in asia it's completely impractical"
+      },
+      {
+        "start": 229.84,
+        "duration": 2.479,
+        "text": "to try and be consistent across data"
+      },
+      {
+        "start": 231.599,
+        "duration": 2.801,
+        "text": "centers"
+      },
+      {
+        "start": 232.319,
+        "duration": 4.0,
+        "text": "we want to asynchronously replicate our"
+      },
+      {
+        "start": 234.4,
+        "duration": 3.919,
+        "text": "data from one dc to another"
+      },
+      {
+        "start": 236.319,
+        "duration": 3.84,
+        "text": "because it just takes way too long for"
+      },
+      {
+        "start": 238.319,
+        "duration": 3.521,
+        "text": "data to travel from the u.s to asia"
+      },
+      {
+        "start": 240.159,
+        "duration": 3.121,
+        "text": "we're limited by the speed of light here"
+      },
+      {
+        "start": 241.84,
+        "duration": 2.399,
+        "text": "this is something that we are never"
+      },
+      {
+        "start": 243.28,
+        "duration": 2.319,
+        "text": "going to get around"
+      },
+      {
+        "start": 244.239,
+        "duration": 3.761,
+        "text": "it's just not going to happen that's why"
+      },
+      {
+        "start": 245.599,
+        "duration": 4.321,
+        "text": "we choose availability and that's how"
+      },
+      {
+        "start": 248.0,
+        "duration": 3.519,
+        "text": "consistency is affected now we want to"
+      },
+      {
+        "start": 249.92,
+        "duration": 2.72,
+        "text": "talk about some of the dials that"
+      },
+      {
+        "start": 251.519,
+        "duration": 3.28,
+        "text": "cassandra puts"
+      },
+      {
+        "start": 252.64,
+        "duration": 3.599,
+        "text": "into your hands as a developer to kind"
+      },
+      {
+        "start": 254.799,
+        "duration": 3.201,
+        "text": "of control this idea of"
+      },
+      {
+        "start": 256.239,
+        "duration": 3.921,
+        "text": "fault tolerance so john talked about the"
+      },
+      {
+        "start": 258.0,
+        "duration": 4.4,
+        "text": "cap theorem earlier this idea of"
+      },
+      {
+        "start": 260.16,
+        "duration": 3.759,
+        "text": "being maybe more consistent or being"
+      },
+      {
+        "start": 262.4,
+        "duration": 3.12,
+        "text": "more available it's kind of a sliding"
+      },
+      {
+        "start": 263.919,
+        "duration": 3.761,
+        "text": "scale and cassandra doesn't impose"
+      },
+      {
+        "start": 265.52,
+        "duration": 3.76,
+        "text": "one model on you you get a couple of"
+      },
+      {
+        "start": 267.68,
+        "duration": 3.04,
+        "text": "dials that you get to turn"
+      },
+      {
+        "start": 269.28,
+        "duration": 3.28,
+        "text": "to configure this like this idea of"
+      },
+      {
+        "start": 270.72,
+        "duration": 3.44,
+        "text": "being more consistent or more available"
+      },
+      {
+        "start": 272.56,
+        "duration": 3.919,
+        "text": "so first one we want to talk about is"
+      },
+      {
+        "start": 274.16,
+        "duration": 3.599,
+        "text": "replication so replication"
+      },
+      {
+        "start": 276.479,
+        "duration": 3.201,
+        "text": "usually this is called replication"
+      },
+      {
+        "start": 277.759,
+        "duration": 2.961,
+        "text": "factor it's abbreviated as rf you'll see"
+      },
+      {
+        "start": 279.68,
+        "duration": 2.079,
+        "text": "that a lot"
+      },
+      {
+        "start": 280.72,
+        "duration": 2.96,
+        "text": "when you're looking at cassandra"
+      },
+      {
+        "start": 281.759,
+        "duration": 2.481,
+        "text": "documentation and whatnot and a very"
+      },
+      {
+        "start": 283.68,
+        "duration": 2.799,
+        "text": "typical"
+      },
+      {
+        "start": 284.24,
+        "duration": 3.679,
+        "text": "replication factor for people running in"
+      },
+      {
+        "start": 286.479,
+        "duration": 2.081,
+        "text": "production is a replication factor of"
+      },
+      {
+        "start": 287.919,
+        "duration": 2.72,
+        "text": "three"
+      },
+      {
+        "start": 288.56,
+        "duration": 4.24,
+        "text": "and essentially all this means is how"
+      },
+      {
+        "start": 290.639,
+        "duration": 2.641,
+        "text": "many copies of each piece of data should"
+      },
+      {
+        "start": 292.8,
+        "duration": 2.0,
+        "text": "there be"
+      },
+      {
+        "start": 293.28,
+        "duration": 3.359,
+        "text": "in your cluster so when i do a write to"
+      },
+      {
+        "start": 294.8,
+        "duration": 3.6,
+        "text": "cassandra you can see in this example on"
+      },
+      {
+        "start": 296.639,
+        "duration": 3.441,
+        "text": "the slide here client's writing a"
+      },
+      {
+        "start": 298.4,
+        "duration": 3.2,
+        "text": "the a node gets a copy the b node gets a"
+      },
+      {
+        "start": 300.08,
+        "duration": 3.679,
+        "text": "copy and the c node there also gets a"
+      },
+      {
+        "start": 301.6,
+        "duration": 3.12,
+        "text": "copy so three copies total for an rf of"
+      },
+      {
+        "start": 303.759,
+        "duration": 2.961,
+        "text": "three"
+      },
+      {
+        "start": 304.72,
+        "duration": 3.6,
+        "text": "data is always replicated in cassandra"
+      },
+      {
+        "start": 306.72,
+        "duration": 2.88,
+        "text": "so we're going to talk on the next slide"
+      },
+      {
+        "start": 308.32,
+        "duration": 3.12,
+        "text": "about consistency level"
+      },
+      {
+        "start": 309.6,
+        "duration": 3.52,
+        "text": "data is always replicated in cassandra"
+      },
+      {
+        "start": 311.44,
+        "duration": 3.12,
+        "text": "you set this replication factor when you"
+      },
+      {
+        "start": 313.12,
+        "duration": 3.2,
+        "text": "configure a key space"
+      },
+      {
+        "start": 314.56,
+        "duration": 3.76,
+        "text": "which in cassandra is essentially a"
+      },
+      {
+        "start": 316.32,
+        "duration": 2.48,
+        "text": "collection of tables it's very similar"
+      },
+      {
+        "start": 318.32,
+        "duration": 2.64,
+        "text": "to"
+      },
+      {
+        "start": 318.8,
+        "duration": 4.64,
+        "text": "a schema in oracle or a database in"
+      },
+      {
+        "start": 320.96,
+        "duration": 3.12,
+        "text": "mysql or microsoft sql server this"
+      },
+      {
+        "start": 323.44,
+        "duration": 2.64,
+        "text": "replication"
+      },
+      {
+        "start": 324.08,
+        "duration": 3.119,
+        "text": "happens asynchronously and if a machine"
+      },
+      {
+        "start": 326.08,
+        "duration": 2.64,
+        "text": "is down while"
+      },
+      {
+        "start": 327.199,
+        "duration": 3.44,
+        "text": "while this replication is supposed to go"
+      },
+      {
+        "start": 328.72,
+        "duration": 2.8,
+        "text": "on whatever node you happen to be"
+      },
+      {
+        "start": 330.639,
+        "duration": 2.4,
+        "text": "talking to"
+      },
+      {
+        "start": 331.52,
+        "duration": 2.88,
+        "text": "is going to save what's called a hint"
+      },
+      {
+        "start": 333.039,
+        "duration": 2.561,
+        "text": "and cassandra uses something called"
+      },
+      {
+        "start": 334.4,
+        "duration": 3.44,
+        "text": "hinted handoffs"
+      },
+      {
+        "start": 335.6,
+        "duration": 3.28,
+        "text": "to be able to replay when that node"
+      },
+      {
+        "start": 337.84,
+        "duration": 2.72,
+        "text": "comes back up"
+      },
+      {
+        "start": 338.88,
+        "duration": 3.2,
+        "text": "and rejoins the cluster to be able to"
+      },
+      {
+        "start": 340.56,
+        "duration": 3.68,
+        "text": "replay all of the writes"
+      },
+      {
+        "start": 342.08,
+        "duration": 4.08,
+        "text": "that that node that was down missed the"
+      },
+      {
+        "start": 344.24,
+        "duration": 3.12,
+        "text": "other dial that cassandra gives you as a"
+      },
+      {
+        "start": 346.16,
+        "duration": 2.319,
+        "text": "developer is something called"
+      },
+      {
+        "start": 347.36,
+        "duration": 3.52,
+        "text": "consistency level"
+      },
+      {
+        "start": 348.479,
+        "duration": 4.401,
+        "text": "so you get to set this on any given read"
+      },
+      {
+        "start": 350.88,
+        "duration": 3.759,
+        "text": "or write request that you do"
+      },
+      {
+        "start": 352.88,
+        "duration": 3.2,
+        "text": "as a developer from your application"
+      },
+      {
+        "start": 354.639,
+        "duration": 2.721,
+        "text": "talking to cassandra"
+      },
+      {
+        "start": 356.08,
+        "duration": 2.959,
+        "text": "so i'm going to show you an example of"
+      },
+      {
+        "start": 357.36,
+        "duration": 2.959,
+        "text": "two of the most popular consistency"
+      },
+      {
+        "start": 359.039,
+        "duration": 2.0,
+        "text": "levels with the hope that that'll kind"
+      },
+      {
+        "start": 360.319,
+        "duration": 2.961,
+        "text": "of illustrate"
+      },
+      {
+        "start": 361.039,
+        "duration": 4.561,
+        "text": "exactly what consistency level means but"
+      },
+      {
+        "start": 363.28,
+        "duration": 4.56,
+        "text": "basically a consistency level means"
+      },
+      {
+        "start": 365.6,
+        "duration": 3.599,
+        "text": "how many replicas do i need to hear when"
+      },
+      {
+        "start": 367.84,
+        "duration": 2.799,
+        "text": "i do a read or write"
+      },
+      {
+        "start": 369.199,
+        "duration": 3.041,
+        "text": "before that read or that write is"
+      },
+      {
+        "start": 370.639,
+        "duration": 2.081,
+        "text": "considered successful so if i'm doing a"
+      },
+      {
+        "start": 372.24,
+        "duration": 2.48,
+        "text": "read"
+      },
+      {
+        "start": 372.72,
+        "duration": 3.12,
+        "text": "how many replicas do i need to hear from"
+      },
+      {
+        "start": 374.72,
+        "duration": 3.28,
+        "text": "before cassandra gives"
+      },
+      {
+        "start": 375.84,
+        "duration": 3.44,
+        "text": "the data back to the client or if i'm"
+      },
+      {
+        "start": 378.0,
+        "duration": 3.52,
+        "text": "doing a write"
+      },
+      {
+        "start": 379.28,
+        "duration": 4.24,
+        "text": "how many replicas need to say yep we got"
+      },
+      {
+        "start": 381.52,
+        "duration": 3.92,
+        "text": "your data we've written it to disk"
+      },
+      {
+        "start": 383.52,
+        "duration": 3.76,
+        "text": "before cassandra replies to the client"
+      },
+      {
+        "start": 385.44,
+        "duration": 3.759,
+        "text": "and says yep got your data"
+      },
+      {
+        "start": 387.28,
+        "duration": 4.16,
+        "text": "so the two most popular consistency"
+      },
+      {
+        "start": 389.199,
+        "duration": 4.081,
+        "text": "levels are consistency level of one"
+      },
+      {
+        "start": 391.44,
+        "duration": 3.84,
+        "text": "which like the name sort of implies just"
+      },
+      {
+        "start": 393.28,
+        "duration": 3.359,
+        "text": "means one replica so"
+      },
+      {
+        "start": 395.28,
+        "duration": 3.759,
+        "text": "you can see that first example there"
+      },
+      {
+        "start": 396.639,
+        "duration": 4.4,
+        "text": "client is writing a to the cluster"
+      },
+      {
+        "start": 399.039,
+        "duration": 3.6,
+        "text": "the a node gets its copy and since we're"
+      },
+      {
+        "start": 401.039,
+        "duration": 3.041,
+        "text": "writing at consistency level of one we"
+      },
+      {
+        "start": 402.639,
+        "duration": 2.241,
+        "text": "can acknowledge right back to the client"
+      },
+      {
+        "start": 404.08,
+        "duration": 2.8,
+        "text": "immediately"
+      },
+      {
+        "start": 404.88,
+        "duration": 3.12,
+        "text": "yep we got the data the dashed lines on"
+      },
+      {
+        "start": 406.88,
+        "duration": 2.8,
+        "text": "that diagram there are there"
+      },
+      {
+        "start": 408.0,
+        "duration": 3.52,
+        "text": "to indicate to you that just because you"
+      },
+      {
+        "start": 409.68,
+        "duration": 3.68,
+        "text": "write with a consistency level of one"
+      },
+      {
+        "start": 411.52,
+        "duration": 4.16,
+        "text": "doesn't mean that cassandra is not going"
+      },
+      {
+        "start": 413.36,
+        "duration": 4.08,
+        "text": "to honor your replication factor still"
+      },
+      {
+        "start": 415.68,
+        "duration": 3.28,
+        "text": "now the other most popular consistency"
+      },
+      {
+        "start": 417.44,
+        "duration": 3.36,
+        "text": "level that people use a lot"
+      },
+      {
+        "start": 418.96,
+        "duration": 3.12,
+        "text": "is quorum so quorum if you've never"
+      },
+      {
+        "start": 420.8,
+        "duration": 3.519,
+        "text": "heard the term before essentially"
+      },
+      {
+        "start": 422.08,
+        "duration": 4.32,
+        "text": "means a majority of replicas so in the"
+      },
+      {
+        "start": 424.319,
+        "duration": 5.361,
+        "text": "case of replication factor of three"
+      },
+      {
+        "start": 426.4,
+        "duration": 5.6,
+        "text": "uh this is two out of three uh for 51"
+      },
+      {
+        "start": 429.68,
+        "duration": 3.44,
+        "text": "or greater so in this example again we"
+      },
+      {
+        "start": 432.0,
+        "duration": 3.44,
+        "text": "got a client writing a"
+      },
+      {
+        "start": 433.12,
+        "duration": 4.56,
+        "text": "again and you can see the anode gets a"
+      },
+      {
+        "start": 435.44,
+        "duration": 3.599,
+        "text": "copy the b node gets a copy and responds"
+      },
+      {
+        "start": 437.68,
+        "duration": 2.88,
+        "text": "and at that point once we've got two out"
+      },
+      {
+        "start": 439.039,
+        "duration": 3.041,
+        "text": "of the three replicas that have"
+      },
+      {
+        "start": 440.56,
+        "duration": 2.24,
+        "text": "acknowledged we can acknowledge back to"
+      },
+      {
+        "start": 442.08,
+        "duration": 3.119,
+        "text": "the client"
+      },
+      {
+        "start": 442.8,
+        "duration": 3.44,
+        "text": "yes we've got your data now again dashed"
+      },
+      {
+        "start": 445.199,
+        "duration": 2.4,
+        "text": "line indicates"
+      },
+      {
+        "start": 446.24,
+        "duration": 2.72,
+        "text": "that uh you know we're still going to"
+      },
+      {
+        "start": 447.599,
+        "duration": 3.761,
+        "text": "honor your replication factor we're just"
+      },
+      {
+        "start": 448.96,
+        "duration": 4.32,
+        "text": "not waiting on that extra node to reply"
+      },
+      {
+        "start": 451.36,
+        "duration": 3.119,
+        "text": "before we acknowledge back to the client"
+      },
+      {
+        "start": 453.28,
+        "duration": 2.8,
+        "text": "you might say well why would i pick one"
+      },
+      {
+        "start": 454.479,
+        "duration": 2.881,
+        "text": "consistency level versus another you"
+      },
+      {
+        "start": 456.08,
+        "duration": 2.88,
+        "text": "know what kind of"
+      },
+      {
+        "start": 457.36,
+        "duration": 3.44,
+        "text": "impact is it going to have well one"
+      },
+      {
+        "start": 458.96,
+        "duration": 2.48,
+        "text": "pretty obvious one if you if you think"
+      },
+      {
+        "start": 460.8,
+        "duration": 2.88,
+        "text": "about it"
+      },
+      {
+        "start": 461.44,
+        "duration": 4.24,
+        "text": "is how fast you can read and write data"
+      },
+      {
+        "start": 463.68,
+        "duration": 3.6,
+        "text": "is definitely going to be impacted by"
+      },
+      {
+        "start": 465.68,
+        "duration": 3.919,
+        "text": "what consistency level you use so if i'm"
+      },
+      {
+        "start": 467.28,
+        "duration": 4.479,
+        "text": "using a lower consistency level"
+      },
+      {
+        "start": 469.599,
+        "duration": 3.121,
+        "text": "like say one if i'm only waiting on a"
+      },
+      {
+        "start": 471.759,
+        "duration": 2.321,
+        "text": "single server i'm going to be able to"
+      },
+      {
+        "start": 472.72,
+        "duration": 2.8,
+        "text": "read and write data really really"
+      },
+      {
+        "start": 474.08,
+        "duration": 2.64,
+        "text": "quickly whereas if i'm using a higher"
+      },
+      {
+        "start": 475.52,
+        "duration": 3.6,
+        "text": "consistency level"
+      },
+      {
+        "start": 476.72,
+        "duration": 3.12,
+        "text": "gonna be much slower to read and write"
+      },
+      {
+        "start": 479.12,
+        "duration": 2.32,
+        "text": "data"
+      },
+      {
+        "start": 479.84,
+        "duration": 2.96,
+        "text": "now the other thing that you kind of"
+      },
+      {
+        "start": 481.44,
+        "duration": 2.8,
+        "text": "have to keep in mind with consistency"
+      },
+      {
+        "start": 482.8,
+        "duration": 2.72,
+        "text": "level is this is also going to impact"
+      },
+      {
+        "start": 484.24,
+        "duration": 3.2,
+        "text": "your availability"
+      },
+      {
+        "start": 485.52,
+        "duration": 3.44,
+        "text": "so john talked about the cap theorem and"
+      },
+      {
+        "start": 487.44,
+        "duration": 3.439,
+        "text": "talked about c versus a"
+      },
+      {
+        "start": 488.96,
+        "duration": 3.6,
+        "text": "and how you know it's kind of a sliding"
+      },
+      {
+        "start": 490.879,
+        "duration": 3.121,
+        "text": "scale well if i choose a higher"
+      },
+      {
+        "start": 492.56,
+        "duration": 2.96,
+        "text": "consistency level"
+      },
+      {
+        "start": 494.0,
+        "duration": 3.52,
+        "text": "where i have to hear from more nodes"
+      },
+      {
+        "start": 495.52,
+        "duration": 3.679,
+        "text": "where more nodes have to be online to be"
+      },
+      {
+        "start": 497.52,
+        "duration": 3.28,
+        "text": "able to acknowledge reads and writes"
+      },
+      {
+        "start": 499.199,
+        "duration": 3.44,
+        "text": "then i'm going to be less available i'm"
+      },
+      {
+        "start": 500.8,
+        "duration": 4.079,
+        "text": "going to be less tolerant"
+      },
+      {
+        "start": 502.639,
+        "duration": 3.921,
+        "text": "to nodes going down whereas if i choose"
+      },
+      {
+        "start": 504.879,
+        "duration": 3.681,
+        "text": "a lower consistency level like"
+      },
+      {
+        "start": 506.56,
+        "duration": 3.12,
+        "text": "1 i'm going to be much more highly"
+      },
+      {
+        "start": 508.56,
+        "duration": 2.16,
+        "text": "available i'm going to be able to"
+      },
+      {
+        "start": 509.68,
+        "duration": 2.479,
+        "text": "withstand"
+      },
+      {
+        "start": 510.72,
+        "duration": 2.64,
+        "text": "in this example here with an rf3 i'm"
+      },
+      {
+        "start": 512.159,
+        "duration": 1.841,
+        "text": "going to be able to withstand two nodes"
+      },
+      {
+        "start": 513.36,
+        "duration": 3.039,
+        "text": "going down"
+      },
+      {
+        "start": 514.0,
+        "duration": 3.12,
+        "text": "and still be able to do reads and writes"
+      },
+      {
+        "start": 516.399,
+        "duration": 2.08,
+        "text": "in my cluster"
+      },
+      {
+        "start": 517.12,
+        "duration": 2.96,
+        "text": "and cassandra lets you pick this for"
+      },
+      {
+        "start": 518.479,
+        "duration": 2.641,
+        "text": "every query you do so it's not going to"
+      },
+      {
+        "start": 520.08,
+        "duration": 2.72,
+        "text": "impose one model"
+      },
+      {
+        "start": 521.12,
+        "duration": 3.279,
+        "text": "you as a developer get to choose which"
+      },
+      {
+        "start": 522.8,
+        "duration": 2.88,
+        "text": "consistency level is appropriate for"
+      },
+      {
+        "start": 524.399,
+        "duration": 2.88,
+        "text": "which parts of your application"
+      },
+      {
+        "start": 525.68,
+        "duration": 4.08,
+        "text": "one of the great things about cassandra"
+      },
+      {
+        "start": 527.279,
+        "duration": 4.161,
+        "text": "because we get asynchronous replication"
+      },
+      {
+        "start": 529.76,
+        "duration": 3.84,
+        "text": "is that it's really easy to do multiple"
+      },
+      {
+        "start": 531.44,
+        "duration": 4.0,
+        "text": "data centers so when we do a write to a"
+      },
+      {
+        "start": 533.6,
+        "duration": 2.88,
+        "text": "single data center we can specify our"
+      },
+      {
+        "start": 535.44,
+        "duration": 2.88,
+        "text": "consistency level"
+      },
+      {
+        "start": 536.48,
+        "duration": 2.88,
+        "text": "maybe we say one or quorum if we're"
+      },
+      {
+        "start": 538.32,
+        "duration": 3.199,
+        "text": "doing multiple data centers we're going"
+      },
+      {
+        "start": 539.36,
+        "duration": 4.56,
+        "text": "to say local one or local quorum"
+      },
+      {
+        "start": 541.519,
+        "duration": 3.921,
+        "text": "now when that happens you get your write"
+      },
+      {
+        "start": 543.92,
+        "duration": 3.2,
+        "text": "and it happens in your local data center"
+      },
+      {
+        "start": 545.44,
+        "duration": 3.28,
+        "text": "and then it returns to the client"
+      },
+      {
+        "start": 547.12,
+        "duration": 3.36,
+        "text": "and then let's say you had five data"
+      },
+      {
+        "start": 548.72,
+        "duration": 3.28,
+        "text": "centers the information that you wrote"
+      },
+      {
+        "start": 550.48,
+        "duration": 3.039,
+        "text": "to your first data center is going to be"
+      },
+      {
+        "start": 552.0,
+        "duration": 3.04,
+        "text": "asynchronously replicated"
+      },
+      {
+        "start": 553.519,
+        "duration": 3.76,
+        "text": "to the other data centers around the"
+      },
+      {
+        "start": 555.04,
+        "duration": 4.239,
+        "text": "world this is very very powerful"
+      },
+      {
+        "start": 557.279,
+        "duration": 4.321,
+        "text": "this is how you can get super super high"
+      },
+      {
+        "start": 559.279,
+        "duration": 3.201,
+        "text": "availability even when an entire data"
+      },
+      {
+        "start": 561.6,
+        "duration": 3.28,
+        "text": "center goes down"
+      },
+      {
+        "start": 562.48,
+        "duration": 3.84,
+        "text": "so you can specify the replication"
+      },
+      {
+        "start": 564.88,
+        "duration": 3.6,
+        "text": "factor per key space"
+      },
+      {
+        "start": 566.32,
+        "duration": 3.92,
+        "text": "so you can have one key space that has"
+      },
+      {
+        "start": 568.48,
+        "duration": 2.64,
+        "text": "five replicas one that has three one"
+      },
+      {
+        "start": 570.24,
+        "duration": 2.8,
+        "text": "that has one"
+      },
+      {
+        "start": 571.12,
+        "duration": 3.36,
+        "text": "it's completely up to you and completely"
+      },
+      {
+        "start": 573.04,
+        "duration": 2.96,
+        "text": "configurable"
+      },
+      {
+        "start": 574.48,
+        "duration": 3.359,
+        "text": "it's important to understand that a data"
+      },
+      {
+        "start": 576.0,
+        "duration": 2.959,
+        "text": "center can be logical or physical"
+      },
+      {
+        "start": 577.839,
+        "duration": 2.881,
+        "text": "one of the things that's great about"
+      },
+      {
+        "start": 578.959,
+        "duration": 2.801,
+        "text": "cassandra is that you can run it with a"
+      },
+      {
+        "start": 580.72,
+        "duration": 2.799,
+        "text": "tool like spark"
+      },
+      {
+        "start": 581.76,
+        "duration": 4.8,
+        "text": "and if you're doing that you may want to"
+      },
+      {
+        "start": 583.519,
+        "duration": 4.801,
+        "text": "have one data center which is your oltp"
+      },
+      {
+        "start": 586.56,
+        "duration": 4.0,
+        "text": "you're serving your fast reads to your"
+      },
+      {
+        "start": 588.32,
+        "duration": 4.72,
+        "text": "application and then one data center"
+      },
+      {
+        "start": 590.56,
+        "duration": 3.2,
+        "text": "virtually that's serving your olap"
+      },
+      {
+        "start": 593.04,
+        "duration": 2.4,
+        "text": "queries"
+      },
+      {
+        "start": 593.76,
+        "duration": 3.44,
+        "text": "and then doing that you can make sure"
+      },
+      {
+        "start": 595.44,
+        "duration": 9.01,
+        "text": "that your olap queries don't impact your"
+      },
+      {
+        "start": 597.2,
+        "duration": 10.24,
+        "text": "oltp stuff"
+      },
+      {
+        "start": 604.45,
+        "duration": 5.069,
+        "text": "[Music]"
+      },
+      {
+        "start": 607.44,
+        "duration": 2.079,
+        "text": "you"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T21:58:40.338670+00:00"
+}

@@ -1,0 +1,5670 @@
+{
+  "video_id": "Dl6wTEkFL4I",
+  "title": "DataStax Presents   Deploying Cassandra in Multi Cloud with Jeff Carpenter",
+  "description": "One of the recent trends in cloud computing is the tendency for enterprises to use multiple clouds, either to take advantage of unique offerings per cloud vendor or to hedge their bets. Creating a data tier that spans multiple clouds is a key consideration in these architectures. Apache Cassandra is an ideal technology for the multi-cloud data tier due to its flexibility and resilience. In this talk we’ll discuss the challenges you’ll face in developing the data tier of multi-cloud applications, provide recommendations on how to address these challenges with Cassandra, and show how we created a sample application to demonstrate these recommendations in practice.\n\nIntended audience: developers, operators, architects\nSkill level: some experience with deploying/configuring Cassandra will be useful\n\nABOUT DATASTAX ENTERPRISE 6\nDataStax  powers  the  Right-Now  Enterprise  with  the  always-on,  distributed  cloud  database  built  on  Apache  Cassandra™  and designed for hybrid cloud. DataStax Enterprise 6 (DSE 6) includes industry-leading performance, self-driving operational simplicity, and robust analytics.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://www.datastax.com/products/datastax-enterprise-6\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax | https://twitter.com/datastax-academy\nLinkedin: https://www.linkedin.com/company/datastax\nhttp://feeds.feedburner.com/datastax \nhttps://github.com/datastax \n\nABOUT DATASTAX ACADEMY\nOn the DataStax Academy YouTube channel, you can find tutorials, webinars and much more to help you learn and stay updated with the latest information on DataStax Enterprise©.  Create an account on https://academy.datastax.com to watch our free online courses, tutorials, and more.",
+  "published_at": "2019-03-20T13:00:03Z",
+  "thumbnail": "https://i.ytimg.com/vi/Dl6wTEkFL4I/hqdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "tutorial",
+    "performance",
+    "talk",
+    "demo",
+    "architecture",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=Dl6wTEkFL4I",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "so this talk is about deploying cassandra and multi-cloud and we're on a journey so this is not um a representation that we have all the answers about the the one right way to do this but we have some ideas um about the best way to do this we've started down the road of taking a reference application that we have killer video and deploying it in multi-cloud and so this is kind of one of the waypoints along the way is this talk is sort of like a snapshot of a point in time of where we are at in taking our app and deploying it multi-cloud so um i have adrian here from our developer advocate team along with myself so adrian's gonna say hello um adrian and i are developer advocates at datastax and this is a project that our team has taken on so i want to shout out to him because he's also played a big part in this project so let's talk about what is multi-cloud first of all um so let's say i got my azure console here i'm set up to start uh deploying some infrastructure and maybe i maybe i have a workload in cassandra or in azure and then uh now i got my aws and so now i'm deploying some other stuff in aws and the moment that i have uh two cloud consoles does that make me multi-cloud no this is our patrick meme which we like to bring out every once in a while i don't know if it's only funny for internal purposes but i i'm going to go out on a limb here and say that it's it's just funny uh so no i what really matters here is that we want to be actually having meaningful interaction between clouds so this is where i'm getting at with these hybrid cloud versus multi-cloud definitions we threw these out here on twitter um just to see if we could get anybody to argue with us and we we didn't really i was sort of disappointed but hybrid cloud most people think of that as being kind of like on-prem and then i'm gradually moving some of my workload into the cloud and i have interconnections between those two okay so um on-prem plus one cloud provider maybe that's hybrid cloud multi-cloud we're we're thinking of as having at least two uh public clouds that they were in and i'm not saying that like one department has some random workload and some other department has some other workload i'm talking about actually having a meaningful traversal of data between these two that's that's what i'm most concerned about when i'm thinking about cassandra from a multi-cloud perspective so why are people doing this uh reason i'm gonna these are my opinions on the relative merit or or um hype versus not hype of some of these reasons so uh what i think is is pretty legit is people who are trying to have data center locality they're trying to move data as close to their customers as possible depending on where in the world that is the closest data provider may or may not be nearby so this is probably especially true in places other than us and europe uh and and parts of southeast asia right so there's other parts of the world where you may not have so much selectivity in in terms of your nearest data center uh next is people wanting to actually take advantage of different cloud providers for the different services that they provide so one example i've heard pretty frequently is people really liking capabilities that google provides from ai machine learning perspective and wanted to take take advantage of those maybe they have a lot of data that happens to be accessible in s3 buckets and they're trying to get that over from aws into gcp in order to be able to do some analytics big kind of number crunching stuff on it so that's an example of somebody some cloud provider has a specific service that i really want to use and so now i'm thinking multi-cloud because i want to take advantage of the best of breed from a different catalog of available services okay that's pretty legit reason one of the reasons that i hear that i i'm not quite as sure about is this idea of kind of competition between cloud providers and specifically with relationship the cost like i'm going to be shopping around and i need um i need portability because somebody may have a lower price on infrastructure and i get my my cycles for um cheaper my compute for cheaper if i move my my workload um that might be the case i don't know that that's a major driver in itself of multi-cloud but what i do here is the corollary to that that i do hear is kind of the the idea that for some industries some people are worried about a provider like amazon kind of moving into their space and moving into their field so they're using this multi-cloud as a hedge uh like i'm a healthcare company and i hear that amazon may be doing healthcare maybe i want to hedge and not have all my workload in aws um i i do i do hear quite a bit of that so uh one of the things that i think is an interesting consideration when you're talking about a multi-cloud solution is are you just trying to duplicate the same workload in multiple clouds are you actually moving different parts or different capabilities um or different portions of of similar workloads like apple your live operational workloads are you dividing that up across multiple clouds are you just trying to run this multiple copies of the same thing in different places for resiliency um we'll get we'll kind of get back to that and dive into it more this is kind of a broad survey or a little bit of a road map for the rest of the presentation you can when you get into developing a multi-cloud solution you're going to run into a number of things first of all there's just there's some really fairly simplistic things to get over that are kind of surface level considerations but they still there's a little bit of a mental hurdle to get over in that everyone names everything differently so there's a certain amount of complexity that you that you run into in in that impedance mismatch between uh you know it's a i don't know what to call it it's a vpc here versus uh a different you know someone else has a different name for that that type of networking environment for example speaking of networking we have considerations about if i am having multiple points of entry in different of these public clouds uh how am i balancing the load between them how am i using name services to route the traffic and make sure that i end up at the right location there's also considerations about the latency between the public clouds so this has to do with not only the security of the connection that i have between those clouds but also what is the what is the latency between them when i get into the application tier and how am i going to scale that especially when i'm am i scaling each one of those clouds independently of each other where where do i need to have caches do i have multiple caches do i have them in each data center or in each of these public clouds when i get down to the database tier now we're starting to think about solutions regarding where do i where am i allowed to keep data what are the regulatory and legal controls about where i can store data in each one of these public cloud providers and then finally security is kind of one of those capstone things that cuts across all of the layers so do i need some kind of federated identity management solution that's across all my cloud providers how am i going to protect my boundaries i only not only have um about boundaries to the public internet for public facing things but then those but those uh private boundaries between different data centers and between different cloud providers where am i going to need to use encryption um where do i have compliance and auditing kind of requirements so there's a broad landscape of stuff and i'm not saying that this presentation is going to give you the answers for all of those i'm just trying to say like um here's a list though here's the list that we came up with of all the not maybe not all but at least the starter list of questions that we should all be asking so we took a certain subset of these uh for our efforts to support killer video so this is uh you know this is kind of like our advertisement for we think that the data tier is possibly with cassandra and datasacks enterprise that might be actually one of the easier parts of the problem that's been our experience as we worked toward this this effort on killer video has been the configuration of uh you know the snitch and the replication strategies and etc um that's a lot tends to be a lot easier than actually getting all the networking parts right so we'll dig into that a little bit more but that's just sort of i'm throwing out a thesis at you up front here so if you haven't heard of killer video before this is a reference application that our developer advocate team maintains at data stacks the thing that i okay i can say that i think it's great because it's you know it's my team's responsibility but even before i was on a part of the team i thought it was a really great resource for learning how to develop with apache cassandra with data sax enterprise it makes full use of the drivers that datastax provides we have um basically actually i'll show you the architecture diagram that'll make more sense as i explain it if you didn't if you didn't catch i can always give you the slides later on um the all the source is freely available on github uh and then you can go to killervideo.com if you want to see a live running instance that we have running in aws although david gallarde told me not to send people there because he said it was flaky and we were at strata all week et cetera et cetera i guess we're not um ops experts well he said that there was a there's a whole thing about this the scalability of the gremlin query for the recommendation engine that it kind of tends to slow down yeah it was great it was a great moment where uh we put up on a slide like here's a traversal that we're using for a recommendation engine and jonathan ellis was like i don't think it's going to scale and i was like how do you even read the gremlin that fast that's another talk so architecturally um we have a web application that we've written in node.js that's actually the screenshot that you saw there that's our that's a obviously our node.js front end um then we have a a service tier and we have implementations of those services in java and in node uh and in c sharp and i would love it if uh we could get a python one so that's on the roadmap um we have like a common interface description we've chosen to use grpc so we have grpc interfaces that we've written and then bindings that we've generated for each of those implementation languages and the great thing is you can go to the java implementation and we're using the java driver um same thing for the c sharp driver etc so there's two main ways that we deploy this one of them is you just download uh the the code or you clone the project get the docker images we have like some docker compose files so you uh clone the repo run a docker compose that'll grab all the images that you need it'll create an environment for you and you're running the whole thing in docker on your desktop we've also deployed it into aws and that's using uh clusters that are provided and managed by our datasacks managed cloud team so kind of a two ways the the developer deployment and then kind of our i don't know what you would call enterprise or real deployment this is just another way of kind of visualizing that same architecture the only additional detail that i want to call out to you on this one because i know that it gets a little busy and small is really just that we have a generator that we use that basically just like the killer video is like a video sharing application and basically um we're not uh managing all of those large binary files people ask me that sometimes like are you storing where do you store all the all the videos well it's really just um it is a reference application and it's a sample so the videos are actually stored in youtube we're just leveraging we're basically kind of like a catalog of uh sitting on top of what's in youtube already um so we have a generator that basically like pulls videos from youtube based on tags or keywords and then inserts them on a periodic basis and so we have a continually growing data set we're auto-generating users who are liking the videos that are generated and they're rating the videos and so we have a you know continually growing data set basically uh and then we have a recommendation engine that we've implemented with uh datasacks enterprise graph that will uh calculate uh based on uh let's see if i can describe the algorithm in one sentence based on movies that you that you like that groups you with other users who like similar movies so movies that those other users who are like you similar users uh there we go movies liked by users whose tastes are similar to your own right it's a similarity matching kind of thing um we're also using etd as a service registry and we'll talk about some changes on our roadmap for that at some point um so for this deployment that we have on amazon it's actually uh in three different availability zones um two of them are us west located availability zones actually no it's i'm sorry oh that's okay this is an old diagram the the three um us in the in the u.s west region uh in three availability zones okay so we won't dwell on that or dig into that too much it's another eye chart so we are using our data session managed cloud products so our cluster that we're running killer video on for instance in aws is not managed by the advocate team it's managed by our datasacks managed cloud team so we're kind of beta users of this service ourselves um and the point here is that there's there's kind of a spectrum of how involved you may or may not want to be in the management of your database tier so you can definitely deploy all the images deploy all the the your cassandra nodes and manage them yourself across multiple clouds what we had chosen to do for at least part of our implementation or one of our implementations is just use the managed cloud service now the managed cloud service is not yet multi-cloud it's running as of right now it's available in aws and it's available in azure so when we went to go and do this capability and build it up on our own we were no longer able to use the data sax managed cloud we're on our own we're managing our own cluster at this point so here's the desired end state project goal of uh take killer video multi-cloud would be that we want to deploy an aws azure gcp we're just going to have a single data center per public cloud keep it simple we want to have our full stack of services available in each dc so i'm not isolating workloads i'm not having an analytics workload one place and an operational workload some other place this is just like straight up duplication of the full killer video stack in each cloud so we're gonna have the same data availability i'm not trying to solve a like um a gdpr problem yet that's not the purpose of this demo uh we're trying to have uh we'd like to have a secure network between the different clouds we are not trying to have interactions between the web and application tiers per data center so in other words i'm not taking services on aws and trying to talk to to uh to my my data tax cluster in aws and then fail over to have the services talk to the nodes in azure uh we're we haven't implemented any sort of like um reach retry strategy uh across clouds like that so we're just trying to go full vertical slice in each data center and our point of intersection is the the uh dse cluster sharing all the data across that so that's that's the goal of this particular project we see here is this is a live view of a cluster that's been created for this deployment it's not running right now like we literally spun it up to take this photo because it's automated i spun it up so we could take the picture and then spun it back down because apparently people don't think when they're actually doing real work they don't think of taking screenshots funny enough i don't know why that is um so what i'm showing you here is that we have you know live aws azure and gcp five nodes per data center here and the way that we chose to do this is we actually um we do have right scale such that we can you know kind of script things out in terms of create the infrastructure per data center uh we're we're not quite to the point yet of having um terraform stuff built up for provisioning everything but that's that's definitely on the roadmap so basically this this cluster was created through uh manual instantiation of infrastructure and then we used uh datasacks op center we used the lifecycle manager so that was the easy part the lifecycle manager just you can see it here the log just uh just kind of blowing through creating all of those nodes per data center those five nodes per data center and there's more to it obviously like aws and gcp got created and the azure ones are on the log below so all this spun up i think it was about 15 minutes if i'm right like the whole start to finish okay so the database here that was the that was the easiest part um but i'm just going to kind of walk down the stack here starting with the application tier so uh building a multi-cloud app here are the things that we were we were thinking of that you want to be thinking about and then i'm just going to kind of go through and here's how far we've actually gotten and what we've implemented and kind of what's left to go okay so you want to be thinking about your the uh the deployment of your applications here how are you going to scale it up and down are you going to be using something like kubernetes to help scale the services or or even monolith more monolithic things i guess that you have in that tier so that that can that orchestration and scheduling uh what are you going to do about service discovery and routing such that you don't have to go in and continually stitch everything together which tech are you going to pick for that and then are you going to need i recommend that you do need something like a distributed tracing solution so that you can really begin to keep track of what's going on and i you know the the holy grail for me which which is achievable although we haven't totally gotten there yet is to have that distributed tracing where you can track where something comes in at your web tier and watch what happens all the way down through the service tier and in to the dse cluster so um that is part of that eventual goal and state for us so as i mentioned kind of on those previous pictures we're at the point where we've manually created the compute and then used lifecycle manager to provision instances so we've got that and yeah that's reproducible but not obviously the desired end state and our current solution uses fcd for discovery what i'm interested in doing is actually um we we currently when we deploy our services they're actually all running in one jvm for the java implementation uh we're looking to to break that up and then actually because the services there are services that have interactions between them so i want to make some improvements there to the event layer of the application and then make sure that we're using service mess technology leaning pretty strongly toward istio getting that in place which makes use of envoy is kind of the side car that helps out without hooking everything together so we're looking to implant that and then begin using terraform for kind of the scripting and specking out what needs to be deployed and uh definitely using kubernetes at the application tier what i'm what we're kind of maybe not super decided on yet is the use of kubernetes at the database tier specifically so we're just to the point of starting to look at this kubernetes operator that ben brahman from mr cluster has been talking about and i don't know if he already did his talk or if that's coming up later on that happened previous to this right um so so go and check out we're looking at that and what it looks for a like for that to be kind of ported or extended for data sex enterprise so this is kind of one of the things that's on our roadmap um but just kind of taking big picture the kinds of things that you need to be thinking about at the database tier i've made an assumption the bullets on the slide assume that we're talking about a cassandra based solution i'm not talking about like in general in the wide world of database technology i'm thinking specifically if you're if you're talking about a cassandra or datasacks enterprise-based solution what do you need to think about so how are you going to configure your cluster topology that's one thing uh what are you gonna do what are you gonna do to set your key space replication strategies uh and then what are some of the security best practices and the security best practices are really um not a lot different than you would for have for any cluster that you were trying to secure in general so what we did is uh we were using gossiping property file snitch uh we are configuring we basically have one main key space that we use for killer video that has all our tables we've set that with a network topology strategy of replication factor of three per data center so it's pretty vanilla straightforward in in that sense nothing fancy we have some scripting that we're using to when we deploy the nodes uh or i should say when we deployed our cluster to automatically um through through scripting uh disable that default admin user and create a new administrative user and give that the correct permissions which is again these are things that you would do for any cluster that you were deploying we've also um we've set up node to node encryption so that that's there out of the box and then for the client to node encryption we've actually we've also configured all of our clients so they're uh they're also using ssl so our services when they're talking to our cluster um they are also using encrypted connections so that's important because of uh some of the things that we did down at the networking layer which was uh for our initial setup um we don't we have not you know created any private networks between cloud networks uh or between the cloud providers at this point we we're just using public ips but we're encrypting all of the communication over there and this is not something that's like live and running all the time right now so don't you know it's not like you go out there and hack it right now it's not it's a it's an experiment that we kind of spin up and down as needed so obviously that's not a production solution um one of the other aspects that you want to think about is where are you routing things if the entry point to your application is uh you know kind of your web tier okay so are you gonna put a um like a global load balancer are you going to use a third-party load balancer maybe in front of that or uh what about dns naming these are these are some solutions that you're going to have to kind of pick out for your own for your own application so that's where we're at with respect to some of these security and networking aspects there's a broader uh roadmap for the killer video application so it's it's a mature application it does uh we think a pretty credible job of demonstrating um first of all how to design a cassandra data model and then how to use the drivers to develop an application it also does a pretty good job of demonstrating dse search and that integration we've take we've done a bunch of things with dc search to kind of extend the cassandra query language with additional syntax so that you can use for example like um the like keyword i knew i was going to do that use the like keyword and you know for for full text search kinds of capabilities and that sort of thing some of the stuff that it doesn't quite do as well yet is the anal demonstrate the analytics part of data stacks enterprise so we're definitely working toward having that um we have one of our an advocate that joined just to join the team amanda who has done a lot she has a big analytics background so we're going to have her help work on building out that part of the app especially um and some of the things that some of the other things that we're doing in general i mentioned the idea of kind of replacing that fcd for service discovery and putting in a kind of a more fully featured service mesh so that we can begin to integrate some things like distributed tracing for example and looking to definitely use kubernetes for scaling and scheduling the application layer um there's a few other things that we're looking to do uh we're gonna try to get a little bit more of a like a customer 360 kind of aspect built into this application and as part of that we'll be doing some uh integration with streaming technologies like kafka and then we have a bunch we do have a number of things that um you know because this isn't like a real world product and a real company uh we've been able to get away with doing a lot of things by hand and we we need to do a lot more uh automation a lot more a lot more build and deployment automation so that's coming as well uh and i mentioned i'd love to have a python implementation so all this work that we're doing to take killer video multi-cloud is kind of part of our our broader roadmap and some of some of the things are uh more interdependent um especially like that service level infrastructure that we're doing so i just want to kind of summarize basically what we think we've learned so far from the effort that we've undertaken definitely think that using kubernetes is a best practice at the application layer um the verdict is still out both within our team and within kind of data sacs as a whole there's an ongoing conversation about kubernetes and its utility for uh you know kind of managing your database tier um so we know that you know we're hearing a lot in industry about it we know we hear from customers that they're interested in that kind of thing so this is definitely an area that we're exploring we do think that there is a best practice in terms of trying to push if you can kind of push this level of interaction down to the lowest layer possible such that you're not storing state in your application but you're letting your database be the repository for that state information in other words your standard or dsc cluster and we happen to think of course you know that we would that that uh this this technology of cassandra is uniquely poised we all know um if if you're a part of this community you know that it's really unique in how it replicates and scales um and that it that it's not uh beholden to a particular cloud provider which is one of the things that that really made it attractive to begin with so uh obviously we recommend and think that it's uniquely positioned as a multi-cloud database technology um and then you know i'll just reiterate that last point that that i made in the previous slide about um automate all the things um so yeah we we know that we definitely spend time um even as a advocate team that is only coding on average i don't know 25 to 30 percent of our time in a given week is probably spent coding versus doing a bunch of other things um so even for us it might be especially important that we learn to automate as much as possible if you want to learn a little bit more i've just scratched the surface on this we have our weekly podcast the distributed data show so we did a whole six episode series it was originally conceived of as like a oh it was kind of funny actually one it was like a one-off and then it was like it was gonna be a three-episode series and then by the time we got done talking about it uh it was like a six-episode um epic so hero's journey from um episodes 56 to 61. we had a lot of fun with it we hope that you find it useful and um we're always interested in having more people on the show so if you have interesting use cases to talk about um whether or not it's open source or it's data sex enterprise we don't care we want to talk about these things we're interested in it um so the more the more guests that we get from as broad a spectrum as possible that's going to be better and and really make it a great resource for the community which is that's what we want that's why we're doing it um so my my final thing because i want to pause and give you guys guys time to ask some questions and um we'll tell you the things that we know and the things that we don't know and i'll i'll try to i'll bring adrian up into the conversation for that um there's a bunch of people that that helped us out in building up all this stuff a bunch of content from adrian david one of the other uh advocates has been doing a bunch of this stuff as well as as well as cedric um justin brees one of our ses has put together a bunch of awesome multi-cloud demos and spun up a bunch of clusters and took pictures of it for me i appreciated that um patrick for the use of his image of course in this presentation um amanda who's pictured over here on the right uh for her support and review of all this and uh oh yeah hannah also put together the meme um so we'll credit her awesome community manager so uh anyway uh there's there's a lot that goes on behind the scenes to to put even the simplest thing together uh whether it be a demo or a talk or a video and so anyway i we appreciate all our friends that help us out so i'm sure i went too fast and glossed over something and made it sound easy even though it wasn't so where did i do that and ask me your questions sorry yeah um i'm not supposed to but if did you find any uh disadvantages um of communication um in the case where you had these three call providers being used among the supervisor let's say for instance magic you had one scenario where you had two data centers from amazon and another scenario where you had one that sent crimes on and one from 60 or zero yeah and roughly at the same business i don't know if you did that did you find any disadvantage of using a different provider well so the assuming that you have the networking configured that's the big if right so that we haven't we haven't done like a side-by-side test to compare the performance and like resilience of those two side-by-side so that's a case that i would like for to have us test out yeah it's it's also real tricky because if you deploy it out it also is entirely dependent on i'm talking to the mic in the mic oh so comfortable i don't know if it's live try it i'll find out i'll find it real soon it is awesome so uh one of the things that a big question mark is like what region that you've deployed your multi-file deployment out to right so like if you're in aws east one and west 2 and then you're in gcp something else and in azure central us each of those data centers have different dated or really modern or really old hardware and stuff like that right so if we did a test again say stuff deployed out to east one and aws versus azure's like i think i don't know what central one is or what their newest thing is but like their newest data center versus like aws is all data center this stuff ends up being completely different in performance but then if we shift it all let's say we get everything over to uh gcp west one and aws west too that's basically they're literally side by side almost across the street from each other and manufacturer and date was starting to use the data centers in the dials for those days those regions so when you compare those two you get a little bit closer examples for how they're using their hardware but it's really tough to do completely straight apples to apple's comparison of the deployments um and then of course when you go past that app too it gets a little different depending on what you're using in the cloud if there is any specific stuff so that was just when you mention that it's it's a really really tough thing and no matter what you really test one versus the other you end up with a little bit of apples versus oranges of a comparison um so you never really get one on one you always kind of have to give the test per use case that's what i would i would say so i was going to ask he said you're moving toward an approach where you're using some vpc or something instead of public ips so um you know i guess most of the stuff i've seen working with customers uh had a hybrid cloud set up they'd say how we're gonna put these services and these databases in the cloud and we're gonna have some services on prem like dns or you know ldap or something like that and so um you know i'm curious to have you know i think you got three cloud providers instead of vpc between all three of them and then you also have to set up a vpc from all three of them back to on-prem so you kind of get this like graph of you know is that is that how you see that working or would you know would you say okay we're going to have ldap only in gcp or something like that no i feel like this is the point at which i put the like that i am not a medical doctor these statements have not been evaluated by the fda i'm not a network engineer so everything that follows is speculative okay go uh my first thought is turtle's all the way down right um yeah the minute you start stepping into that looks like all that server and what what are you going to run in a provider versus all the providers versus whatever like how is it how does your architecture gonna run that can get it can get really messy really quick it seems like you start to get this exponential curve right yeah and the more resiliency you want and the more capability of process clouds i mean you have to get your services in each of those like if you just have your database you just have your database across the clouds but if you only have your app in aws but you have your database across x number of them but your app goes down it's there at a lot of points having your database across so you really have to think full spectrum like your app your database your middle tier stuff your peripheral services like your ldap or whatever like how are you gonna get that across there is it gonna federate appropriately or is it gonna fall down if one of them disappears uh you know that's like one of the big questions in kubernetes right now it's like all right we have you know 10 different ways to run kubernetes stuff in gcp we have a billion different ways in aws are you running a full kubernetes cluster in each environment or you just like you have your on-prem one and then you're using their their little specific services or something in azure or whatever it is so you really have to think full stack and earthwise too you've got to cover all the bases good well i think we're coming up on time here it's about yeah it's 1 50. so um please come by uh the data stacks table we'll be hanging out either hanging out talking or recording some videos for pretty much the rest of the afternoon the rest of the event so come say hello ask us the hard questions and thank you very much for coming [Applause] you",
+    "segments": [
+      {
+        "start": 2.0,
+        "duration": 4.879,
+        "text": "so this talk is about deploying"
+      },
+      {
+        "start": 4.96,
+        "duration": 4.16,
+        "text": "cassandra and multi-cloud"
+      },
+      {
+        "start": 6.879,
+        "duration": 6.081,
+        "text": "and"
+      },
+      {
+        "start": 9.12,
+        "duration": 6.399,
+        "text": "we're on a journey so this is not um"
+      },
+      {
+        "start": 12.96,
+        "duration": 4.64,
+        "text": "a representation that we have all the"
+      },
+      {
+        "start": 15.519,
+        "duration": 5.121,
+        "text": "answers about the"
+      },
+      {
+        "start": 17.6,
+        "duration": 4.32,
+        "text": "the one right way to do this but we have"
+      },
+      {
+        "start": 20.64,
+        "duration": 3.52,
+        "text": "some ideas"
+      },
+      {
+        "start": 21.92,
+        "duration": 4.24,
+        "text": "um about the best way to do this we've"
+      },
+      {
+        "start": 24.16,
+        "duration": 3.439,
+        "text": "started down the road of taking a"
+      },
+      {
+        "start": 26.16,
+        "duration": 4.0,
+        "text": "reference application that we have"
+      },
+      {
+        "start": 27.599,
+        "duration": 5.281,
+        "text": "killer video and deploying it in"
+      },
+      {
+        "start": 30.16,
+        "duration": 4.64,
+        "text": "multi-cloud and so this is kind of one"
+      },
+      {
+        "start": 32.88,
+        "duration": 3.6,
+        "text": "of the waypoints along the way is this"
+      },
+      {
+        "start": 34.8,
+        "duration": 4.64,
+        "text": "talk is sort of like a snapshot of a"
+      },
+      {
+        "start": 36.48,
+        "duration": 4.079,
+        "text": "point in time of where we are at in"
+      },
+      {
+        "start": 39.44,
+        "duration": 4.08,
+        "text": "taking"
+      },
+      {
+        "start": 40.559,
+        "duration": 5.921,
+        "text": "our app and deploying it multi-cloud so"
+      },
+      {
+        "start": 43.52,
+        "duration": 5.6,
+        "text": "um i have adrian here from our developer"
+      },
+      {
+        "start": 46.48,
+        "duration": 5.04,
+        "text": "advocate team along with myself so"
+      },
+      {
+        "start": 49.12,
+        "duration": 4.16,
+        "text": "adrian's gonna say hello um"
+      },
+      {
+        "start": 51.52,
+        "duration": 4.64,
+        "text": "adrian and i are developer advocates at"
+      },
+      {
+        "start": 53.28,
+        "duration": 5.36,
+        "text": "datastax and this is a project that our"
+      },
+      {
+        "start": 56.16,
+        "duration": 4.399,
+        "text": "team has taken on so"
+      },
+      {
+        "start": 58.64,
+        "duration": 4.16,
+        "text": "i want to shout out to him because he's"
+      },
+      {
+        "start": 60.559,
+        "duration": 3.361,
+        "text": "also played a big part in this project"
+      },
+      {
+        "start": 62.8,
+        "duration": 3.52,
+        "text": "so"
+      },
+      {
+        "start": 63.92,
+        "duration": 4.8,
+        "text": "let's talk about what is multi-cloud"
+      },
+      {
+        "start": 66.32,
+        "duration": 4.0,
+        "text": "first of all um"
+      },
+      {
+        "start": 68.72,
+        "duration": 4.719,
+        "text": "so"
+      },
+      {
+        "start": 70.32,
+        "duration": 4.96,
+        "text": "let's say i got my azure console here"
+      },
+      {
+        "start": 73.439,
+        "duration": 3.521,
+        "text": "i'm set up to start"
+      },
+      {
+        "start": 75.28,
+        "duration": 3.12,
+        "text": "uh deploying some infrastructure and"
+      },
+      {
+        "start": 76.96,
+        "duration": 4.32,
+        "text": "maybe i maybe i have a workload in"
+      },
+      {
+        "start": 78.4,
+        "duration": 5.6,
+        "text": "cassandra or in azure and then"
+      },
+      {
+        "start": 81.28,
+        "duration": 4.8,
+        "text": "uh now i got my aws and so now i'm"
+      },
+      {
+        "start": 84.0,
+        "duration": 4.799,
+        "text": "deploying some other stuff in aws and"
+      },
+      {
+        "start": 86.08,
+        "duration": 6.48,
+        "text": "the moment that i have uh two cloud"
+      },
+      {
+        "start": 88.799,
+        "duration": 3.761,
+        "text": "consoles does that make me multi-cloud"
+      },
+      {
+        "start": 93.2,
+        "duration": 2.239,
+        "text": "no"
+      },
+      {
+        "start": 96.24,
+        "duration": 4.32,
+        "text": "this is our patrick meme which we like"
+      },
+      {
+        "start": 98.24,
+        "duration": 3.6,
+        "text": "to bring out every once in a while"
+      },
+      {
+        "start": 100.56,
+        "duration": 2.96,
+        "text": "i don't know if it's only funny for"
+      },
+      {
+        "start": 101.84,
+        "duration": 4.72,
+        "text": "internal purposes but i i'm going to go"
+      },
+      {
+        "start": 103.52,
+        "duration": 4.959,
+        "text": "out on a limb here and say that it's"
+      },
+      {
+        "start": 106.56,
+        "duration": 3.44,
+        "text": "it's just funny uh"
+      },
+      {
+        "start": 108.479,
+        "duration": 3.361,
+        "text": "so no i"
+      },
+      {
+        "start": 110.0,
+        "duration": 3.04,
+        "text": "what really matters here is that we want"
+      },
+      {
+        "start": 111.84,
+        "duration": 3.2,
+        "text": "to be"
+      },
+      {
+        "start": 113.04,
+        "duration": 3.439,
+        "text": "actually having meaningful interaction"
+      },
+      {
+        "start": 115.04,
+        "duration": 3.6,
+        "text": "between clouds so this is where i'm"
+      },
+      {
+        "start": 116.479,
+        "duration": 4.161,
+        "text": "getting at with these hybrid cloud"
+      },
+      {
+        "start": 118.64,
+        "duration": 5.36,
+        "text": "versus multi-cloud definitions we threw"
+      },
+      {
+        "start": 120.64,
+        "duration": 5.36,
+        "text": "these out here on twitter um just to see"
+      },
+      {
+        "start": 124.0,
+        "duration": 3.84,
+        "text": "if we could get anybody to argue with us"
+      },
+      {
+        "start": 126.0,
+        "duration": 4.479,
+        "text": "and we we didn't really i was sort of"
+      },
+      {
+        "start": 127.84,
+        "duration": 4.32,
+        "text": "disappointed but hybrid cloud most"
+      },
+      {
+        "start": 130.479,
+        "duration": 3.201,
+        "text": "people think of that as being kind of"
+      },
+      {
+        "start": 132.16,
+        "duration": 2.96,
+        "text": "like on-prem and then i'm gradually"
+      },
+      {
+        "start": 133.68,
+        "duration": 3.12,
+        "text": "moving some of my workload into the"
+      },
+      {
+        "start": 135.12,
+        "duration": 2.96,
+        "text": "cloud and i have interconnections"
+      },
+      {
+        "start": 136.8,
+        "duration": 4.159,
+        "text": "between those two"
+      },
+      {
+        "start": 138.08,
+        "duration": 4.799,
+        "text": "okay so um on-prem plus one cloud"
+      },
+      {
+        "start": 140.959,
+        "duration": 3.28,
+        "text": "provider maybe that's hybrid cloud"
+      },
+      {
+        "start": 142.879,
+        "duration": 3.44,
+        "text": "multi-cloud"
+      },
+      {
+        "start": 144.239,
+        "duration": 3.681,
+        "text": "we're we're thinking of as having at"
+      },
+      {
+        "start": 146.319,
+        "duration": 4.321,
+        "text": "least two"
+      },
+      {
+        "start": 147.92,
+        "duration": 4.48,
+        "text": "uh public clouds that they were in and"
+      },
+      {
+        "start": 150.64,
+        "duration": 3.12,
+        "text": "i'm not saying that like one department"
+      },
+      {
+        "start": 152.4,
+        "duration": 3.44,
+        "text": "has some"
+      },
+      {
+        "start": 153.76,
+        "duration": 3.44,
+        "text": "random workload and some other"
+      },
+      {
+        "start": 155.84,
+        "duration": 3.44,
+        "text": "department has some other workload i'm"
+      },
+      {
+        "start": 157.2,
+        "duration": 4.96,
+        "text": "talking about actually having a"
+      },
+      {
+        "start": 159.28,
+        "duration": 4.48,
+        "text": "meaningful traversal of data between"
+      },
+      {
+        "start": 162.16,
+        "duration": 3.6,
+        "text": "these two that's that's what i'm most"
+      },
+      {
+        "start": 163.76,
+        "duration": 4.64,
+        "text": "concerned about when i'm thinking about"
+      },
+      {
+        "start": 165.76,
+        "duration": 6.16,
+        "text": "cassandra from a multi-cloud perspective"
+      },
+      {
+        "start": 168.4,
+        "duration": 5.04,
+        "text": "so why are people doing this uh reason"
+      },
+      {
+        "start": 171.92,
+        "duration": 5.36,
+        "text": "i'm gonna these are my opinions on the"
+      },
+      {
+        "start": 173.44,
+        "duration": 6.879,
+        "text": "relative merit or or um hype versus not"
+      },
+      {
+        "start": 177.28,
+        "duration": 6.08,
+        "text": "hype of some of these reasons so"
+      },
+      {
+        "start": 180.319,
+        "duration": 4.961,
+        "text": "uh what i think is is pretty legit is"
+      },
+      {
+        "start": 183.36,
+        "duration": 3.76,
+        "text": "people who are trying to have data"
+      },
+      {
+        "start": 185.28,
+        "duration": 3.36,
+        "text": "center locality they're trying to move"
+      },
+      {
+        "start": 187.12,
+        "duration": 3.44,
+        "text": "data as close to their customers as"
+      },
+      {
+        "start": 188.64,
+        "duration": 4.959,
+        "text": "possible depending on where in the world"
+      },
+      {
+        "start": 190.56,
+        "duration": 5.759,
+        "text": "that is the closest data provider may or"
+      },
+      {
+        "start": 193.599,
+        "duration": 4.481,
+        "text": "may not be nearby"
+      },
+      {
+        "start": 196.319,
+        "duration": 4.881,
+        "text": "so this is probably especially true in"
+      },
+      {
+        "start": 198.08,
+        "duration": 5.12,
+        "text": "places other than us and europe uh and"
+      },
+      {
+        "start": 201.2,
+        "duration": 3.119,
+        "text": "and parts of southeast asia right so"
+      },
+      {
+        "start": 203.2,
+        "duration": 3.44,
+        "text": "there's other parts of the world where"
+      },
+      {
+        "start": 204.319,
+        "duration": 5.761,
+        "text": "you may not have so much selectivity in"
+      },
+      {
+        "start": 206.64,
+        "duration": 4.48,
+        "text": "in terms of your nearest data center"
+      },
+      {
+        "start": 210.08,
+        "duration": 3.92,
+        "text": "uh"
+      },
+      {
+        "start": 211.12,
+        "duration": 5.44,
+        "text": "next is people wanting to actually take"
+      },
+      {
+        "start": 214.0,
+        "duration": 4.239,
+        "text": "advantage of different cloud providers"
+      },
+      {
+        "start": 216.56,
+        "duration": 3.36,
+        "text": "for the different services that they"
+      },
+      {
+        "start": 218.239,
+        "duration": 4.0,
+        "text": "provide so one example i've heard pretty"
+      },
+      {
+        "start": 219.92,
+        "duration": 5.84,
+        "text": "frequently is people really liking"
+      },
+      {
+        "start": 222.239,
+        "duration": 5.601,
+        "text": "capabilities that google provides from"
+      },
+      {
+        "start": 225.76,
+        "duration": 3.52,
+        "text": "ai machine learning perspective and"
+      },
+      {
+        "start": 227.84,
+        "duration": 3.2,
+        "text": "wanted to take"
+      },
+      {
+        "start": 229.28,
+        "duration": 3.92,
+        "text": "take advantage of those maybe they have"
+      },
+      {
+        "start": 231.04,
+        "duration": 3.68,
+        "text": "a lot of data that happens to be"
+      },
+      {
+        "start": 233.2,
+        "duration": 2.959,
+        "text": "accessible in s3 buckets and they're"
+      },
+      {
+        "start": 234.72,
+        "duration": 3.12,
+        "text": "trying to get that over"
+      },
+      {
+        "start": 236.159,
+        "duration": 3.601,
+        "text": "from aws"
+      },
+      {
+        "start": 237.84,
+        "duration": 3.28,
+        "text": "into gcp in order to be able to do some"
+      },
+      {
+        "start": 239.76,
+        "duration": 2.88,
+        "text": "analytics"
+      },
+      {
+        "start": 241.12,
+        "duration": 3.679,
+        "text": "big kind of number crunching stuff on it"
+      },
+      {
+        "start": 242.64,
+        "duration": 3.92,
+        "text": "so that's an example of"
+      },
+      {
+        "start": 244.799,
+        "duration": 3.601,
+        "text": "somebody some cloud provider has a"
+      },
+      {
+        "start": 246.56,
+        "duration": 3.759,
+        "text": "specific service that i really want to"
+      },
+      {
+        "start": 248.4,
+        "duration": 3.119,
+        "text": "use and so now i'm thinking multi-cloud"
+      },
+      {
+        "start": 250.319,
+        "duration": 2.801,
+        "text": "because i want to take advantage of the"
+      },
+      {
+        "start": 251.519,
+        "duration": 3.601,
+        "text": "best of breed"
+      },
+      {
+        "start": 253.12,
+        "duration": 4.239,
+        "text": "from a different catalog of available"
+      },
+      {
+        "start": 255.12,
+        "duration": 4.32,
+        "text": "services okay that's pretty legit reason"
+      },
+      {
+        "start": 257.359,
+        "duration": 4.641,
+        "text": "one of the reasons that i hear that i"
+      },
+      {
+        "start": 259.44,
+        "duration": 3.44,
+        "text": "i'm not quite as sure about is this idea"
+      },
+      {
+        "start": 262.0,
+        "duration": 2.8,
+        "text": "of"
+      },
+      {
+        "start": 262.88,
+        "duration": 3.68,
+        "text": "kind of competition between cloud"
+      },
+      {
+        "start": 264.8,
+        "duration": 3.36,
+        "text": "providers and specifically"
+      },
+      {
+        "start": 266.56,
+        "duration": 4.079,
+        "text": "with relationship the cost like i'm"
+      },
+      {
+        "start": 268.16,
+        "duration": 3.52,
+        "text": "going to be shopping around and i need"
+      },
+      {
+        "start": 270.639,
+        "duration": 3.28,
+        "text": "um"
+      },
+      {
+        "start": 271.68,
+        "duration": 5.28,
+        "text": "i need portability because somebody may"
+      },
+      {
+        "start": 273.919,
+        "duration": 6.081,
+        "text": "have a lower price on infrastructure and"
+      },
+      {
+        "start": 276.96,
+        "duration": 5.679,
+        "text": "i get my my cycles for um cheaper my"
+      },
+      {
+        "start": 280.0,
+        "duration": 4.96,
+        "text": "compute for cheaper if i move my my"
+      },
+      {
+        "start": 282.639,
+        "duration": 4.401,
+        "text": "workload um that might be the case i"
+      },
+      {
+        "start": 284.96,
+        "duration": 4.88,
+        "text": "don't know that that's a major driver in"
+      },
+      {
+        "start": 287.04,
+        "duration": 5.439,
+        "text": "itself of multi-cloud but"
+      },
+      {
+        "start": 289.84,
+        "duration": 5.52,
+        "text": "what i do here is the corollary to that"
+      },
+      {
+        "start": 292.479,
+        "duration": 5.121,
+        "text": "that i do hear is kind of the the idea"
+      },
+      {
+        "start": 295.36,
+        "duration": 4.08,
+        "text": "that for some industries some people are"
+      },
+      {
+        "start": 297.6,
+        "duration": 3.2,
+        "text": "worried about a provider like amazon"
+      },
+      {
+        "start": 299.44,
+        "duration": 3.44,
+        "text": "kind of moving into their space and"
+      },
+      {
+        "start": 300.8,
+        "duration": 4.8,
+        "text": "moving into their field so they're using"
+      },
+      {
+        "start": 302.88,
+        "duration": 4.56,
+        "text": "this multi-cloud as a hedge uh"
+      },
+      {
+        "start": 305.6,
+        "duration": 3.599,
+        "text": "like i'm a healthcare company and i hear"
+      },
+      {
+        "start": 307.44,
+        "duration": 3.44,
+        "text": "that amazon may be doing healthcare"
+      },
+      {
+        "start": 309.199,
+        "duration": 5.121,
+        "text": "maybe i want to hedge and not have all"
+      },
+      {
+        "start": 310.88,
+        "duration": 6.0,
+        "text": "my workload in aws um i i do i do hear"
+      },
+      {
+        "start": 314.32,
+        "duration": 4.24,
+        "text": "quite a bit of that so"
+      },
+      {
+        "start": 316.88,
+        "duration": 3.039,
+        "text": "uh one of the things that i think is an"
+      },
+      {
+        "start": 318.56,
+        "duration": 4.24,
+        "text": "interesting consideration when you're"
+      },
+      {
+        "start": 319.919,
+        "duration": 4.321,
+        "text": "talking about a multi-cloud solution is"
+      },
+      {
+        "start": 322.8,
+        "duration": 4.0,
+        "text": "are you just trying to duplicate the"
+      },
+      {
+        "start": 324.24,
+        "duration": 4.239,
+        "text": "same workload in multiple clouds are you"
+      },
+      {
+        "start": 326.8,
+        "duration": 4.959,
+        "text": "actually moving different parts or"
+      },
+      {
+        "start": 328.479,
+        "duration": 5.841,
+        "text": "different capabilities um"
+      },
+      {
+        "start": 331.759,
+        "duration": 5.44,
+        "text": "or different portions of of similar"
+      },
+      {
+        "start": 334.32,
+        "duration": 4.879,
+        "text": "workloads like apple your live"
+      },
+      {
+        "start": 337.199,
+        "duration": 3.44,
+        "text": "operational workloads are you dividing"
+      },
+      {
+        "start": 339.199,
+        "duration": 3.521,
+        "text": "that up across multiple clouds are you"
+      },
+      {
+        "start": 340.639,
+        "duration": 4.0,
+        "text": "just trying to run this multiple copies"
+      },
+      {
+        "start": 342.72,
+        "duration": 4.88,
+        "text": "of the same thing in different places"
+      },
+      {
+        "start": 344.639,
+        "duration": 4.801,
+        "text": "for resiliency um"
+      },
+      {
+        "start": 347.6,
+        "duration": 4.48,
+        "text": "we'll get we'll kind of get back to that"
+      },
+      {
+        "start": 349.44,
+        "duration": 6.0,
+        "text": "and dive into it more"
+      },
+      {
+        "start": 352.08,
+        "duration": 4.959,
+        "text": "this is kind of a broad survey or a"
+      },
+      {
+        "start": 355.44,
+        "duration": 2.96,
+        "text": "little bit of a road map for the rest of"
+      },
+      {
+        "start": 357.039,
+        "duration": 2.561,
+        "text": "the presentation"
+      },
+      {
+        "start": 358.4,
+        "duration": 2.4,
+        "text": "you can"
+      },
+      {
+        "start": 359.6,
+        "duration": 3.12,
+        "text": "when you get into developing a"
+      },
+      {
+        "start": 360.8,
+        "duration": 4.64,
+        "text": "multi-cloud solution you're going to run"
+      },
+      {
+        "start": 362.72,
+        "duration": 5.12,
+        "text": "into a number of things"
+      },
+      {
+        "start": 365.44,
+        "duration": 4.479,
+        "text": "first of all there's just there's some"
+      },
+      {
+        "start": 367.84,
+        "duration": 3.52,
+        "text": "really fairly simplistic things to get"
+      },
+      {
+        "start": 369.919,
+        "duration": 3.441,
+        "text": "over that are kind of surface level"
+      },
+      {
+        "start": 371.36,
+        "duration": 3.44,
+        "text": "considerations but they still there's a"
+      },
+      {
+        "start": 373.36,
+        "duration": 2.399,
+        "text": "little bit of a mental hurdle to get"
+      },
+      {
+        "start": 374.8,
+        "duration": 2.399,
+        "text": "over"
+      },
+      {
+        "start": 375.759,
+        "duration": 2.961,
+        "text": "in that everyone names everything"
+      },
+      {
+        "start": 377.199,
+        "duration": 2.481,
+        "text": "differently"
+      },
+      {
+        "start": 378.72,
+        "duration": 3.52,
+        "text": "so there's a certain amount of"
+      },
+      {
+        "start": 379.68,
+        "duration": 4.88,
+        "text": "complexity that you that you run into in"
+      },
+      {
+        "start": 382.24,
+        "duration": 4.799,
+        "text": "in that impedance mismatch between"
+      },
+      {
+        "start": 384.56,
+        "duration": 4.0,
+        "text": "uh you know it's a"
+      },
+      {
+        "start": 387.039,
+        "duration": 3.6,
+        "text": "i don't know what to call it it's a vpc"
+      },
+      {
+        "start": 388.56,
+        "duration": 3.359,
+        "text": "here versus uh a different you know"
+      },
+      {
+        "start": 390.639,
+        "duration": 3.521,
+        "text": "someone else has a different name for"
+      },
+      {
+        "start": 391.919,
+        "duration": 5.12,
+        "text": "that that type of networking"
+      },
+      {
+        "start": 394.16,
+        "duration": 4.4,
+        "text": "environment for example"
+      },
+      {
+        "start": 397.039,
+        "duration": 3.841,
+        "text": "speaking of networking we have"
+      },
+      {
+        "start": 398.56,
+        "duration": 4.479,
+        "text": "considerations about if i am having"
+      },
+      {
+        "start": 400.88,
+        "duration": 4.64,
+        "text": "multiple points of entry in different of"
+      },
+      {
+        "start": 403.039,
+        "duration": 4.88,
+        "text": "these public clouds uh how am i"
+      },
+      {
+        "start": 405.52,
+        "duration": 5.679,
+        "text": "balancing the load between them how am i"
+      },
+      {
+        "start": 407.919,
+        "duration": 4.56,
+        "text": "using name services to route the traffic"
+      },
+      {
+        "start": 411.199,
+        "duration": 3.521,
+        "text": "and make sure that i end up at the right"
+      },
+      {
+        "start": 412.479,
+        "duration": 3.84,
+        "text": "location"
+      },
+      {
+        "start": 414.72,
+        "duration": 3.36,
+        "text": "there's also considerations about the"
+      },
+      {
+        "start": 416.319,
+        "duration": 3.201,
+        "text": "latency between the public clouds so"
+      },
+      {
+        "start": 418.08,
+        "duration": 3.04,
+        "text": "this has to do with"
+      },
+      {
+        "start": 419.52,
+        "duration": 3.04,
+        "text": "not only the security of the connection"
+      },
+      {
+        "start": 421.12,
+        "duration": 2.88,
+        "text": "that i have between those clouds but"
+      },
+      {
+        "start": 422.56,
+        "duration": 3.199,
+        "text": "also"
+      },
+      {
+        "start": 424.0,
+        "duration": 2.96,
+        "text": "what is the what is the latency between"
+      },
+      {
+        "start": 425.759,
+        "duration": 4.0,
+        "text": "them"
+      },
+      {
+        "start": 426.96,
+        "duration": 5.679,
+        "text": "when i get into the application tier and"
+      },
+      {
+        "start": 429.759,
+        "duration": 5.361,
+        "text": "how am i going to scale that"
+      },
+      {
+        "start": 432.639,
+        "duration": 4.56,
+        "text": "especially when i'm am i scaling each"
+      },
+      {
+        "start": 435.12,
+        "duration": 4.0,
+        "text": "one of those clouds independently of"
+      },
+      {
+        "start": 437.199,
+        "duration": 3.84,
+        "text": "each other"
+      },
+      {
+        "start": 439.12,
+        "duration": 4.16,
+        "text": "where where do i need to have caches do"
+      },
+      {
+        "start": 441.039,
+        "duration": 3.761,
+        "text": "i have multiple caches do i have them in"
+      },
+      {
+        "start": 443.28,
+        "duration": 2.88,
+        "text": "each data center or in each of these"
+      },
+      {
+        "start": 444.8,
+        "duration": 3.6,
+        "text": "public clouds"
+      },
+      {
+        "start": 446.16,
+        "duration": 5.52,
+        "text": "when i get down to the database tier now"
+      },
+      {
+        "start": 448.4,
+        "duration": 5.04,
+        "text": "we're starting to think about solutions"
+      },
+      {
+        "start": 451.68,
+        "duration": 4.72,
+        "text": "regarding where do i where am i allowed"
+      },
+      {
+        "start": 453.44,
+        "duration": 5.039,
+        "text": "to keep data what are the regulatory and"
+      },
+      {
+        "start": 456.4,
+        "duration": 3.919,
+        "text": "legal controls about where i can store"
+      },
+      {
+        "start": 458.479,
+        "duration": 3.921,
+        "text": "data"
+      },
+      {
+        "start": 460.319,
+        "duration": 3.28,
+        "text": "in each one of these public cloud"
+      },
+      {
+        "start": 462.4,
+        "duration": 2.239,
+        "text": "providers"
+      },
+      {
+        "start": 463.599,
+        "duration": 2.801,
+        "text": "and then"
+      },
+      {
+        "start": 464.639,
+        "duration": 3.361,
+        "text": "finally security is kind of one of those"
+      },
+      {
+        "start": 466.4,
+        "duration": 3.519,
+        "text": "capstone things that cuts across all of"
+      },
+      {
+        "start": 468.0,
+        "duration": 3.919,
+        "text": "the layers"
+      },
+      {
+        "start": 469.919,
+        "duration": 3.68,
+        "text": "so do i need some kind of federated"
+      },
+      {
+        "start": 471.919,
+        "duration": 3.361,
+        "text": "identity management solution that's"
+      },
+      {
+        "start": 473.599,
+        "duration": 3.6,
+        "text": "across all my"
+      },
+      {
+        "start": 475.28,
+        "duration": 3.44,
+        "text": "cloud providers"
+      },
+      {
+        "start": 477.199,
+        "duration": 4.241,
+        "text": "how am i going to protect my boundaries"
+      },
+      {
+        "start": 478.72,
+        "duration": 4.64,
+        "text": "i only not only have um about boundaries"
+      },
+      {
+        "start": 481.44,
+        "duration": 3.92,
+        "text": "to the public internet for public facing"
+      },
+      {
+        "start": 483.36,
+        "duration": 4.0,
+        "text": "things but then those but those"
+      },
+      {
+        "start": 485.36,
+        "duration": 3.6,
+        "text": "uh private boundaries between different"
+      },
+      {
+        "start": 487.36,
+        "duration": 3.44,
+        "text": "data centers and between different cloud"
+      },
+      {
+        "start": 488.96,
+        "duration": 4.4,
+        "text": "providers where am i going to need to"
+      },
+      {
+        "start": 490.8,
+        "duration": 3.839,
+        "text": "use encryption um where do i have"
+      },
+      {
+        "start": 493.36,
+        "duration": 2.88,
+        "text": "compliance and auditing kind of"
+      },
+      {
+        "start": 494.639,
+        "duration": 3.201,
+        "text": "requirements so there's a broad"
+      },
+      {
+        "start": 496.24,
+        "duration": 2.56,
+        "text": "landscape of stuff"
+      },
+      {
+        "start": 497.84,
+        "duration": 3.039,
+        "text": "and"
+      },
+      {
+        "start": 498.8,
+        "duration": 3.28,
+        "text": "i'm not saying that this presentation is"
+      },
+      {
+        "start": 500.879,
+        "duration": 3.04,
+        "text": "going to give you the answers for all of"
+      },
+      {
+        "start": 502.08,
+        "duration": 3.839,
+        "text": "those i'm just trying to say like"
+      },
+      {
+        "start": 503.919,
+        "duration": 4.081,
+        "text": "um here's a list though here's the list"
+      },
+      {
+        "start": 505.919,
+        "duration": 3.361,
+        "text": "that we came up with of all the"
+      },
+      {
+        "start": 508.0,
+        "duration": 2.72,
+        "text": "not maybe not all but at least the"
+      },
+      {
+        "start": 509.28,
+        "duration": 3.28,
+        "text": "starter list of questions that we should"
+      },
+      {
+        "start": 510.72,
+        "duration": 3.28,
+        "text": "all be asking so we took a certain"
+      },
+      {
+        "start": 512.56,
+        "duration": 4.479,
+        "text": "subset of these"
+      },
+      {
+        "start": 514.0,
+        "duration": 4.839,
+        "text": "uh for our efforts to support killer"
+      },
+      {
+        "start": 517.039,
+        "duration": 3.521,
+        "text": "video"
+      },
+      {
+        "start": 518.839,
+        "duration": 3.64,
+        "text": "so"
+      },
+      {
+        "start": 520.56,
+        "duration": 4.24,
+        "text": "this is uh you know this is kind of like"
+      },
+      {
+        "start": 522.479,
+        "duration": 6.401,
+        "text": "our advertisement for"
+      },
+      {
+        "start": 524.8,
+        "duration": 6.88,
+        "text": "we think that the data tier is possibly"
+      },
+      {
+        "start": 528.88,
+        "duration": 4.88,
+        "text": "with cassandra and datasacks enterprise"
+      },
+      {
+        "start": 531.68,
+        "duration": 3.92,
+        "text": "that might be actually one of the easier"
+      },
+      {
+        "start": 533.76,
+        "duration": 5.199,
+        "text": "parts of the problem that's been our"
+      },
+      {
+        "start": 535.6,
+        "duration": 5.44,
+        "text": "experience as we worked toward"
+      },
+      {
+        "start": 538.959,
+        "duration": 3.761,
+        "text": "this this effort on killer video has"
+      },
+      {
+        "start": 541.04,
+        "duration": 4.32,
+        "text": "been"
+      },
+      {
+        "start": 542.72,
+        "duration": 5.28,
+        "text": "the configuration of"
+      },
+      {
+        "start": 545.36,
+        "duration": 5.599,
+        "text": "uh you know the snitch and the"
+      },
+      {
+        "start": 548.0,
+        "duration": 5.12,
+        "text": "replication strategies and etc um"
+      },
+      {
+        "start": 550.959,
+        "duration": 3.521,
+        "text": "that's a lot tends to be a lot easier"
+      },
+      {
+        "start": 553.12,
+        "duration": 3.52,
+        "text": "than actually getting all the networking"
+      },
+      {
+        "start": 554.48,
+        "duration": 3.52,
+        "text": "parts right so"
+      },
+      {
+        "start": 556.64,
+        "duration": 3.28,
+        "text": "we'll dig into that a little bit more"
+      },
+      {
+        "start": 558.0,
+        "duration": 5.12,
+        "text": "but that's just sort of i'm throwing out"
+      },
+      {
+        "start": 559.92,
+        "duration": 4.8,
+        "text": "a thesis at you up front here"
+      },
+      {
+        "start": 563.12,
+        "duration": 3.76,
+        "text": "so if you haven't heard of killer video"
+      },
+      {
+        "start": 564.72,
+        "duration": 4.4,
+        "text": "before this is a reference application"
+      },
+      {
+        "start": 566.88,
+        "duration": 4.8,
+        "text": "that our developer advocate team"
+      },
+      {
+        "start": 569.12,
+        "duration": 3.92,
+        "text": "maintains at data stacks"
+      },
+      {
+        "start": 571.68,
+        "duration": 2.32,
+        "text": "the thing that"
+      },
+      {
+        "start": 573.04,
+        "duration": 2.479,
+        "text": "i"
+      },
+      {
+        "start": 574.0,
+        "duration": 2.88,
+        "text": "okay i can say that i think it's great"
+      },
+      {
+        "start": 575.519,
+        "duration": 3.361,
+        "text": "because it's you know it's my team's"
+      },
+      {
+        "start": 576.88,
+        "duration": 3.28,
+        "text": "responsibility but even before i was on"
+      },
+      {
+        "start": 578.88,
+        "duration": 4.399,
+        "text": "a part of the team i thought it was a"
+      },
+      {
+        "start": 580.16,
+        "duration": 6.0,
+        "text": "really great resource for learning"
+      },
+      {
+        "start": 583.279,
+        "duration": 4.961,
+        "text": "how to develop with apache cassandra"
+      },
+      {
+        "start": 586.16,
+        "duration": 5.44,
+        "text": "with data sax enterprise it makes full"
+      },
+      {
+        "start": 588.24,
+        "duration": 6.96,
+        "text": "use of the drivers that datastax"
+      },
+      {
+        "start": 591.6,
+        "duration": 5.2,
+        "text": "provides we have um"
+      },
+      {
+        "start": 595.2,
+        "duration": 3.199,
+        "text": "basically actually i'll show you the"
+      },
+      {
+        "start": 596.8,
+        "duration": 4.08,
+        "text": "architecture diagram that'll make more"
+      },
+      {
+        "start": 598.399,
+        "duration": 4.481,
+        "text": "sense as i explain it"
+      },
+      {
+        "start": 600.88,
+        "duration": 4.56,
+        "text": "if you didn't if you didn't catch i can"
+      },
+      {
+        "start": 602.88,
+        "duration": 4.399,
+        "text": "always give you the slides later on um"
+      },
+      {
+        "start": 605.44,
+        "duration": 4.44,
+        "text": "the all the source is freely available"
+      },
+      {
+        "start": 607.279,
+        "duration": 4.321,
+        "text": "on github uh and then you can go to"
+      },
+      {
+        "start": 609.88,
+        "duration": 3.16,
+        "text": "killervideo.com if you want to see a"
+      },
+      {
+        "start": 611.6,
+        "duration": 2.96,
+        "text": "live running instance that we have"
+      },
+      {
+        "start": 613.04,
+        "duration": 3.44,
+        "text": "running in aws"
+      },
+      {
+        "start": 614.56,
+        "duration": 3.76,
+        "text": "although david gallarde told me not to"
+      },
+      {
+        "start": 616.48,
+        "duration": 4.56,
+        "text": "send people there because he said it was"
+      },
+      {
+        "start": 618.32,
+        "duration": 5.6,
+        "text": "flaky and we were at strata all week"
+      },
+      {
+        "start": 621.04,
+        "duration": 5.2,
+        "text": "et cetera et cetera i guess we're not um"
+      },
+      {
+        "start": 623.92,
+        "duration": 4.0,
+        "text": "ops experts"
+      },
+      {
+        "start": 626.24,
+        "duration": 4.24,
+        "text": "well he said that there was a there's a"
+      },
+      {
+        "start": 627.92,
+        "duration": 3.84,
+        "text": "whole thing about this the scalability"
+      },
+      {
+        "start": 630.48,
+        "duration": 2.96,
+        "text": "of the gremlin query for the"
+      },
+      {
+        "start": 631.76,
+        "duration": 3.6,
+        "text": "recommendation engine that it kind of"
+      },
+      {
+        "start": 633.44,
+        "duration": 3.6,
+        "text": "tends to slow down"
+      },
+      {
+        "start": 635.36,
+        "duration": 3.76,
+        "text": "yeah it was great it was a great moment"
+      },
+      {
+        "start": 637.04,
+        "duration": 3.52,
+        "text": "where uh we put up on a slide like"
+      },
+      {
+        "start": 639.12,
+        "duration": 3.36,
+        "text": "here's a traversal that we're using for"
+      },
+      {
+        "start": 640.56,
+        "duration": 3.36,
+        "text": "a recommendation engine and jonathan"
+      },
+      {
+        "start": 642.48,
+        "duration": 3.12,
+        "text": "ellis was like i don't think it's going"
+      },
+      {
+        "start": 643.92,
+        "duration": 3.359,
+        "text": "to scale and i was like how do you even"
+      },
+      {
+        "start": 645.6,
+        "duration": 3.6,
+        "text": "read the gremlin"
+      },
+      {
+        "start": 647.279,
+        "duration": 2.641,
+        "text": "that fast that's another talk"
+      },
+      {
+        "start": 649.2,
+        "duration": 2.96,
+        "text": "so"
+      },
+      {
+        "start": 649.92,
+        "duration": 3.76,
+        "text": "architecturally um"
+      },
+      {
+        "start": 652.16,
+        "duration": 3.679,
+        "text": "we have a web application that we've"
+      },
+      {
+        "start": 653.68,
+        "duration": 3.52,
+        "text": "written in node.js"
+      },
+      {
+        "start": 655.839,
+        "duration": 3.521,
+        "text": "that's actually the screenshot that you"
+      },
+      {
+        "start": 657.2,
+        "duration": 4.96,
+        "text": "saw there that's our that's a obviously"
+      },
+      {
+        "start": 659.36,
+        "duration": 4.159,
+        "text": "our node.js front end um then we have a"
+      },
+      {
+        "start": 662.16,
+        "duration": 3.04,
+        "text": "a service tier and we have"
+      },
+      {
+        "start": 663.519,
+        "duration": 2.801,
+        "text": "implementations of those services in"
+      },
+      {
+        "start": 665.2,
+        "duration": 2.879,
+        "text": "java"
+      },
+      {
+        "start": 666.32,
+        "duration": 5.12,
+        "text": "and in node"
+      },
+      {
+        "start": 668.079,
+        "duration": 6.241,
+        "text": "uh and in c sharp"
+      },
+      {
+        "start": 671.44,
+        "duration": 5.92,
+        "text": "and i would love it if uh we could get a"
+      },
+      {
+        "start": 674.32,
+        "duration": 5.92,
+        "text": "python one so that's on the roadmap"
+      },
+      {
+        "start": 677.36,
+        "duration": 6.32,
+        "text": "um we have like a common interface"
+      },
+      {
+        "start": 680.24,
+        "duration": 5.92,
+        "text": "description we've chosen to use grpc so"
+      },
+      {
+        "start": 683.68,
+        "duration": 3.599,
+        "text": "we have grpc interfaces that we've"
+      },
+      {
+        "start": 686.16,
+        "duration": 2.0,
+        "text": "written and then bindings that we've"
+      },
+      {
+        "start": 687.279,
+        "duration": 2.56,
+        "text": "generated for each of those"
+      },
+      {
+        "start": 688.16,
+        "duration": 2.96,
+        "text": "implementation languages and the great"
+      },
+      {
+        "start": 689.839,
+        "duration": 3.201,
+        "text": "thing is you can go to the java"
+      },
+      {
+        "start": 691.12,
+        "duration": 3.04,
+        "text": "implementation and we're using the java"
+      },
+      {
+        "start": 693.04,
+        "duration": 3.2,
+        "text": "driver"
+      },
+      {
+        "start": 694.16,
+        "duration": 3.919,
+        "text": "um same thing for the c sharp driver etc"
+      },
+      {
+        "start": 696.24,
+        "duration": 3.839,
+        "text": "so"
+      },
+      {
+        "start": 698.079,
+        "duration": 4.481,
+        "text": "there's two main ways that we deploy"
+      },
+      {
+        "start": 700.079,
+        "duration": 6.081,
+        "text": "this one of them is you just download"
+      },
+      {
+        "start": 702.56,
+        "duration": 5.839,
+        "text": "uh the the code or you clone the project"
+      },
+      {
+        "start": 706.16,
+        "duration": 5.359,
+        "text": "get the docker images we have like some"
+      },
+      {
+        "start": 708.399,
+        "duration": 4.321,
+        "text": "docker compose files so you uh clone the"
+      },
+      {
+        "start": 711.519,
+        "duration": 2.721,
+        "text": "repo"
+      },
+      {
+        "start": 712.72,
+        "duration": 3.04,
+        "text": "run a docker compose that'll grab all"
+      },
+      {
+        "start": 714.24,
+        "duration": 2.719,
+        "text": "the images that you need it'll create an"
+      },
+      {
+        "start": 715.76,
+        "duration": 2.8,
+        "text": "environment for you and you're running"
+      },
+      {
+        "start": 716.959,
+        "duration": 5.281,
+        "text": "the whole thing in docker on your"
+      },
+      {
+        "start": 718.56,
+        "duration": 4.48,
+        "text": "desktop we've also deployed it into aws"
+      },
+      {
+        "start": 722.24,
+        "duration": 2.64,
+        "text": "and"
+      },
+      {
+        "start": 723.04,
+        "duration": 4.0,
+        "text": "that's using"
+      },
+      {
+        "start": 724.88,
+        "duration": 4.16,
+        "text": "uh clusters that are provided and"
+      },
+      {
+        "start": 727.04,
+        "duration": 3.599,
+        "text": "managed by our datasacks managed cloud"
+      },
+      {
+        "start": 729.04,
+        "duration": 2.799,
+        "text": "team"
+      },
+      {
+        "start": 730.639,
+        "duration": 2.961,
+        "text": "so"
+      },
+      {
+        "start": 731.839,
+        "duration": 3.761,
+        "text": "kind of a two ways the the developer"
+      },
+      {
+        "start": 733.6,
+        "duration": 3.76,
+        "text": "deployment and then kind of our i don't"
+      },
+      {
+        "start": 735.6,
+        "duration": 3.919,
+        "text": "know what you would call enterprise or"
+      },
+      {
+        "start": 737.36,
+        "duration": 3.68,
+        "text": "real deployment"
+      },
+      {
+        "start": 739.519,
+        "duration": 3.601,
+        "text": "this is just another way of kind of"
+      },
+      {
+        "start": 741.04,
+        "duration": 4.08,
+        "text": "visualizing that same architecture the"
+      },
+      {
+        "start": 743.12,
+        "duration": 3.6,
+        "text": "only additional detail that i want to"
+      },
+      {
+        "start": 745.12,
+        "duration": 2.48,
+        "text": "call out to you on this one because i"
+      },
+      {
+        "start": 746.72,
+        "duration": 2.48,
+        "text": "know that"
+      },
+      {
+        "start": 747.6,
+        "duration": 3.84,
+        "text": "it gets a little busy and small is"
+      },
+      {
+        "start": 749.2,
+        "duration": 4.72,
+        "text": "really just that"
+      },
+      {
+        "start": 751.44,
+        "duration": 3.92,
+        "text": "we have a generator that we use that"
+      },
+      {
+        "start": 753.92,
+        "duration": 3.44,
+        "text": "basically just like"
+      },
+      {
+        "start": 755.36,
+        "duration": 5.12,
+        "text": "the killer video is like a video sharing"
+      },
+      {
+        "start": 757.36,
+        "duration": 5.68,
+        "text": "application and basically um we're not"
+      },
+      {
+        "start": 760.48,
+        "duration": 4.4,
+        "text": "uh managing all of those large binary"
+      },
+      {
+        "start": 763.04,
+        "duration": 3.12,
+        "text": "files people ask me that sometimes like"
+      },
+      {
+        "start": 764.88,
+        "duration": 3.92,
+        "text": "are you storing where do you store all"
+      },
+      {
+        "start": 766.16,
+        "duration": 3.84,
+        "text": "the all the videos well it's really just"
+      },
+      {
+        "start": 768.8,
+        "duration": 2.88,
+        "text": "um"
+      },
+      {
+        "start": 770.0,
+        "duration": 3.76,
+        "text": "it is a reference application and it's a"
+      },
+      {
+        "start": 771.68,
+        "duration": 4.32,
+        "text": "sample so the videos are actually stored"
+      },
+      {
+        "start": 773.76,
+        "duration": 4.72,
+        "text": "in youtube we're just leveraging we're"
+      },
+      {
+        "start": 776.0,
+        "duration": 4.0,
+        "text": "basically kind of like a catalog of uh"
+      },
+      {
+        "start": 778.48,
+        "duration": 3.84,
+        "text": "sitting on top of what's in youtube"
+      },
+      {
+        "start": 780.0,
+        "duration": 4.079,
+        "text": "already um"
+      },
+      {
+        "start": 782.32,
+        "duration": 4.8,
+        "text": "so we have a generator that basically"
+      },
+      {
+        "start": 784.079,
+        "duration": 5.041,
+        "text": "like pulls videos from youtube based on"
+      },
+      {
+        "start": 787.12,
+        "duration": 3.76,
+        "text": "tags or keywords and then inserts them"
+      },
+      {
+        "start": 789.12,
+        "duration": 3.2,
+        "text": "on a periodic basis and so we have a"
+      },
+      {
+        "start": 790.88,
+        "duration": 3.44,
+        "text": "continually growing data set we're"
+      },
+      {
+        "start": 792.32,
+        "duration": 3.519,
+        "text": "auto-generating users"
+      },
+      {
+        "start": 794.32,
+        "duration": 3.36,
+        "text": "who are liking the videos that are"
+      },
+      {
+        "start": 795.839,
+        "duration": 3.44,
+        "text": "generated and they're rating the videos"
+      },
+      {
+        "start": 797.68,
+        "duration": 3.839,
+        "text": "and so we have a you know continually"
+      },
+      {
+        "start": 799.279,
+        "duration": 3.521,
+        "text": "growing data set basically uh and then"
+      },
+      {
+        "start": 801.519,
+        "duration": 2.88,
+        "text": "we have a recommendation engine that"
+      },
+      {
+        "start": 802.8,
+        "duration": 4.479,
+        "text": "we've implemented with"
+      },
+      {
+        "start": 804.399,
+        "duration": 4.481,
+        "text": "uh datasacks enterprise graph that will"
+      },
+      {
+        "start": 807.279,
+        "duration": 3.521,
+        "text": "uh calculate"
+      },
+      {
+        "start": 808.88,
+        "duration": 3.6,
+        "text": "uh based on"
+      },
+      {
+        "start": 810.8,
+        "duration": 3.36,
+        "text": "uh let's see if i can describe the"
+      },
+      {
+        "start": 812.48,
+        "duration": 4.08,
+        "text": "algorithm in one sentence based on"
+      },
+      {
+        "start": 814.16,
+        "duration": 4.96,
+        "text": "movies that you that"
+      },
+      {
+        "start": 816.56,
+        "duration": 5.12,
+        "text": "you like that groups you with other"
+      },
+      {
+        "start": 819.12,
+        "duration": 4.24,
+        "text": "users who like similar movies so"
+      },
+      {
+        "start": 821.68,
+        "duration": 3.599,
+        "text": "movies that those other users who are"
+      },
+      {
+        "start": 823.36,
+        "duration": 3.52,
+        "text": "like you similar users"
+      },
+      {
+        "start": 825.279,
+        "duration": 3.12,
+        "text": "uh there we go"
+      },
+      {
+        "start": 826.88,
+        "duration": 3.28,
+        "text": "movies liked by"
+      },
+      {
+        "start": 828.399,
+        "duration": 3.761,
+        "text": "users whose tastes are similar to your"
+      },
+      {
+        "start": 830.16,
+        "duration": 3.44,
+        "text": "own right it's a similarity matching"
+      },
+      {
+        "start": 832.16,
+        "duration": 3.52,
+        "text": "kind of thing"
+      },
+      {
+        "start": 833.6,
+        "duration": 5.12,
+        "text": "um we're also using"
+      },
+      {
+        "start": 835.68,
+        "duration": 4.88,
+        "text": "etd as a service registry and we'll talk"
+      },
+      {
+        "start": 838.72,
+        "duration": 3.679,
+        "text": "about some changes on our roadmap for"
+      },
+      {
+        "start": 840.56,
+        "duration": 3.44,
+        "text": "that at some point"
+      },
+      {
+        "start": 842.399,
+        "duration": 3.44,
+        "text": "um so for this deployment that we have"
+      },
+      {
+        "start": 844.0,
+        "duration": 4.0,
+        "text": "on amazon it's actually"
+      },
+      {
+        "start": 845.839,
+        "duration": 4.721,
+        "text": "uh in three"
+      },
+      {
+        "start": 848.0,
+        "duration": 4.88,
+        "text": "different availability zones"
+      },
+      {
+        "start": 850.56,
+        "duration": 4.639,
+        "text": "um two of them are us west"
+      },
+      {
+        "start": 852.88,
+        "duration": 4.24,
+        "text": "located availability zones actually no"
+      },
+      {
+        "start": 855.199,
+        "duration": 3.76,
+        "text": "it's i'm sorry"
+      },
+      {
+        "start": 857.12,
+        "duration": 5.6,
+        "text": "oh that's okay this is an old diagram"
+      },
+      {
+        "start": 858.959,
+        "duration": 4.641,
+        "text": "the the three um us in the in the u.s"
+      },
+      {
+        "start": 862.72,
+        "duration": 2.239,
+        "text": "west"
+      },
+      {
+        "start": 863.6,
+        "duration": 2.16,
+        "text": "region"
+      },
+      {
+        "start": 864.959,
+        "duration": 4.841,
+        "text": "uh"
+      },
+      {
+        "start": 865.76,
+        "duration": 4.04,
+        "text": "in three availability zones"
+      },
+      {
+        "start": 870.079,
+        "duration": 3.44,
+        "text": "okay so we won't dwell on that"
+      },
+      {
+        "start": 872.0,
+        "duration": 3.44,
+        "text": "or dig into that too much it's another"
+      },
+      {
+        "start": 873.519,
+        "duration": 3.601,
+        "text": "eye chart so we are using our data"
+      },
+      {
+        "start": 875.44,
+        "duration": 3.759,
+        "text": "session managed cloud products so our"
+      },
+      {
+        "start": 877.12,
+        "duration": 2.959,
+        "text": "cluster that we're running killer video"
+      },
+      {
+        "start": 879.199,
+        "duration": 1.681,
+        "text": "on"
+      },
+      {
+        "start": 880.079,
+        "duration": 2.641,
+        "text": "for"
+      },
+      {
+        "start": 880.88,
+        "duration": 3.04,
+        "text": "instance in aws is not managed by the"
+      },
+      {
+        "start": 882.72,
+        "duration": 4.72,
+        "text": "advocate team it's managed by our"
+      },
+      {
+        "start": 883.92,
+        "duration": 5.2,
+        "text": "datasacks managed cloud team"
+      },
+      {
+        "start": 887.44,
+        "duration": 3.92,
+        "text": "so we're kind of beta users of this"
+      },
+      {
+        "start": 889.12,
+        "duration": 3.2,
+        "text": "service ourselves"
+      },
+      {
+        "start": 891.36,
+        "duration": 3.039,
+        "text": "um"
+      },
+      {
+        "start": 892.32,
+        "duration": 3.6,
+        "text": "and the point here is that there's"
+      },
+      {
+        "start": 894.399,
+        "duration": 3.761,
+        "text": "there's kind of a spectrum of how"
+      },
+      {
+        "start": 895.92,
+        "duration": 3.12,
+        "text": "involved you may or may not want to be"
+      },
+      {
+        "start": 898.16,
+        "duration": 3.44,
+        "text": "in"
+      },
+      {
+        "start": 899.04,
+        "duration": 4.159,
+        "text": "the management of your database tier so"
+      },
+      {
+        "start": 901.6,
+        "duration": 3.359,
+        "text": "you can definitely"
+      },
+      {
+        "start": 903.199,
+        "duration": 4.401,
+        "text": "deploy all the images"
+      },
+      {
+        "start": 904.959,
+        "duration": 4.481,
+        "text": "deploy all the the"
+      },
+      {
+        "start": 907.6,
+        "duration": 3.52,
+        "text": "your cassandra nodes and manage them"
+      },
+      {
+        "start": 909.44,
+        "duration": 3.28,
+        "text": "yourself across"
+      },
+      {
+        "start": 911.12,
+        "duration": 3.2,
+        "text": "multiple clouds"
+      },
+      {
+        "start": 912.72,
+        "duration": 3.04,
+        "text": "what we had chosen to do"
+      },
+      {
+        "start": 914.32,
+        "duration": 2.879,
+        "text": "for at least part of our implementation"
+      },
+      {
+        "start": 915.76,
+        "duration": 2.639,
+        "text": "or one of our implementations is just"
+      },
+      {
+        "start": 917.199,
+        "duration": 3.121,
+        "text": "use the managed"
+      },
+      {
+        "start": 918.399,
+        "duration": 4.24,
+        "text": "cloud service now the managed cloud"
+      },
+      {
+        "start": 920.32,
+        "duration": 4.319,
+        "text": "service is not yet multi-cloud it's"
+      },
+      {
+        "start": 922.639,
+        "duration": 5.521,
+        "text": "running as of right now it's available"
+      },
+      {
+        "start": 924.639,
+        "duration": 4.88,
+        "text": "in aws and it's available in azure so"
+      },
+      {
+        "start": 928.16,
+        "duration": 3.679,
+        "text": "when we went to go and do this"
+      },
+      {
+        "start": 929.519,
+        "duration": 4.481,
+        "text": "capability and build it up on our own we"
+      },
+      {
+        "start": 931.839,
+        "duration": 3.521,
+        "text": "were no longer able to use the data sax"
+      },
+      {
+        "start": 934.0,
+        "duration": 4.8,
+        "text": "managed cloud we're on our own we're"
+      },
+      {
+        "start": 935.36,
+        "duration": 5.36,
+        "text": "managing our own cluster at this point"
+      },
+      {
+        "start": 938.8,
+        "duration": 3.2,
+        "text": "so here's the desired end state project"
+      },
+      {
+        "start": 940.72,
+        "duration": 4.08,
+        "text": "goal of"
+      },
+      {
+        "start": 942.0,
+        "duration": 4.32,
+        "text": "uh take killer video multi-cloud"
+      },
+      {
+        "start": 944.8,
+        "duration": 4.0,
+        "text": "would be that"
+      },
+      {
+        "start": 946.32,
+        "duration": 3.92,
+        "text": "we want to deploy an aws azure"
+      },
+      {
+        "start": 948.8,
+        "duration": 2.479,
+        "text": "gcp"
+      },
+      {
+        "start": 950.24,
+        "duration": 3.839,
+        "text": "we're just going to have a single data"
+      },
+      {
+        "start": 951.279,
+        "duration": 4.24,
+        "text": "center per public cloud keep it simple"
+      },
+      {
+        "start": 954.079,
+        "duration": 3.841,
+        "text": "we want to have our full stack of"
+      },
+      {
+        "start": 955.519,
+        "duration": 4.081,
+        "text": "services available in each dc so i'm not"
+      },
+      {
+        "start": 957.92,
+        "duration": 3.44,
+        "text": "isolating workloads i'm not having an"
+      },
+      {
+        "start": 959.6,
+        "duration": 3.2,
+        "text": "analytics workload one place and an"
+      },
+      {
+        "start": 961.36,
+        "duration": 2.56,
+        "text": "operational workload some other place"
+      },
+      {
+        "start": 962.8,
+        "duration": 2.719,
+        "text": "this is just like straight up"
+      },
+      {
+        "start": 963.92,
+        "duration": 3.599,
+        "text": "duplication"
+      },
+      {
+        "start": 965.519,
+        "duration": 3.44,
+        "text": "of the full killer video stack in each"
+      },
+      {
+        "start": 967.519,
+        "duration": 2.641,
+        "text": "cloud"
+      },
+      {
+        "start": 968.959,
+        "duration": 2.88,
+        "text": "so we're gonna have the same data"
+      },
+      {
+        "start": 970.16,
+        "duration": 4.88,
+        "text": "availability i'm not trying to solve a"
+      },
+      {
+        "start": 971.839,
+        "duration": 4.881,
+        "text": "like um a gdpr problem yet that's not"
+      },
+      {
+        "start": 975.04,
+        "duration": 4.4,
+        "text": "the purpose of this demo"
+      },
+      {
+        "start": 976.72,
+        "duration": 4.799,
+        "text": "uh we're trying to have uh we'd like to"
+      },
+      {
+        "start": 979.44,
+        "duration": 4.88,
+        "text": "have a secure network between the"
+      },
+      {
+        "start": 981.519,
+        "duration": 2.801,
+        "text": "different clouds"
+      },
+      {
+        "start": 984.8,
+        "duration": 4.479,
+        "text": "we are not trying to have interactions"
+      },
+      {
+        "start": 987.519,
+        "duration": 3.601,
+        "text": "between the web and application tiers"
+      },
+      {
+        "start": 989.279,
+        "duration": 4.161,
+        "text": "per data center so in other words i'm"
+      },
+      {
+        "start": 991.12,
+        "duration": 5.44,
+        "text": "not taking"
+      },
+      {
+        "start": 993.44,
+        "duration": 4.079,
+        "text": "services on aws and trying to talk to to"
+      },
+      {
+        "start": 996.56,
+        "duration": 1.68,
+        "text": "uh"
+      },
+      {
+        "start": 997.519,
+        "duration": 3.12,
+        "text": "to"
+      },
+      {
+        "start": 998.24,
+        "duration": 4.32,
+        "text": "my my data tax cluster in aws and then"
+      },
+      {
+        "start": 1000.639,
+        "duration": 3.44,
+        "text": "fail over to have the services talk to"
+      },
+      {
+        "start": 1002.56,
+        "duration": 4.24,
+        "text": "the nodes in azure"
+      },
+      {
+        "start": 1004.079,
+        "duration": 4.88,
+        "text": "uh we're we haven't implemented any sort"
+      },
+      {
+        "start": 1006.8,
+        "duration": 5.12,
+        "text": "of like um"
+      },
+      {
+        "start": 1008.959,
+        "duration": 4.721,
+        "text": "reach retry strategy uh across clouds"
+      },
+      {
+        "start": 1011.92,
+        "duration": 3.359,
+        "text": "like that so we're just trying to go"
+      },
+      {
+        "start": 1013.68,
+        "duration": 4.24,
+        "text": "full vertical slice in each data center"
+      },
+      {
+        "start": 1015.279,
+        "duration": 5.041,
+        "text": "and our point of intersection is the the"
+      },
+      {
+        "start": 1017.92,
+        "duration": 3.919,
+        "text": "uh dse cluster sharing all the data"
+      },
+      {
+        "start": 1020.32,
+        "duration": 4.879,
+        "text": "across that so that's that's the goal of"
+      },
+      {
+        "start": 1021.839,
+        "duration": 6.48,
+        "text": "this particular project"
+      },
+      {
+        "start": 1025.199,
+        "duration": 5.36,
+        "text": "we see here is this is a live view of a"
+      },
+      {
+        "start": 1028.319,
+        "duration": 4.161,
+        "text": "cluster that's been created"
+      },
+      {
+        "start": 1030.559,
+        "duration": 3.52,
+        "text": "for this deployment"
+      },
+      {
+        "start": 1032.48,
+        "duration": 3.199,
+        "text": "it's not running right now like we"
+      },
+      {
+        "start": 1034.079,
+        "duration": 3.36,
+        "text": "literally spun it up"
+      },
+      {
+        "start": 1035.679,
+        "duration": 3.681,
+        "text": "to take this photo because it's"
+      },
+      {
+        "start": 1037.439,
+        "duration": 4.64,
+        "text": "automated i spun it up so we could take"
+      },
+      {
+        "start": 1039.36,
+        "duration": 4.0,
+        "text": "the picture and then spun it back down"
+      },
+      {
+        "start": 1042.079,
+        "duration": 2.401,
+        "text": "because apparently people don't think"
+      },
+      {
+        "start": 1043.36,
+        "duration": 2.8,
+        "text": "when they're actually doing real work"
+      },
+      {
+        "start": 1044.48,
+        "duration": 3.76,
+        "text": "they don't think of taking screenshots"
+      },
+      {
+        "start": 1046.16,
+        "duration": 3.2,
+        "text": "funny enough i don't know why that is"
+      },
+      {
+        "start": 1048.24,
+        "duration": 2.88,
+        "text": "um"
+      },
+      {
+        "start": 1049.36,
+        "duration": 5.199,
+        "text": "so what i'm showing you here is that we"
+      },
+      {
+        "start": 1051.12,
+        "duration": 5.04,
+        "text": "have you know live aws azure and gcp"
+      },
+      {
+        "start": 1054.559,
+        "duration": 2.48,
+        "text": "five nodes"
+      },
+      {
+        "start": 1056.16,
+        "duration": 2.879,
+        "text": "per"
+      },
+      {
+        "start": 1057.039,
+        "duration": 3.121,
+        "text": "data center here"
+      },
+      {
+        "start": 1059.039,
+        "duration": 2.961,
+        "text": "and"
+      },
+      {
+        "start": 1060.16,
+        "duration": 3.44,
+        "text": "the way that we chose to do this is we"
+      },
+      {
+        "start": 1062.0,
+        "duration": 4.48,
+        "text": "actually um"
+      },
+      {
+        "start": 1063.6,
+        "duration": 4.72,
+        "text": "we do have right scale such that we"
+      },
+      {
+        "start": 1066.48,
+        "duration": 3.6,
+        "text": "can you know kind of script things out"
+      },
+      {
+        "start": 1068.32,
+        "duration": 4.56,
+        "text": "in terms of create the infrastructure"
+      },
+      {
+        "start": 1070.08,
+        "duration": 4.959,
+        "text": "per data center uh we're we're not quite"
+      },
+      {
+        "start": 1072.88,
+        "duration": 4.0,
+        "text": "to the point yet of having um terraform"
+      },
+      {
+        "start": 1075.039,
+        "duration": 3.121,
+        "text": "stuff built up for provisioning"
+      },
+      {
+        "start": 1076.88,
+        "duration": 2.88,
+        "text": "everything but that's that's definitely"
+      },
+      {
+        "start": 1078.16,
+        "duration": 3.44,
+        "text": "on the roadmap so"
+      },
+      {
+        "start": 1079.76,
+        "duration": 3.919,
+        "text": "basically this this cluster was created"
+      },
+      {
+        "start": 1081.6,
+        "duration": 3.84,
+        "text": "through uh manual"
+      },
+      {
+        "start": 1083.679,
+        "duration": 4.081,
+        "text": "instantiation of infrastructure and then"
+      },
+      {
+        "start": 1085.44,
+        "duration": 4.08,
+        "text": "we used uh datasacks op center we used"
+      },
+      {
+        "start": 1087.76,
+        "duration": 3.44,
+        "text": "the lifecycle manager"
+      },
+      {
+        "start": 1089.52,
+        "duration": 3.2,
+        "text": "so that was the easy part the lifecycle"
+      },
+      {
+        "start": 1091.2,
+        "duration": 3.359,
+        "text": "manager just"
+      },
+      {
+        "start": 1092.72,
+        "duration": 4.16,
+        "text": "you can see it here the log just uh just"
+      },
+      {
+        "start": 1094.559,
+        "duration": 4.0,
+        "text": "kind of blowing through creating all of"
+      },
+      {
+        "start": 1096.88,
+        "duration": 3.2,
+        "text": "those nodes per data center those five"
+      },
+      {
+        "start": 1098.559,
+        "duration": 4.801,
+        "text": "nodes per data center and there's more"
+      },
+      {
+        "start": 1100.08,
+        "duration": 5.52,
+        "text": "to it obviously like aws and gcp"
+      },
+      {
+        "start": 1103.36,
+        "duration": 3.84,
+        "text": "got created and the azure ones are on"
+      },
+      {
+        "start": 1105.6,
+        "duration": 4.64,
+        "text": "the log below so"
+      },
+      {
+        "start": 1107.2,
+        "duration": 4.479,
+        "text": "all this spun up i think it was about 15"
+      },
+      {
+        "start": 1110.24,
+        "duration": 2.559,
+        "text": "minutes if i'm right"
+      },
+      {
+        "start": 1111.679,
+        "duration": 3.281,
+        "text": "like the whole"
+      },
+      {
+        "start": 1112.799,
+        "duration": 4.721,
+        "text": "start to finish"
+      },
+      {
+        "start": 1114.96,
+        "duration": 4.8,
+        "text": "okay so the database here that was the"
+      },
+      {
+        "start": 1117.52,
+        "duration": 3.279,
+        "text": "that was the easiest part um but i'm"
+      },
+      {
+        "start": 1119.76,
+        "duration": 2.88,
+        "text": "just going to kind of walk down the"
+      },
+      {
+        "start": 1120.799,
+        "duration": 3.521,
+        "text": "stack here starting with the application"
+      },
+      {
+        "start": 1122.64,
+        "duration": 3.68,
+        "text": "tier so"
+      },
+      {
+        "start": 1124.32,
+        "duration": 4.0,
+        "text": "uh building a multi-cloud app here are"
+      },
+      {
+        "start": 1126.32,
+        "duration": 3.28,
+        "text": "the things that we were we were thinking"
+      },
+      {
+        "start": 1128.32,
+        "duration": 2.479,
+        "text": "of that you want to be thinking about"
+      },
+      {
+        "start": 1129.6,
+        "duration": 2.88,
+        "text": "and then i'm just going to kind of go"
+      },
+      {
+        "start": 1130.799,
+        "duration": 2.88,
+        "text": "through and here's how far we've"
+      },
+      {
+        "start": 1132.48,
+        "duration": 2.88,
+        "text": "actually gotten and what we've"
+      },
+      {
+        "start": 1133.679,
+        "duration": 4.161,
+        "text": "implemented and kind of what's left to"
+      },
+      {
+        "start": 1135.36,
+        "duration": 4.8,
+        "text": "go okay so you want to be thinking about"
+      },
+      {
+        "start": 1137.84,
+        "duration": 3.68,
+        "text": "your the uh the deployment of your"
+      },
+      {
+        "start": 1140.16,
+        "duration": 3.2,
+        "text": "applications here how are you going to"
+      },
+      {
+        "start": 1141.52,
+        "duration": 4.32,
+        "text": "scale it up and down are you going to be"
+      },
+      {
+        "start": 1143.36,
+        "duration": 4.16,
+        "text": "using something like kubernetes to help"
+      },
+      {
+        "start": 1145.84,
+        "duration": 4.8,
+        "text": "scale the"
+      },
+      {
+        "start": 1147.52,
+        "duration": 4.88,
+        "text": "services or or even monolith"
+      },
+      {
+        "start": 1150.64,
+        "duration": 3.36,
+        "text": "more monolithic things i guess that you"
+      },
+      {
+        "start": 1152.4,
+        "duration": 3.92,
+        "text": "have in that tier"
+      },
+      {
+        "start": 1154.0,
+        "duration": 3.52,
+        "text": "so that that can that orchestration and"
+      },
+      {
+        "start": 1156.32,
+        "duration": 2.479,
+        "text": "scheduling"
+      },
+      {
+        "start": 1157.52,
+        "duration": 3.76,
+        "text": "uh what are you going to do about"
+      },
+      {
+        "start": 1158.799,
+        "duration": 3.76,
+        "text": "service discovery and routing such that"
+      },
+      {
+        "start": 1161.28,
+        "duration": 2.72,
+        "text": "you don't have to go in and continually"
+      },
+      {
+        "start": 1162.559,
+        "duration": 3.601,
+        "text": "stitch everything together which tech"
+      },
+      {
+        "start": 1164.0,
+        "duration": 4.4,
+        "text": "are you going to pick for that"
+      },
+      {
+        "start": 1166.16,
+        "duration": 4.16,
+        "text": "and then are you going to need i"
+      },
+      {
+        "start": 1168.4,
+        "duration": 4.24,
+        "text": "recommend that you do need something"
+      },
+      {
+        "start": 1170.32,
+        "duration": 5.2,
+        "text": "like a distributed tracing solution so"
+      },
+      {
+        "start": 1172.64,
+        "duration": 5.039,
+        "text": "that you can really begin to keep track"
+      },
+      {
+        "start": 1175.52,
+        "duration": 4.399,
+        "text": "of what's going on"
+      },
+      {
+        "start": 1177.679,
+        "duration": 3.921,
+        "text": "and i you know the the holy grail for me"
+      },
+      {
+        "start": 1179.919,
+        "duration": 3.76,
+        "text": "which which is achievable although we"
+      },
+      {
+        "start": 1181.6,
+        "duration": 3.92,
+        "text": "haven't totally gotten there yet"
+      },
+      {
+        "start": 1183.679,
+        "duration": 2.88,
+        "text": "is to have that distributed tracing"
+      },
+      {
+        "start": 1185.52,
+        "duration": 3.44,
+        "text": "where you can track where something"
+      },
+      {
+        "start": 1186.559,
+        "duration": 3.761,
+        "text": "comes in at your web tier"
+      },
+      {
+        "start": 1188.96,
+        "duration": 3.76,
+        "text": "and watch what happens all the way down"
+      },
+      {
+        "start": 1190.32,
+        "duration": 4.8,
+        "text": "through the service tier and in to the"
+      },
+      {
+        "start": 1192.72,
+        "duration": 5.199,
+        "text": "dse cluster so"
+      },
+      {
+        "start": 1195.12,
+        "duration": 4.64,
+        "text": "um that is part of that eventual goal"
+      },
+      {
+        "start": 1197.919,
+        "duration": 3.681,
+        "text": "and state for us"
+      },
+      {
+        "start": 1199.76,
+        "duration": 3.52,
+        "text": "so as i mentioned kind of on those"
+      },
+      {
+        "start": 1201.6,
+        "duration": 3.12,
+        "text": "previous pictures"
+      },
+      {
+        "start": 1203.28,
+        "duration": 3.2,
+        "text": "we're at the point where we've manually"
+      },
+      {
+        "start": 1204.72,
+        "duration": 3.68,
+        "text": "created the compute"
+      },
+      {
+        "start": 1206.48,
+        "duration": 4.72,
+        "text": "and then used lifecycle manager to"
+      },
+      {
+        "start": 1208.4,
+        "duration": 4.8,
+        "text": "provision instances so we've got that"
+      },
+      {
+        "start": 1211.2,
+        "duration": 4.64,
+        "text": "and yeah that's reproducible but not"
+      },
+      {
+        "start": 1213.2,
+        "duration": 4.56,
+        "text": "obviously the desired end state"
+      },
+      {
+        "start": 1215.84,
+        "duration": 4.16,
+        "text": "and our current solution uses fcd for"
+      },
+      {
+        "start": 1217.76,
+        "duration": 5.039,
+        "text": "discovery what i'm interested in doing"
+      },
+      {
+        "start": 1220.0,
+        "duration": 4.88,
+        "text": "is actually um"
+      },
+      {
+        "start": 1222.799,
+        "duration": 3.601,
+        "text": "we we currently when we deploy our"
+      },
+      {
+        "start": 1224.88,
+        "duration": 4.64,
+        "text": "services they're actually all running in"
+      },
+      {
+        "start": 1226.4,
+        "duration": 6.159,
+        "text": "one jvm for the java implementation"
+      },
+      {
+        "start": 1229.52,
+        "duration": 4.96,
+        "text": "uh we're looking to to break that up and"
+      },
+      {
+        "start": 1232.559,
+        "duration": 4.161,
+        "text": "then actually because the services there"
+      },
+      {
+        "start": 1234.48,
+        "duration": 3.52,
+        "text": "are services that have interactions"
+      },
+      {
+        "start": 1236.72,
+        "duration": 2.079,
+        "text": "between them"
+      },
+      {
+        "start": 1238.0,
+        "duration": 2.48,
+        "text": "so"
+      },
+      {
+        "start": 1238.799,
+        "duration": 3.12,
+        "text": "i want to"
+      },
+      {
+        "start": 1240.48,
+        "duration": 4.48,
+        "text": "make some improvements there to the"
+      },
+      {
+        "start": 1241.919,
+        "duration": 5.441,
+        "text": "event layer of the application"
+      },
+      {
+        "start": 1244.96,
+        "duration": 4.24,
+        "text": "and then make sure that we're using"
+      },
+      {
+        "start": 1247.36,
+        "duration": 3.92,
+        "text": "service mess technology leaning pretty"
+      },
+      {
+        "start": 1249.2,
+        "duration": 3.839,
+        "text": "strongly toward istio"
+      },
+      {
+        "start": 1251.28,
+        "duration": 3.759,
+        "text": "getting that in place which makes use of"
+      },
+      {
+        "start": 1253.039,
+        "duration": 6.0,
+        "text": "envoy is kind of the side car that helps"
+      },
+      {
+        "start": 1255.039,
+        "duration": 4.0,
+        "text": "out without hooking everything together"
+      },
+      {
+        "start": 1259.12,
+        "duration": 5.2,
+        "text": "so we're looking to implant that and"
+      },
+      {
+        "start": 1261.44,
+        "duration": 5.04,
+        "text": "then begin using terraform for"
+      },
+      {
+        "start": 1264.32,
+        "duration": 4.56,
+        "text": "kind of the scripting and specking out"
+      },
+      {
+        "start": 1266.48,
+        "duration": 4.16,
+        "text": "what needs to be deployed and uh"
+      },
+      {
+        "start": 1268.88,
+        "duration": 4.08,
+        "text": "definitely using kubernetes at the"
+      },
+      {
+        "start": 1270.64,
+        "duration": 4.8,
+        "text": "application tier what i'm what we're"
+      },
+      {
+        "start": 1272.96,
+        "duration": 5.28,
+        "text": "kind of maybe not super decided on yet"
+      },
+      {
+        "start": 1275.44,
+        "duration": 5.04,
+        "text": "is the use of kubernetes at the database"
+      },
+      {
+        "start": 1278.24,
+        "duration": 4.16,
+        "text": "tier specifically so we're just to the"
+      },
+      {
+        "start": 1280.48,
+        "duration": 4.0,
+        "text": "point of starting to look at"
+      },
+      {
+        "start": 1282.4,
+        "duration": 4.56,
+        "text": "this kubernetes operator that ben"
+      },
+      {
+        "start": 1284.48,
+        "duration": 3.84,
+        "text": "brahman from mr cluster has been talking"
+      },
+      {
+        "start": 1286.96,
+        "duration": 2.719,
+        "text": "about and"
+      },
+      {
+        "start": 1288.32,
+        "duration": 3.04,
+        "text": "i don't know if he already did his talk"
+      },
+      {
+        "start": 1289.679,
+        "duration": 4.721,
+        "text": "or if that's coming up later on that"
+      },
+      {
+        "start": 1291.36,
+        "duration": 5.28,
+        "text": "happened previous to this right um"
+      },
+      {
+        "start": 1294.4,
+        "duration": 4.08,
+        "text": "so so go and check out we're looking at"
+      },
+      {
+        "start": 1296.64,
+        "duration": 3.519,
+        "text": "that and what it looks for a"
+      },
+      {
+        "start": 1298.48,
+        "duration": 3.92,
+        "text": "like for that to be"
+      },
+      {
+        "start": 1300.159,
+        "duration": 4.64,
+        "text": "kind of ported or extended for data sex"
+      },
+      {
+        "start": 1302.4,
+        "duration": 5.04,
+        "text": "enterprise so this is kind of one of the"
+      },
+      {
+        "start": 1304.799,
+        "duration": 4.081,
+        "text": "things that's on our roadmap um but just"
+      },
+      {
+        "start": 1307.44,
+        "duration": 2.479,
+        "text": "kind of taking big picture the kinds of"
+      },
+      {
+        "start": 1308.88,
+        "duration": 3.2,
+        "text": "things that you need to be thinking"
+      },
+      {
+        "start": 1309.919,
+        "duration": 4.0,
+        "text": "about at the database tier i've made an"
+      },
+      {
+        "start": 1312.08,
+        "duration": 3.04,
+        "text": "assumption the bullets on the slide"
+      },
+      {
+        "start": 1313.919,
+        "duration": 3.12,
+        "text": "assume that we're talking about a"
+      },
+      {
+        "start": 1315.12,
+        "duration": 4.48,
+        "text": "cassandra based solution i'm not talking"
+      },
+      {
+        "start": 1317.039,
+        "duration": 4.321,
+        "text": "about like in general in the wide world"
+      },
+      {
+        "start": 1319.6,
+        "duration": 3.36,
+        "text": "of database technology i'm thinking"
+      },
+      {
+        "start": 1321.36,
+        "duration": 3.439,
+        "text": "specifically if you're if you're talking"
+      },
+      {
+        "start": 1322.96,
+        "duration": 3.04,
+        "text": "about a cassandra or datasacks"
+      },
+      {
+        "start": 1324.799,
+        "duration": 3.281,
+        "text": "enterprise-based solution what do you"
+      },
+      {
+        "start": 1326.0,
+        "duration": 4.24,
+        "text": "need to think about so how are you going"
+      },
+      {
+        "start": 1328.08,
+        "duration": 4.719,
+        "text": "to configure your cluster topology"
+      },
+      {
+        "start": 1330.24,
+        "duration": 4.0,
+        "text": "that's one thing uh"
+      },
+      {
+        "start": 1332.799,
+        "duration": 3.681,
+        "text": "what are you gonna do what are you gonna"
+      },
+      {
+        "start": 1334.24,
+        "duration": 3.52,
+        "text": "do to set your key space replication"
+      },
+      {
+        "start": 1336.48,
+        "duration": 2.4,
+        "text": "strategies"
+      },
+      {
+        "start": 1337.76,
+        "duration": 2.88,
+        "text": "uh and then what are some of the"
+      },
+      {
+        "start": 1338.88,
+        "duration": 5.679,
+        "text": "security best practices and the security"
+      },
+      {
+        "start": 1340.64,
+        "duration": 5.68,
+        "text": "best practices are really um"
+      },
+      {
+        "start": 1344.559,
+        "duration": 3.6,
+        "text": "not a lot different than you would for"
+      },
+      {
+        "start": 1346.32,
+        "duration": 4.4,
+        "text": "have for any cluster that you were"
+      },
+      {
+        "start": 1348.159,
+        "duration": 5.361,
+        "text": "trying to secure in general so what we"
+      },
+      {
+        "start": 1350.72,
+        "duration": 4.8,
+        "text": "did is uh we were using gossiping"
+      },
+      {
+        "start": 1353.52,
+        "duration": 5.039,
+        "text": "property file snitch"
+      },
+      {
+        "start": 1355.52,
+        "duration": 4.56,
+        "text": "uh we are configuring we basically have"
+      },
+      {
+        "start": 1358.559,
+        "duration": 4.0,
+        "text": "one main key space that we use for"
+      },
+      {
+        "start": 1360.08,
+        "duration": 4.24,
+        "text": "killer video that has all our tables"
+      },
+      {
+        "start": 1362.559,
+        "duration": 3.681,
+        "text": "we've set that with a network topology"
+      },
+      {
+        "start": 1364.32,
+        "duration": 3.92,
+        "text": "strategy of"
+      },
+      {
+        "start": 1366.24,
+        "duration": 3.679,
+        "text": "replication factor of three per data"
+      },
+      {
+        "start": 1368.24,
+        "duration": 4.08,
+        "text": "center so it's pretty vanilla"
+      },
+      {
+        "start": 1369.919,
+        "duration": 4.321,
+        "text": "straightforward in in that sense nothing"
+      },
+      {
+        "start": 1372.32,
+        "duration": 4.239,
+        "text": "fancy"
+      },
+      {
+        "start": 1374.24,
+        "duration": 3.36,
+        "text": "we have some scripting that we're using"
+      },
+      {
+        "start": 1376.559,
+        "duration": 4.721,
+        "text": "to"
+      },
+      {
+        "start": 1377.6,
+        "duration": 4.48,
+        "text": "when we deploy the nodes uh or i should"
+      },
+      {
+        "start": 1381.28,
+        "duration": 3.12,
+        "text": "say"
+      },
+      {
+        "start": 1382.08,
+        "duration": 4.56,
+        "text": "when we deployed our cluster to"
+      },
+      {
+        "start": 1384.4,
+        "duration": 6.08,
+        "text": "automatically um through through"
+      },
+      {
+        "start": 1386.64,
+        "duration": 6.399,
+        "text": "scripting uh disable that default admin"
+      },
+      {
+        "start": 1390.48,
+        "duration": 4.16,
+        "text": "user and create a new administrative"
+      },
+      {
+        "start": 1393.039,
+        "duration": 2.961,
+        "text": "user and give that the correct"
+      },
+      {
+        "start": 1394.64,
+        "duration": 2.88,
+        "text": "permissions which is again these are"
+      },
+      {
+        "start": 1396.0,
+        "duration": 2.88,
+        "text": "things that you would do for any cluster"
+      },
+      {
+        "start": 1397.52,
+        "duration": 3.36,
+        "text": "that you were deploying"
+      },
+      {
+        "start": 1398.88,
+        "duration": 4.56,
+        "text": "we've also um"
+      },
+      {
+        "start": 1400.88,
+        "duration": 4.96,
+        "text": "we've set up node to node encryption"
+      },
+      {
+        "start": 1403.44,
+        "duration": 4.0,
+        "text": "so that that's there out of the box and"
+      },
+      {
+        "start": 1405.84,
+        "duration": 3.199,
+        "text": "then for the client to node encryption"
+      },
+      {
+        "start": 1407.44,
+        "duration": 3.04,
+        "text": "we've actually we've also configured all"
+      },
+      {
+        "start": 1409.039,
+        "duration": 2.321,
+        "text": "of our clients so they're"
+      },
+      {
+        "start": 1410.48,
+        "duration": 3.679,
+        "text": "uh"
+      },
+      {
+        "start": 1411.36,
+        "duration": 6.0,
+        "text": "they're also using ssl so our services"
+      },
+      {
+        "start": 1414.159,
+        "duration": 4.481,
+        "text": "when they're talking to our cluster um"
+      },
+      {
+        "start": 1417.36,
+        "duration": 3.52,
+        "text": "they are also using encrypted"
+      },
+      {
+        "start": 1418.64,
+        "duration": 3.039,
+        "text": "connections so that's important because"
+      },
+      {
+        "start": 1420.88,
+        "duration": 2.72,
+        "text": "of"
+      },
+      {
+        "start": 1421.679,
+        "duration": 3.761,
+        "text": "uh some of the things that we did"
+      },
+      {
+        "start": 1423.6,
+        "duration": 4.48,
+        "text": "down at the networking layer which was"
+      },
+      {
+        "start": 1425.44,
+        "duration": 4.64,
+        "text": "uh for our initial setup um we don't we"
+      },
+      {
+        "start": 1428.08,
+        "duration": 4.479,
+        "text": "have not you know"
+      },
+      {
+        "start": 1430.08,
+        "duration": 4.719,
+        "text": "created any private networks between"
+      },
+      {
+        "start": 1432.559,
+        "duration": 4.24,
+        "text": "cloud networks uh or between the cloud"
+      },
+      {
+        "start": 1434.799,
+        "duration": 3.921,
+        "text": "providers at this point we we're just"
+      },
+      {
+        "start": 1436.799,
+        "duration": 3.441,
+        "text": "using public ips but we're encrypting"
+      },
+      {
+        "start": 1438.72,
+        "duration": 3.04,
+        "text": "all of the communication"
+      },
+      {
+        "start": 1440.24,
+        "duration": 3.04,
+        "text": "over there and this is not something"
+      },
+      {
+        "start": 1441.76,
+        "duration": 3.68,
+        "text": "that's like live and running all the"
+      },
+      {
+        "start": 1443.28,
+        "duration": 4.0,
+        "text": "time right now so don't you know it's"
+      },
+      {
+        "start": 1445.44,
+        "duration": 3.68,
+        "text": "not like you go out there and hack it"
+      },
+      {
+        "start": 1447.28,
+        "duration": 4.24,
+        "text": "right now it's not it's a"
+      },
+      {
+        "start": 1449.12,
+        "duration": 4.96,
+        "text": "it's an experiment that we kind of spin"
+      },
+      {
+        "start": 1451.52,
+        "duration": 3.92,
+        "text": "up and down as needed so"
+      },
+      {
+        "start": 1454.08,
+        "duration": 3.92,
+        "text": "obviously that's not a production"
+      },
+      {
+        "start": 1455.44,
+        "duration": 4.16,
+        "text": "solution"
+      },
+      {
+        "start": 1458.0,
+        "duration": 3.12,
+        "text": "um"
+      },
+      {
+        "start": 1459.6,
+        "duration": 3.84,
+        "text": "one of the other aspects that you want"
+      },
+      {
+        "start": 1461.12,
+        "duration": 4.159,
+        "text": "to think about is where are you routing"
+      },
+      {
+        "start": 1463.44,
+        "duration": 3.839,
+        "text": "things if the entry point to your"
+      },
+      {
+        "start": 1465.279,
+        "duration": 4.4,
+        "text": "application is uh you know kind of your"
+      },
+      {
+        "start": 1467.279,
+        "duration": 4.481,
+        "text": "web tier okay so are you gonna put a"
+      },
+      {
+        "start": 1469.679,
+        "duration": 4.161,
+        "text": "um like a global load balancer are you"
+      },
+      {
+        "start": 1471.76,
+        "duration": 3.76,
+        "text": "going to use a third-party load balancer"
+      },
+      {
+        "start": 1473.84,
+        "duration": 2.48,
+        "text": "maybe in front of that"
+      },
+      {
+        "start": 1475.52,
+        "duration": 2.32,
+        "text": "or"
+      },
+      {
+        "start": 1476.32,
+        "duration": 4.08,
+        "text": "uh what about"
+      },
+      {
+        "start": 1477.84,
+        "duration": 4.0,
+        "text": "dns naming these are these are some"
+      },
+      {
+        "start": 1480.4,
+        "duration": 2.96,
+        "text": "solutions that you're going to have to"
+      },
+      {
+        "start": 1481.84,
+        "duration": 3.28,
+        "text": "kind of pick out"
+      },
+      {
+        "start": 1483.36,
+        "duration": 3.36,
+        "text": "for your own"
+      },
+      {
+        "start": 1485.12,
+        "duration": 2.4,
+        "text": "for your own application"
+      },
+      {
+        "start": 1486.72,
+        "duration": 2.319,
+        "text": "so"
+      },
+      {
+        "start": 1487.52,
+        "duration": 3.759,
+        "text": "that's where we're at with respect to"
+      },
+      {
+        "start": 1489.039,
+        "duration": 4.0,
+        "text": "some of these security and networking"
+      },
+      {
+        "start": 1491.279,
+        "duration": 5.601,
+        "text": "aspects"
+      },
+      {
+        "start": 1493.039,
+        "duration": 6.401,
+        "text": "there's a broader uh roadmap"
+      },
+      {
+        "start": 1496.88,
+        "duration": 4.96,
+        "text": "for the killer video application so"
+      },
+      {
+        "start": 1499.44,
+        "duration": 4.64,
+        "text": "it's it's a mature application it does"
+      },
+      {
+        "start": 1501.84,
+        "duration": 3.839,
+        "text": "uh we think a pretty credible job of"
+      },
+      {
+        "start": 1504.08,
+        "duration": 3.599,
+        "text": "demonstrating"
+      },
+      {
+        "start": 1505.679,
+        "duration": 3.841,
+        "text": "um first of all how to design a"
+      },
+      {
+        "start": 1507.679,
+        "duration": 4.401,
+        "text": "cassandra data model and then how to use"
+      },
+      {
+        "start": 1509.52,
+        "duration": 4.0,
+        "text": "the drivers to develop an application it"
+      },
+      {
+        "start": 1512.08,
+        "duration": 3.599,
+        "text": "also does a pretty good job of"
+      },
+      {
+        "start": 1513.52,
+        "duration": 3.68,
+        "text": "demonstrating dse search and that"
+      },
+      {
+        "start": 1515.679,
+        "duration": 3.761,
+        "text": "integration we've take we've done a"
+      },
+      {
+        "start": 1517.2,
+        "duration": 3.44,
+        "text": "bunch of things with dc search to kind"
+      },
+      {
+        "start": 1519.44,
+        "duration": 2.88,
+        "text": "of extend"
+      },
+      {
+        "start": 1520.64,
+        "duration": 3.44,
+        "text": "the cassandra query language with"
+      },
+      {
+        "start": 1522.32,
+        "duration": 4.64,
+        "text": "additional syntax so that you can use"
+      },
+      {
+        "start": 1524.08,
+        "duration": 4.719,
+        "text": "for example like um the like keyword i"
+      },
+      {
+        "start": 1526.96,
+        "duration": 4.4,
+        "text": "knew i was going to do that"
+      },
+      {
+        "start": 1528.799,
+        "duration": 5.281,
+        "text": "use the like keyword"
+      },
+      {
+        "start": 1531.36,
+        "duration": 4.16,
+        "text": "and you know for for full text search"
+      },
+      {
+        "start": 1534.08,
+        "duration": 3.599,
+        "text": "kinds of capabilities and that sort of"
+      },
+      {
+        "start": 1535.52,
+        "duration": 2.159,
+        "text": "thing"
+      },
+      {
+        "start": 1538.64,
+        "duration": 3.84,
+        "text": "some of the stuff that it doesn't quite"
+      },
+      {
+        "start": 1540.08,
+        "duration": 4.64,
+        "text": "do as well yet is the anal demonstrate"
+      },
+      {
+        "start": 1542.48,
+        "duration": 4.72,
+        "text": "the analytics part of data stacks"
+      },
+      {
+        "start": 1544.72,
+        "duration": 4.4,
+        "text": "enterprise so we're definitely working"
+      },
+      {
+        "start": 1547.2,
+        "duration": 3.44,
+        "text": "toward having that um"
+      },
+      {
+        "start": 1549.12,
+        "duration": 4.0,
+        "text": "we have one of our an advocate that"
+      },
+      {
+        "start": 1550.64,
+        "duration": 4.88,
+        "text": "joined just to join the team amanda who"
+      },
+      {
+        "start": 1553.12,
+        "duration": 3.679,
+        "text": "has done a lot she has a big analytics"
+      },
+      {
+        "start": 1555.52,
+        "duration": 2.88,
+        "text": "background so we're going to have her"
+      },
+      {
+        "start": 1556.799,
+        "duration": 3.521,
+        "text": "help work on building out that part of"
+      },
+      {
+        "start": 1558.4,
+        "duration": 4.24,
+        "text": "the app especially"
+      },
+      {
+        "start": 1560.32,
+        "duration": 3.599,
+        "text": "um and"
+      },
+      {
+        "start": 1562.64,
+        "duration": 2.399,
+        "text": "some of the things that some of the"
+      },
+      {
+        "start": 1563.919,
+        "duration": 2.801,
+        "text": "other things that we're doing in general"
+      },
+      {
+        "start": 1565.039,
+        "duration": 4.0,
+        "text": "i mentioned the idea of kind of"
+      },
+      {
+        "start": 1566.72,
+        "duration": 3.36,
+        "text": "replacing that fcd for service discovery"
+      },
+      {
+        "start": 1569.039,
+        "duration": 2.64,
+        "text": "and"
+      },
+      {
+        "start": 1570.08,
+        "duration": 3.92,
+        "text": "putting in a kind of a more fully"
+      },
+      {
+        "start": 1571.679,
+        "duration": 4.48,
+        "text": "featured"
+      },
+      {
+        "start": 1574.0,
+        "duration": 5.36,
+        "text": "service mesh"
+      },
+      {
+        "start": 1576.159,
+        "duration": 5.041,
+        "text": "so that we can begin to integrate"
+      },
+      {
+        "start": 1579.36,
+        "duration": 3.76,
+        "text": "some things like distributed tracing for"
+      },
+      {
+        "start": 1581.2,
+        "duration": 4.32,
+        "text": "example"
+      },
+      {
+        "start": 1583.12,
+        "duration": 4.48,
+        "text": "and looking to definitely use kubernetes"
+      },
+      {
+        "start": 1585.52,
+        "duration": 4.639,
+        "text": "for scaling and scheduling the"
+      },
+      {
+        "start": 1587.6,
+        "duration": 5.04,
+        "text": "application layer um there's a few other"
+      },
+      {
+        "start": 1590.159,
+        "duration": 4.561,
+        "text": "things that we're looking to do uh"
+      },
+      {
+        "start": 1592.64,
+        "duration": 4.88,
+        "text": "we're gonna try to get a little bit more"
+      },
+      {
+        "start": 1594.72,
+        "duration": 5.199,
+        "text": "of a like a customer 360 kind of aspect"
+      },
+      {
+        "start": 1597.52,
+        "duration": 5.279,
+        "text": "built into this application and as part"
+      },
+      {
+        "start": 1599.919,
+        "duration": 4.561,
+        "text": "of that we'll be doing some uh"
+      },
+      {
+        "start": 1602.799,
+        "duration": 3.201,
+        "text": "integration with streaming technologies"
+      },
+      {
+        "start": 1604.48,
+        "duration": 3.52,
+        "text": "like kafka"
+      },
+      {
+        "start": 1606.0,
+        "duration": 4.559,
+        "text": "and then we have a bunch we do have a"
+      },
+      {
+        "start": 1608.0,
+        "duration": 4.0,
+        "text": "number of things that um"
+      },
+      {
+        "start": 1610.559,
+        "duration": 3.681,
+        "text": "you know because this isn't like a real"
+      },
+      {
+        "start": 1612.0,
+        "duration": 3.679,
+        "text": "world product and a real company uh"
+      },
+      {
+        "start": 1614.24,
+        "duration": 3.12,
+        "text": "we've been able to get away with doing a"
+      },
+      {
+        "start": 1615.679,
+        "duration": 4.161,
+        "text": "lot of things by hand"
+      },
+      {
+        "start": 1617.36,
+        "duration": 4.319,
+        "text": "and we we need to do a lot more uh"
+      },
+      {
+        "start": 1619.84,
+        "duration": 3.68,
+        "text": "automation a lot more a lot more build"
+      },
+      {
+        "start": 1621.679,
+        "duration": 3.12,
+        "text": "and deployment automation so that's"
+      },
+      {
+        "start": 1623.52,
+        "duration": 2.8,
+        "text": "coming as well"
+      },
+      {
+        "start": 1624.799,
+        "duration": 4.081,
+        "text": "uh and i mentioned i'd love to have a"
+      },
+      {
+        "start": 1626.32,
+        "duration": 3.76,
+        "text": "python implementation so all this work"
+      },
+      {
+        "start": 1628.88,
+        "duration": 3.2,
+        "text": "that we're doing to take killer video"
+      },
+      {
+        "start": 1630.08,
+        "duration": 4.0,
+        "text": "multi-cloud is kind of part of our our"
+      },
+      {
+        "start": 1632.08,
+        "duration": 3.04,
+        "text": "broader roadmap and some of some of the"
+      },
+      {
+        "start": 1634.08,
+        "duration": 3.04,
+        "text": "things are"
+      },
+      {
+        "start": 1635.12,
+        "duration": 3.84,
+        "text": "uh more interdependent"
+      },
+      {
+        "start": 1637.12,
+        "duration": 3.28,
+        "text": "um especially like that service level"
+      },
+      {
+        "start": 1638.96,
+        "duration": 3.68,
+        "text": "infrastructure that we're doing"
+      },
+      {
+        "start": 1640.4,
+        "duration": 2.24,
+        "text": "so"
+      },
+      {
+        "start": 1642.72,
+        "duration": 4.48,
+        "text": "i just want to kind of summarize"
+      },
+      {
+        "start": 1644.88,
+        "duration": 3.76,
+        "text": "basically what we think we've learned so"
+      },
+      {
+        "start": 1647.2,
+        "duration": 4.0,
+        "text": "far from the effort that we've"
+      },
+      {
+        "start": 1648.64,
+        "duration": 2.56,
+        "text": "undertaken"
+      },
+      {
+        "start": 1651.679,
+        "duration": 4.401,
+        "text": "definitely think that"
+      },
+      {
+        "start": 1653.279,
+        "duration": 5.361,
+        "text": "using kubernetes is a best practice"
+      },
+      {
+        "start": 1656.08,
+        "duration": 4.56,
+        "text": "at the application layer um"
+      },
+      {
+        "start": 1658.64,
+        "duration": 4.08,
+        "text": "the verdict is still out both within our"
+      },
+      {
+        "start": 1660.64,
+        "duration": 3.84,
+        "text": "team and within kind of data sacs as a"
+      },
+      {
+        "start": 1662.72,
+        "duration": 2.959,
+        "text": "whole there's an ongoing conversation"
+      },
+      {
+        "start": 1664.48,
+        "duration": 2.48,
+        "text": "about"
+      },
+      {
+        "start": 1665.679,
+        "duration": 3.521,
+        "text": "kubernetes"
+      },
+      {
+        "start": 1666.96,
+        "duration": 4.079,
+        "text": "and its utility for"
+      },
+      {
+        "start": 1669.2,
+        "duration": 3.359,
+        "text": "uh you know kind of managing your"
+      },
+      {
+        "start": 1671.039,
+        "duration": 3.36,
+        "text": "database tier"
+      },
+      {
+        "start": 1672.559,
+        "duration": 3.281,
+        "text": "um so"
+      },
+      {
+        "start": 1674.399,
+        "duration": 3.601,
+        "text": "we know that you know we're hearing a"
+      },
+      {
+        "start": 1675.84,
+        "duration": 4.079,
+        "text": "lot in industry about it we know we hear"
+      },
+      {
+        "start": 1678.0,
+        "duration": 3.12,
+        "text": "from customers that they're interested"
+      },
+      {
+        "start": 1679.919,
+        "duration": 4.48,
+        "text": "in that kind of thing so this is"
+      },
+      {
+        "start": 1681.12,
+        "duration": 4.799,
+        "text": "definitely an area that we're exploring"
+      },
+      {
+        "start": 1684.399,
+        "duration": 4.0,
+        "text": "we do think that"
+      },
+      {
+        "start": 1685.919,
+        "duration": 4.48,
+        "text": "there is a best practice in terms of"
+      },
+      {
+        "start": 1688.399,
+        "duration": 4.16,
+        "text": "trying to push if you can kind of push"
+      },
+      {
+        "start": 1690.399,
+        "duration": 4.241,
+        "text": "this level of interaction down to the"
+      },
+      {
+        "start": 1692.559,
+        "duration": 3.84,
+        "text": "lowest layer possible such that you're"
+      },
+      {
+        "start": 1694.64,
+        "duration": 3.6,
+        "text": "not storing state in your application"
+      },
+      {
+        "start": 1696.399,
+        "duration": 3.681,
+        "text": "but you're letting your database"
+      },
+      {
+        "start": 1698.24,
+        "duration": 4.319,
+        "text": "be the repository for that state"
+      },
+      {
+        "start": 1700.08,
+        "duration": 5.36,
+        "text": "information in other words your standard"
+      },
+      {
+        "start": 1702.559,
+        "duration": 4.72,
+        "text": "or dsc cluster"
+      },
+      {
+        "start": 1705.44,
+        "duration": 3.599,
+        "text": "and we happen to think of course you"
+      },
+      {
+        "start": 1707.279,
+        "duration": 3.201,
+        "text": "know that we would that"
+      },
+      {
+        "start": 1709.039,
+        "duration": 3.76,
+        "text": "that uh"
+      },
+      {
+        "start": 1710.48,
+        "duration": 4.4,
+        "text": "this this technology of cassandra is"
+      },
+      {
+        "start": 1712.799,
+        "duration": 3.201,
+        "text": "uniquely poised we all know"
+      },
+      {
+        "start": 1714.88,
+        "duration": 2.48,
+        "text": "um"
+      },
+      {
+        "start": 1716.0,
+        "duration": 3.919,
+        "text": "if if you're a part of this community"
+      },
+      {
+        "start": 1717.36,
+        "duration": 5.439,
+        "text": "you know that it's really unique in how"
+      },
+      {
+        "start": 1719.919,
+        "duration": 5.281,
+        "text": "it replicates and scales um and that it"
+      },
+      {
+        "start": 1722.799,
+        "duration": 3.921,
+        "text": "that it's not uh beholden to a"
+      },
+      {
+        "start": 1725.2,
+        "duration": 2.959,
+        "text": "particular cloud provider which is one"
+      },
+      {
+        "start": 1726.72,
+        "duration": 3.6,
+        "text": "of the things that that really made it"
+      },
+      {
+        "start": 1728.159,
+        "duration": 2.961,
+        "text": "attractive to begin with so"
+      },
+      {
+        "start": 1730.32,
+        "duration": 2.4,
+        "text": "uh"
+      },
+      {
+        "start": 1731.12,
+        "duration": 2.96,
+        "text": "obviously we recommend and think that"
+      },
+      {
+        "start": 1732.72,
+        "duration": 4.72,
+        "text": "it's uniquely positioned as a"
+      },
+      {
+        "start": 1734.08,
+        "duration": 5.199,
+        "text": "multi-cloud database technology"
+      },
+      {
+        "start": 1737.44,
+        "duration": 3.04,
+        "text": "um and then you know i'll just reiterate"
+      },
+      {
+        "start": 1739.279,
+        "duration": 2.64,
+        "text": "that last point"
+      },
+      {
+        "start": 1740.48,
+        "duration": 4.4,
+        "text": "that that i made in the previous slide"
+      },
+      {
+        "start": 1741.919,
+        "duration": 5.281,
+        "text": "about um automate all the things um so"
+      },
+      {
+        "start": 1744.88,
+        "duration": 6.0,
+        "text": "yeah we we know that we definitely spend"
+      },
+      {
+        "start": 1747.2,
+        "duration": 6.479,
+        "text": "time um even as a advocate team that is"
+      },
+      {
+        "start": 1750.88,
+        "duration": 5.679,
+        "text": "only coding on average i don't know 25"
+      },
+      {
+        "start": 1753.679,
+        "duration": 5.12,
+        "text": "to 30 percent of our time in a given"
+      },
+      {
+        "start": 1756.559,
+        "duration": 4.561,
+        "text": "week is probably spent coding versus"
+      },
+      {
+        "start": 1758.799,
+        "duration": 3.921,
+        "text": "doing a bunch of other things um so even"
+      },
+      {
+        "start": 1761.12,
+        "duration": 3.6,
+        "text": "for us it might be especially important"
+      },
+      {
+        "start": 1762.72,
+        "duration": 4.959,
+        "text": "that we learn to automate as much as"
+      },
+      {
+        "start": 1764.72,
+        "duration": 4.559,
+        "text": "possible"
+      },
+      {
+        "start": 1767.679,
+        "duration": 3.921,
+        "text": "if you want to learn a little bit more"
+      },
+      {
+        "start": 1769.279,
+        "duration": 3.441,
+        "text": "i've just scratched the surface"
+      },
+      {
+        "start": 1771.6,
+        "duration": 2.48,
+        "text": "on this"
+      },
+      {
+        "start": 1772.72,
+        "duration": 4.079,
+        "text": "we have our weekly podcast the"
+      },
+      {
+        "start": 1774.08,
+        "duration": 4.16,
+        "text": "distributed data show so we did a whole"
+      },
+      {
+        "start": 1776.799,
+        "duration": 3.441,
+        "text": "six episode"
+      },
+      {
+        "start": 1778.24,
+        "duration": 3.12,
+        "text": "series it was originally conceived of as"
+      },
+      {
+        "start": 1780.24,
+        "duration": 3.2,
+        "text": "like a"
+      },
+      {
+        "start": 1781.36,
+        "duration": 4.08,
+        "text": "oh it was kind of funny actually one it"
+      },
+      {
+        "start": 1783.44,
+        "duration": 3.839,
+        "text": "was like a one-off and then it was like"
+      },
+      {
+        "start": 1785.44,
+        "duration": 3.359,
+        "text": "it was gonna be a three-episode series"
+      },
+      {
+        "start": 1787.279,
+        "duration": 4.561,
+        "text": "and then by the time we got done talking"
+      },
+      {
+        "start": 1788.799,
+        "duration": 4.641,
+        "text": "about it uh it was like a six-episode"
+      },
+      {
+        "start": 1791.84,
+        "duration": 5.52,
+        "text": "um epic"
+      },
+      {
+        "start": 1793.44,
+        "duration": 6.32,
+        "text": "so hero's journey from um episodes 56 to"
+      },
+      {
+        "start": 1797.36,
+        "duration": 5.439,
+        "text": "61. we had a lot of fun with it we hope"
+      },
+      {
+        "start": 1799.76,
+        "duration": 4.56,
+        "text": "that you find it useful and um we're"
+      },
+      {
+        "start": 1802.799,
+        "duration": 3.76,
+        "text": "always interested in having more people"
+      },
+      {
+        "start": 1804.32,
+        "duration": 4.479,
+        "text": "on the show so if you have"
+      },
+      {
+        "start": 1806.559,
+        "duration": 4.641,
+        "text": "interesting use cases to talk about"
+      },
+      {
+        "start": 1808.799,
+        "duration": 4.321,
+        "text": "um whether or not it's open source"
+      },
+      {
+        "start": 1811.2,
+        "duration": 4.32,
+        "text": "or it's data sex enterprise we don't"
+      },
+      {
+        "start": 1813.12,
+        "duration": 4.799,
+        "text": "care we want to talk about these things"
+      },
+      {
+        "start": 1815.52,
+        "duration": 4.0,
+        "text": "we're interested in it um so the more"
+      },
+      {
+        "start": 1817.919,
+        "duration": 2.801,
+        "text": "the more guests"
+      },
+      {
+        "start": 1819.52,
+        "duration": 2.8,
+        "text": "that we get"
+      },
+      {
+        "start": 1820.72,
+        "duration": 3.439,
+        "text": "from as broad a spectrum as possible"
+      },
+      {
+        "start": 1822.32,
+        "duration": 3.12,
+        "text": "that's going to be better and and really"
+      },
+      {
+        "start": 1824.159,
+        "duration": 2.961,
+        "text": "make it a great resource for the"
+      },
+      {
+        "start": 1825.44,
+        "duration": 3.92,
+        "text": "community which is that's what we want"
+      },
+      {
+        "start": 1827.12,
+        "duration": 4.88,
+        "text": "that's why we're doing it"
+      },
+      {
+        "start": 1829.36,
+        "duration": 4.88,
+        "text": "um so my my final thing because i want"
+      },
+      {
+        "start": 1832.0,
+        "duration": 5.2,
+        "text": "to pause and give you guys guys time to"
+      },
+      {
+        "start": 1834.24,
+        "duration": 4.24,
+        "text": "ask some questions and um we'll tell you"
+      },
+      {
+        "start": 1837.2,
+        "duration": 4.0,
+        "text": "the things that we know and the things"
+      },
+      {
+        "start": 1838.48,
+        "duration": 3.76,
+        "text": "that we don't know and i'll i'll try to"
+      },
+      {
+        "start": 1841.2,
+        "duration": 3.12,
+        "text": "i'll bring adrian up into the"
+      },
+      {
+        "start": 1842.24,
+        "duration": 4.4,
+        "text": "conversation for that um there's a bunch"
+      },
+      {
+        "start": 1844.32,
+        "duration": 3.839,
+        "text": "of people that that helped us out in"
+      },
+      {
+        "start": 1846.64,
+        "duration": 3.2,
+        "text": "building up all this stuff a bunch of"
+      },
+      {
+        "start": 1848.159,
+        "duration": 4.481,
+        "text": "content from adrian"
+      },
+      {
+        "start": 1849.84,
+        "duration": 4.64,
+        "text": "david one of the other uh advocates has"
+      },
+      {
+        "start": 1852.64,
+        "duration": 4.08,
+        "text": "been doing a bunch of this stuff as well"
+      },
+      {
+        "start": 1854.48,
+        "duration": 4.72,
+        "text": "as as well as cedric um"
+      },
+      {
+        "start": 1856.72,
+        "duration": 4.0,
+        "text": "justin brees one of our ses has put"
+      },
+      {
+        "start": 1859.2,
+        "duration": 3.04,
+        "text": "together a bunch of awesome multi-cloud"
+      },
+      {
+        "start": 1860.72,
+        "duration": 2.8,
+        "text": "demos and"
+      },
+      {
+        "start": 1862.24,
+        "duration": 3.76,
+        "text": "spun up a bunch of clusters and took"
+      },
+      {
+        "start": 1863.52,
+        "duration": 3.519,
+        "text": "pictures of it for me i appreciated that"
+      },
+      {
+        "start": 1866.0,
+        "duration": 2.799,
+        "text": "um"
+      },
+      {
+        "start": 1867.039,
+        "duration": 4.961,
+        "text": "patrick for the use of his image of"
+      },
+      {
+        "start": 1868.799,
+        "duration": 4.961,
+        "text": "course in this presentation um"
+      },
+      {
+        "start": 1872.0,
+        "duration": 3.76,
+        "text": "amanda who's pictured over here on the"
+      },
+      {
+        "start": 1873.76,
+        "duration": 5.039,
+        "text": "right uh for her support and review of"
+      },
+      {
+        "start": 1875.76,
+        "duration": 5.68,
+        "text": "all this and uh oh yeah hannah also put"
+      },
+      {
+        "start": 1878.799,
+        "duration": 4.801,
+        "text": "together the meme um so we'll credit her"
+      },
+      {
+        "start": 1881.44,
+        "duration": 3.599,
+        "text": "awesome community manager so"
+      },
+      {
+        "start": 1883.6,
+        "duration": 3.679,
+        "text": "uh anyway"
+      },
+      {
+        "start": 1885.039,
+        "duration": 4.401,
+        "text": "uh there's there's a lot that goes on"
+      },
+      {
+        "start": 1887.279,
+        "duration": 4.321,
+        "text": "behind the scenes to to put even the"
+      },
+      {
+        "start": 1889.44,
+        "duration": 4.479,
+        "text": "simplest thing together uh whether it be"
+      },
+      {
+        "start": 1891.6,
+        "duration": 3.52,
+        "text": "a demo or a talk or a video and so"
+      },
+      {
+        "start": 1893.919,
+        "duration": 2.961,
+        "text": "anyway i"
+      },
+      {
+        "start": 1895.12,
+        "duration": 4.72,
+        "text": "we appreciate all our friends that help"
+      },
+      {
+        "start": 1896.88,
+        "duration": 2.96,
+        "text": "us out so"
+      },
+      {
+        "start": 1900.0,
+        "duration": 3.84,
+        "text": "i'm sure i went too fast"
+      },
+      {
+        "start": 1901.76,
+        "duration": 3.919,
+        "text": "and glossed over something and made it"
+      },
+      {
+        "start": 1903.84,
+        "duration": 3.679,
+        "text": "sound easy even though it wasn't so"
+      },
+      {
+        "start": 1905.679,
+        "duration": 4.24,
+        "text": "where did i do that and ask me your"
+      },
+      {
+        "start": 1907.519,
+        "duration": 2.4,
+        "text": "questions"
+      },
+      {
+        "start": 1911.679,
+        "duration": 3.281,
+        "text": "sorry yeah"
+      },
+      {
+        "start": 1913.2,
+        "duration": 4.88,
+        "text": "um"
+      },
+      {
+        "start": 1914.96,
+        "duration": 7.04,
+        "text": "i'm not supposed to but if"
+      },
+      {
+        "start": 1918.08,
+        "duration": 6.4,
+        "text": "did you find any uh disadvantages um"
+      },
+      {
+        "start": 1922.0,
+        "duration": 4.72,
+        "text": "of communication um"
+      },
+      {
+        "start": 1924.48,
+        "duration": 4.079,
+        "text": "in the case where you had these three"
+      },
+      {
+        "start": 1926.72,
+        "duration": 3.36,
+        "text": "call providers being used"
+      },
+      {
+        "start": 1928.559,
+        "duration": 4.321,
+        "text": "among the"
+      },
+      {
+        "start": 1930.08,
+        "duration": 5.28,
+        "text": "supervisor let's say for instance magic"
+      },
+      {
+        "start": 1932.88,
+        "duration": 4.08,
+        "text": "you had one scenario where you had two"
+      },
+      {
+        "start": 1935.36,
+        "duration": 2.88,
+        "text": "data centers from"
+      },
+      {
+        "start": 1936.96,
+        "duration": 3.599,
+        "text": "amazon"
+      },
+      {
+        "start": 1938.24,
+        "duration": 5.039,
+        "text": "and another scenario where you had one"
+      },
+      {
+        "start": 1940.559,
+        "duration": 4.72,
+        "text": "that sent crimes on and one from 60 or"
+      },
+      {
+        "start": 1943.279,
+        "duration": 4.24,
+        "text": "zero yeah"
+      },
+      {
+        "start": 1945.279,
+        "duration": 4.0,
+        "text": "and roughly at the same business"
+      },
+      {
+        "start": 1947.519,
+        "duration": 2.801,
+        "text": "i don't know if you did that did you"
+      },
+      {
+        "start": 1949.279,
+        "duration": 3.201,
+        "text": "find any"
+      },
+      {
+        "start": 1950.32,
+        "duration": 4.64,
+        "text": "disadvantage of using a different"
+      },
+      {
+        "start": 1952.48,
+        "duration": 2.48,
+        "text": "provider"
+      },
+      {
+        "start": 1955.919,
+        "duration": 4.321,
+        "text": "well so the"
+      },
+      {
+        "start": 1957.6,
+        "duration": 4.4,
+        "text": "assuming that you have the networking"
+      },
+      {
+        "start": 1960.24,
+        "duration": 3.52,
+        "text": "configured that's the big if right so"
+      },
+      {
+        "start": 1962.0,
+        "duration": 3.84,
+        "text": "that we haven't we haven't done like a"
+      },
+      {
+        "start": 1963.76,
+        "duration": 4.0,
+        "text": "side-by-side test to compare the"
+      },
+      {
+        "start": 1965.84,
+        "duration": 3.36,
+        "text": "performance and"
+      },
+      {
+        "start": 1967.76,
+        "duration": 3.519,
+        "text": "like resilience of those two"
+      },
+      {
+        "start": 1969.2,
+        "duration": 4.88,
+        "text": "side-by-side so that's a case that i"
+      },
+      {
+        "start": 1971.279,
+        "duration": 3.76,
+        "text": "would like for to have us test out"
+      },
+      {
+        "start": 1974.08,
+        "duration": 3.52,
+        "text": "yeah"
+      },
+      {
+        "start": 1975.039,
+        "duration": 5.52,
+        "text": "it's it's also real tricky because"
+      },
+      {
+        "start": 1977.6,
+        "duration": 5.28,
+        "text": "if you deploy it out it also is entirely"
+      },
+      {
+        "start": 1980.559,
+        "duration": 3.281,
+        "text": "dependent on i'm talking to the mic in"
+      },
+      {
+        "start": 1982.88,
+        "duration": 1.76,
+        "text": "the mic"
+      },
+      {
+        "start": 1983.84,
+        "duration": 3.52,
+        "text": "oh"
+      },
+      {
+        "start": 1984.64,
+        "duration": 2.72,
+        "text": "so comfortable"
+      },
+      {
+        "start": 1988.96,
+        "duration": 3.439,
+        "text": "i don't know if it's live"
+      },
+      {
+        "start": 1990.48,
+        "duration": 4.4,
+        "text": "try it i'll find out i'll find it real"
+      },
+      {
+        "start": 1992.399,
+        "duration": 5.041,
+        "text": "soon it is awesome so"
+      },
+      {
+        "start": 1994.88,
+        "duration": 4.32,
+        "text": "uh one of the things that a big question"
+      },
+      {
+        "start": 1997.44,
+        "duration": 4.079,
+        "text": "mark is like what region"
+      },
+      {
+        "start": 1999.2,
+        "duration": 3.76,
+        "text": "that you've deployed your multi-file"
+      },
+      {
+        "start": 2001.519,
+        "duration": 3.921,
+        "text": "deployment out to right so like if"
+      },
+      {
+        "start": 2002.96,
+        "duration": 3.68,
+        "text": "you're in aws east one"
+      },
+      {
+        "start": 2005.44,
+        "duration": 3.44,
+        "text": "and"
+      },
+      {
+        "start": 2006.64,
+        "duration": 5.84,
+        "text": "west 2 and then you're in"
+      },
+      {
+        "start": 2008.88,
+        "duration": 5.919,
+        "text": "gcp something else and in azure"
+      },
+      {
+        "start": 2012.48,
+        "duration": 3.36,
+        "text": "central us each of those data centers"
+      },
+      {
+        "start": 2014.799,
+        "duration": 3.6,
+        "text": "have"
+      },
+      {
+        "start": 2015.84,
+        "duration": 4.079,
+        "text": "different dated or really modern or"
+      },
+      {
+        "start": 2018.399,
+        "duration": 3.921,
+        "text": "really old hardware and stuff like that"
+      },
+      {
+        "start": 2019.919,
+        "duration": 4.321,
+        "text": "right so"
+      },
+      {
+        "start": 2022.32,
+        "duration": 4.4,
+        "text": "if we did a test again say stuff"
+      },
+      {
+        "start": 2024.24,
+        "duration": 5.039,
+        "text": "deployed out to east one and aws versus"
+      },
+      {
+        "start": 2026.72,
+        "duration": 4.48,
+        "text": "azure's like i think i don't know what"
+      },
+      {
+        "start": 2029.279,
+        "duration": 3.12,
+        "text": "central one is or what their newest"
+      },
+      {
+        "start": 2031.2,
+        "duration": 3.04,
+        "text": "thing is but like their newest data"
+      },
+      {
+        "start": 2032.399,
+        "duration": 3.28,
+        "text": "center versus like aws is all data"
+      },
+      {
+        "start": 2034.24,
+        "duration": 4.08,
+        "text": "center this stuff ends up being"
+      },
+      {
+        "start": 2035.679,
+        "duration": 4.72,
+        "text": "completely different in performance but"
+      },
+      {
+        "start": 2038.32,
+        "duration": 4.16,
+        "text": "then if we shift it all let's say we get"
+      },
+      {
+        "start": 2040.399,
+        "duration": 4.0,
+        "text": "everything over to"
+      },
+      {
+        "start": 2042.48,
+        "duration": 4.559,
+        "text": "uh gcp"
+      },
+      {
+        "start": 2044.399,
+        "duration": 4.48,
+        "text": "west one and aws west too"
+      },
+      {
+        "start": 2047.039,
+        "duration": 3.6,
+        "text": "that's basically they're literally side"
+      },
+      {
+        "start": 2048.879,
+        "duration": 2.8,
+        "text": "by side almost across the street from"
+      },
+      {
+        "start": 2050.639,
+        "duration": 3.04,
+        "text": "each other"
+      },
+      {
+        "start": 2051.679,
+        "duration": 3.92,
+        "text": "and manufacturer and"
+      },
+      {
+        "start": 2053.679,
+        "duration": 4.0,
+        "text": "date was starting to use the data"
+      },
+      {
+        "start": 2055.599,
+        "duration": 4.401,
+        "text": "centers in the dials for those days"
+      },
+      {
+        "start": 2057.679,
+        "duration": 4.72,
+        "text": "those regions so when you compare those"
+      },
+      {
+        "start": 2060.0,
+        "duration": 4.32,
+        "text": "two you get a little bit closer examples"
+      },
+      {
+        "start": 2062.399,
+        "duration": 4.161,
+        "text": "for how they're using their hardware but"
+      },
+      {
+        "start": 2064.32,
+        "duration": 4.72,
+        "text": "it's really tough to do"
+      },
+      {
+        "start": 2066.56,
+        "duration": 4.559,
+        "text": "completely straight apples to apple's"
+      },
+      {
+        "start": 2069.04,
+        "duration": 6.319,
+        "text": "comparison of"
+      },
+      {
+        "start": 2071.119,
+        "duration": 6.641,
+        "text": "the deployments um and then of course"
+      },
+      {
+        "start": 2075.359,
+        "duration": 4.161,
+        "text": "when you go past that app too it gets a"
+      },
+      {
+        "start": 2077.76,
+        "duration": 3.2,
+        "text": "little different depending on what"
+      },
+      {
+        "start": 2079.52,
+        "duration": 3.44,
+        "text": "you're using in the cloud if there is"
+      },
+      {
+        "start": 2080.96,
+        "duration": 3.199,
+        "text": "any specific stuff so"
+      },
+      {
+        "start": 2082.96,
+        "duration": 3.52,
+        "text": "that was just"
+      },
+      {
+        "start": 2084.159,
+        "duration": 3.92,
+        "text": "when you mention that it's"
+      },
+      {
+        "start": 2086.48,
+        "duration": 3.84,
+        "text": "it's a really really tough thing and no"
+      },
+      {
+        "start": 2088.079,
+        "duration": 3.921,
+        "text": "matter what you really test one versus"
+      },
+      {
+        "start": 2090.32,
+        "duration": 5.12,
+        "text": "the other you end up with a little bit"
+      },
+      {
+        "start": 2092.0,
+        "duration": 6.0,
+        "text": "of apples versus oranges of a comparison"
+      },
+      {
+        "start": 2095.44,
+        "duration": 4.24,
+        "text": "um so you never really get one on one"
+      },
+      {
+        "start": 2098.0,
+        "duration": 3.68,
+        "text": "you always kind of have to give the test"
+      },
+      {
+        "start": 2099.68,
+        "duration": 4.159,
+        "text": "per use case that's what i would i would"
+      },
+      {
+        "start": 2101.68,
+        "duration": 2.159,
+        "text": "say"
+      },
+      {
+        "start": 2106.24,
+        "duration": 3.52,
+        "text": "so i was going to ask he said you're"
+      },
+      {
+        "start": 2107.92,
+        "duration": 3.919,
+        "text": "moving toward an approach where you're"
+      },
+      {
+        "start": 2109.76,
+        "duration": 3.839,
+        "text": "using some vpc or something instead of"
+      },
+      {
+        "start": 2111.839,
+        "duration": 4.161,
+        "text": "public ips so"
+      },
+      {
+        "start": 2113.599,
+        "duration": 5.601,
+        "text": "um you know i guess most of the stuff"
+      },
+      {
+        "start": 2116.0,
+        "duration": 5.04,
+        "text": "i've seen working with customers uh had"
+      },
+      {
+        "start": 2119.2,
+        "duration": 2.96,
+        "text": "a hybrid cloud set up they'd say how"
+      },
+      {
+        "start": 2121.04,
+        "duration": 2.64,
+        "text": "we're gonna put these services and these"
+      },
+      {
+        "start": 2122.16,
+        "duration": 2.56,
+        "text": "databases in the cloud and we're gonna"
+      },
+      {
+        "start": 2123.68,
+        "duration": 4.32,
+        "text": "have some"
+      },
+      {
+        "start": 2124.72,
+        "duration": 6.32,
+        "text": "services on prem like dns or you know"
+      },
+      {
+        "start": 2128.0,
+        "duration": 4.48,
+        "text": "ldap or something like that and so um"
+      },
+      {
+        "start": 2131.04,
+        "duration": 3.44,
+        "text": "you know i'm curious to have you know i"
+      },
+      {
+        "start": 2132.48,
+        "duration": 4.0,
+        "text": "think you got three cloud providers"
+      },
+      {
+        "start": 2134.48,
+        "duration": 4.32,
+        "text": "instead of vpc between all three of them"
+      },
+      {
+        "start": 2136.48,
+        "duration": 4.08,
+        "text": "and then you also have to set up a vpc"
+      },
+      {
+        "start": 2138.8,
+        "duration": 4.799,
+        "text": "from all three of them back to on-prem"
+      },
+      {
+        "start": 2140.56,
+        "duration": 4.64,
+        "text": "so you kind of get this like graph of"
+      },
+      {
+        "start": 2143.599,
+        "duration": 3.361,
+        "text": "you know is that is that how you see"
+      },
+      {
+        "start": 2145.2,
+        "duration": 3.36,
+        "text": "that working or would"
+      },
+      {
+        "start": 2146.96,
+        "duration": 4.639,
+        "text": "you know would you say okay we're going"
+      },
+      {
+        "start": 2148.56,
+        "duration": 4.72,
+        "text": "to have ldap only in gcp or something"
+      },
+      {
+        "start": 2151.599,
+        "duration": 3.601,
+        "text": "like that no i feel like this is the"
+      },
+      {
+        "start": 2153.28,
+        "duration": 3.76,
+        "text": "point at which i put the like that i am"
+      },
+      {
+        "start": 2155.2,
+        "duration": 3.68,
+        "text": "not a medical doctor"
+      },
+      {
+        "start": 2157.04,
+        "duration": 4.88,
+        "text": "these statements have not been evaluated"
+      },
+      {
+        "start": 2158.88,
+        "duration": 4.959,
+        "text": "by the fda i'm not a network engineer so"
+      },
+      {
+        "start": 2161.92,
+        "duration": 3.28,
+        "text": "everything that follows is speculative"
+      },
+      {
+        "start": 2163.839,
+        "duration": 2.401,
+        "text": "okay go"
+      },
+      {
+        "start": 2165.2,
+        "duration": 2.48,
+        "text": "uh"
+      },
+      {
+        "start": 2166.24,
+        "duration": 2.56,
+        "text": "my first thought is turtle's all the way"
+      },
+      {
+        "start": 2167.68,
+        "duration": 2.48,
+        "text": "down right"
+      },
+      {
+        "start": 2168.8,
+        "duration": 3.36,
+        "text": "um"
+      },
+      {
+        "start": 2170.16,
+        "duration": 3.12,
+        "text": "yeah the minute you start stepping into"
+      },
+      {
+        "start": 2172.16,
+        "duration": 3.199,
+        "text": "that"
+      },
+      {
+        "start": 2173.28,
+        "duration": 4.079,
+        "text": "looks like all that server and what what"
+      },
+      {
+        "start": 2175.359,
+        "duration": 4.641,
+        "text": "are you going to run in a provider"
+      },
+      {
+        "start": 2177.359,
+        "duration": 4.561,
+        "text": "versus all the providers versus"
+      },
+      {
+        "start": 2180.0,
+        "duration": 4.64,
+        "text": "whatever like how is it how does your"
+      },
+      {
+        "start": 2181.92,
+        "duration": 4.72,
+        "text": "architecture gonna run that can get"
+      },
+      {
+        "start": 2184.64,
+        "duration": 3.199,
+        "text": "it can get really messy really quick it"
+      },
+      {
+        "start": 2186.64,
+        "duration": 3.76,
+        "text": "seems like you start to get this"
+      },
+      {
+        "start": 2187.839,
+        "duration": 4.721,
+        "text": "exponential curve right yeah and the"
+      },
+      {
+        "start": 2190.4,
+        "duration": 3.76,
+        "text": "more resiliency you want and the more"
+      },
+      {
+        "start": 2192.56,
+        "duration": 3.279,
+        "text": "capability of process clouds i mean you"
+      },
+      {
+        "start": 2194.16,
+        "duration": 3.439,
+        "text": "have to get your services in each of"
+      },
+      {
+        "start": 2195.839,
+        "duration": 3.681,
+        "text": "those like if you just have your"
+      },
+      {
+        "start": 2197.599,
+        "duration": 3.52,
+        "text": "database you just have your database"
+      },
+      {
+        "start": 2199.52,
+        "duration": 3.2,
+        "text": "across the clouds but if you only have"
+      },
+      {
+        "start": 2201.119,
+        "duration": 3.121,
+        "text": "your app in aws but you have your"
+      },
+      {
+        "start": 2202.72,
+        "duration": 3.44,
+        "text": "database across"
+      },
+      {
+        "start": 2204.24,
+        "duration": 3.839,
+        "text": "x number of them"
+      },
+      {
+        "start": 2206.16,
+        "duration": 3.12,
+        "text": "but your app goes down it's"
+      },
+      {
+        "start": 2208.079,
+        "duration": 3.04,
+        "text": "there at a lot of points having your"
+      },
+      {
+        "start": 2209.28,
+        "duration": 3.839,
+        "text": "database across so you really have to"
+      },
+      {
+        "start": 2211.119,
+        "duration": 4.161,
+        "text": "think full spectrum like your app your"
+      },
+      {
+        "start": 2213.119,
+        "duration": 4.881,
+        "text": "database your middle tier stuff your"
+      },
+      {
+        "start": 2215.28,
+        "duration": 4.16,
+        "text": "peripheral services like your ldap or"
+      },
+      {
+        "start": 2218.0,
+        "duration": 2.88,
+        "text": "whatever like how are you gonna get that"
+      },
+      {
+        "start": 2219.44,
+        "duration": 3.679,
+        "text": "across there is it gonna federate"
+      },
+      {
+        "start": 2220.88,
+        "duration": 4.4,
+        "text": "appropriately or is it gonna fall down"
+      },
+      {
+        "start": 2223.119,
+        "duration": 3.681,
+        "text": "if one of them disappears"
+      },
+      {
+        "start": 2225.28,
+        "duration": 4.0,
+        "text": "uh you know that's like one of the big"
+      },
+      {
+        "start": 2226.8,
+        "duration": 4.08,
+        "text": "questions in kubernetes right now it's"
+      },
+      {
+        "start": 2229.28,
+        "duration": 2.96,
+        "text": "like all right we have"
+      },
+      {
+        "start": 2230.88,
+        "duration": 3.68,
+        "text": "you know 10 different ways to run"
+      },
+      {
+        "start": 2232.24,
+        "duration": 4.879,
+        "text": "kubernetes stuff in gcp we have a"
+      },
+      {
+        "start": 2234.56,
+        "duration": 4.32,
+        "text": "billion different ways in aws"
+      },
+      {
+        "start": 2237.119,
+        "duration": 3.281,
+        "text": "are you running a full kubernetes"
+      },
+      {
+        "start": 2238.88,
+        "duration": 4.239,
+        "text": "cluster in"
+      },
+      {
+        "start": 2240.4,
+        "duration": 3.84,
+        "text": "each environment or you just like you"
+      },
+      {
+        "start": 2243.119,
+        "duration": 3.681,
+        "text": "have your"
+      },
+      {
+        "start": 2244.24,
+        "duration": 4.4,
+        "text": "on-prem one and then you're using their"
+      },
+      {
+        "start": 2246.8,
+        "duration": 4.72,
+        "text": "their little specific services or"
+      },
+      {
+        "start": 2248.64,
+        "duration": 5.92,
+        "text": "something in azure or whatever it is so"
+      },
+      {
+        "start": 2251.52,
+        "duration": 5.12,
+        "text": "you really have to think full stack and"
+      },
+      {
+        "start": 2254.56,
+        "duration": 4.559,
+        "text": "earthwise too you've got to cover all"
+      },
+      {
+        "start": 2256.64,
+        "duration": 2.479,
+        "text": "the bases"
+      },
+      {
+        "start": 2260.56,
+        "duration": 5.44,
+        "text": "good well i think we're coming up on"
+      },
+      {
+        "start": 2262.96,
+        "duration": 5.52,
+        "text": "time here it's about yeah it's 1 50. so"
+      },
+      {
+        "start": 2266.0,
+        "duration": 5.04,
+        "text": "um please come by uh the data stacks"
+      },
+      {
+        "start": 2268.48,
+        "duration": 4.4,
+        "text": "table we'll be hanging out"
+      },
+      {
+        "start": 2271.04,
+        "duration": 3.28,
+        "text": "either hanging out talking or recording"
+      },
+      {
+        "start": 2272.88,
+        "duration": 3.04,
+        "text": "some videos for pretty much the rest of"
+      },
+      {
+        "start": 2274.32,
+        "duration": 2.88,
+        "text": "the afternoon the rest of the event so"
+      },
+      {
+        "start": 2275.92,
+        "duration": 3.6,
+        "text": "come say hello"
+      },
+      {
+        "start": 2277.2,
+        "duration": 4.49,
+        "text": "ask us the hard questions and thank you"
+      },
+      {
+        "start": 2279.52,
+        "duration": 8.16,
+        "text": "very much for coming"
+      },
+      {
+        "start": 2281.69,
+        "duration": 8.07,
+        "text": "[Applause]"
+      },
+      {
+        "start": 2287.68,
+        "duration": 2.08,
+        "text": "you"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T05:14:00.574585+00:00"
+}

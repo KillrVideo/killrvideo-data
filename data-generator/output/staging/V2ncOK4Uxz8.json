@@ -1,0 +1,3729 @@
+{
+  "video_id": "V2ncOK4Uxz8",
+  "title": "Ingest Data from Relational Databases to Cassandra with StreamSets by Pat Patterson | DS Presents",
+  "description": "So you need to migrate some data from an existing relational database (RDBMS) to Apache Cassandra™. But How? Or, how about ingesting from an RDBMS to a Kerberized DataStax cluster? What about a one-time batch load of historical data vs streaming changes? You could write and deploy some custom code, utilizing a framework like Apache Spark. Sometimes that makes sense, but often it requires significant time and resources. So what are the alternatives...? In this talk, we'll explore how you can use the open source StreamSets Data Collector for migrating from an existing RDBMS to DataStax or Apache Cassandra™.",
+  "published_at": "2019-04-24T13:00:07Z",
+  "thumbnail": "https://i.ytimg.com/vi/V2ncOK4Uxz8/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "talk",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=V2ncOK4Uxz8",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "okay so yes welcome everybody Hannah did a great job of introducing me I don't have to say much more about myself so what I'm going to be talking about is ingesting data from a relational database into Cassandra and particularly this is for I guess I guess it's a rare case where you can start afresh in a Greenfield situation and you don't have some data elsewhere that needs to be brought over into Cassandra so that's the use case I'm focusing on where you have data somewhere else excuse me so kind of two parts first part I'm going to talk more about Cassandra about why this might not be as easy as you would expect and then in the second part I'll show you kind of how we can get it all working so actually all the credit for what I'm going to show you this evening goes to one of our SES Todd McGrath who used to be a data stacks SE and this is his slide I just kind of changed Who am I to beucase - Todd McGrath so he spent over 20 years in software he was a data stack solution architect now extreme sets and then all of the mistakes and missteps are mine so I've been even longer in software I was at Salesforce now extreme sets and even more different jobs and mistakes and maybe successes as as Todd and if you want to throw rocks at me on Twitter I'm meta daddy and you can ask me afterwards why okay so you're deploying Cassandra in your organization for the first time okay sounds pretty straightforward just download it and and run but what's where are the problems where's where's the long pole here Cassandra indeed does kick butt we must all share that opinion or we wouldn't be here tonight but there it's not your father's database data modeling can be tricky it's very very different from a relational database modeling which focuses on aspects of the entities that you're managing Cassandra is an application database you really start from the queries your applications going to make so you can end up with a very very different schema there's this idea of eventual consistency what does that even mean does that mean milliseconds it could be mean seconds it's not it doesn't share a lot of the features a relation database it's not acid you've got these issues of compaction and and so on and so on are we going to move on maybe if my battery died so introducing any new technology into an organization comes with growing pains as you can tell from my accent I didn't grow up in the US I have no idea what this is I hope somebody in the room is familiar with it right and apparently the guy on the right is Leonardo DiCaprio is that right there you go in very younger days so how'd you enjoy are all these benefits of Cassandra this huge massively scalable application database when you don't have the luxury of rolling it out in a greenfield site and you've got to refactor an existing application and can we migrate to Cassandra without burning the ships can we do it in a gradual process where we don't literally turn off the relational database and turn on Cassandra at the same time we want to leave that existing database online and have two systems running simultaneously and more importantly have them be consistent with each other so you can maybe run your existing application port the data across build your new application test them make sure the outputs are the same and get all your operations ready for big switchover so what do we need here there's two aspects to this the first is getting existing data out of your relational database and into Cassandra this is actually relatively straightforward apart from the fact that the schemas could be vastly different okay so it's not just like dump the old database to CSV and read the CSV into Cassandra there's more to it than that the tricky bit comes when you want to have both databases live at the same time and you want to maybe you're hitting that a relational database with the updates and you want those to be moved into Cassandra now the technology there is called change data capture this is a pretty standard term in the in the database industry and each database has its own mechanism for giving you a stream of changes as they occur the inserts updates deletes and so on so what does what are we accomplishing here we can move across the the historical data and we need to think about the data model we need to think about how we translate from that relational schema to cassandra schema and we'll see in a moment how different they can be we want to be thinking about how balanced the data is across your Cassandra nodes right Cassandra cluster database when you load those ten billion records out of your relational database you kind of want them spread around evenly you don't want them on all on landing on one node and have n minus 1 idle nodes we want to be able to test both for the replication is working properly do stress testing and we want to be able to run analytics on because andr in readiness for going live while we keep our relational database up and then once you've loaded their historical data you can start streaming the data in and this really gives you an idea of how cassandra is going to perform that the updates are going to come from your relational database okay you're still writing data into there but guess what the new records are being created records being modified at real-world rates so you can see exactly how cassandra is gonna do even though the data is coming through a pipeline from the relational database and not from maybe your web application or whatever applications going to be ultimately writing to Cassandra so you can get get used to things like compaction repairs and you can do things like take a node offline while you're in this cut over period and just see exactly what happens it's kind of a luxury really to be in this state because one day you're going to want to finally switch off that our DBMS system and have Cassandra be the primary and you want to be pretty damn confident when when you do that so let's look at some options and this is where so this is this is I have to give Tod credit for this this is really cool so if I go [Laughter] all right okay so how do I even get that right let's turn the sound off right okay so family whew is this gonna work now question okay oh and I have to get my my little bit of prep that I forgot to do bear with me one second here we go got to be the quiz master here my little in death card okay so question one what might be an option to a one-time bulk load Cassandra from a relational database so who can who can give me a guess do you see bulk loader well Oh Cassandra loader I've gotten on the card I think that's the closest 1:40 our survey said 14 anyway let's not say stream sets immediately think you're getting ahead of me there any other guesses what you might use yeah yeah spark yeah you could use spark you're going to end up the writing some custom code there right anyway anybody else Kafka you're kind of in the same situation with that growth Kafka you're going to be writing some integrations cuff as a cuff cuz a great way to move data around but you kind of usually need something on on the to integrate the data and anybody else okay well did I hear somebody say oh Golden Gate it's not on my list hang on okay somebody sets three sets there we go so you could have had using a traditional ETL tool we all know some of those and they're extremely expensive you could have ad copy in sequel sure and Apache knife I all right so let's go so the next question and thankfully the last okay so once we've got our data into Cassandra what might be some options to continuously stream changes so it's kind of a different problem we're dealing with now so how do we move data on an ongoing basis and I have to keep putting my glasses on to see the card anybody got any guesses apart from the obvious one spark streaming yeah absolutely really popular choice and again I'm gonna have to be doing some work yourself there you could always write how many developers are in the room you could write some custom code it's always going to work it's going to take your time there's another project they are called doobies iam anybody used the museum heard of it it's out there you'll be unsurprised the number one choice when are we ran our survey and we love them really but we like to have a little rag on knife I there right okay so let's let's come out of there and get back to the real slides let's have a look at how we get this running so this is the part where I cross my fingers and hope I'm going to have the working demo of the evening so here we have stream sets data collector so what I'm going to do first is show you a little bit about what we've got here so actually where's the so who's heard of killer video okay more of you should have heard it because it's a great Kassandra reference application okay go to killer video comm and there's links there to the source code and everything it shows you how to build your your own YouTube killer in Cassandra so what we did was looked at what might be a relational database schema if you were going to do this kind of video streaming site so very standard pretty small relational schema we've got movies users users give ratings to movies so we've got nice foreign key relationships there and movies can also have be tagged by users so we've got like a folksonomy there now very familiar relational database kind of schema there with the relations now when we move to Cassandra it's very very different for one thing Cassandra doesn't have the concept of foreign keys and for another what ends up happening is we have pretty much denormalized the data here because we're modeling it according to the access patterns so we're going to want to get the tags movie tags from by the user so we've got a table here with the user ID as a primary key in the movie ID in the tag we want to retrieve the movies from the tag so actually this is duplicate data here but it's following the access pattern from the application for efficiency so moving between the two becomes a non-trivial exercise and let's have a look at how we achieve it so this is let's make it less of an eye chart this is the pipeline in-stream sets so we've built this pipeline it's actually going to be easy if I just run it first and you can see seaton operation and we could step around it a little bit so what I've got kind of in the background is my sequel and I've got for the purpose of you know having a demo that shows in a reasonable amount of time my laptop I've got a thousand movies here in my sequel all with very very realistic descriptions and what I know similarly I've got movies ratings tags and users and what I can do is I can move those across by running this pipeline so I should be able to do is click start now this takes a few seconds to start up because it's got to connect to my sequel it's got a hook up all of these database connections here and it's got to connect to Cassandra so this is the moment when I know it takes a few seconds to start but it always takes a second or two longer that I'm comfortable with taking so let's let's we'll it into working there oh okay oh I know what I've done okay so rule one always reset the pipeline because it remembers how much data it processed okay so let's do that again it'll be faster this time so what happened there was the pipeline by default keeps track of how much data it's processed and won't reprocess the data so obviously I was playing with this earlier and I didn't reset the pipeline to say okay start again from the beginning of the data what we should see here now is when it gets started it'll process 2000 records in fact so 1700 2000 and then it'll stop and you'll see here that the output here is many more records than the input because as those two schemas implied we have many more records in Cassandra what it's done is broken out those records and if I go over to Cassandra in the shell what I can see is where are we this one so I just did it before when I was sitting there I said select star from movies just to check so if I do select star from movie movie as limit 10 we should have a whole bunch of movies moved across so how do we do that how does this work well I'm reading multiple tables out of my sequel okay I've got this multi table consumer and I've configured that with a connection string so this is just a parameter I've pre-configured and down where is it tables I've said okay I'm going to use a killer movie schema and I want the users table and the movies table okay because that's where our data starts in that schema that's right that that's those are they're kind of the root of the Hyatt data hierarchy now you'll notice here I'm going to stop the pipeline when I have read all of the data by default these pipeline we'll run forever but in this case I'm doing a one-time load so I say okay stop pipeline when there's no more data can everybody see the words and then okay so once I read the data in I add some metadata so I'm setting some operational things they're created at operation type is one that's what I'm using for creating records in Cassandra and now I can convert some fields so the operation type wants to be integer and then I can switch the data according to whether they're movie or user records so for the movies I look up a UUID okay I've got got my mapping from sequential keys in my sequel into you IDs that Cassandra would like and I'm gonna insert the movie into the table so that's really straightforward I read in every movie and create Cassandra record for every movie now for the users I look up the UUID and then I look up all the ratings and their tags that that user created as well as inserting the user record so I'm actually splitting the data three ways here and it's going to do all of these three it's going to all of these three operations so if there's any ratings it'll insert into the movie ratings by user and so on it will insert into movies by tags so we're really we're populating all one two three four five Cassandra tables in this single pipeline so it's pretty efficient in the way that we can we can do the whole job in in one pipeline here okay so we've got some data what happens now well let's see we've loaded the data we changed those primary keys to you ID so we just have like an operational table to map between the two now we could generate you you IDs on the fly as we're writing them into Cassandra but that would make it much more complex because when we're processing those users we're writing to multiple tables having a a mapping pre-configured makes things a bit easier there when you when we're writing to a bunch of different tables we know that all of the mappings from a my sequel record ID to a UID are already already configured it was a batch job so we stopped when it completed and really we have almost like configuration as code we can export this pipeline as JSON and keep it under change control if we want to one thing I didn't do when I was looking there when we're getting this kind of stuff already we can do a preview so as I'm building my pipeline let's take a few seconds again as I'm building my pipeline I'm configuring all of these processing stages I'm setting up expressions here to say which way the records should be sent and so on I want to have a bit of confidence in what's happening so this is the first 10 records from the database so if we just make them big so record 1 record 2 so on so what we did was we just read the first 10 records and then we can follow it around the pipeline now what's really nice here and let me just read more that's some glitch in the UI this output box what's really nice here is I see that this add metadata at stage added two fields I see that this was converted from a long to an integer and I see here that these are all sent along stream 1 ok because they all come from the movie stable and then I can see the look up to get that UUID and I can kind of follow this round okay there wasn't one there because this is a movie but I can see the data that gets as far as Cassandra but it didn't write it because this is just a preview so really nice observability okay so so we can be pretty sure that what goes into Cassandra is what we intend and we can also do things like snapshot so is the pipelines running on a longer job we can jump in and scoop out some data and do that same examination so now we come to the really cool bit that was a batch pipeline that runs and then stops let's have a streaming pipeline that runs continuously so we have an origin for my sequel that uses their bin lock like basically reads their transaction log and we have many others we have Oracle MongoDB Salesforce Postgres etc and it's important here to consider what's happening we often want to retain a history of operations versus map those operations directly so if you can imagine if something's updated in my sequel we might not want to mutate the row in Cassandra we might want to write a new row so we have a history of changes similarly when we delete something we might just set a flag on it so it's not deleted from Cassandra so we have the history so there's a lot of flexibility you can get when you're building these pipelines so yeah let's look at the change data capture so pretty similar but a little bit different and what I'll do again is I'll just set it going now this is once it says goes from starting to running so this is going to monitor my sequel so it's monitoring that my sequel transaction log and then for every change it's going to basically go down this sequence of operations so set the table name okay some things being weird okay okay bear with me a second here okay what's gonna I'm gonna restart this world I'm actually using the master copy out of github Simon on the bleeding edge I don't run the release so what I'm doing is I'm just restarting so what's going to happen is we're going to go along the sequence of operations and basically map this transaction data into changes that we can apply to Cassandra so I guess it's the night for demo gremlins so this is gonna start listening now now come on takes a few seconds I've got every single connector under the Sun loaded into this thing so it's got a load jar files and so on so on okay any questions about what you've seen so far while this gets going okay all clear right oh there we go right so if we go super secret password CDC starting so he remembered the state it was in it was trying to start so tries to start again come on come on you can do it let's go so while that starts let's go over to Cassandra and say get a bunch of the movies based on a tag so Cassandra okay so these are ten movies with a particular tag and it will got movie IDs let's see select star from movies where and I'll just do select star for movies limit ten what I'm after is getting just one movie that we can we can pick on here we go actress actress the dollars and the Transylvanians okay so that would be that ID so what we want to do is focus in on a single movie because we're going to change it so let's just our four movies where ID equals that okay I didn't know about this expand on thing until I saw this so okay so there's our description and name oh I know what I've done I've been dumb again so in common with last time I forgot to reset the origin so he's looking for changes that no longer existed because I truncated tables and all sorts of great stuff so forgive me I thought I'd reset the demos but they bit me okay so this time this time it'll start okay so what we're going to do is going to change this actress the dollars in the Transylvanians so let's go find it so [Music] actress there we go actress the dollars and the Transylvanians and never seen that movie running okay so what we're going to do is we're going to change this to the description to Cassandra is awesome and what we should see is a record flow across here oh okay we of course have to commit the change then we see the record fly across there have done this before folks and then if we do exactly the same select then we see that the description has updated to Cassandra is awesome so once you deploy it into production it's much less torturous than showing it on stage I promise okay so we saw the continuous approach there and also the fact here so this is pretty important to see here if you see this select I've actually got two records so I've kept the old one with the time and one was an insert three was an update so here in my model I've elected to keep that history and I'm able to do that in the in the pipeline there alrighty oops so hopefully in between the glitches you've got an idea there of what was what was going on so yeah happy to take questions yeah that's a great question so the question was how are failures handled so there's basically there are two types of failures there are record failures where maybe the data within a record fails some validation may be the data type of a particular field is incorrect and then there are pipeline failures where maybe the destinations gone offline okay so record failures each pipeline has the concept of an error stream so say we're processing a stream of records 99% of them processed correctly and the remainder have some kind of error they're written to a separate stream so that could be into a file on disk or Kafka topic or wherever you like and then they can be reprocessed examined whatever may be remediated manually and sent back through the pipeline whatever you like and within those error records is the original source data and they whatever you know error metadata you know whatever error it triggered in the pipeline so so those are those are like transient record level errors now you can also have pipeline failure for many many reasons now what happens there is as data collector is reading the origin it's keeping track of how far through it is so if you imagine in a relational database that might be record ID or last updated time or with kafka topic if we're reading from Kafka it might be it would be like the Kafka offset now as its processing records the only thing that stream set saves of the data is the last offset that it processed so if the pipeline halts when it restarts it's got that pointer into where where it was now it's a little bit like sparks dreams data collectors a micro batch architecture so it'll grab say a thousand or however many you configure records at a time and if you fail halfway through its the record is the offset is the beginning of that batch so it can basically can rewind to the beginning of that batch and then and then restart and reprocess yeah how do you scale a pipeline another great question so you can run the the easy answer is it depends it largely depends on the data source okay your ability to partition the data source yeah right so say code so the classic use case is Kafka okay Kafka topics can have n partitions so you can run n copies of the pipeline on each on a different machine and basically Kafka does the hard work of partitioning they're they're all in the same consumer group and they'll all have they'll all receive records from a different partition of their Kafka topic but it varies wildly Kafka super easy because it does the partitioning for you and in the case of say reading from a relational database we might we have multi-threading within that origin to read table simultaneously or you might decide to have pipelines on different machines reading different tables it gets starts to get complicated where they origen can't be naturally partitioned like that yes so so so you can you can go either vertically or horizontally so the Kafka origin is itself multi-threaded and so you can run multiple threads within one instance of data collector and and you can update a collector running on multiple machines so you know whichever way you want to you want to do it you can scale to the the you can scale to the available hardware and across the caf-co partitions it's answer the question so I showed you okay so I haven't got to the slide that tells you about a little bit more about this I showed you the pipeline design environment and engine which is Apache 2 license open source we have a management layer called stream sets control hub which will basically you can define the level of parallelism and when you start a job it runs n pipeline instances simultaneously on different so you have the data you can have your cluster of data collector instances running ok waiting for work to do and you press go in the control hub and it sends the pipeline to n different data collector instances and it starts it running in parallel and you can you can even set it up with kubernetes so it'll basically you even have two pre-installed data collector instances it'll just say give me however many pods yep sorry an inflight you want to throttle it yeah so in the in the origin I can say see where it's a good one on the fly no but I can stop like because but don't forget that pipeline has an offset into the data so I can stop it and I can change some of the configuration like queries per second here and then restart it and it won't lose any data right because it knows where it is you stop it restart it and it'll just we start from where it finished reading right right yeah yep it's the latter so yeah you have to manage that cut over from reading the existing data and starting reading but you can set the point which it starts reading so in I know in the Oracle CDC origin you get to start set the starting Sen so you can start it exactly where you want in history they yeah yeah the so change data capture is not an introductory feature so there's quite a lot to think about in how long you retain your logs and there's lots of levers and switches to set to balance performance on the data collector machine versus impact on the Oracle database so you can do the-- you know you can shift the workload between the two right yes yes yes yeah so what you do then is you would pick a point in time like within the log history and you would say okay I want to read data in my bulk load I want to read data that's older than that and in my live streaming pipeline I want to read data from that point onwards so yes yeah yeah yeah you'd need to you need that you need to figure out like the key there you know exactly how you define that that line but yeah there's no reason you couldn't do that alright so this hot bat-code think I've just got a couple more slides to round things out so so as I mentioned it's patch to license open source as well as I mentioned Oracle I mentioned my sequel we can read Kafka flat files JMS queues you name it we can tail files we can read files from directory and as well as Cassandra we can write to Hadoop MongoDB files again HTTP destinations I think there's around about 40 or 50 different connectors in there all sorts of all sorts of fun and there this is all actually in the data stacks Academy so if you basically if you google Cassandra stream sets you this will probably be in the top five results Academy latest XCOM so Todd to actually wrote that up or just send me an email and I can send you links to resources and all kinds of fun and you don't even have to copy my email down because I've got my cards here so with that any more questions okay I think s will wrap up and thank you very much [Applause]",
+    "segments": [
+      {
+        "start": 2.24,
+        "duration": 6.51,
+        "text": "okay so yes welcome everybody"
+      },
+      {
+        "start": 6.649,
+        "duration": 3.751,
+        "text": "Hannah did a great job of introducing me"
+      },
+      {
+        "start": 8.75,
+        "duration": 3.81,
+        "text": "I don't have to say much more about"
+      },
+      {
+        "start": 10.4,
+        "duration": 6.03,
+        "text": "myself so what I'm going to be talking"
+      },
+      {
+        "start": 12.56,
+        "duration": 7.08,
+        "text": "about is ingesting data from a"
+      },
+      {
+        "start": 16.43,
+        "duration": 7.98,
+        "text": "relational database into Cassandra and"
+      },
+      {
+        "start": 19.64,
+        "duration": 7.62,
+        "text": "particularly this is for I guess I guess"
+      },
+      {
+        "start": 24.41,
+        "duration": 5.67,
+        "text": "it's a rare case where you can start"
+      },
+      {
+        "start": 27.26,
+        "duration": 4.62,
+        "text": "afresh in a Greenfield situation and you"
+      },
+      {
+        "start": 30.08,
+        "duration": 4.17,
+        "text": "don't have some data elsewhere that"
+      },
+      {
+        "start": 31.88,
+        "duration": 4.109,
+        "text": "needs to be brought over into Cassandra"
+      },
+      {
+        "start": 34.25,
+        "duration": 5.329,
+        "text": "so that's the use case I'm focusing on"
+      },
+      {
+        "start": 35.989,
+        "duration": 8.221,
+        "text": "where you have data somewhere else"
+      },
+      {
+        "start": 39.579,
+        "duration": 7.031,
+        "text": "excuse me so kind of two parts first"
+      },
+      {
+        "start": 44.21,
+        "duration": 7.05,
+        "text": "part I'm going to talk more about"
+      },
+      {
+        "start": 46.61,
+        "duration": 8.28,
+        "text": "Cassandra about why this might not be as"
+      },
+      {
+        "start": 51.26,
+        "duration": 5.01,
+        "text": "easy as you would expect and then in the"
+      },
+      {
+        "start": 54.89,
+        "duration": 6.689,
+        "text": "second part I'll show you kind of how we"
+      },
+      {
+        "start": 56.27,
+        "duration": 7.23,
+        "text": "can get it all working so actually all"
+      },
+      {
+        "start": 61.579,
+        "duration": 5.04,
+        "text": "the credit for what I'm going to show"
+      },
+      {
+        "start": 63.5,
+        "duration": 4.95,
+        "text": "you this evening goes to one of our SES"
+      },
+      {
+        "start": 66.619,
+        "duration": 6.601,
+        "text": "Todd McGrath who used to be a data"
+      },
+      {
+        "start": 68.45,
+        "duration": 7.919,
+        "text": "stacks SE and this is his slide I just"
+      },
+      {
+        "start": 73.22,
+        "duration": 5.04,
+        "text": "kind of changed Who am I to beucase -"
+      },
+      {
+        "start": 76.369,
+        "duration": 4.201,
+        "text": "Todd McGrath so he spent over 20 years"
+      },
+      {
+        "start": 78.26,
+        "duration": 6.12,
+        "text": "in software he was a data stack solution"
+      },
+      {
+        "start": 80.57,
+        "duration": 7.409,
+        "text": "architect now extreme sets and then all"
+      },
+      {
+        "start": 84.38,
+        "duration": 6.809,
+        "text": "of the mistakes and missteps are mine so"
+      },
+      {
+        "start": 87.979,
+        "duration": 5.761,
+        "text": "I've been even longer in software I was"
+      },
+      {
+        "start": 91.189,
+        "duration": 4.29,
+        "text": "at Salesforce now extreme sets and even"
+      },
+      {
+        "start": 93.74,
+        "duration": 5.16,
+        "text": "more different jobs and mistakes and"
+      },
+      {
+        "start": 95.479,
+        "duration": 6.631,
+        "text": "maybe successes as as Todd and if you"
+      },
+      {
+        "start": 98.9,
+        "duration": 5.789,
+        "text": "want to throw rocks at me on Twitter I'm"
+      },
+      {
+        "start": 102.11,
+        "duration": 7.68,
+        "text": "meta daddy and you can ask me afterwards"
+      },
+      {
+        "start": 104.689,
+        "duration": 7.771,
+        "text": "why okay so you're deploying Cassandra"
+      },
+      {
+        "start": 109.79,
+        "duration": 4.74,
+        "text": "in your organization for the first time"
+      },
+      {
+        "start": 112.46,
+        "duration": 5.85,
+        "text": "okay sounds pretty straightforward just"
+      },
+      {
+        "start": 114.53,
+        "duration": 5.129,
+        "text": "download it and and run but what's where"
+      },
+      {
+        "start": 118.31,
+        "duration": 5.489,
+        "text": "are the problems where's where's the"
+      },
+      {
+        "start": 119.659,
+        "duration": 6.091,
+        "text": "long pole here Cassandra indeed does"
+      },
+      {
+        "start": 123.799,
+        "duration": 5.97,
+        "text": "kick butt we must all share that opinion"
+      },
+      {
+        "start": 125.75,
+        "duration": 9.299,
+        "text": "or we wouldn't be here tonight but there"
+      },
+      {
+        "start": 129.769,
+        "duration": 6.381,
+        "text": "it's not your father's database data"
+      },
+      {
+        "start": 135.049,
+        "duration": 3.61,
+        "text": "modeling"
+      },
+      {
+        "start": 136.15,
+        "duration": 5.43,
+        "text": "can be tricky it's very very different"
+      },
+      {
+        "start": 138.659,
+        "duration": 7.991,
+        "text": "from a relational database modeling"
+      },
+      {
+        "start": 141.58,
+        "duration": 8.04,
+        "text": "which focuses on aspects of the entities"
+      },
+      {
+        "start": 146.65,
+        "duration": 5.04,
+        "text": "that you're managing Cassandra is an"
+      },
+      {
+        "start": 149.62,
+        "duration": 3.81,
+        "text": "application database you really start"
+      },
+      {
+        "start": 151.69,
+        "duration": 3.18,
+        "text": "from the queries your applications going"
+      },
+      {
+        "start": 153.43,
+        "duration": 4.139,
+        "text": "to make so you can end up with a very"
+      },
+      {
+        "start": 154.87,
+        "duration": 5.28,
+        "text": "very different schema there's this idea"
+      },
+      {
+        "start": 157.569,
+        "duration": 4.5,
+        "text": "of eventual consistency what does that"
+      },
+      {
+        "start": 160.15,
+        "duration": 5.52,
+        "text": "even mean does that mean milliseconds it"
+      },
+      {
+        "start": 162.069,
+        "duration": 6.991,
+        "text": "could be mean seconds it's not it"
+      },
+      {
+        "start": 165.67,
+        "duration": 6.12,
+        "text": "doesn't share a lot of the features a"
+      },
+      {
+        "start": 169.06,
+        "duration": 6.239,
+        "text": "relation database it's not acid you've"
+      },
+      {
+        "start": 171.79,
+        "duration": 6.259,
+        "text": "got these issues of compaction and and"
+      },
+      {
+        "start": 175.299,
+        "duration": 2.75,
+        "text": "so on and so on"
+      },
+      {
+        "start": 178.89,
+        "duration": 10.11,
+        "text": "are we going to move on maybe if my"
+      },
+      {
+        "start": 183.79,
+        "duration": 8.4,
+        "text": "battery died so introducing any new"
+      },
+      {
+        "start": 189.0,
+        "duration": 5.95,
+        "text": "technology into an organization comes"
+      },
+      {
+        "start": 192.19,
+        "duration": 5.269,
+        "text": "with growing pains as you can tell from"
+      },
+      {
+        "start": 194.95,
+        "duration": 5.52,
+        "text": "my accent I didn't grow up in the US I"
+      },
+      {
+        "start": 197.459,
+        "duration": 5.64,
+        "text": "have no idea what this is I hope"
+      },
+      {
+        "start": 200.47,
+        "duration": 5.37,
+        "text": "somebody in the room is familiar with it"
+      },
+      {
+        "start": 203.099,
+        "duration": 5.17,
+        "text": "right and apparently the guy on the"
+      },
+      {
+        "start": 205.84,
+        "duration": 6.66,
+        "text": "right is Leonardo DiCaprio is that right"
+      },
+      {
+        "start": 208.269,
+        "duration": 7.201,
+        "text": "there you go in very younger days so"
+      },
+      {
+        "start": 212.5,
+        "duration": 5.609,
+        "text": "how'd you enjoy are all these benefits"
+      },
+      {
+        "start": 215.47,
+        "duration": 5.43,
+        "text": "of Cassandra this huge massively"
+      },
+      {
+        "start": 218.109,
+        "duration": 5.22,
+        "text": "scalable application database when you"
+      },
+      {
+        "start": 220.9,
+        "duration": 6.149,
+        "text": "don't have the luxury of rolling it out"
+      },
+      {
+        "start": 223.329,
+        "duration": 10.321,
+        "text": "in a greenfield site and you've got to"
+      },
+      {
+        "start": 227.049,
+        "duration": 10.41,
+        "text": "refactor an existing application and can"
+      },
+      {
+        "start": 233.65,
+        "duration": 6.36,
+        "text": "we migrate to Cassandra without burning"
+      },
+      {
+        "start": 237.459,
+        "duration": 5.49,
+        "text": "the ships can we do it in a gradual"
+      },
+      {
+        "start": 240.01,
+        "duration": 4.47,
+        "text": "process where we don't literally turn"
+      },
+      {
+        "start": 242.949,
+        "duration": 3.241,
+        "text": "off the relational database and turn on"
+      },
+      {
+        "start": 244.48,
+        "duration": 4.409,
+        "text": "Cassandra at the same time we want to"
+      },
+      {
+        "start": 246.19,
+        "duration": 4.71,
+        "text": "leave that existing database online and"
+      },
+      {
+        "start": 248.889,
+        "duration": 6.451,
+        "text": "have two systems running simultaneously"
+      },
+      {
+        "start": 250.9,
+        "duration": 7.649,
+        "text": "and more importantly have them be"
+      },
+      {
+        "start": 255.34,
+        "duration": 6.389,
+        "text": "consistent with each other so you can"
+      },
+      {
+        "start": 258.549,
+        "duration": 4.981,
+        "text": "maybe run your existing application port"
+      },
+      {
+        "start": 261.729,
+        "duration": 4.44,
+        "text": "the data across build your new"
+      },
+      {
+        "start": 263.53,
+        "duration": 4.71,
+        "text": "application test them make sure the"
+      },
+      {
+        "start": 266.169,
+        "duration": 3.611,
+        "text": "outputs are the same and get all your"
+      },
+      {
+        "start": 268.24,
+        "duration": 7.08,
+        "text": "operations ready for"
+      },
+      {
+        "start": 269.78,
+        "duration": 10.25,
+        "text": "big switchover so what do we need here"
+      },
+      {
+        "start": 275.32,
+        "duration": 8.41,
+        "text": "there's two aspects to this the first is"
+      },
+      {
+        "start": 280.03,
+        "duration": 7.74,
+        "text": "getting existing data out of your"
+      },
+      {
+        "start": 283.73,
+        "duration": 7.08,
+        "text": "relational database and into Cassandra"
+      },
+      {
+        "start": 287.77,
+        "duration": 8.86,
+        "text": "this is actually relatively"
+      },
+      {
+        "start": 290.81,
+        "duration": 8.31,
+        "text": "straightforward apart from the fact that"
+      },
+      {
+        "start": 296.63,
+        "duration": 5.55,
+        "text": "the schemas could be vastly different"
+      },
+      {
+        "start": 299.12,
+        "duration": 6.39,
+        "text": "okay so it's not just like dump the old"
+      },
+      {
+        "start": 302.18,
+        "duration": 5.66,
+        "text": "database to CSV and read the CSV into"
+      },
+      {
+        "start": 305.51,
+        "duration": 6.6,
+        "text": "Cassandra there's more to it than that"
+      },
+      {
+        "start": 307.84,
+        "duration": 7.329,
+        "text": "the tricky bit comes when you want to"
+      },
+      {
+        "start": 312.11,
+        "duration": 6.72,
+        "text": "have both databases live at the same"
+      },
+      {
+        "start": 315.169,
+        "duration": 5.671,
+        "text": "time and you want to maybe you're"
+      },
+      {
+        "start": 318.83,
+        "duration": 4.95,
+        "text": "hitting that a relational database with"
+      },
+      {
+        "start": 320.84,
+        "duration": 4.92,
+        "text": "the updates and you want those to be"
+      },
+      {
+        "start": 323.78,
+        "duration": 6.78,
+        "text": "moved into Cassandra now the technology"
+      },
+      {
+        "start": 325.76,
+        "duration": 7.17,
+        "text": "there is called change data capture this"
+      },
+      {
+        "start": 330.56,
+        "duration": 5.52,
+        "text": "is a pretty standard term in the in the"
+      },
+      {
+        "start": 332.93,
+        "duration": 5.549,
+        "text": "database industry and each database has"
+      },
+      {
+        "start": 336.08,
+        "duration": 4.53,
+        "text": "its own mechanism for giving you a"
+      },
+      {
+        "start": 338.479,
+        "duration": 8.391,
+        "text": "stream of changes as they occur the"
+      },
+      {
+        "start": 340.61,
+        "duration": 9.66,
+        "text": "inserts updates deletes and so on so"
+      },
+      {
+        "start": 346.87,
+        "duration": 8.32,
+        "text": "what does what are we accomplishing here"
+      },
+      {
+        "start": 350.27,
+        "duration": 8.79,
+        "text": "we can move across the the historical"
+      },
+      {
+        "start": 355.19,
+        "duration": 6.3,
+        "text": "data and we need to think about the data"
+      },
+      {
+        "start": 359.06,
+        "duration": 5.76,
+        "text": "model we need to think about how we"
+      },
+      {
+        "start": 361.49,
+        "duration": 5.37,
+        "text": "translate from that relational schema to"
+      },
+      {
+        "start": 364.82,
+        "duration": 4.469,
+        "text": "cassandra schema and we'll see in a"
+      },
+      {
+        "start": 366.86,
+        "duration": 5.76,
+        "text": "moment how different they can be we want"
+      },
+      {
+        "start": 369.289,
+        "duration": 5.641,
+        "text": "to be thinking about how balanced the"
+      },
+      {
+        "start": 372.62,
+        "duration": 5.97,
+        "text": "data is across your Cassandra nodes"
+      },
+      {
+        "start": 374.93,
+        "duration": 6.45,
+        "text": "right Cassandra cluster database when"
+      },
+      {
+        "start": 378.59,
+        "duration": 4.74,
+        "text": "you load those ten billion records out"
+      },
+      {
+        "start": 381.38,
+        "duration": 4.08,
+        "text": "of your relational database you kind of"
+      },
+      {
+        "start": 383.33,
+        "duration": 3.93,
+        "text": "want them spread around evenly you don't"
+      },
+      {
+        "start": 385.46,
+        "duration": 7.2,
+        "text": "want them on all on landing on one node"
+      },
+      {
+        "start": 387.26,
+        "duration": 9.93,
+        "text": "and have n minus 1 idle nodes we want to"
+      },
+      {
+        "start": 392.66,
+        "duration": 6.749,
+        "text": "be able to test both for the replication"
+      },
+      {
+        "start": 397.19,
+        "duration": 5.34,
+        "text": "is working properly do stress testing"
+      },
+      {
+        "start": 399.409,
+        "duration": 4.141,
+        "text": "and we want to be able to run analytics"
+      },
+      {
+        "start": 402.53,
+        "duration": 4.32,
+        "text": "on because"
+      },
+      {
+        "start": 403.55,
+        "duration": 7.44,
+        "text": "andr in readiness for going live while"
+      },
+      {
+        "start": 406.85,
+        "duration": 7.92,
+        "text": "we keep our relational database up and"
+      },
+      {
+        "start": 410.99,
+        "duration": 6.66,
+        "text": "then once you've loaded their historical"
+      },
+      {
+        "start": 414.77,
+        "duration": 7.56,
+        "text": "data you can start streaming the data in"
+      },
+      {
+        "start": 417.65,
+        "duration": 6.39,
+        "text": "and this really gives you an idea of how"
+      },
+      {
+        "start": 422.33,
+        "duration": 3.72,
+        "text": "cassandra is going to perform that the"
+      },
+      {
+        "start": 424.04,
+        "duration": 4.23,
+        "text": "updates are going to come from your"
+      },
+      {
+        "start": 426.05,
+        "duration": 4.8,
+        "text": "relational database okay you're still"
+      },
+      {
+        "start": 428.27,
+        "duration": 5.55,
+        "text": "writing data into there but guess what"
+      },
+      {
+        "start": 430.85,
+        "duration": 5.31,
+        "text": "the new records are being created"
+      },
+      {
+        "start": 433.82,
+        "duration": 5.37,
+        "text": "records being modified at real-world"
+      },
+      {
+        "start": 436.16,
+        "duration": 5.7,
+        "text": "rates so you can see exactly how"
+      },
+      {
+        "start": 439.19,
+        "duration": 4.62,
+        "text": "cassandra is gonna do even though the"
+      },
+      {
+        "start": 441.86,
+        "duration": 3.42,
+        "text": "data is coming through a pipeline from"
+      },
+      {
+        "start": 443.81,
+        "duration": 3.72,
+        "text": "the relational database and not from"
+      },
+      {
+        "start": 445.28,
+        "duration": 3.81,
+        "text": "maybe your web application or whatever"
+      },
+      {
+        "start": 447.53,
+        "duration": 3.42,
+        "text": "applications going to be ultimately"
+      },
+      {
+        "start": 449.09,
+        "duration": 6.27,
+        "text": "writing to Cassandra"
+      },
+      {
+        "start": 450.95,
+        "duration": 7.17,
+        "text": "so you can get get used to things like"
+      },
+      {
+        "start": 455.36,
+        "duration": 5.22,
+        "text": "compaction repairs and you can do things"
+      },
+      {
+        "start": 458.12,
+        "duration": 4.38,
+        "text": "like take a node offline while you're in"
+      },
+      {
+        "start": 460.58,
+        "duration": 4.02,
+        "text": "this cut over period and just see"
+      },
+      {
+        "start": 462.5,
+        "duration": 6.38,
+        "text": "exactly what happens it's kind of a"
+      },
+      {
+        "start": 464.6,
+        "duration": 4.28,
+        "text": "luxury really to be in this state"
+      },
+      {
+        "start": 469.12,
+        "duration": 6.55,
+        "text": "because one day you're going to want to"
+      },
+      {
+        "start": 472.42,
+        "duration": 6.67,
+        "text": "finally switch off that our DBMS system"
+      },
+      {
+        "start": 475.67,
+        "duration": 5.91,
+        "text": "and have Cassandra be the primary and"
+      },
+      {
+        "start": 479.09,
+        "duration": 7.7,
+        "text": "you want to be pretty damn confident"
+      },
+      {
+        "start": 481.58,
+        "duration": 9.75,
+        "text": "when when you do that so let's look at"
+      },
+      {
+        "start": 486.79,
+        "duration": 6.67,
+        "text": "some options and this is where so this"
+      },
+      {
+        "start": 491.33,
+        "duration": 6.29,
+        "text": "is this is I have to give Tod credit for"
+      },
+      {
+        "start": 493.46,
+        "duration": 4.16,
+        "text": "this this is really cool so if I go"
+      },
+      {
+        "start": 506.52,
+        "duration": 4.45,
+        "text": "[Laughter]"
+      },
+      {
+        "start": 508.89,
+        "duration": 16.6,
+        "text": "all right okay"
+      },
+      {
+        "start": 510.97,
+        "duration": 18.57,
+        "text": "so how do I even get that right let's"
+      },
+      {
+        "start": 525.49,
+        "duration": 4.65,
+        "text": "turn the sound off right okay so family"
+      },
+      {
+        "start": 529.54,
+        "duration": 6.72,
+        "text": "whew"
+      },
+      {
+        "start": 530.14,
+        "duration": 8.73,
+        "text": "is this gonna work now question okay oh"
+      },
+      {
+        "start": 536.26,
+        "duration": 6.36,
+        "text": "and I have to get my my little bit of"
+      },
+      {
+        "start": 538.87,
+        "duration": 6.99,
+        "text": "prep that I forgot to do bear with me"
+      },
+      {
+        "start": 542.62,
+        "duration": 6.09,
+        "text": "one second here we go got to be the quiz"
+      },
+      {
+        "start": 545.86,
+        "duration": 6.9,
+        "text": "master here my little in death card okay"
+      },
+      {
+        "start": 548.71,
+        "duration": 8.01,
+        "text": "so question one what might be an option"
+      },
+      {
+        "start": 552.76,
+        "duration": 9.63,
+        "text": "to a one-time bulk load Cassandra from a"
+      },
+      {
+        "start": 556.72,
+        "duration": 8.96,
+        "text": "relational database so who can who can"
+      },
+      {
+        "start": 562.39,
+        "duration": 3.29,
+        "text": "give me a guess"
+      },
+      {
+        "start": 568.41,
+        "duration": 5.74,
+        "text": "do you see bulk loader well Oh Cassandra"
+      },
+      {
+        "start": 572.05,
+        "duration": 7.25,
+        "text": "loader I've gotten on the card I think"
+      },
+      {
+        "start": 574.15,
+        "duration": 9.57,
+        "text": "that's the closest 1:40 our survey said"
+      },
+      {
+        "start": 579.3,
+        "duration": 8.35,
+        "text": "14 anyway let's not say stream sets"
+      },
+      {
+        "start": 583.72,
+        "duration": 6.6,
+        "text": "immediately think you're getting ahead"
+      },
+      {
+        "start": 587.65,
+        "duration": 9.06,
+        "text": "of me there any other guesses what you"
+      },
+      {
+        "start": 590.32,
+        "duration": 8.28,
+        "text": "might use yeah yeah spark yeah you could"
+      },
+      {
+        "start": 596.71,
+        "duration": 4.61,
+        "text": "use spark you're going to end up the"
+      },
+      {
+        "start": 598.6,
+        "duration": 4.97,
+        "text": "writing some custom code there right"
+      },
+      {
+        "start": 601.32,
+        "duration": 5.14,
+        "text": "anyway anybody else"
+      },
+      {
+        "start": 603.57,
+        "duration": 4.96,
+        "text": "Kafka you're kind of in the same"
+      },
+      {
+        "start": 606.46,
+        "duration": 4.23,
+        "text": "situation with that growth Kafka you're"
+      },
+      {
+        "start": 608.53,
+        "duration": 4.38,
+        "text": "going to be writing some integrations"
+      },
+      {
+        "start": 610.69,
+        "duration": 5.399,
+        "text": "cuff as a cuff cuz a great way to move"
+      },
+      {
+        "start": 612.91,
+        "duration": 7.86,
+        "text": "data around but you kind of usually need"
+      },
+      {
+        "start": 616.089,
+        "duration": 9.601,
+        "text": "something on on the to integrate the"
+      },
+      {
+        "start": 620.77,
+        "duration": 8.88,
+        "text": "data and anybody else okay well did I"
+      },
+      {
+        "start": 625.69,
+        "duration": 4.83,
+        "text": "hear somebody say oh Golden Gate it's"
+      },
+      {
+        "start": 629.65,
+        "duration": 3.83,
+        "text": "not on my list"
+      },
+      {
+        "start": 630.52,
+        "duration": 2.96,
+        "text": "hang on"
+      },
+      {
+        "start": 636.5,
+        "duration": 11.2,
+        "text": "okay somebody sets three sets there we"
+      },
+      {
+        "start": 643.29,
+        "duration": 7.98,
+        "text": "go so you could have had using a"
+      },
+      {
+        "start": 647.7,
+        "duration": 5.6,
+        "text": "traditional ETL tool we all know some of"
+      },
+      {
+        "start": 651.27,
+        "duration": 5.04,
+        "text": "those and they're extremely expensive"
+      },
+      {
+        "start": 653.3,
+        "duration": 10.21,
+        "text": "you could have ad copy in sequel sure"
+      },
+      {
+        "start": 656.31,
+        "duration": 11.4,
+        "text": "and Apache knife I all right"
+      },
+      {
+        "start": 663.51,
+        "duration": 8.46,
+        "text": "so let's go so the next question and"
+      },
+      {
+        "start": 667.71,
+        "duration": 7.65,
+        "text": "thankfully the last okay so once we've"
+      },
+      {
+        "start": 671.97,
+        "duration": 6.24,
+        "text": "got our data into Cassandra what might"
+      },
+      {
+        "start": 675.36,
+        "duration": 5.84,
+        "text": "be some options to continuously stream"
+      },
+      {
+        "start": 678.21,
+        "duration": 5.19,
+        "text": "changes so it's kind of a different"
+      },
+      {
+        "start": 681.2,
+        "duration": 6.4,
+        "text": "problem we're dealing with now so how do"
+      },
+      {
+        "start": 683.4,
+        "duration": 5.55,
+        "text": "we move data on an ongoing basis and I"
+      },
+      {
+        "start": 687.6,
+        "duration": 5.07,
+        "text": "have to keep putting my glasses on to"
+      },
+      {
+        "start": 688.95,
+        "duration": 8.1,
+        "text": "see the card anybody got any guesses"
+      },
+      {
+        "start": 692.67,
+        "duration": 6.65,
+        "text": "apart from the obvious one spark"
+      },
+      {
+        "start": 697.05,
+        "duration": 5.67,
+        "text": "streaming yeah absolutely"
+      },
+      {
+        "start": 699.32,
+        "duration": 4.78,
+        "text": "really popular choice and again I'm"
+      },
+      {
+        "start": 702.72,
+        "duration": 4.8,
+        "text": "gonna have to be doing some work"
+      },
+      {
+        "start": 704.1,
+        "duration": 6.17,
+        "text": "yourself there you could always write"
+      },
+      {
+        "start": 707.52,
+        "duration": 7.71,
+        "text": "how many developers are in the room you"
+      },
+      {
+        "start": 710.27,
+        "duration": 6.28,
+        "text": "could write some custom code it's always"
+      },
+      {
+        "start": 715.23,
+        "duration": 3.9,
+        "text": "going to work it's going to take your"
+      },
+      {
+        "start": 716.55,
+        "duration": 2.97,
+        "text": "time there's another project they are"
+      },
+      {
+        "start": 719.13,
+        "duration": 2.91,
+        "text": "called"
+      },
+      {
+        "start": 719.52,
+        "duration": 5.19,
+        "text": "doobies iam anybody used the museum"
+      },
+      {
+        "start": 722.04,
+        "duration": 5.01,
+        "text": "heard of it it's out there"
+      },
+      {
+        "start": 724.71,
+        "duration": 10.5,
+        "text": "you'll be unsurprised the number one"
+      },
+      {
+        "start": 727.05,
+        "duration": 9.75,
+        "text": "choice when are we ran our survey and we"
+      },
+      {
+        "start": 735.21,
+        "duration": 7.17,
+        "text": "love them really but we like to have a"
+      },
+      {
+        "start": 736.8,
+        "duration": 8.61,
+        "text": "little rag on knife I there right okay"
+      },
+      {
+        "start": 742.38,
+        "duration": 6.54,
+        "text": "so let's let's come out of there and get"
+      },
+      {
+        "start": 745.41,
+        "duration": 5.82,
+        "text": "back to the real slides let's have a"
+      },
+      {
+        "start": 748.92,
+        "duration": 3.87,
+        "text": "look at how we get this running so this"
+      },
+      {
+        "start": 751.23,
+        "duration": 3.12,
+        "text": "is the part where I cross my fingers and"
+      },
+      {
+        "start": 752.79,
+        "duration": 7.74,
+        "text": "hope I'm going to have the working demo"
+      },
+      {
+        "start": 754.35,
+        "duration": 8.37,
+        "text": "of the evening so here we have stream"
+      },
+      {
+        "start": 760.53,
+        "duration": 6.29,
+        "text": "sets data collector so what I'm going to"
+      },
+      {
+        "start": 762.72,
+        "duration": 7.65,
+        "text": "do first is show you a little bit about"
+      },
+      {
+        "start": 766.82,
+        "duration": 19.66,
+        "text": "what we've got here so actually where's"
+      },
+      {
+        "start": 770.37,
+        "duration": 18.03,
+        "text": "the so who's heard of killer video okay"
+      },
+      {
+        "start": 786.48,
+        "duration": 4.59,
+        "text": "more of you should have heard it because"
+      },
+      {
+        "start": 788.4,
+        "duration": 5.64,
+        "text": "it's a great Kassandra reference"
+      },
+      {
+        "start": 791.07,
+        "duration": 6.48,
+        "text": "application okay go to killer video comm"
+      },
+      {
+        "start": 794.04,
+        "duration": 5.19,
+        "text": "and there's links there to the source"
+      },
+      {
+        "start": 797.55,
+        "duration": 4.76,
+        "text": "code and everything it shows you how to"
+      },
+      {
+        "start": 799.23,
+        "duration": 7.73,
+        "text": "build your your own YouTube killer in"
+      },
+      {
+        "start": 802.31,
+        "duration": 7.6,
+        "text": "Cassandra so what we did was looked at"
+      },
+      {
+        "start": 806.96,
+        "duration": 5.47,
+        "text": "what might be a relational database"
+      },
+      {
+        "start": 809.91,
+        "duration": 9.15,
+        "text": "schema if you were going to do this kind"
+      },
+      {
+        "start": 812.43,
+        "duration": 9.03,
+        "text": "of video streaming site so very standard"
+      },
+      {
+        "start": 819.06,
+        "duration": 7.38,
+        "text": "pretty small relational schema"
+      },
+      {
+        "start": 821.46,
+        "duration": 7.5,
+        "text": "we've got movies users users give"
+      },
+      {
+        "start": 826.44,
+        "duration": 4.43,
+        "text": "ratings to movies so we've got nice"
+      },
+      {
+        "start": 828.96,
+        "duration": 8.06,
+        "text": "foreign key relationships there and"
+      },
+      {
+        "start": 830.87,
+        "duration": 11.07,
+        "text": "movies can also have be tagged by users"
+      },
+      {
+        "start": 837.02,
+        "duration": 9.7,
+        "text": "so we've got like a folksonomy there now"
+      },
+      {
+        "start": 841.94,
+        "duration": 7.02,
+        "text": "very familiar relational database kind"
+      },
+      {
+        "start": 846.72,
+        "duration": 6.06,
+        "text": "of schema there with the relations now"
+      },
+      {
+        "start": 848.96,
+        "duration": 4.69,
+        "text": "when we move to Cassandra it's very very"
+      },
+      {
+        "start": 852.78,
+        "duration": 3.0,
+        "text": "different"
+      },
+      {
+        "start": 853.65,
+        "duration": 4.53,
+        "text": "for one thing Cassandra doesn't have the"
+      },
+      {
+        "start": 855.78,
+        "duration": 5.55,
+        "text": "concept of foreign keys and for another"
+      },
+      {
+        "start": 858.18,
+        "duration": 6.9,
+        "text": "what ends up happening is we have pretty"
+      },
+      {
+        "start": 861.33,
+        "duration": 5.99,
+        "text": "much denormalized the data here because"
+      },
+      {
+        "start": 865.08,
+        "duration": 4.82,
+        "text": "we're modeling it according to the"
+      },
+      {
+        "start": 867.32,
+        "duration": 6.51,
+        "text": "access patterns so we're going to want"
+      },
+      {
+        "start": 869.9,
+        "duration": 6.9,
+        "text": "to get the tags movie tags from by the"
+      },
+      {
+        "start": 873.83,
+        "duration": 5.43,
+        "text": "user so we've got a table here with the"
+      },
+      {
+        "start": 876.8,
+        "duration": 5.4,
+        "text": "user ID as a primary key in the movie ID"
+      },
+      {
+        "start": 879.26,
+        "duration": 5.76,
+        "text": "in the tag we want to retrieve the"
+      },
+      {
+        "start": 882.2,
+        "duration": 5.52,
+        "text": "movies from the tag so actually this is"
+      },
+      {
+        "start": 885.02,
+        "duration": 4.83,
+        "text": "duplicate data here but it's following"
+      },
+      {
+        "start": 887.72,
+        "duration": 7.23,
+        "text": "the access pattern from the application"
+      },
+      {
+        "start": 889.85,
+        "duration": 10.98,
+        "text": "for efficiency so moving between the two"
+      },
+      {
+        "start": 894.95,
+        "duration": 10.41,
+        "text": "becomes a non-trivial exercise and let's"
+      },
+      {
+        "start": 900.83,
+        "duration": 8.9,
+        "text": "have a look at how we achieve it so this"
+      },
+      {
+        "start": 905.36,
+        "duration": 4.37,
+        "text": "is let's make it less of an eye chart"
+      },
+      {
+        "start": 909.94,
+        "duration": 9.28,
+        "text": "this is the pipeline in-stream sets so"
+      },
+      {
+        "start": 917.63,
+        "duration": 3.18,
+        "text": "we've built this pipeline it's actually"
+      },
+      {
+        "start": 919.22,
+        "duration": 4.8,
+        "text": "going to be easy if I just run it first"
+      },
+      {
+        "start": 920.81,
+        "duration": 5.22,
+        "text": "and you can see seaton operation and we"
+      },
+      {
+        "start": 924.02,
+        "duration": 3.99,
+        "text": "could step around it a little bit so"
+      },
+      {
+        "start": 926.03,
+        "duration": 8.76,
+        "text": "what I've got kind of in the background"
+      },
+      {
+        "start": 928.01,
+        "duration": 8.97,
+        "text": "is my sequel and I've got for the"
+      },
+      {
+        "start": 934.79,
+        "duration": 3.99,
+        "text": "purpose of you know having a demo that"
+      },
+      {
+        "start": 936.98,
+        "duration": 5.94,
+        "text": "shows in a reasonable amount of time my"
+      },
+      {
+        "start": 938.78,
+        "duration": 11.07,
+        "text": "laptop I've got a thousand movies here"
+      },
+      {
+        "start": 942.92,
+        "duration": 11.61,
+        "text": "in my sequel all with very very"
+      },
+      {
+        "start": 949.85,
+        "duration": 6.66,
+        "text": "realistic descriptions and what I know"
+      },
+      {
+        "start": 954.53,
+        "duration": 5.13,
+        "text": "similarly I've got movies ratings tags"
+      },
+      {
+        "start": 956.51,
+        "duration": 6.0,
+        "text": "and users and what I can do is I can"
+      },
+      {
+        "start": 959.66,
+        "duration": 5.4,
+        "text": "move those across by running this"
+      },
+      {
+        "start": 962.51,
+        "duration": 5.58,
+        "text": "pipeline so I should be able to do is"
+      },
+      {
+        "start": 965.06,
+        "duration": 6.48,
+        "text": "click start now this takes a few seconds"
+      },
+      {
+        "start": 968.09,
+        "duration": 6.36,
+        "text": "to start up because it's got to connect"
+      },
+      {
+        "start": 971.54,
+        "duration": 5.85,
+        "text": "to my sequel it's got a hook up all of"
+      },
+      {
+        "start": 974.45,
+        "duration": 6.93,
+        "text": "these database connections here and it's"
+      },
+      {
+        "start": 977.39,
+        "duration": 6.12,
+        "text": "got to connect to Cassandra so this is"
+      },
+      {
+        "start": 981.38,
+        "duration": 4.56,
+        "text": "the moment when I know it takes a few"
+      },
+      {
+        "start": 983.51,
+        "duration": 3.87,
+        "text": "seconds to start but it always takes a"
+      },
+      {
+        "start": 985.94,
+        "duration": 6.75,
+        "text": "second or two longer that I'm"
+      },
+      {
+        "start": 987.38,
+        "duration": 10.98,
+        "text": "comfortable with taking so let's let's"
+      },
+      {
+        "start": 992.69,
+        "duration": 9.39,
+        "text": "we'll it into working there oh okay"
+      },
+      {
+        "start": 998.36,
+        "duration": 6.96,
+        "text": "oh I know what I've done okay so rule"
+      },
+      {
+        "start": 1002.08,
+        "duration": 6.21,
+        "text": "one always reset the pipeline because it"
+      },
+      {
+        "start": 1005.32,
+        "duration": 4.98,
+        "text": "remembers how much data it processed"
+      },
+      {
+        "start": 1008.29,
+        "duration": 3.87,
+        "text": "okay so let's do that again it'll be"
+      },
+      {
+        "start": 1010.3,
+        "duration": 5.64,
+        "text": "faster this time so what happened there"
+      },
+      {
+        "start": 1012.16,
+        "duration": 5.34,
+        "text": "was the pipeline by default keeps track"
+      },
+      {
+        "start": 1015.94,
+        "duration": 4.23,
+        "text": "of how much data it's processed and"
+      },
+      {
+        "start": 1017.5,
+        "duration": 4.61,
+        "text": "won't reprocess the data so obviously I"
+      },
+      {
+        "start": 1020.17,
+        "duration": 4.71,
+        "text": "was playing with this earlier and I"
+      },
+      {
+        "start": 1022.11,
+        "duration": 5.32,
+        "text": "didn't reset the pipeline to say okay"
+      },
+      {
+        "start": 1024.88,
+        "duration": 5.13,
+        "text": "start again from the beginning of the"
+      },
+      {
+        "start": 1027.43,
+        "duration": 3.57,
+        "text": "data what we should see here now is when"
+      },
+      {
+        "start": 1030.01,
+        "duration": 6.05,
+        "text": "it gets started"
+      },
+      {
+        "start": 1031.0,
+        "duration": 11.52,
+        "text": "it'll process 2000 records in fact so"
+      },
+      {
+        "start": 1036.06,
+        "duration": 10.78,
+        "text": "1700 2000 and then it'll stop and you'll"
+      },
+      {
+        "start": 1042.52,
+        "duration": 6.57,
+        "text": "see here that the output here is many"
+      },
+      {
+        "start": 1046.84,
+        "duration": 4.8,
+        "text": "more records than the input because as"
+      },
+      {
+        "start": 1049.09,
+        "duration": 4.29,
+        "text": "those two schemas implied we have many"
+      },
+      {
+        "start": 1051.64,
+        "duration": 7.53,
+        "text": "more records in Cassandra what it's done"
+      },
+      {
+        "start": 1053.38,
+        "duration": 9.36,
+        "text": "is broken out those records and if I go"
+      },
+      {
+        "start": 1059.17,
+        "duration": 11.7,
+        "text": "over to Cassandra in the shell what I"
+      },
+      {
+        "start": 1062.74,
+        "duration": 10.17,
+        "text": "can see is where are we this one so I"
+      },
+      {
+        "start": 1070.87,
+        "duration": 4.23,
+        "text": "just did it before when I was sitting"
+      },
+      {
+        "start": 1072.91,
+        "duration": 4.53,
+        "text": "there I said select star from movies"
+      },
+      {
+        "start": 1075.1,
+        "duration": 6.51,
+        "text": "just to check so if I do select star"
+      },
+      {
+        "start": 1077.44,
+        "duration": 6.93,
+        "text": "from movie movie as limit 10 we should"
+      },
+      {
+        "start": 1081.61,
+        "duration": 6.03,
+        "text": "have a whole bunch of movies moved"
+      },
+      {
+        "start": 1084.37,
+        "duration": 8.79,
+        "text": "across so how do we do that how does"
+      },
+      {
+        "start": 1087.64,
+        "duration": 9.36,
+        "text": "this work well I'm reading multiple"
+      },
+      {
+        "start": 1093.16,
+        "duration": 5.97,
+        "text": "tables out of my sequel okay I've got"
+      },
+      {
+        "start": 1097.0,
+        "duration": 4.02,
+        "text": "this multi table consumer and I've"
+      },
+      {
+        "start": 1099.13,
+        "duration": 4.38,
+        "text": "configured that with a connection string"
+      },
+      {
+        "start": 1101.02,
+        "duration": 7.26,
+        "text": "so this is just a parameter I've"
+      },
+      {
+        "start": 1103.51,
+        "duration": 7.08,
+        "text": "pre-configured and down where is it"
+      },
+      {
+        "start": 1108.28,
+        "duration": 4.56,
+        "text": "tables I've said okay I'm going to use a"
+      },
+      {
+        "start": 1110.59,
+        "duration": 6.66,
+        "text": "killer movie schema and I want the users"
+      },
+      {
+        "start": 1112.84,
+        "duration": 6.36,
+        "text": "table and the movies table okay because"
+      },
+      {
+        "start": 1117.25,
+        "duration": 4.47,
+        "text": "that's where our data starts in that"
+      },
+      {
+        "start": 1119.2,
+        "duration": 5.04,
+        "text": "schema that's right that that's those"
+      },
+      {
+        "start": 1121.72,
+        "duration": 4.74,
+        "text": "are they're kind of the root of the"
+      },
+      {
+        "start": 1124.24,
+        "duration": 5.28,
+        "text": "Hyatt data hierarchy now you'll notice"
+      },
+      {
+        "start": 1126.46,
+        "duration": 4.83,
+        "text": "here I'm going to stop the pipeline when"
+      },
+      {
+        "start": 1129.52,
+        "duration": 2.73,
+        "text": "I have read all of the data by default"
+      },
+      {
+        "start": 1131.29,
+        "duration": 3.42,
+        "text": "these pipeline"
+      },
+      {
+        "start": 1132.25,
+        "duration": 4.59,
+        "text": "we'll run forever but in this case I'm"
+      },
+      {
+        "start": 1134.71,
+        "duration": 8.37,
+        "text": "doing a one-time load so I say okay stop"
+      },
+      {
+        "start": 1136.84,
+        "duration": 12.09,
+        "text": "pipeline when there's no more data can"
+      },
+      {
+        "start": 1143.08,
+        "duration": 8.55,
+        "text": "everybody see the words and then okay so"
+      },
+      {
+        "start": 1148.93,
+        "duration": 5.61,
+        "text": "once I read the data in I add some"
+      },
+      {
+        "start": 1151.63,
+        "duration": 6.06,
+        "text": "metadata so I'm setting some operational"
+      },
+      {
+        "start": 1154.54,
+        "duration": 6.74,
+        "text": "things they're created at operation type"
+      },
+      {
+        "start": 1157.69,
+        "duration": 6.84,
+        "text": "is one that's what I'm using for"
+      },
+      {
+        "start": 1161.28,
+        "duration": 6.85,
+        "text": "creating records in Cassandra and now I"
+      },
+      {
+        "start": 1164.53,
+        "duration": 7.86,
+        "text": "can convert some fields so the operation"
+      },
+      {
+        "start": 1168.13,
+        "duration": 6.39,
+        "text": "type wants to be integer and then I can"
+      },
+      {
+        "start": 1172.39,
+        "duration": 6.21,
+        "text": "switch the data according to whether"
+      },
+      {
+        "start": 1174.52,
+        "duration": 7.65,
+        "text": "they're movie or user records so for the"
+      },
+      {
+        "start": 1178.6,
+        "duration": 7.86,
+        "text": "movies I look up a UUID okay I've got"
+      },
+      {
+        "start": 1182.17,
+        "duration": 6.39,
+        "text": "got my mapping from sequential keys in"
+      },
+      {
+        "start": 1186.46,
+        "duration": 4.68,
+        "text": "my sequel into you IDs that Cassandra"
+      },
+      {
+        "start": 1188.56,
+        "duration": 4.08,
+        "text": "would like and I'm gonna insert the"
+      },
+      {
+        "start": 1191.14,
+        "duration": 4.05,
+        "text": "movie into the table so that's really"
+      },
+      {
+        "start": 1192.64,
+        "duration": 4.14,
+        "text": "straightforward I read in every movie"
+      },
+      {
+        "start": 1195.19,
+        "duration": 3.96,
+        "text": "and create Cassandra record for every"
+      },
+      {
+        "start": 1196.78,
+        "duration": 7.2,
+        "text": "movie now for the users"
+      },
+      {
+        "start": 1199.15,
+        "duration": 8.88,
+        "text": "I look up the UUID and then I look up"
+      },
+      {
+        "start": 1203.98,
+        "duration": 7.71,
+        "text": "all the ratings and their tags that that"
+      },
+      {
+        "start": 1208.03,
+        "duration": 6.21,
+        "text": "user created as well as inserting the"
+      },
+      {
+        "start": 1211.69,
+        "duration": 5.1,
+        "text": "user record so I'm actually splitting"
+      },
+      {
+        "start": 1214.24,
+        "duration": 5.52,
+        "text": "the data three ways here and it's going"
+      },
+      {
+        "start": 1216.79,
+        "duration": 6.63,
+        "text": "to do all of these three it's going to"
+      },
+      {
+        "start": 1219.76,
+        "duration": 5.25,
+        "text": "all of these three operations so if"
+      },
+      {
+        "start": 1223.42,
+        "duration": 3.33,
+        "text": "there's any ratings"
+      },
+      {
+        "start": 1225.01,
+        "duration": 4.56,
+        "text": "it'll insert into the movie ratings by"
+      },
+      {
+        "start": 1226.75,
+        "duration": 4.17,
+        "text": "user and so on it will insert into"
+      },
+      {
+        "start": 1229.57,
+        "duration": 6.66,
+        "text": "movies by tags so we're really we're"
+      },
+      {
+        "start": 1230.92,
+        "duration": 9.11,
+        "text": "populating all one two three four five"
+      },
+      {
+        "start": 1236.23,
+        "duration": 7.23,
+        "text": "Cassandra tables in this single pipeline"
+      },
+      {
+        "start": 1240.03,
+        "duration": 7.09,
+        "text": "so it's pretty efficient in the way that"
+      },
+      {
+        "start": 1243.46,
+        "duration": 11.07,
+        "text": "we can we can do the whole job in in one"
+      },
+      {
+        "start": 1247.12,
+        "duration": 10.22,
+        "text": "pipeline here okay so we've got some"
+      },
+      {
+        "start": 1254.53,
+        "duration": 5.81,
+        "text": "data what happens now"
+      },
+      {
+        "start": 1257.34,
+        "duration": 3.0,
+        "text": "well"
+      },
+      {
+        "start": 1263.11,
+        "duration": 5.68,
+        "text": "let's see we've loaded the data we"
+      },
+      {
+        "start": 1265.97,
+        "duration": 4.47,
+        "text": "changed those primary keys to you ID so"
+      },
+      {
+        "start": 1268.79,
+        "duration": 3.9,
+        "text": "we just have like an operational table"
+      },
+      {
+        "start": 1270.44,
+        "duration": 4.32,
+        "text": "to map between the two now"
+      },
+      {
+        "start": 1272.69,
+        "duration": 4.71,
+        "text": "we could generate you you IDs on the fly"
+      },
+      {
+        "start": 1274.76,
+        "duration": 3.96,
+        "text": "as we're writing them into Cassandra but"
+      },
+      {
+        "start": 1277.4,
+        "duration": 3.95,
+        "text": "that would make it much more complex"
+      },
+      {
+        "start": 1278.72,
+        "duration": 5.49,
+        "text": "because when we're processing those"
+      },
+      {
+        "start": 1281.35,
+        "duration": 7.24,
+        "text": "users we're writing to multiple tables"
+      },
+      {
+        "start": 1284.21,
+        "duration": 6.3,
+        "text": "having a a mapping pre-configured makes"
+      },
+      {
+        "start": 1288.59,
+        "duration": 3.51,
+        "text": "things a bit easier there when you when"
+      },
+      {
+        "start": 1290.51,
+        "duration": 4.08,
+        "text": "we're writing to a bunch of different"
+      },
+      {
+        "start": 1292.1,
+        "duration": 6.329,
+        "text": "tables we know that all of the mappings"
+      },
+      {
+        "start": 1294.59,
+        "duration": 8.28,
+        "text": "from a my sequel record ID to a UID are"
+      },
+      {
+        "start": 1298.429,
+        "duration": 6.181,
+        "text": "already already configured it was a"
+      },
+      {
+        "start": 1302.87,
+        "duration": 7.23,
+        "text": "batch job so we stopped when it"
+      },
+      {
+        "start": 1304.61,
+        "duration": 7.53,
+        "text": "completed and really we have almost like"
+      },
+      {
+        "start": 1310.1,
+        "duration": 3.84,
+        "text": "configuration as code we can export this"
+      },
+      {
+        "start": 1312.14,
+        "duration": 6.45,
+        "text": "pipeline as JSON and keep it under"
+      },
+      {
+        "start": 1313.94,
+        "duration": 7.11,
+        "text": "change control if we want to one thing I"
+      },
+      {
+        "start": 1318.59,
+        "duration": 4.219,
+        "text": "didn't do when I was looking there when"
+      },
+      {
+        "start": 1321.05,
+        "duration": 8.22,
+        "text": "we're getting this kind of stuff already"
+      },
+      {
+        "start": 1322.809,
+        "duration": 10.781,
+        "text": "we can do a preview so as I'm building"
+      },
+      {
+        "start": 1329.27,
+        "duration": 8.7,
+        "text": "my pipeline let's take a few seconds"
+      },
+      {
+        "start": 1333.59,
+        "duration": 6.93,
+        "text": "again as I'm building my pipeline I'm"
+      },
+      {
+        "start": 1337.97,
+        "duration": 5.85,
+        "text": "configuring all of these processing"
+      },
+      {
+        "start": 1340.52,
+        "duration": 6.09,
+        "text": "stages I'm setting up expressions here"
+      },
+      {
+        "start": 1343.82,
+        "duration": 6.09,
+        "text": "to say which way the records should be"
+      },
+      {
+        "start": 1346.61,
+        "duration": 7.92,
+        "text": "sent and so on I want to have a bit of"
+      },
+      {
+        "start": 1349.91,
+        "duration": 7.05,
+        "text": "confidence in what's happening so this"
+      },
+      {
+        "start": 1354.53,
+        "duration": 7.26,
+        "text": "is the first 10 records from the"
+      },
+      {
+        "start": 1356.96,
+        "duration": 8.31,
+        "text": "database so if we just make them big so"
+      },
+      {
+        "start": 1361.79,
+        "duration": 5.1,
+        "text": "record 1 record 2 so on so what we did"
+      },
+      {
+        "start": 1365.27,
+        "duration": 5.46,
+        "text": "was we just read the first 10 records"
+      },
+      {
+        "start": 1366.89,
+        "duration": 6.87,
+        "text": "and then we can follow it around the"
+      },
+      {
+        "start": 1370.73,
+        "duration": 6.51,
+        "text": "pipeline now what's really nice here and"
+      },
+      {
+        "start": 1373.76,
+        "duration": 6.48,
+        "text": "let me just read more that's some glitch"
+      },
+      {
+        "start": 1377.24,
+        "duration": 5.069,
+        "text": "in the UI this output box what's really"
+      },
+      {
+        "start": 1380.24,
+        "duration": 5.73,
+        "text": "nice here is I see that this add"
+      },
+      {
+        "start": 1382.309,
+        "duration": 5.25,
+        "text": "metadata at stage added two fields I see"
+      },
+      {
+        "start": 1385.97,
+        "duration": 4.44,
+        "text": "that this was converted from a long to"
+      },
+      {
+        "start": 1387.559,
+        "duration": 6.12,
+        "text": "an integer and I see here that these are"
+      },
+      {
+        "start": 1390.41,
+        "duration": 4.17,
+        "text": "all sent along stream 1 ok because they"
+      },
+      {
+        "start": 1393.679,
+        "duration": 4.921,
+        "text": "all come from the movie"
+      },
+      {
+        "start": 1394.58,
+        "duration": 7.26,
+        "text": "stable and then I can see the look up to"
+      },
+      {
+        "start": 1398.6,
+        "duration": 5.459,
+        "text": "get that UUID and I can kind of follow"
+      },
+      {
+        "start": 1401.84,
+        "duration": 4.199,
+        "text": "this round okay there wasn't one there"
+      },
+      {
+        "start": 1404.059,
+        "duration": 5.311,
+        "text": "because this is a movie but I can see"
+      },
+      {
+        "start": 1406.039,
+        "duration": 5.01,
+        "text": "the data that gets as far as Cassandra"
+      },
+      {
+        "start": 1409.37,
+        "duration": 6.409,
+        "text": "but it didn't write it because this is"
+      },
+      {
+        "start": 1411.049,
+        "duration": 12.181,
+        "text": "just a preview so really nice"
+      },
+      {
+        "start": 1415.779,
+        "duration": 10.231,
+        "text": "observability okay so so we can be"
+      },
+      {
+        "start": 1423.23,
+        "duration": 5.429,
+        "text": "pretty sure that what goes into"
+      },
+      {
+        "start": 1426.01,
+        "duration": 5.08,
+        "text": "Cassandra is what we intend and we can"
+      },
+      {
+        "start": 1428.659,
+        "duration": 4.561,
+        "text": "also do things like snapshot so is the"
+      },
+      {
+        "start": 1431.09,
+        "duration": 4.469,
+        "text": "pipelines running on a longer job we can"
+      },
+      {
+        "start": 1433.22,
+        "duration": 8.459,
+        "text": "jump in and scoop out some data and do"
+      },
+      {
+        "start": 1435.559,
+        "duration": 8.281,
+        "text": "that same examination so now we come to"
+      },
+      {
+        "start": 1441.679,
+        "duration": 5.49,
+        "text": "the really cool bit that was a batch"
+      },
+      {
+        "start": 1443.84,
+        "duration": 6.26,
+        "text": "pipeline that runs and then stops let's"
+      },
+      {
+        "start": 1447.169,
+        "duration": 9.75,
+        "text": "have a streaming pipeline that runs"
+      },
+      {
+        "start": 1450.1,
+        "duration": 10.179,
+        "text": "continuously so we have an origin for my"
+      },
+      {
+        "start": 1456.919,
+        "duration": 5.0,
+        "text": "sequel that uses their bin lock like"
+      },
+      {
+        "start": 1460.279,
+        "duration": 6.051,
+        "text": "basically reads their transaction log"
+      },
+      {
+        "start": 1461.919,
+        "duration": 11.711,
+        "text": "and we have many others we have Oracle"
+      },
+      {
+        "start": 1466.33,
+        "duration": 11.17,
+        "text": "MongoDB Salesforce Postgres etc and it's"
+      },
+      {
+        "start": 1473.63,
+        "duration": 7.169,
+        "text": "important here to consider what's"
+      },
+      {
+        "start": 1477.5,
+        "duration": 6.99,
+        "text": "happening we often want to retain a"
+      },
+      {
+        "start": 1480.799,
+        "duration": 5.821,
+        "text": "history of operations versus map those"
+      },
+      {
+        "start": 1484.49,
+        "duration": 4.74,
+        "text": "operations directly so if you can"
+      },
+      {
+        "start": 1486.62,
+        "duration": 5.399,
+        "text": "imagine if something's updated in my"
+      },
+      {
+        "start": 1489.23,
+        "duration": 6.449,
+        "text": "sequel we might not want to mutate the"
+      },
+      {
+        "start": 1492.019,
+        "duration": 5.961,
+        "text": "row in Cassandra we might want to write"
+      },
+      {
+        "start": 1495.679,
+        "duration": 4.921,
+        "text": "a new row so we have a history of"
+      },
+      {
+        "start": 1497.98,
+        "duration": 4.299,
+        "text": "changes similarly when we delete"
+      },
+      {
+        "start": 1500.6,
+        "duration": 4.199,
+        "text": "something we might just set a flag on it"
+      },
+      {
+        "start": 1502.279,
+        "duration": 4.321,
+        "text": "so it's not deleted from Cassandra so we"
+      },
+      {
+        "start": 1504.799,
+        "duration": 3.36,
+        "text": "have the history so there's a lot of"
+      },
+      {
+        "start": 1506.6,
+        "duration": 4.38,
+        "text": "flexibility you can get when you're"
+      },
+      {
+        "start": 1508.159,
+        "duration": 6.951,
+        "text": "building these pipelines so yeah let's"
+      },
+      {
+        "start": 1510.98,
+        "duration": 6.36,
+        "text": "look at the change data capture so"
+      },
+      {
+        "start": 1515.11,
+        "duration": 3.789,
+        "text": "pretty similar but a little bit"
+      },
+      {
+        "start": 1517.34,
+        "duration": 4.309,
+        "text": "different and what I'll do again is I'll"
+      },
+      {
+        "start": 1518.899,
+        "duration": 2.75,
+        "text": "just set it going"
+      },
+      {
+        "start": 1523.0,
+        "duration": 5.65,
+        "text": "now this is"
+      },
+      {
+        "start": 1525.98,
+        "duration": 5.19,
+        "text": "once it says goes from starting to"
+      },
+      {
+        "start": 1528.65,
+        "duration": 5.16,
+        "text": "running so this is going to monitor my"
+      },
+      {
+        "start": 1531.17,
+        "duration": 4.95,
+        "text": "sequel so it's monitoring that my sequel"
+      },
+      {
+        "start": 1533.81,
+        "duration": 5.37,
+        "text": "transaction log and then for every"
+      },
+      {
+        "start": 1536.12,
+        "duration": 7.32,
+        "text": "change it's going to basically go down"
+      },
+      {
+        "start": 1539.18,
+        "duration": 11.72,
+        "text": "this sequence of operations so set the"
+      },
+      {
+        "start": 1543.44,
+        "duration": 9.56,
+        "text": "table name okay some things being weird"
+      },
+      {
+        "start": 1550.9,
+        "duration": 8.17,
+        "text": "okay"
+      },
+      {
+        "start": 1553.0,
+        "duration": 7.87,
+        "text": "okay bear with me a second here okay"
+      },
+      {
+        "start": 1559.07,
+        "duration": 10.44,
+        "text": "what's gonna I'm gonna restart this"
+      },
+      {
+        "start": 1560.87,
+        "duration": 11.55,
+        "text": "world I'm actually using the master copy"
+      },
+      {
+        "start": 1569.51,
+        "duration": 5.43,
+        "text": "out of github Simon on the bleeding edge"
+      },
+      {
+        "start": 1572.42,
+        "duration": 4.65,
+        "text": "I don't run the release so what I'm"
+      },
+      {
+        "start": 1574.94,
+        "duration": 3.75,
+        "text": "doing is I'm just restarting so what's"
+      },
+      {
+        "start": 1577.07,
+        "duration": 3.74,
+        "text": "going to happen is we're going to go"
+      },
+      {
+        "start": 1578.69,
+        "duration": 6.44,
+        "text": "along the sequence of operations and"
+      },
+      {
+        "start": 1580.81,
+        "duration": 7.09,
+        "text": "basically map this transaction data into"
+      },
+      {
+        "start": 1585.13,
+        "duration": 7.96,
+        "text": "changes that we can apply to Cassandra"
+      },
+      {
+        "start": 1587.9,
+        "duration": 8.1,
+        "text": "so I guess it's the night for demo"
+      },
+      {
+        "start": 1593.09,
+        "duration": 5.46,
+        "text": "gremlins so this is gonna start"
+      },
+      {
+        "start": 1596.0,
+        "duration": 7.59,
+        "text": "listening now"
+      },
+      {
+        "start": 1598.55,
+        "duration": 6.93,
+        "text": "now come on takes a few seconds I've got"
+      },
+      {
+        "start": 1603.59,
+        "duration": 3.78,
+        "text": "every single connector under the Sun"
+      },
+      {
+        "start": 1605.48,
+        "duration": 8.04,
+        "text": "loaded into this thing so it's got a"
+      },
+      {
+        "start": 1607.37,
+        "duration": 7.65,
+        "text": "load jar files and so on so on okay any"
+      },
+      {
+        "start": 1613.52,
+        "duration": 5.42,
+        "text": "questions about what you've seen so far"
+      },
+      {
+        "start": 1615.02,
+        "duration": 6.92,
+        "text": "while this gets going okay all clear"
+      },
+      {
+        "start": 1618.94,
+        "duration": 3.0,
+        "text": "right"
+      },
+      {
+        "start": 1624.26,
+        "duration": 11.37,
+        "text": "oh there we go right so if we go super"
+      },
+      {
+        "start": 1630.41,
+        "duration": 6.75,
+        "text": "secret password CDC starting so he"
+      },
+      {
+        "start": 1635.63,
+        "duration": 4.039,
+        "text": "remembered the state it was in it was"
+      },
+      {
+        "start": 1637.16,
+        "duration": 7.639,
+        "text": "trying to start so tries to start again"
+      },
+      {
+        "start": 1639.669,
+        "duration": 7.51,
+        "text": "come on come on you can do it let's go"
+      },
+      {
+        "start": 1644.799,
+        "duration": 7.451,
+        "text": "so while that starts let's go over to"
+      },
+      {
+        "start": 1647.179,
+        "duration": 10.88,
+        "text": "Cassandra and say get a bunch of the"
+      },
+      {
+        "start": 1652.25,
+        "duration": 8.85,
+        "text": "movies based on a tag so Cassandra"
+      },
+      {
+        "start": 1658.059,
+        "duration": 10.771,
+        "text": "okay so these are ten movies with a"
+      },
+      {
+        "start": 1661.1,
+        "duration": 7.73,
+        "text": "particular tag and it will got movie IDs"
+      },
+      {
+        "start": 1668.95,
+        "duration": 5.91,
+        "text": "let's see select star from movies where"
+      },
+      {
+        "start": 1675.61,
+        "duration": 5.559,
+        "text": "and I'll just do select star for movies"
+      },
+      {
+        "start": 1678.799,
+        "duration": 4.38,
+        "text": "limit ten what I'm after is getting just"
+      },
+      {
+        "start": 1681.169,
+        "duration": 4.981,
+        "text": "one movie that we can we can pick on"
+      },
+      {
+        "start": 1683.179,
+        "duration": 5.37,
+        "text": "here we go actress actress the dollars"
+      },
+      {
+        "start": 1686.15,
+        "duration": 4.47,
+        "text": "and the Transylvanians okay so that"
+      },
+      {
+        "start": 1688.549,
+        "duration": 3.841,
+        "text": "would be that ID so what we want to do"
+      },
+      {
+        "start": 1690.62,
+        "duration": 3.059,
+        "text": "is focus in on a single movie because"
+      },
+      {
+        "start": 1692.39,
+        "duration": 6.9,
+        "text": "we're going to change it so let's just"
+      },
+      {
+        "start": 1693.679,
+        "duration": 10.171,
+        "text": "our four movies where ID equals that"
+      },
+      {
+        "start": 1699.29,
+        "duration": 8.129,
+        "text": "okay I didn't know about this expand on"
+      },
+      {
+        "start": 1703.85,
+        "duration": 9.03,
+        "text": "thing until I saw this so okay so"
+      },
+      {
+        "start": 1707.419,
+        "duration": 10.731,
+        "text": "there's our description and name oh I"
+      },
+      {
+        "start": 1712.88,
+        "duration": 5.27,
+        "text": "know what I've done I've been dumb again"
+      },
+      {
+        "start": 1723.49,
+        "duration": 7.09,
+        "text": "so in common with last time I forgot to"
+      },
+      {
+        "start": 1728.299,
+        "duration": 3.991,
+        "text": "reset the origin so he's looking for"
+      },
+      {
+        "start": 1730.58,
+        "duration": 4.05,
+        "text": "changes that no longer existed because I"
+      },
+      {
+        "start": 1732.29,
+        "duration": 7.2,
+        "text": "truncated tables and all sorts of great"
+      },
+      {
+        "start": 1734.63,
+        "duration": 10.02,
+        "text": "stuff so forgive me I thought I'd reset"
+      },
+      {
+        "start": 1739.49,
+        "duration": 9.66,
+        "text": "the demos but they bit me okay so this"
+      },
+      {
+        "start": 1744.65,
+        "duration": 6.89,
+        "text": "time this time it'll start okay so what"
+      },
+      {
+        "start": 1749.15,
+        "duration": 4.74,
+        "text": "we're going to do is going to change"
+      },
+      {
+        "start": 1751.54,
+        "duration": 5.34,
+        "text": "this actress the dollars in the"
+      },
+      {
+        "start": 1753.89,
+        "duration": 4.13,
+        "text": "Transylvanians so let's go find it so"
+      },
+      {
+        "start": 1756.88,
+        "duration": 4.33,
+        "text": "[Music]"
+      },
+      {
+        "start": 1758.02,
+        "duration": 4.84,
+        "text": "actress there we go actress the dollars"
+      },
+      {
+        "start": 1761.21,
+        "duration": 5.73,
+        "text": "and the Transylvanians and never seen"
+      },
+      {
+        "start": 1762.86,
+        "duration": 5.1,
+        "text": "that movie running okay so what we're"
+      },
+      {
+        "start": 1766.94,
+        "duration": 5.75,
+        "text": "going to do is we're going to change"
+      },
+      {
+        "start": 1767.96,
+        "duration": 10.31,
+        "text": "this to the description to Cassandra is"
+      },
+      {
+        "start": 1772.69,
+        "duration": 15.01,
+        "text": "awesome and what we should see is a"
+      },
+      {
+        "start": 1778.27,
+        "duration": 11.85,
+        "text": "record flow across here oh okay"
+      },
+      {
+        "start": 1787.7,
+        "duration": 4.709,
+        "text": "we of course have to commit the change"
+      },
+      {
+        "start": 1790.12,
+        "duration": 4.78,
+        "text": "then we see the record fly across there"
+      },
+      {
+        "start": 1792.409,
+        "duration": 5.611,
+        "text": "have done this before folks and then if"
+      },
+      {
+        "start": 1794.9,
+        "duration": 5.159,
+        "text": "we do exactly the same select then we"
+      },
+      {
+        "start": 1798.02,
+        "duration": 5.1,
+        "text": "see that the description has updated to"
+      },
+      {
+        "start": 1800.059,
+        "duration": 5.161,
+        "text": "Cassandra is awesome so once you deploy"
+      },
+      {
+        "start": 1803.12,
+        "duration": 3.96,
+        "text": "it into production it's much less"
+      },
+      {
+        "start": 1805.22,
+        "duration": 9.0,
+        "text": "torturous than showing it on stage I"
+      },
+      {
+        "start": 1807.08,
+        "duration": 10.74,
+        "text": "promise okay so we saw the continuous"
+      },
+      {
+        "start": 1814.22,
+        "duration": 6.36,
+        "text": "approach there and also the fact here so"
+      },
+      {
+        "start": 1817.82,
+        "duration": 5.22,
+        "text": "this is pretty important to see here if"
+      },
+      {
+        "start": 1820.58,
+        "duration": 6.24,
+        "text": "you see this select I've actually got"
+      },
+      {
+        "start": 1823.04,
+        "duration": 8.79,
+        "text": "two records so I've kept the old one"
+      },
+      {
+        "start": 1826.82,
+        "duration": 8.79,
+        "text": "with the time and one was an insert"
+      },
+      {
+        "start": 1831.83,
+        "duration": 6.0,
+        "text": "three was an update so here in my model"
+      },
+      {
+        "start": 1835.61,
+        "duration": 5.069,
+        "text": "I've elected to keep that history and"
+      },
+      {
+        "start": 1837.83,
+        "duration": 10.52,
+        "text": "I'm able to do that in the in the"
+      },
+      {
+        "start": 1840.679,
+        "duration": 7.671,
+        "text": "pipeline there alrighty oops"
+      },
+      {
+        "start": 1852.029,
+        "duration": 6.25,
+        "text": "so hopefully in between the glitches"
+      },
+      {
+        "start": 1855.059,
+        "duration": 8.79,
+        "text": "you've got an idea there of what was"
+      },
+      {
+        "start": 1858.279,
+        "duration": 13.681,
+        "text": "what was going on so yeah happy to take"
+      },
+      {
+        "start": 1863.849,
+        "duration": 9.94,
+        "text": "questions yeah that's a great question"
+      },
+      {
+        "start": 1871.96,
+        "duration": 4.589,
+        "text": "so the question was how are failures"
+      },
+      {
+        "start": 1873.789,
+        "duration": 5.85,
+        "text": "handled so there's basically there are"
+      },
+      {
+        "start": 1876.549,
+        "duration": 6.36,
+        "text": "two types of failures there are record"
+      },
+      {
+        "start": 1879.639,
+        "duration": 6.09,
+        "text": "failures where maybe the data within a"
+      },
+      {
+        "start": 1882.909,
+        "duration": 4.7,
+        "text": "record fails some validation may be the"
+      },
+      {
+        "start": 1885.729,
+        "duration": 5.58,
+        "text": "data type of a particular field is"
+      },
+      {
+        "start": 1887.609,
+        "duration": 6.61,
+        "text": "incorrect and then there are pipeline"
+      },
+      {
+        "start": 1891.309,
+        "duration": 3.72,
+        "text": "failures where maybe the destinations"
+      },
+      {
+        "start": 1894.219,
+        "duration": 4.351,
+        "text": "gone offline"
+      },
+      {
+        "start": 1895.029,
+        "duration": 7.88,
+        "text": "okay so record failures each pipeline"
+      },
+      {
+        "start": 1898.57,
+        "duration": 8.12,
+        "text": "has the concept of an error stream so"
+      },
+      {
+        "start": 1902.909,
+        "duration": 7.45,
+        "text": "say we're processing a stream of records"
+      },
+      {
+        "start": 1906.69,
+        "duration": 5.229,
+        "text": "99% of them processed correctly and the"
+      },
+      {
+        "start": 1910.359,
+        "duration": 4.591,
+        "text": "remainder have some kind of error"
+      },
+      {
+        "start": 1911.919,
+        "duration": 7.76,
+        "text": "they're written to a separate stream so"
+      },
+      {
+        "start": 1914.95,
+        "duration": 8.459,
+        "text": "that could be into a file on disk or"
+      },
+      {
+        "start": 1919.679,
+        "duration": 7.901,
+        "text": "Kafka topic or wherever you like and"
+      },
+      {
+        "start": 1923.409,
+        "duration": 9.27,
+        "text": "then they can be reprocessed examined"
+      },
+      {
+        "start": 1927.58,
+        "duration": 7.979,
+        "text": "whatever may be remediated manually and"
+      },
+      {
+        "start": 1932.679,
+        "duration": 4.92,
+        "text": "sent back through the pipeline whatever"
+      },
+      {
+        "start": 1935.559,
+        "duration": 6.78,
+        "text": "you like and within those error records"
+      },
+      {
+        "start": 1937.599,
+        "duration": 9.21,
+        "text": "is the original source data and they"
+      },
+      {
+        "start": 1942.339,
+        "duration": 5.97,
+        "text": "whatever you know error metadata you"
+      },
+      {
+        "start": 1946.809,
+        "duration": 5.67,
+        "text": "know whatever error it triggered in the"
+      },
+      {
+        "start": 1948.309,
+        "duration": 8.1,
+        "text": "pipeline so so those are those are like"
+      },
+      {
+        "start": 1952.479,
+        "duration": 7.38,
+        "text": "transient record level errors now you"
+      },
+      {
+        "start": 1956.409,
+        "duration": 4.791,
+        "text": "can also have pipeline failure for many"
+      },
+      {
+        "start": 1959.859,
+        "duration": 6.39,
+        "text": "many reasons"
+      },
+      {
+        "start": 1961.2,
+        "duration": 7.12,
+        "text": "now what happens there is as data"
+      },
+      {
+        "start": 1966.249,
+        "duration": 4.191,
+        "text": "collector is reading the origin it's"
+      },
+      {
+        "start": 1968.32,
+        "duration": 5.01,
+        "text": "keeping track of how far through it is"
+      },
+      {
+        "start": 1970.44,
+        "duration": 5.559,
+        "text": "so if you imagine in a relational"
+      },
+      {
+        "start": 1973.33,
+        "duration": 6.2,
+        "text": "database that might be record ID or last"
+      },
+      {
+        "start": 1975.999,
+        "duration": 6.621,
+        "text": "updated time or with"
+      },
+      {
+        "start": 1979.53,
+        "duration": 5.1,
+        "text": "kafka topic if we're reading from Kafka"
+      },
+      {
+        "start": 1982.62,
+        "duration": 7.56,
+        "text": "it might be it would be like the Kafka"
+      },
+      {
+        "start": 1984.63,
+        "duration": 9.75,
+        "text": "offset now as its processing records the"
+      },
+      {
+        "start": 1990.18,
+        "duration": 6.6,
+        "text": "only thing that stream set saves of the"
+      },
+      {
+        "start": 1994.38,
+        "duration": 6.48,
+        "text": "data is the last offset that it"
+      },
+      {
+        "start": 1996.78,
+        "duration": 6.98,
+        "text": "processed so if the pipeline halts when"
+      },
+      {
+        "start": 2000.86,
+        "duration": 6.93,
+        "text": "it restarts it's got that pointer into"
+      },
+      {
+        "start": 2003.76,
+        "duration": 6.66,
+        "text": "where where it was now it's a little bit"
+      },
+      {
+        "start": 2007.79,
+        "duration": 5.1,
+        "text": "like sparks dreams data collectors a"
+      },
+      {
+        "start": 2010.42,
+        "duration": 4.39,
+        "text": "micro batch architecture so it'll grab"
+      },
+      {
+        "start": 2012.89,
+        "duration": 6.15,
+        "text": "say a thousand or however many you"
+      },
+      {
+        "start": 2014.81,
+        "duration": 8.1,
+        "text": "configure records at a time and if you"
+      },
+      {
+        "start": 2019.04,
+        "duration": 5.25,
+        "text": "fail halfway through its the record is"
+      },
+      {
+        "start": 2022.91,
+        "duration": 3.84,
+        "text": "the offset is the beginning of that"
+      },
+      {
+        "start": 2024.29,
+        "duration": 3.96,
+        "text": "batch so it can basically can rewind to"
+      },
+      {
+        "start": 2026.75,
+        "duration": 8.88,
+        "text": "the beginning of that batch and then and"
+      },
+      {
+        "start": 2028.25,
+        "duration": 8.91,
+        "text": "then restart and reprocess yeah how do"
+      },
+      {
+        "start": 2035.63,
+        "duration": 7.62,
+        "text": "you scale a pipeline another great"
+      },
+      {
+        "start": 2037.16,
+        "duration": 9.27,
+        "text": "question so you can run the the easy"
+      },
+      {
+        "start": 2043.25,
+        "duration": 7.29,
+        "text": "answer is it depends it largely depends"
+      },
+      {
+        "start": 2046.43,
+        "duration": 9.9,
+        "text": "on the data source okay your ability to"
+      },
+      {
+        "start": 2050.54,
+        "duration": 10.07,
+        "text": "partition the data source yeah right so"
+      },
+      {
+        "start": 2056.33,
+        "duration": 8.309,
+        "text": "say code so the classic use case is"
+      },
+      {
+        "start": 2060.61,
+        "duration": 7.84,
+        "text": "Kafka okay Kafka topics can have n"
+      },
+      {
+        "start": 2064.639,
+        "duration": 6.5,
+        "text": "partitions so you can run n copies of"
+      },
+      {
+        "start": 2068.45,
+        "duration": 6.719,
+        "text": "the pipeline on each on a different"
+      },
+      {
+        "start": 2071.139,
+        "duration": 5.77,
+        "text": "machine and basically Kafka does the"
+      },
+      {
+        "start": 2075.169,
+        "duration": 3.48,
+        "text": "hard work of partitioning they're"
+      },
+      {
+        "start": 2076.909,
+        "duration": 5.901,
+        "text": "they're all in the same consumer group"
+      },
+      {
+        "start": 2078.649,
+        "duration": 7.291,
+        "text": "and they'll all have they'll all receive"
+      },
+      {
+        "start": 2082.81,
+        "duration": 6.67,
+        "text": "records from a different partition of"
+      },
+      {
+        "start": 2085.94,
+        "duration": 5.52,
+        "text": "their Kafka topic but it varies wildly"
+      },
+      {
+        "start": 2089.48,
+        "duration": 4.47,
+        "text": "Kafka super easy because it does the"
+      },
+      {
+        "start": 2091.46,
+        "duration": 4.679,
+        "text": "partitioning for you and in the case of"
+      },
+      {
+        "start": 2093.95,
+        "duration": 6.27,
+        "text": "say reading from a relational database"
+      },
+      {
+        "start": 2096.139,
+        "duration": 6.781,
+        "text": "we might we have multi-threading"
+      },
+      {
+        "start": 2100.22,
+        "duration": 5.37,
+        "text": "within that origin to read table"
+      },
+      {
+        "start": 2102.92,
+        "duration": 5.4,
+        "text": "simultaneously or you might decide to"
+      },
+      {
+        "start": 2105.59,
+        "duration": 4.89,
+        "text": "have pipelines on different machines"
+      },
+      {
+        "start": 2108.32,
+        "duration": 4.98,
+        "text": "reading different tables it gets starts"
+      },
+      {
+        "start": 2110.48,
+        "duration": 5.49,
+        "text": "to get complicated where they"
+      },
+      {
+        "start": 2113.3,
+        "duration": 21.6,
+        "text": "origen can't be naturally partitioned"
+      },
+      {
+        "start": 2115.97,
+        "duration": 21.63,
+        "text": "like that yes so so so you can you can"
+      },
+      {
+        "start": 2134.9,
+        "duration": 5.16,
+        "text": "go either vertically or horizontally so"
+      },
+      {
+        "start": 2137.6,
+        "duration": 6.87,
+        "text": "the Kafka origin is itself"
+      },
+      {
+        "start": 2140.06,
+        "duration": 7.29,
+        "text": "multi-threaded and so you can run"
+      },
+      {
+        "start": 2144.47,
+        "duration": 5.76,
+        "text": "multiple threads within one instance of"
+      },
+      {
+        "start": 2147.35,
+        "duration": 5.63,
+        "text": "data collector and and you can update a"
+      },
+      {
+        "start": 2150.23,
+        "duration": 6.21,
+        "text": "collector running on multiple machines"
+      },
+      {
+        "start": 2152.98,
+        "duration": 8.01,
+        "text": "so you know whichever way you want to"
+      },
+      {
+        "start": 2156.44,
+        "duration": 7.44,
+        "text": "you want to do it you can scale to the"
+      },
+      {
+        "start": 2160.99,
+        "duration": 4.69,
+        "text": "the you can scale to the available"
+      },
+      {
+        "start": 2163.88,
+        "duration": 23.43,
+        "text": "hardware and across the caf-co"
+      },
+      {
+        "start": 2165.68,
+        "duration": 24.87,
+        "text": "partitions it's answer the question so I"
+      },
+      {
+        "start": 2187.31,
+        "duration": 5.46,
+        "text": "showed you okay so I haven't got to the"
+      },
+      {
+        "start": 2190.55,
+        "duration": 6.74,
+        "text": "slide that tells you about a little bit"
+      },
+      {
+        "start": 2192.77,
+        "duration": 7.44,
+        "text": "more about this I showed you the"
+      },
+      {
+        "start": 2197.29,
+        "duration": 5.98,
+        "text": "pipeline design environment and engine"
+      },
+      {
+        "start": 2200.21,
+        "duration": 6.0,
+        "text": "which is Apache 2 license open source we"
+      },
+      {
+        "start": 2203.27,
+        "duration": 6.59,
+        "text": "have a management layer called stream"
+      },
+      {
+        "start": 2206.21,
+        "duration": 6.15,
+        "text": "sets control hub which will basically"
+      },
+      {
+        "start": 2209.86,
+        "duration": 6.21,
+        "text": "you can define the level of parallelism"
+      },
+      {
+        "start": 2212.36,
+        "duration": 7.77,
+        "text": "and when you start a job it runs n"
+      },
+      {
+        "start": 2216.07,
+        "duration": 6.97,
+        "text": "pipeline instances simultaneously on"
+      },
+      {
+        "start": 2220.13,
+        "duration": 5.61,
+        "text": "different so you have the data you can"
+      },
+      {
+        "start": 2223.04,
+        "duration": 6.48,
+        "text": "have your cluster of data collector"
+      },
+      {
+        "start": 2225.74,
+        "duration": 6.36,
+        "text": "instances running ok waiting for work to"
+      },
+      {
+        "start": 2229.52,
+        "duration": 6.17,
+        "text": "do and you press go in the control hub"
+      },
+      {
+        "start": 2232.1,
+        "duration": 6.03,
+        "text": "and it sends the pipeline to n different"
+      },
+      {
+        "start": 2235.69,
+        "duration": 5.59,
+        "text": "data collector instances and it starts"
+      },
+      {
+        "start": 2238.13,
+        "duration": 6.23,
+        "text": "it running in parallel and you can you"
+      },
+      {
+        "start": 2241.28,
+        "duration": 5.43,
+        "text": "can even set it up with kubernetes so"
+      },
+      {
+        "start": 2244.36,
+        "duration": 4.87,
+        "text": "it'll basically you"
+      },
+      {
+        "start": 2246.71,
+        "duration": 5.22,
+        "text": "even have two pre-installed data"
+      },
+      {
+        "start": 2249.23,
+        "duration": 13.619,
+        "text": "collector instances it'll just say give"
+      },
+      {
+        "start": 2251.93,
+        "duration": 30.03,
+        "text": "me however many pods yep sorry an"
+      },
+      {
+        "start": 2262.849,
+        "duration": 30.361,
+        "text": "inflight you want to throttle it yeah so"
+      },
+      {
+        "start": 2281.96,
+        "duration": 20.639,
+        "text": "in the in the origin I can say see where"
+      },
+      {
+        "start": 2293.21,
+        "duration": 11.52,
+        "text": "it's a good one on the fly no but I can"
+      },
+      {
+        "start": 2302.599,
+        "duration": 5.52,
+        "text": "stop like because but don't forget that"
+      },
+      {
+        "start": 2304.73,
+        "duration": 6.9,
+        "text": "pipeline has an offset into the data so"
+      },
+      {
+        "start": 2308.119,
+        "duration": 5.311,
+        "text": "I can stop it and I can change some of"
+      },
+      {
+        "start": 2311.63,
+        "duration": 2.459,
+        "text": "the configuration like queries per"
+      },
+      {
+        "start": 2313.43,
+        "duration": 2.88,
+        "text": "second here"
+      },
+      {
+        "start": 2314.089,
+        "duration": 5.581,
+        "text": "and then restart it and it won't lose"
+      },
+      {
+        "start": 2316.31,
+        "duration": 3.809,
+        "text": "any data right because it knows where it"
+      },
+      {
+        "start": 2319.67,
+        "duration": 5.25,
+        "text": "is"
+      },
+      {
+        "start": 2320.119,
+        "duration": 8.361,
+        "text": "you stop it restart it and it'll just we"
+      },
+      {
+        "start": 2324.92,
+        "duration": 7.22,
+        "text": "start from where it finished reading"
+      },
+      {
+        "start": 2328.48,
+        "duration": 3.66,
+        "text": "right right"
+      },
+      {
+        "start": 2342.92,
+        "duration": 21.24,
+        "text": "yeah yep it's the latter so yeah you"
+      },
+      {
+        "start": 2359.97,
+        "duration": 9.03,
+        "text": "have to manage that cut over from"
+      },
+      {
+        "start": 2364.16,
+        "duration": 9.22,
+        "text": "reading the existing data and starting"
+      },
+      {
+        "start": 2369.0,
+        "duration": 6.84,
+        "text": "reading but you can set the point which"
+      },
+      {
+        "start": 2373.38,
+        "duration": 7.23,
+        "text": "it starts reading so in I know in the"
+      },
+      {
+        "start": 2375.84,
+        "duration": 9.9,
+        "text": "Oracle CDC origin you get to start set"
+      },
+      {
+        "start": 2380.61,
+        "duration": 8.13,
+        "text": "the starting Sen so you can start it"
+      },
+      {
+        "start": 2385.74,
+        "duration": 12.24,
+        "text": "exactly where you want in history they"
+      },
+      {
+        "start": 2388.74,
+        "duration": 12.84,
+        "text": "yeah yeah the so change data capture is"
+      },
+      {
+        "start": 2397.98,
+        "duration": 6.78,
+        "text": "not an introductory feature so there's"
+      },
+      {
+        "start": 2401.58,
+        "duration": 8.31,
+        "text": "quite a lot to think about in how long"
+      },
+      {
+        "start": 2404.76,
+        "duration": 8.66,
+        "text": "you retain your logs and there's lots of"
+      },
+      {
+        "start": 2409.89,
+        "duration": 6.6,
+        "text": "levers and switches to set to balance"
+      },
+      {
+        "start": 2413.42,
+        "duration": 5.68,
+        "text": "performance on the data collector"
+      },
+      {
+        "start": 2416.49,
+        "duration": 4.11,
+        "text": "machine versus impact on the Oracle"
+      },
+      {
+        "start": 2419.1,
+        "duration": 4.2,
+        "text": "database so you can do the-- you know"
+      },
+      {
+        "start": 2420.6,
+        "duration": 23.55,
+        "text": "you can shift the workload between the"
+      },
+      {
+        "start": 2423.3,
+        "duration": 23.7,
+        "text": "two right yes yes yes yeah so what you"
+      },
+      {
+        "start": 2444.15,
+        "duration": 7.11,
+        "text": "do then is you would pick a point in"
+      },
+      {
+        "start": 2447.0,
+        "duration": 7.92,
+        "text": "time like within the log history and you"
+      },
+      {
+        "start": 2451.26,
+        "duration": 5.37,
+        "text": "would say okay I want to read data in my"
+      },
+      {
+        "start": 2454.92,
+        "duration": 5.16,
+        "text": "bulk load I want to read data that's"
+      },
+      {
+        "start": 2456.63,
+        "duration": 5.34,
+        "text": "older than that and in my live streaming"
+      },
+      {
+        "start": 2460.08,
+        "duration": 7.8,
+        "text": "pipeline I want to read data from that"
+      },
+      {
+        "start": 2461.97,
+        "duration": 7.86,
+        "text": "point onwards so yes yeah yeah yeah"
+      },
+      {
+        "start": 2467.88,
+        "duration": 3.87,
+        "text": "you'd need to you need that you need to"
+      },
+      {
+        "start": 2469.83,
+        "duration": 4.26,
+        "text": "figure out like the key there you know"
+      },
+      {
+        "start": 2471.75,
+        "duration": 4.1,
+        "text": "exactly how you define that that line"
+      },
+      {
+        "start": 2474.09,
+        "duration": 7.18,
+        "text": "but yeah there's no"
+      },
+      {
+        "start": 2475.85,
+        "duration": 7.83,
+        "text": "reason you couldn't do that alright so"
+      },
+      {
+        "start": 2481.27,
+        "duration": 4.5,
+        "text": "this hot bat-code think I've just got a"
+      },
+      {
+        "start": 2483.68,
+        "duration": 8.49,
+        "text": "couple more slides to round things out"
+      },
+      {
+        "start": 2485.77,
+        "duration": 9.19,
+        "text": "so so as I mentioned it's patch to"
+      },
+      {
+        "start": 2492.17,
+        "duration": 5.67,
+        "text": "license open source as well as I"
+      },
+      {
+        "start": 2494.96,
+        "duration": 9.27,
+        "text": "mentioned Oracle I mentioned my sequel"
+      },
+      {
+        "start": 2497.84,
+        "duration": 9.36,
+        "text": "we can read Kafka flat files JMS queues"
+      },
+      {
+        "start": 2504.23,
+        "duration": 4.89,
+        "text": "you name it we can tail files we can"
+      },
+      {
+        "start": 2507.2,
+        "duration": 9.71,
+        "text": "read files from directory and as well as"
+      },
+      {
+        "start": 2509.12,
+        "duration": 11.52,
+        "text": "Cassandra we can write to Hadoop MongoDB"
+      },
+      {
+        "start": 2516.91,
+        "duration": 6.96,
+        "text": "files again HTTP destinations I think"
+      },
+      {
+        "start": 2520.64,
+        "duration": 6.84,
+        "text": "there's around about 40 or 50 different"
+      },
+      {
+        "start": 2523.87,
+        "duration": 7.51,
+        "text": "connectors in there all sorts of all"
+      },
+      {
+        "start": 2527.48,
+        "duration": 8.04,
+        "text": "sorts of fun and there this is all"
+      },
+      {
+        "start": 2531.38,
+        "duration": 6.15,
+        "text": "actually in the data stacks Academy so"
+      },
+      {
+        "start": 2535.52,
+        "duration": 3.57,
+        "text": "if you basically if you google Cassandra"
+      },
+      {
+        "start": 2537.53,
+        "duration": 5.28,
+        "text": "stream sets you this will probably be in"
+      },
+      {
+        "start": 2539.09,
+        "duration": 6.78,
+        "text": "the top five results Academy latest XCOM"
+      },
+      {
+        "start": 2542.81,
+        "duration": 5.58,
+        "text": "so Todd to actually wrote that up or"
+      },
+      {
+        "start": 2545.87,
+        "duration": 4.14,
+        "text": "just send me an email and I can send you"
+      },
+      {
+        "start": 2548.39,
+        "duration": 3.45,
+        "text": "links to resources and all kinds of fun"
+      },
+      {
+        "start": 2550.01,
+        "duration": 4.17,
+        "text": "and you don't even have to copy my email"
+      },
+      {
+        "start": 2551.84,
+        "duration": 6.78,
+        "text": "down because I've got my cards here so"
+      },
+      {
+        "start": 2554.18,
+        "duration": 6.66,
+        "text": "with that any more questions okay I"
+      },
+      {
+        "start": 2558.62,
+        "duration": 3.3,
+        "text": "think s will wrap up and thank you very"
+      },
+      {
+        "start": 2560.84,
+        "duration": 5.869,
+        "text": "much"
+      },
+      {
+        "start": 2561.92,
+        "duration": 4.789,
+        "text": "[Applause]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T05:03:54.919580+00:00"
+}

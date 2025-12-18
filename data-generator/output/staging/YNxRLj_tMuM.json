@@ -1,0 +1,5519 @@
+{
+  "video_id": "YNxRLj_tMuM",
+  "title": "Using a Vector Database Doesn't Have to Suck",
+  "description": "Join Patrick McFadin and Jonathan Ellis as they discuss the ins and outs of vector databases.\n\nThey'll cover the following and more:\n- Concurrency at scale. What if you have 1000s of agents all reading and writing at the same time?\n- Relevancy with large numbers of embeddings. The Achilles heal of vector databases. The more you store, the less relevant they become. How to fix that?\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs?sub_confirmation=1 \nTwitter: https://twitter.com/datastaxdevs\nTwitch: https://www.twitch.tv/datastaxdevs\n\nAbout DataStax:\nDataStax is the company behind the massively scalable, highly available, cloud-native NoSQL data platform built on Apache Cassandra™. DataStax gives developers and enterprises the freedom to run data in any cloud, Kubernetes, hybrid or bare metal at global scale with zero downtime and zero lock-in. More than 450 of the world’s leading enterprises including Capital One, Cisco, Comcast, Delta Airlines, Macy’s, McDonald’s, Safeway, Sony, and Walmart use DataStax to build transformational data architectures for real-world outcomes. For more, visit DataStax.com and @DataStax.\n\nAbout DataStax Developer:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2023-09-25T21:57:56Z",
+  "thumbnail": "https://i.ytimg.com/vi/YNxRLj_tMuM/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "scalable",
+    "workshop",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "tutorial",
+    "vector",
+    "nosql",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=YNxRLj_tMuM",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "live Jonathan it's great to great to be here with you yeah are you ready for this because we we put out a pretty tempting title we're gonna lure people in like your database I mean it's there's very few things more interesting right now than Vector databases so uh so that's why I'm here yeah you know so I when I promoted this video I said you know Jonathan's Gone Going beast mode which is not that's not an understatement you've really so you and I've known each other for a really long time and um which is I also don't want to turn this into like a get off my lawn moment but we kind of can um because you know I think about like what I say like oh you know your vector database doesn't have to suck you and I back in the day we're talking you know we were like the nosql upstart people you know we're out there like use Cassandra right like we were out there saying you know scaling doesn't have to suck you know being uh downtown taller doesn't have to suck yeah uh there's a whole bunch of things that you should expect your database to do and a lot of those have become table Stakes now but another one is uh Vector search and that's that's table stakes in 2023. yeah and we were getting like so much shade from like the oracles you know the neckbeard people from Oracle like use a real database you know and then and look at us now Cassandra Cassandra's been on a real tear for the last like 10 years and it's a very mature database now wouldn't you say that it is yeah and you know it's interesting because you know back you know 10 13 years ago people would say oh you know we can do all of that with Oracle um and you and to some degree like with when you're talking about crud operations or normal indexing like yeah you can do that with Oracle you're going to have to manually Shard it after at your application tier uh and that's gonna suck but the actual like Ken Oracle handle this kind of query yeah it can it can do that um the interesting thing about Vector search is that it is not shaped like a problem that you can solve by throwing a b tree at it uh which is what you do with Oracle and what you do with with postgresql um and I think that's why I mean not to not to jump not to steal your thunder here but I think that's why people evaluation sucks so hard is that uh you know you're you're jamming this problem that doesn't fit that beatry Paradigm uh into a relational database and it just doesn't work and by contrast uh Cassandra as storage attached indexes are designed up front to be able to have multiple uh algorithms attached to them so doing an agent SW or a disk a n Vector search on top of that storage attached index architecture is uh is is super easy and a great fit uh you've not stolen any Thunder at all and I have a bunch of questions for you but I thought it'd be fun to start with like a really good one it's like um this is this is gonna be fun I I don't know if you knew that I was gonna do this but I'm gonna have fun with you right now um the the very first Cassandra ticket I mean this is just to say like hey uh first of all um I want to make sure that everyone knows who you are Jonathan Ellis Mr Mr Cassandra from back in the day but [Laughter] but here's the fun part that I'm gonna do so I I put a QR link up there you should be able to see it um it's the first Cassandra ticket You're gonna laugh when you see this Cassandra won and this is what I thought was great about this ticket it's it says remove support it wasn't like support for Cassandra no it was he added delete like there was a database that didn't have delete this is the first Cassandra jiren no this is this is actually how I broke Facebook by the way uh because because I've been at it as a as a committer to uh Apache Cassandra and the Facebook guys were still deploying from Trump live uh and so like over the weekend they were instant messaging me saying what did you do like everything broke uh so it turns out that you know I thought I thought it looked good uh nobody reviewed it in a timely fashion and so I just committed it and uh and Facebook's inbox search broke which is what was powered by Cassandra so uh we we unbroke it and then they reviewed it and that's how it got started I see that's this is what I was hoping for the stories you know it's like but I also want to start out with like hey you've been here you've done this so let's talk about today let's talk about vectors and so Vector databases are the coolest kid right now in database stuff there's a lot going on in all power with Gen AI but there are problems and I want to start out with a couple I'm gonna I I know you have a list in your head I'm gonna break it up the one that I think is the most Troublesome is this problem of concurrency which I was a shock to me that this is still a problem we're solving but maybe you can dig into that like vector databases have a problem here yeah so let me tie this into what you uh what you just put up there uh which is that my philosophy as an entrepreneur and as an engineer is I want to spend my time solving interesting problems and almost all the time if somebody else has already solved it like that just makes it less interesting because like there's a known solution and you know some people get excited about rewriting C plus plus code in rust or whatever and it's like that's not me like uh however much that makes the world a better place perhaps uh I'd rather be solving problems that nobody knows how to solve yet uh and so that's what attracted me to Cassandra rather than like going and building something from scratch I'm like hey these Facebook guys uh some of whom worked on the original Dynamo paper or the original Dynamo engine uh they've they've open sourced this really interesting database I'd rather go contribute that and move the state of the art forward rather than spend six months uh you know building something super basic uh so that was my approach to adding Vector search to Cassandra as well so I looked around and I said you know who's got some good building blocks that I can use uh instead of Reinventing the wheel and so that brought me to Lucine uh and so they've had a hnsw I'll talk about what that means in in a second but they have a vector indexing engine that's been in uh production for about a year and a half now uh a lot of smart people have put a lot of time into it and so I said hey I should start with that rather than uh you rolling my own from from first principles and so I that that is what I did and and that's what the first release of uh Vector search in data Stacks Astra which is our hosted Cassandra that's what that ran on was was on a leucine uh index but I ran into a couple challenges with that and by the way uh yeah like a lot of people are using the same like it's not just elastic and solar but a lot of people are are using the scene for this um it is kind of an engine behind the engine for a lot of things out there yeah and that's embeddable search engine and and it delivers and the leucine uh developers are very performance oriented and uh very careful about backwards compatibility so yeah it's no wonder that they're so popular they're the best at what they do um but in the vector space uh Lucina has a couple problems especially from the Cassandra perspective um so the the first of those just generically not related to the vector part but just in leucine in general has a kind of uh you could call it a micro batch uh design where when you ingest new documents into the scene those documents are not visible to searches until they've been digested and the the term of Art in Lucine is committing so once your changes once your new documents have been committed then they're visible to the search but that takes millisecond seconds to seconds for that to happen and you really don't have any control over how long that takes we spend we actually spend a lot of time uh trying to solve that problem in data Stacks Enterprise uh because we have a search based on the scene there for for text oriented search and we could not close that we could not get that gap down to zero which is what database users want databases so it should be visible in all my indexes no matter what shape my query looks like um so that was the kind of friction Point number one and I knew about that going into it um but what I what I didn't know going into it is that the leucine uh Vector index specifically is a single threaded design uh so you can when you're building that index you can only build it with a single thread and it's not thread safe to query at all except from the Builder thread and until it's finished so that aligns with lucine's philosophy around ingest and commit but it doesn't align around what I wanted to do for Cassandra which is have a vector index that uh you know as soon as you as soon as you enter that row you can you can see it you can search for it uh so the first thing I did was to uh rebuild that uh that Builder that uh that index Builder to be uh non-blocking and so not only can I uh build it with multiple threads but I can query it concurrently as it's being built and uh and so that was uh so when I said that the first version of Astra Vector search was built on the scene it was actually built on that you know hacked up uh new and improved Uh custom work of Lucy with the non-blocking index yeah so you you're a contributor to Lucy now I saw those commits go through yeah so well so I had a a couple kind of uh byproducts of what I was doing that got committed to Lucine but the actual concurrent index uh never did get committed yeah and it's in that single thread business uh I mean when you look at why it exists in leucine it makes a lot of sense in lucene but it does not make a lot of sense in a highly concurrent distributed database that needs to have a real-time like developers expect to read their rights and within a reasonable amount of time or and I think this is probably another part of it is that your your rights should not impact your reads for performance yeah and like I don't want to blow my own horn too hard here because I don't think this was rocket science but uh it it's I did some good work here where you know it you're having a lot of fun I've tested this out to uh 32 concurrent threads uh you go from one thread to two threads to four threads to eight to sixteen to thirty two and every time you double the number of threads that are building it the uh time to do the gold goes down by half uh so it's a it's a very very scalable design and what the I mean like I no doubt on the technical part like that was a fun challenge but for users of Astra Vector Surge and Cassandra Vector search what that means for them is that search doesn't slow down while you are adding new rows which is actually an unusual property uh for a lot of these sector databases so I already I already called out uh PG Vector so let's keep going uh Pineview actually really struggles with this uh so if if you're if you have like a steady static set of vectors that you've ingested like great everything's fine and the sun is shining and birds are chirping and whatever but as soon as you start doing concurrent uh inserts or modifications of those vectors then uh then Pinecone really struggles you know I I want to give the every Vector database that was built in the last few years a break maybe like give them an out is that I feel like the the use case at that time was some batch process creating a lot of embeddings and then dumping them into a place where they can be indexed and then later ever read in us in a very performant way no you're right and and to the degree of degree there to for the test and the The Big Industry Benchmark here is called a n Dash benchmarks you can find it on GitHub they have a dozen data sets uh that are all standardized and you can point your vector database at them but the way that in in benchmarks works is it's a single threaded uh it's a single threaded design and it's split up in uh into load my stuff right and then query my stuff so there's no you can be the slowest design in the world at uh ingesting while you are querying and it doesn't show up in the Benchmark at all because that's not what it's designed for so so yeah there's there's definitely a temptation to say well you know nobody's looking at how this works when when I'm doing those concurrent operations so maybe we'll leave that for later it reminds me of like uh when you can fit your data into memory and then do Benchmark on that like like yeah I remember writing uh this must be 10 years ago now like 2012-ish where uh I got really frustrated at people benchmarking Cassandra with a for Loop like I'll do one request and then I'll wait for it to come back and then I'll do another request and then I'll do another it Cassandra is designed for thousands and hundreds of thousands of concurrent requests uh so so yeah it's super frustrating to to see that like enshrined in the in and Benchmark that oh yeah it's just a single thread yeah well it doesn't really I mean it's it's interesting if you're testing the indexing algorithm for one use case and that's I think that's what en benchmarks does is it's like hey here's this algorithm with this very pure type of Benchmark but as as many benchmarks go it doesn't actually translate to application developers that are building stuff that needs to perform uh like yeah it's like in the Java world right you have I believe parallel GC is still the throughput champion it will pause your application for multiple seconds while it does its garbage collections but its throughput is amazing uh on the other hand like there's a reason why the jdk team has spent years uh making zgc production ready to bring pause times down to single digit milliseconds because that matters in practice so so yeah I get it like there's a place for you know benchmarking the pure single threaded algorithm but there's also a place for understanding that you know hey in the real world it matters if you can do concurrency yeah well and so back to in keeping on the theme of real world scale um you know I I I'm giving a talk right now on vector and I I talk about like if you it may work great on your laptop but we wouldn't you put in production right so um scale that's that's yet another problem and one that we've been talking about for years only from the beginning with Cassandra so maybe you could talk a little bit about that and I'll just Prime the next question because I know they're related is the the vectors that don't fit in memory the ones that have to go to disk like how do those two things play together so like yeah for for scale I've been saying for years that if your problem fits on a single machine in Ram like it kind of doesn't matter what you use to solve that problem like you can use redis you can use mongodb you can use SQL Lite like it doesn't matter uh because it's just not a challenging problem domain um so the same thing is true with Vector search however the slightly different piece with Vector search is that vectors are large relatively speaking relative to what the database world is used to optimizing for uh especially if you're using open AI uh Ada two embeddings which are 1536 float 32 so that's about six kilobytes a piece like that's you know it it's uh it takes one to two orders of magnitude less of those uh to max out your RAM than you're used to if you're used to dealing with you know integers or Longs or you know a few of those together um and I'm going to flag that as your first shock of working with you those of you who have not worked with vectors yet warning that is a thing I mean these aren't just a single you know this isn't a 32-bit number um these are massive and per row you get these so this is why scale is a thing yeah and and by the way I'll throw out a recommendation if you're not locked into an embedding implementation yet you should be using the E5 family which you can find on hugging face um the E5 standard and the E5 large uh both outperform uh open AIS embeddings for retrieval which is what most people are doing here uh while being smaller and the E5 small or E5 small V2 even better is a quarter the size of open AIS and it's very very close it's like within five percent of uh of the open AI relevance that you get out of it so definitely recommend those because like it's not just the like disk space is cheap we'll talk about uh disk space in a second um this space is cheap but CPU and GPU uh Cycles are actually not cheap in the vector search space you can Max those out relatively easily because what's going on when you're doing a vector search in your index you're doing a whole bunch of comparisons between your query vector and what's in the index and so uh if you have a query Vector that's a quarter the size then your search is going to be four times as fast other things being equal uh so it's it's in it it's in your best interest as an application developer trying to get low latencies to your customers uh to use a smaller embedding Vector if that can do the job but the question was uh what do you what do you do when your uh data set outstrips Ram um and so I mentioned that leucine and uh by extension Astra started out using an hsw uh Vector search algorithm and agent SW is what everybody starts with uh for two reasons and like seriously uh like if you name a vector database uh well actually PG Vector didn't start with it they started with something else but now they're now they have H and SW um but if you name a vector database odds are they have hnsw and that's in most cases that's all they support yeah and there's good reasons for that the the two very good reasons are hnsw is fast uh it's faster than almost anything else uh and it is high relevance uh so you if you say uh Hey hnsw index find me the top 10 vectors that are closest to this query uh you will get you know seven eight nine out of the actual closest vectors uh just without without much effort like you're not going to have to tune it you're not going to have to explore your problem domain super hard like just out of the box that's what you'll get whereas with uh most of the other alternatives to hnsw uh you're going to get like five out of ten uh out of the box and so the the relevance matters and the speed matters uh and then one more thing that's actually really good for uh a database like Cassandra that hnsw can be built incrementally meaning uh you know I put my first Vector in I put my first five vectors in I can search that that is a searchable index with just five vectors even if I'm inserting a total of a million or more I can I can build it incrementally and search it incrementally which is not a property that a lot of other uh options have so those are the reasons why everybody starts with hsw the problem is and this is again this is not a secret this is not something we uniquely discovered this is very well known in the industry agent SW does use a lot of Ram uh for those indexes and once you exceed Ram then your performance starts to get bad very very quickly because unlike in a relational database unlike with most B tree indexes there's no you know there's no hot data set there's no hot subset that you can say okay like that'll live inside the cache and then everything else we can just kind of pretend it doesn't matter uh because every Vector in your vector index is there's some exceptions but mostly you have an equal chance of needing to read any of those vectors during a query uh so the property of not doing well once you exceed Ram really really matters much more than you would expect if your intuition like mine comes from other kinds of databases and other kinds of retrieval patterns so that's the that's the long way to uh explain why I don't think a lot of people know that though I think that's and I thought it was interesting because Lucine the Lucy NH and SW as I was reading through their their the issue that they created for it um they you know they hierarchical Network small world H and SW it does multiple Dimensions by Design but the leucine folks decided to do one dimension because like that's it um it doesn't do multiple layers and I think that probably has a lot to do with memory are you do you think that might be true I'm not 100 sure what you're thinking of there because the leucine H and SW absolutely does do multiple layers uh the problem that that we're trying to to solve with with hsw is or with Vector indexing is I want to find the closest vectors to my query without exhaustively examining every Vector in my data set like because if I'm having to do a linear scan for every search like I run out of gas somewhere in the hundred thousand or million Vector range uh it's just too slow um and so what hnsw proposes is um it's it's actually an extension of an earlier thing called nsw and navigable small world where nsw says hey let's make a graph of our vectors as we add them to the index and I'll look at each uh node in the graph and I will set as its edges to other nodes uh the vectors the other the other vectors that are closest to it and then uh the hierarchical Yuri um whose last name escapes me but the the guy who created H and SW uh he said hey like this is great but uh it has worst case properties that are not desirable like if it's relatively easy to end up in a degenerate uh nsw where you're actually getting linear uh search times again so what he added was the H part the hierarchical part which said um every 10 or so of my vectors I'll put those in a new graph layer that sits above the first one and so that's going to have just a smaller pool of candidates uh and what that means is that my edges between nodes are going to be longer and so traversing each Edge moves me a farther distance in a single traversal and so I have my base layer and then the next layer is 10 of that then my next layer up above that is another 10 so it's one percent of the original then the third layer is point one percent of the original all so it's got this kind of skipless property where you start at the top layer find the closest match then go you know follow that to the next layer uh because each layer down is a strict superset of the one above it so you follow that down to the next layer find the closest one there then go down find the closest one there and so you kind of drill down to the right area in logarithmic time which is which is what uh what what you want out of an index I'm going to stand corrected by the way I the original the initial hsw was a single layer but oh yeah I think you're right about that yeah yeah posted yeah yeah so we've seen ten thousand zero five four just you know I want to make sure I quote my sources uh Maya Sharapova made it multi-layer because the single layer sucked so yeah yeah um it does because you only have if you're in a single layer then a you have well the biggest problem is is the that you're not traversing uh you know if you start if your entry point to the graph is not close to your query that you're looking for it takes you a long time to navigate to the right net neighborhood because you don't have those longer edges uh that you get with the the hierarchical layers yeah um and I should add uh everyone who's watching live right now uh please ask questions I mean we're sitting in here talking about all kinds of neat cool stuff but uh you should feel free to answer ask questions um you know it's you you've got clearly you got someone here that can answer the most incredible questions like how many layers hnsw hasn't leucine um but yeah I feel free to answer or to ask questions uh sorry so back to you there Jonathan um yeah so aware so I mentioned that I mean we got a little bit deep on the hnsw and I made a claim earlier that you can't like a hot and a cold data set with with a vector index um what you can do with hsw is you can say okay I'm gonna cash all but the bottom layer or if I'm really sensitive to memory UCL cash I'll put the bottom two layers which get me like I'm I'm caching 10 or one percent respectively the problem is that once you get to that bottom layer you're still in a world of like I'm just doing random iops all over the place and my performance sucks so being able to Cache those top layers yes you can do that and yes we did uh but it's not enough and so uh what I started looking for basically as soon as we released the hsw as beta I know where you're going this is great keep going let's let's do look for an alternative that would work better when data sets uh get larger than memory and so the the two that are I think the state of the art right now they're actually both from Microsoft research um and I don't actually know the details of like which parts of Microsoft uh created which one but the the first one is called span s-p-a-n-n and the second is called uh disc a n d-i-s-k-a-n-n and uh I'll I'll let reading span be an exercise for the reader if you're interested it's actually a really interesting design uh and it's completely different from hnsw and diskin and because it's not a graph design um and so while that's an interesting approach uh I decided to build the next version of Astra Vector search on top of the disk engine design because it is also a graph index like H and SW and so the distance between what I had and what I wanted to get to uh was relatively small and so uh what I what I've done is I've taken because this is starting to get farther and farther away what uh from what leucine's implementation looks like I actually extracted the graph index into a new Standalone project called J vector and uh and I built disc in and there's your link in the jpeg I knew it was coming I was ready for it you were ready yeah so uh so if you follow the link uh you'll see some preliminary benchmarking results versus leucine uh what I did was I built a uh index of 100 million uh uh sorry I'm mixing my so I benchmarked 100 million vectors of the E5 family E5 small V2 like I recommended earlier from Wikipedia uh but that's not what's that's not the graph that's on the front page of the jvector repo by the way the J Vector repo all of Wikipedia right yeah actually that's that's basically all of Wikipedia chunked into roughly sentence sized uh pieces and embedded uh but yeah what's on what's on the repo what's on the repo front page is a comparison with The Deep 100 million uh data set and so that is about a 60 gigabyte index once you've built it and so I I built the index on a on a large ec2 machine and then I I downloaded it to my MacBook Air with 24 gigabytes of memory uh so roughly about I've got about a third of the memory on the MacBook as uh the size of the the index uh and so even if you know even before you start taking away things for Mac OS and for the jvm you know it's not going to fit um and so what you see is that jfactor is outperforming was seen by a factor of about four uh on that data set and and that's gonna that graph's gonna be up updated because we're still optimizing J vector and it's just getting better yeah well I mean that's the thing if you follow that link there's some some very compelling graphs in here but you know one of the things that you mentioned earlier was around this this going from single thread to multi-thread and um I also CMD which you know for Java folks simd has been kind of hard to get to but now you can which uh single instruction multiple data and that's that's a basically using that the way the architecture of modern chips to not have to reload data directly from memory all the time you use a single instruction and just pipelines it all through the same instruction um you get tons and tons of performance out of that not using a GPU by the way um but maybe you can talk a little bit about that like that multi-thread like what you got out of it you know before and after yeah okay so uh so some of what you're talking about isn't actually unique to J Vector so lucine's doing the this well for instance um and so but for for people who haven't looked at that or or who have looked jealously at the at C plus plus and what you can do uh there uh starting in I want to say Java 17 actually no 20. I think it might even have been Java 14. for several releases now you've been able to do simdi using Java but it's a it's an incubator feature which means that you have to opt in to enabling it and uh it's subject to change and so it's actually changing it actually has changed several times uh across the releases uh but it looks like it's starting to stabilize because in uh Java 20 I believe that that our our job at 20 implementation runs unchanged on 21. uh but that's Panama yeah yeah so there there's a there's an implementation of that lets you use AVX or whatever the uh whatever the arch 64 equivalent is and uh and you know dot products faster do sums of floats faster uh because you're you're taking advantage of the hardware to do what it's supposed to do yeah so so that's not like I said that's not unique to J Vector although although uh some of the things that we are doing in J Vector are unique uh so let me back up a second so I said that the J Vector implements uh disc in N which lets us uh serve larger than memory indexes uh much much faster than an hnsw index there's two well there's one main component to that there's another piece of of disk and end that I won't cover uh the main component to uh dealing with larger data sets is that uh disk and ninja says hey we're going to quantize the vectors and store those in memory so quantizing means we're basically doing a lossy compression on your vectors we're doing you know we're basically jpegging your your vectors uh and so that means that I can keep those in memory at the price of you know 1 8 or 1 16 of their original size and so what what diskanim does to reduce the uh the relevance impact or the Precision impact uh it will if it does two things first it building the graph is always done with original precision and then what you can do is uh you can search if you if the if you're searching for 10 vectors you can look for more you can look for the 20 closest using those quantized lossily compressed vectors uh I can look for the 20 closes and then only sort those 20 by the original vector and so what uh what disk in and does is when it's storing the graph on disk every node it stores the original vector and then the neighbors of uh of that node it stores those as a group and so when I touch that node during the search I'll just save the original Vector uh for later and when I'm done with my search I'll go through those original vectors and use those to Resort and get the you know the the actual top pay that the the query asked for and that actually is a very interesting point about the top k um which is the relevancy you know I and I've said this a few times like you know for database folks out there you know we've always been worried about throughput and latency but the dimension that you need to consider with vectors is this relevancy and it seems like you know I'm looking at the graphs in the project it seems like relevancy is actually better because of the way this works thank you does that seem right um so I know you're gonna oh this is great I've got you a little uh Twitchy here okay so what is it so if you do a quantized search with exactly the same number of nodes uh uh traversed then you will get worse relevancy but having that doing that faster comparison of the quantized vectors means that I can afford given the same time budget I can afford to look deeper which will actually increase my relevant past where it was originally uh so I would say that having having a better implementation lets you choose uh whether you want to spend that savings on do I want more throughput or do I want better relevance right yeah I mean not I think that's going to be something we as an industry as users are going to have to just really this is just a competency we're all building it's like oh what how do I measure relevancy why is it important um you know and that's the hard thing about a n it's like it it's like horseshoes close counts but how it does yeah yeah you just don't get an exact match um that's not the point um but you don't want something that's just so often left field that you're like why why are you even giving me this result yeah and so this is interestingly um this is this is kind of an open area of research of how do you apply gpus to make Vector search faster uh so Nvidia uh you know has an implementation of vector search that runs basically entirely on the GPU uh but that means that your data set is limited to stuff that fits in your GPU and it also it also means that you know the thing about about gpus is they are super cost effective if you can keep them 90 100 utilized but if your GPU is like 10 utilized then you're just paying a lot of extra money for performance that you're leaving on the table uh so I believe I'm not 100 sure but I believe that it will continue to be the case that gpus for Vector search mostly do not make sense uh especially for scenarios like what Cassandra's designing for for where my data set is dynamic it changes as rows get inserted as rows get deleted and we need to handle both of those conditions it's possible that you know if you've got a you know a data set of you know 25 gigabytes of vectors like the Deep uh 100 million data set which is by the way those are vectors that are 96 float 32s large which is smaller than almost any uh text embedding out there um so you can get a lot more into 25 gigabytes when they're tiny vectors uh but if you've got a static data set like that then yeah maybe it makes sense to use a GPU search if you're saturating it constantly but otherwise uh probably not what however however where I was going with this was one of the one of the things that we did but wait one of the things that we did with this was my colleague Sebastian Estevez built a uh a data set generator using GPU so one of the one of the reasons why you only have a dozen or so data sets that everyone uses to Benchmark their Vector search with is that it's really computationally expensive to find the closest hundred matches to a query Vector when you have 100 million vectors to scan uh to find you know to determine what the actual we call it the ground truth what the ground truth results should be and then that gives you a yardstick to measure oh how many did I get correct you need to know what the actually correct values are to to see how close your approximation got uh and so Sebastian built a tool that that computes those ground truth values uh on the GPU and so uh now we have some good stuff right there yeah so so we've got we've got a 100 million Hector data set uh from that subset of Wikipedia vectors where we know the exact answers yeah next stop one billion but I mean they like all Wikipedia is 100 million what's next um well maybe that's that's you know we're we've been talking for 45 minutes I can't believe this but this is great um I'm gonna I'm gonna try to wrap this up with uh so here we are today point in time um today is September 20th 2023 just to Mark time Epoch uh but like what do you what are you thinking this is an arms race right now I mean Vector is not a differentiator anymore um it's every database is doing it um but there are things that Cassandra can do I think better than any database for sure but what it what is your what's driving you what are you thinking about in the future what do you want to try to what do you want to try to achieve so the the first thing is to to just make our implementation the best that we possibly can so we've been working on this for four months uh five months now and uh you know we've got the basics there we've got uh larger than memory data sets with disk a n uh we've got composing with uh other query predicates and by the way this is this is something that you should be looking for in in a vector database like uh you need to be able to do both traditional databasy things and also Vector search and combine the two so if you're if if you're talking to a vendor who's like oh yeah we do the vector part keep using your existing database for everything else well you know that that's the classic okay now I need to keep these in sync and what happens when the replication pipeline breaks how do I rebuild it like it's it's it's a mess uh it's it's yeah you don't want to go there it's like back when you were stitching the scene and Oracle together to get full text search uh don't do that uh so with with Cassandra you can do the the vector search parts and you can also restrict the vector search by your other indexes but you can also do queries and uh and indexed searches that don't involve vectors because sometimes your application needs to do that like just as just as a really simple example like everybody like the hello world of retrieval augmented generation is to do a chat bot that knows that about your documentation and so you do a vector search to find the doc pages that are closest to the query that the user asked and then you pull that back and give it to the large language model is context to answer the question uh but but even in that hello world like the vector search is just part of what you need from your database because you also need to be able to say hey database what are the last 10 messages that we sent back and forth and that's not a vector query that's just a standard timeline query uh for the database so you need to be able to do both yeah yeah then um I I do worry um that we are well I don't know I'm particularly worried we've you know been around long enough I know where this is going we we're all pocing right now we're all looking you know and the chat bot is the POC that's the hello world of of gen AI right now everybody's trying to add a chat bot to whatever they have but um I think quickly and and I this is the where things are headed so quickly is Agents agents agents and that's when things are going to get really interesting because that's gonna need High concurrency a lot of distribution and then scale because multimodal everything um it's not just a bunch of typed in words from a human it's going to be images and everything else but um yeah I I think of scale as as such it's going to be the problem that most Vector databases are going to have because of users yeah I think that I think that's right and not just the scale and the hey I'm going to ingest a larger static set but scale in the sense of it's changing it's Dynamic and I need to be able to deal with that right right well wow man 50 minutes we've done good here um I don't see any questions I think that probably a lot of people are like like trying to drink from the fire hose right now that's okay um you know it feel free if you see this after the fact and you want to put a comment in do it we'll be there we'll answer those questions after the fact um Jonathan I really appreciate spending the time here with you I I almost got the bins we went so on such a deep dive this is great thanks Patrick it's been fun yeah so um thanks everyone for being here today bye",
+    "segments": [
+      {
+        "start": 0.0,
+        "duration": 5.46,
+        "text": "live Jonathan it's great to great to be"
+      },
+      {
+        "start": 3.24,
+        "duration": 4.26,
+        "text": "here with you yeah are you ready for"
+      },
+      {
+        "start": 5.46,
+        "duration": 4.679,
+        "text": "this because we we put out a pretty"
+      },
+      {
+        "start": 7.5,
+        "duration": 6.0,
+        "text": "tempting title we're gonna lure people"
+      },
+      {
+        "start": 10.139,
+        "duration": 5.881,
+        "text": "in like your database I mean it's"
+      },
+      {
+        "start": 13.5,
+        "duration": 5.1,
+        "text": "there's very few things more interesting"
+      },
+      {
+        "start": 16.02,
+        "duration": 3.78,
+        "text": "right now than Vector databases so uh so"
+      },
+      {
+        "start": 18.6,
+        "duration": 3.36,
+        "text": "that's why I'm here"
+      },
+      {
+        "start": 19.8,
+        "duration": 3.84,
+        "text": "yeah you know so I when I promoted this"
+      },
+      {
+        "start": 21.96,
+        "duration": 4.14,
+        "text": "video I said you know"
+      },
+      {
+        "start": 23.64,
+        "duration": 3.719,
+        "text": "Jonathan's Gone Going beast mode which"
+      },
+      {
+        "start": 26.1,
+        "duration": 4.08,
+        "text": "is not"
+      },
+      {
+        "start": 27.359,
+        "duration": 4.561,
+        "text": "that's not an understatement you've"
+      },
+      {
+        "start": 30.18,
+        "duration": 4.74,
+        "text": "really so you and I've known each other"
+      },
+      {
+        "start": 31.92,
+        "duration": 4.5,
+        "text": "for a really long time and"
+      },
+      {
+        "start": 34.92,
+        "duration": 3.42,
+        "text": "um which is I also don't want to turn"
+      },
+      {
+        "start": 36.42,
+        "duration": 3.72,
+        "text": "this into like a get off my lawn moment"
+      },
+      {
+        "start": 38.34,
+        "duration": 3.96,
+        "text": "but we kind of can"
+      },
+      {
+        "start": 40.14,
+        "duration": 4.38,
+        "text": "um because you know I think about like"
+      },
+      {
+        "start": 42.3,
+        "duration": 4.079,
+        "text": "what I say like oh you know your vector"
+      },
+      {
+        "start": 44.52,
+        "duration": 3.66,
+        "text": "database doesn't have to suck you and I"
+      },
+      {
+        "start": 46.379,
+        "duration": 4.86,
+        "text": "back in the day we're talking you know"
+      },
+      {
+        "start": 48.18,
+        "duration": 4.92,
+        "text": "we were like the nosql upstart people"
+      },
+      {
+        "start": 51.239,
+        "duration": 4.32,
+        "text": "you know we're out there like use"
+      },
+      {
+        "start": 53.1,
+        "duration": 4.139,
+        "text": "Cassandra right like we were out there"
+      },
+      {
+        "start": 55.559,
+        "duration": 4.68,
+        "text": "saying you know scaling doesn't have to"
+      },
+      {
+        "start": 57.239,
+        "duration": 4.861,
+        "text": "suck you know being uh downtown taller"
+      },
+      {
+        "start": 60.239,
+        "duration": 4.021,
+        "text": "doesn't have to suck yeah"
+      },
+      {
+        "start": 62.1,
+        "duration": 4.14,
+        "text": "uh there's a whole bunch of things that"
+      },
+      {
+        "start": 64.26,
+        "duration": 4.2,
+        "text": "you should expect your database to do"
+      },
+      {
+        "start": 66.24,
+        "duration": 5.04,
+        "text": "and a lot of those have become table"
+      },
+      {
+        "start": 68.46,
+        "duration": 4.62,
+        "text": "Stakes now but another one is uh Vector"
+      },
+      {
+        "start": 71.28,
+        "duration": 3.3,
+        "text": "search and that's that's table stakes in"
+      },
+      {
+        "start": 73.08,
+        "duration": 4.62,
+        "text": "2023."
+      },
+      {
+        "start": 74.58,
+        "duration": 5.579,
+        "text": "yeah and we were getting like so much"
+      },
+      {
+        "start": 77.7,
+        "duration": 5.58,
+        "text": "shade from like the oracles you know the"
+      },
+      {
+        "start": 80.159,
+        "duration": 4.981,
+        "text": "neckbeard people from Oracle like use a"
+      },
+      {
+        "start": 83.28,
+        "duration": 4.86,
+        "text": "real database you know and then"
+      },
+      {
+        "start": 85.14,
+        "duration": 7.26,
+        "text": "and look at us now Cassandra Cassandra's"
+      },
+      {
+        "start": 88.14,
+        "duration": 7.14,
+        "text": "been on a real tear for the last like 10"
+      },
+      {
+        "start": 92.4,
+        "duration": 6.06,
+        "text": "years and it's a very mature database"
+      },
+      {
+        "start": 95.28,
+        "duration": 6.6,
+        "text": "now wouldn't you say that it is yeah and"
+      },
+      {
+        "start": 98.46,
+        "duration": 6.479,
+        "text": "you know it's interesting because"
+      },
+      {
+        "start": 101.88,
+        "duration": 4.739,
+        "text": "you know back you know 10 13 years ago"
+      },
+      {
+        "start": 104.939,
+        "duration": 3.841,
+        "text": "people would say oh you know we can do"
+      },
+      {
+        "start": 106.619,
+        "duration": 4.46,
+        "text": "all of that with Oracle"
+      },
+      {
+        "start": 108.78,
+        "duration": 5.58,
+        "text": "um and"
+      },
+      {
+        "start": 111.079,
+        "duration": 6.58,
+        "text": "you and to some degree like with when"
+      },
+      {
+        "start": 114.36,
+        "duration": 5.939,
+        "text": "you're talking about crud operations or"
+      },
+      {
+        "start": 117.659,
+        "duration": 4.021,
+        "text": "normal indexing like yeah you can do"
+      },
+      {
+        "start": 120.299,
+        "duration": 3.301,
+        "text": "that with Oracle you're going to have to"
+      },
+      {
+        "start": 121.68,
+        "duration": 4.2,
+        "text": "manually Shard it after at your"
+      },
+      {
+        "start": 123.6,
+        "duration": 4.98,
+        "text": "application tier uh and that's gonna"
+      },
+      {
+        "start": 125.88,
+        "duration": 5.64,
+        "text": "suck but the actual like Ken Oracle"
+      },
+      {
+        "start": 128.58,
+        "duration": 4.68,
+        "text": "handle this kind of query yeah it can it"
+      },
+      {
+        "start": 131.52,
+        "duration": 3.54,
+        "text": "can do that"
+      },
+      {
+        "start": 133.26,
+        "duration": 6.78,
+        "text": "um the interesting thing about Vector"
+      },
+      {
+        "start": 135.06,
+        "duration": 7.62,
+        "text": "search is that it is not shaped like a"
+      },
+      {
+        "start": 140.04,
+        "duration": 5.1,
+        "text": "problem that you can solve by throwing a"
+      },
+      {
+        "start": 142.68,
+        "duration": 4.199,
+        "text": "b tree at it uh which is what you do"
+      },
+      {
+        "start": 145.14,
+        "duration": 3.84,
+        "text": "with Oracle and what you do with with"
+      },
+      {
+        "start": 146.879,
+        "duration": 4.381,
+        "text": "postgresql"
+      },
+      {
+        "start": 148.98,
+        "duration": 4.2,
+        "text": "um and I think that's why I mean not to"
+      },
+      {
+        "start": 151.26,
+        "duration": 3.78,
+        "text": "not to jump not to steal your thunder"
+      },
+      {
+        "start": 153.18,
+        "duration": 5.76,
+        "text": "here but I think that's why people"
+      },
+      {
+        "start": 155.04,
+        "duration": 5.699,
+        "text": "evaluation sucks so hard is that uh you"
+      },
+      {
+        "start": 158.94,
+        "duration": 5.879,
+        "text": "know you're you're jamming this problem"
+      },
+      {
+        "start": 160.739,
+        "duration": 5.881,
+        "text": "that doesn't fit that beatry Paradigm uh"
+      },
+      {
+        "start": 164.819,
+        "duration": 4.861,
+        "text": "into a relational database and it just"
+      },
+      {
+        "start": 166.62,
+        "duration": 5.72,
+        "text": "doesn't work and by contrast uh"
+      },
+      {
+        "start": 169.68,
+        "duration": 6.839,
+        "text": "Cassandra as storage attached indexes"
+      },
+      {
+        "start": 172.34,
+        "duration": 7.02,
+        "text": "are designed up front to be able to have"
+      },
+      {
+        "start": 176.519,
+        "duration": 6.241,
+        "text": "multiple uh"
+      },
+      {
+        "start": 179.36,
+        "duration": 7.84,
+        "text": "algorithms attached to them so doing an"
+      },
+      {
+        "start": 182.76,
+        "duration": 6.199,
+        "text": "agent SW or a disk a n Vector search on"
+      },
+      {
+        "start": 187.2,
+        "duration": 5.7,
+        "text": "top of that storage attached index"
+      },
+      {
+        "start": 188.959,
+        "duration": 6.161,
+        "text": "architecture is uh is is super easy and"
+      },
+      {
+        "start": 192.9,
+        "duration": 4.44,
+        "text": "a great fit"
+      },
+      {
+        "start": 195.12,
+        "duration": 3.839,
+        "text": "uh you've not stolen any Thunder at all"
+      },
+      {
+        "start": 197.34,
+        "duration": 3.3,
+        "text": "and I have a bunch of questions for you"
+      },
+      {
+        "start": 198.959,
+        "duration": 4.081,
+        "text": "but I thought it'd be fun to start with"
+      },
+      {
+        "start": 200.64,
+        "duration": 4.8,
+        "text": "like a really good one it's like"
+      },
+      {
+        "start": 203.04,
+        "duration": 3.419,
+        "text": "um this is this is gonna be fun I I"
+      },
+      {
+        "start": 205.44,
+        "duration": 2.519,
+        "text": "don't know if you knew that I was gonna"
+      },
+      {
+        "start": 206.459,
+        "duration": 3.841,
+        "text": "do this but I'm gonna have fun with you"
+      },
+      {
+        "start": 207.959,
+        "duration": 6.181,
+        "text": "right now"
+      },
+      {
+        "start": 210.3,
+        "duration": 6.719,
+        "text": "um the the very first Cassandra ticket I"
+      },
+      {
+        "start": 214.14,
+        "duration": 4.019,
+        "text": "mean this is just to say like hey uh"
+      },
+      {
+        "start": 217.019,
+        "duration": 2.341,
+        "text": "first of all"
+      },
+      {
+        "start": 218.159,
+        "duration": 4.14,
+        "text": "um I want to make sure that everyone"
+      },
+      {
+        "start": 219.36,
+        "duration": 5.75,
+        "text": "knows who you are Jonathan Ellis Mr Mr"
+      },
+      {
+        "start": 222.299,
+        "duration": 5.041,
+        "text": "Cassandra from back in the day but"
+      },
+      {
+        "start": 225.11,
+        "duration": 3.97,
+        "text": "[Laughter]"
+      },
+      {
+        "start": 227.34,
+        "duration": 4.74,
+        "text": "but here's the fun part that I'm gonna"
+      },
+      {
+        "start": 229.08,
+        "duration": 5.04,
+        "text": "do so I I put a QR link up there you"
+      },
+      {
+        "start": 232.08,
+        "duration": 4.4,
+        "text": "should be able to see it"
+      },
+      {
+        "start": 234.12,
+        "duration": 4.64,
+        "text": "um it's the first Cassandra ticket"
+      },
+      {
+        "start": 236.48,
+        "duration": 4.96,
+        "text": "You're gonna laugh when you see this"
+      },
+      {
+        "start": 238.76,
+        "duration": 5.38,
+        "text": "Cassandra won and this is what I thought"
+      },
+      {
+        "start": 241.44,
+        "duration": 4.56,
+        "text": "was great about this ticket it's it says"
+      },
+      {
+        "start": 244.14,
+        "duration": 5.58,
+        "text": "remove support it wasn't like support"
+      },
+      {
+        "start": 246.0,
+        "duration": 5.64,
+        "text": "for Cassandra no it was he added delete"
+      },
+      {
+        "start": 249.72,
+        "duration": 4.56,
+        "text": "like there was a database that didn't"
+      },
+      {
+        "start": 251.64,
+        "duration": 6.059,
+        "text": "have delete this is the first Cassandra"
+      },
+      {
+        "start": 254.28,
+        "duration": 6.919,
+        "text": "jiren no this is this is actually how I"
+      },
+      {
+        "start": 257.699,
+        "duration": 6.481,
+        "text": "broke Facebook by the way uh because"
+      },
+      {
+        "start": 261.199,
+        "duration": 6.581,
+        "text": "because I've been at it as a as a"
+      },
+      {
+        "start": 264.18,
+        "duration": 5.82,
+        "text": "committer to uh Apache Cassandra and the"
+      },
+      {
+        "start": 267.78,
+        "duration": 6.12,
+        "text": "Facebook guys were still deploying from"
+      },
+      {
+        "start": 270.0,
+        "duration": 5.82,
+        "text": "Trump live uh and so like over the"
+      },
+      {
+        "start": 273.9,
+        "duration": 4.079,
+        "text": "weekend they were instant messaging me"
+      },
+      {
+        "start": 275.82,
+        "duration": 6.0,
+        "text": "saying what did you do like everything"
+      },
+      {
+        "start": 277.979,
+        "duration": 6.78,
+        "text": "broke uh so it turns out that you know"
+      },
+      {
+        "start": 281.82,
+        "duration": 5.46,
+        "text": "I thought I thought it looked good uh"
+      },
+      {
+        "start": 284.759,
+        "duration": 5.761,
+        "text": "nobody reviewed it in a timely fashion"
+      },
+      {
+        "start": 287.28,
+        "duration": 5.639,
+        "text": "and so I just committed it and uh and"
+      },
+      {
+        "start": 290.52,
+        "duration": 5.34,
+        "text": "Facebook's inbox search broke which is"
+      },
+      {
+        "start": 292.919,
+        "duration": 4.741,
+        "text": "what was powered by Cassandra so uh we"
+      },
+      {
+        "start": 295.86,
+        "duration": 3.779,
+        "text": "we unbroke it and then they reviewed it"
+      },
+      {
+        "start": 297.66,
+        "duration": 4.44,
+        "text": "and"
+      },
+      {
+        "start": 299.639,
+        "duration": 4.62,
+        "text": "that's how it got started I see that's"
+      },
+      {
+        "start": 302.1,
+        "duration": 4.319,
+        "text": "this is what I was hoping for the"
+      },
+      {
+        "start": 304.259,
+        "duration": 3.781,
+        "text": "stories you know it's like but I also"
+      },
+      {
+        "start": 306.419,
+        "duration": 3.421,
+        "text": "want to start out with like hey you've"
+      },
+      {
+        "start": 308.04,
+        "duration": 4.32,
+        "text": "been here you've done this so let's talk"
+      },
+      {
+        "start": 309.84,
+        "duration": 5.16,
+        "text": "about today let's talk about vectors and"
+      },
+      {
+        "start": 312.36,
+        "duration": 4.68,
+        "text": "so Vector databases are the coolest kid"
+      },
+      {
+        "start": 315.0,
+        "duration": 3.78,
+        "text": "right now in database stuff there's a"
+      },
+      {
+        "start": 317.04,
+        "duration": 5.46,
+        "text": "lot going on in all power with Gen AI"
+      },
+      {
+        "start": 318.78,
+        "duration": 6.66,
+        "text": "but there are problems and I want to"
+      },
+      {
+        "start": 322.5,
+        "duration": 4.56,
+        "text": "start out with a couple I'm gonna I I"
+      },
+      {
+        "start": 325.44,
+        "duration": 4.199,
+        "text": "know you have a list in your head I'm"
+      },
+      {
+        "start": 327.06,
+        "duration": 3.9,
+        "text": "gonna break it up the one that I think"
+      },
+      {
+        "start": 329.639,
+        "duration": 3.84,
+        "text": "is the most"
+      },
+      {
+        "start": 330.96,
+        "duration": 4.679,
+        "text": "Troublesome is this problem of"
+      },
+      {
+        "start": 333.479,
+        "duration": 3.541,
+        "text": "concurrency which I was a shock to me"
+      },
+      {
+        "start": 335.639,
+        "duration": 3.421,
+        "text": "that this is still a problem we're"
+      },
+      {
+        "start": 337.02,
+        "duration": 4.019,
+        "text": "solving but maybe you can dig into that"
+      },
+      {
+        "start": 339.06,
+        "duration": 3.24,
+        "text": "like vector databases have a problem"
+      },
+      {
+        "start": 341.039,
+        "duration": 4.921,
+        "text": "here"
+      },
+      {
+        "start": 342.3,
+        "duration": 6.3,
+        "text": "yeah so let me tie this into what you uh"
+      },
+      {
+        "start": 345.96,
+        "duration": 3.54,
+        "text": "what you just put up there uh which is"
+      },
+      {
+        "start": 348.6,
+        "duration": 2.48,
+        "text": "that"
+      },
+      {
+        "start": 349.5,
+        "duration": 5.22,
+        "text": "my"
+      },
+      {
+        "start": 351.08,
+        "duration": 6.64,
+        "text": "philosophy as an entrepreneur and as an"
+      },
+      {
+        "start": 354.72,
+        "duration": 5.699,
+        "text": "engineer is I want to spend my time"
+      },
+      {
+        "start": 357.72,
+        "duration": 4.86,
+        "text": "solving interesting problems and almost"
+      },
+      {
+        "start": 360.419,
+        "duration": 3.661,
+        "text": "all the time if somebody else has"
+      },
+      {
+        "start": 362.58,
+        "duration": 3.42,
+        "text": "already solved it like that just makes"
+      },
+      {
+        "start": 364.08,
+        "duration": 4.98,
+        "text": "it less interesting because like there's"
+      },
+      {
+        "start": 366.0,
+        "duration": 5.28,
+        "text": "a known solution and you know some"
+      },
+      {
+        "start": 369.06,
+        "duration": 4.26,
+        "text": "people get excited about rewriting C"
+      },
+      {
+        "start": 371.28,
+        "duration": 4.8,
+        "text": "plus plus code in rust or whatever and"
+      },
+      {
+        "start": 373.32,
+        "duration": 4.5,
+        "text": "it's like that's not me like uh however"
+      },
+      {
+        "start": 376.08,
+        "duration": 4.2,
+        "text": "much that makes the world a better place"
+      },
+      {
+        "start": 377.82,
+        "duration": 4.319,
+        "text": "perhaps uh I'd rather be solving"
+      },
+      {
+        "start": 380.28,
+        "duration": 4.56,
+        "text": "problems that nobody knows how to solve"
+      },
+      {
+        "start": 382.139,
+        "duration": 5.34,
+        "text": "yet uh and so that's what attracted me"
+      },
+      {
+        "start": 384.84,
+        "duration": 4.799,
+        "text": "to Cassandra rather than like going and"
+      },
+      {
+        "start": 387.479,
+        "duration": 4.861,
+        "text": "building something from scratch I'm like"
+      },
+      {
+        "start": 389.639,
+        "duration": 5.641,
+        "text": "hey these Facebook guys uh some of whom"
+      },
+      {
+        "start": 392.34,
+        "duration": 5.82,
+        "text": "worked on the original Dynamo paper or"
+      },
+      {
+        "start": 395.28,
+        "duration": 4.199,
+        "text": "the original Dynamo engine uh they've"
+      },
+      {
+        "start": 398.16,
+        "duration": 3.0,
+        "text": "they've open sourced this really"
+      },
+      {
+        "start": 399.479,
+        "duration": 3.301,
+        "text": "interesting database I'd rather go"
+      },
+      {
+        "start": 401.16,
+        "duration": 4.14,
+        "text": "contribute that and move the state of"
+      },
+      {
+        "start": 402.78,
+        "duration": 4.5,
+        "text": "the art forward rather than spend six"
+      },
+      {
+        "start": 405.3,
+        "duration": 5.28,
+        "text": "months uh you know building something"
+      },
+      {
+        "start": 407.28,
+        "duration": 5.52,
+        "text": "super basic uh so that was my approach"
+      },
+      {
+        "start": 410.58,
+        "duration": 4.619,
+        "text": "to adding Vector search to Cassandra as"
+      },
+      {
+        "start": 412.8,
+        "duration": 4.5,
+        "text": "well so I looked around and I said you"
+      },
+      {
+        "start": 415.199,
+        "duration": 4.981,
+        "text": "know who's got some good building blocks"
+      },
+      {
+        "start": 417.3,
+        "duration": 3.78,
+        "text": "that I can use uh instead of Reinventing"
+      },
+      {
+        "start": 420.18,
+        "duration": 4.5,
+        "text": "the wheel"
+      },
+      {
+        "start": 421.08,
+        "duration": 6.6,
+        "text": "and so that brought me to Lucine uh and"
+      },
+      {
+        "start": 424.68,
+        "duration": 5.579,
+        "text": "so they've had a hnsw I'll talk about"
+      },
+      {
+        "start": 427.68,
+        "duration": 6.18,
+        "text": "what that means in in a second but they"
+      },
+      {
+        "start": 430.259,
+        "duration": 7.5,
+        "text": "have a vector indexing engine that's"
+      },
+      {
+        "start": 433.86,
+        "duration": 7.26,
+        "text": "been in uh production for about a year"
+      },
+      {
+        "start": 437.759,
+        "duration": 5.641,
+        "text": "and a half now uh a lot of smart people"
+      },
+      {
+        "start": 441.12,
+        "duration": 4.26,
+        "text": "have put a lot of time into it and so I"
+      },
+      {
+        "start": 443.4,
+        "duration": 5.28,
+        "text": "said hey I should start with that rather"
+      },
+      {
+        "start": 445.38,
+        "duration": 7.379,
+        "text": "than uh you rolling my own from from"
+      },
+      {
+        "start": 448.68,
+        "duration": 6.359,
+        "text": "first principles and so I that that is"
+      },
+      {
+        "start": 452.759,
+        "duration": 6.301,
+        "text": "what I did and and that's what the first"
+      },
+      {
+        "start": 455.039,
+        "duration": 5.88,
+        "text": "release of uh Vector search in data"
+      },
+      {
+        "start": 459.06,
+        "duration": 4.38,
+        "text": "Stacks Astra which is our hosted"
+      },
+      {
+        "start": 460.919,
+        "duration": 6.981,
+        "text": "Cassandra that's what that ran on was"
+      },
+      {
+        "start": 463.44,
+        "duration": 7.92,
+        "text": "was on a leucine uh index but I ran into"
+      },
+      {
+        "start": 467.9,
+        "duration": 5.38,
+        "text": "a couple challenges with that and by the"
+      },
+      {
+        "start": 471.36,
+        "duration": 4.5,
+        "text": "way uh"
+      },
+      {
+        "start": 473.28,
+        "duration": 4.44,
+        "text": "yeah like a lot of people are using the"
+      },
+      {
+        "start": 475.86,
+        "duration": 4.26,
+        "text": "same like it's not just elastic and"
+      },
+      {
+        "start": 477.72,
+        "duration": 4.259,
+        "text": "solar but a lot of people are are using"
+      },
+      {
+        "start": 480.12,
+        "duration": 4.799,
+        "text": "the scene for this"
+      },
+      {
+        "start": 481.979,
+        "duration": 5.641,
+        "text": "um it is kind of an engine behind the"
+      },
+      {
+        "start": 484.919,
+        "duration": 5.78,
+        "text": "engine for a lot of things out there"
+      },
+      {
+        "start": 487.62,
+        "duration": 3.079,
+        "text": "yeah and that's"
+      },
+      {
+        "start": 492.06,
+        "duration": 5.34,
+        "text": "embeddable search engine and and it"
+      },
+      {
+        "start": 494.699,
+        "duration": 6.421,
+        "text": "delivers and the leucine uh developers"
+      },
+      {
+        "start": 497.4,
+        "duration": 5.4,
+        "text": "are very performance oriented and uh"
+      },
+      {
+        "start": 501.12,
+        "duration": 3.72,
+        "text": "very careful about backwards"
+      },
+      {
+        "start": 502.8,
+        "duration": 4.38,
+        "text": "compatibility so yeah it's no wonder"
+      },
+      {
+        "start": 504.84,
+        "duration": 4.259,
+        "text": "that they're so popular they're the best"
+      },
+      {
+        "start": 507.18,
+        "duration": 6.239,
+        "text": "at what they do"
+      },
+      {
+        "start": 509.099,
+        "duration": 7.081,
+        "text": "um but in the vector space uh Lucina has"
+      },
+      {
+        "start": 513.419,
+        "duration": 4.92,
+        "text": "a couple problems especially from the"
+      },
+      {
+        "start": 516.18,
+        "duration": 3.84,
+        "text": "Cassandra perspective"
+      },
+      {
+        "start": 518.339,
+        "duration": 4.08,
+        "text": "um so the the first of those just"
+      },
+      {
+        "start": 520.02,
+        "duration": 6.06,
+        "text": "generically not related to the vector"
+      },
+      {
+        "start": 522.419,
+        "duration": 6.54,
+        "text": "part but just in leucine in general has"
+      },
+      {
+        "start": 526.08,
+        "duration": 6.42,
+        "text": "a kind of uh you could call it a micro"
+      },
+      {
+        "start": 528.959,
+        "duration": 7.681,
+        "text": "batch uh design where when you ingest"
+      },
+      {
+        "start": 532.5,
+        "duration": 6.62,
+        "text": "new documents into the scene those"
+      },
+      {
+        "start": 536.64,
+        "duration": 6.96,
+        "text": "documents are not visible to searches"
+      },
+      {
+        "start": 539.12,
+        "duration": 8.14,
+        "text": "until they've been digested and the the"
+      },
+      {
+        "start": 543.6,
+        "duration": 5.88,
+        "text": "term of Art in Lucine is committing so"
+      },
+      {
+        "start": 547.26,
+        "duration": 4.139,
+        "text": "once your changes once your new"
+      },
+      {
+        "start": 549.48,
+        "duration": 3.419,
+        "text": "documents have been committed then"
+      },
+      {
+        "start": 551.399,
+        "duration": 5.521,
+        "text": "they're visible to the search but that"
+      },
+      {
+        "start": 552.899,
+        "duration": 6.06,
+        "text": "takes millisecond seconds to seconds for"
+      },
+      {
+        "start": 556.92,
+        "duration": 5.94,
+        "text": "that to happen and you really don't have"
+      },
+      {
+        "start": 558.959,
+        "duration": 7.021,
+        "text": "any control over how long that takes we"
+      },
+      {
+        "start": 562.86,
+        "duration": 6.36,
+        "text": "spend we actually spend a lot of time"
+      },
+      {
+        "start": 565.98,
+        "duration": 6.359,
+        "text": "uh trying to solve that problem in data"
+      },
+      {
+        "start": 569.22,
+        "duration": 6.239,
+        "text": "Stacks Enterprise uh because we have a"
+      },
+      {
+        "start": 572.339,
+        "duration": 5.761,
+        "text": "search based on the scene there for for"
+      },
+      {
+        "start": 575.459,
+        "duration": 4.261,
+        "text": "text oriented search and we could not"
+      },
+      {
+        "start": 578.1,
+        "duration": 3.78,
+        "text": "close that we could not get that gap"
+      },
+      {
+        "start": 579.72,
+        "duration": 5.239,
+        "text": "down to zero which is what database"
+      },
+      {
+        "start": 581.88,
+        "duration": 5.639,
+        "text": "users want databases"
+      },
+      {
+        "start": 584.959,
+        "duration": 4.541,
+        "text": "so it should be visible in all my"
+      },
+      {
+        "start": 587.519,
+        "duration": 3.481,
+        "text": "indexes no matter what shape my query"
+      },
+      {
+        "start": 589.5,
+        "duration": 3.0,
+        "text": "looks like"
+      },
+      {
+        "start": 591.0,
+        "duration": 3.779,
+        "text": "um so that was the kind of friction"
+      },
+      {
+        "start": 592.5,
+        "duration": 4.08,
+        "text": "Point number one and I knew about that"
+      },
+      {
+        "start": 594.779,
+        "duration": 3.841,
+        "text": "going into it"
+      },
+      {
+        "start": 596.58,
+        "duration": 6.06,
+        "text": "um but what I what I didn't know going"
+      },
+      {
+        "start": 598.62,
+        "duration": 7.26,
+        "text": "into it is that the leucine uh Vector"
+      },
+      {
+        "start": 602.64,
+        "duration": 6.36,
+        "text": "index specifically is a single threaded"
+      },
+      {
+        "start": 605.88,
+        "duration": 5.22,
+        "text": "design uh so you can when you're"
+      },
+      {
+        "start": 609.0,
+        "duration": 4.86,
+        "text": "building that index you can only build"
+      },
+      {
+        "start": 611.1,
+        "duration": 5.52,
+        "text": "it with a single thread and it's not"
+      },
+      {
+        "start": 613.86,
+        "duration": 5.099,
+        "text": "thread safe to query at all except from"
+      },
+      {
+        "start": 616.62,
+        "duration": 4.38,
+        "text": "the Builder thread and until it's"
+      },
+      {
+        "start": 618.959,
+        "duration": 4.56,
+        "text": "finished so that aligns with lucine's"
+      },
+      {
+        "start": 621.0,
+        "duration": 4.74,
+        "text": "philosophy around ingest and commit but"
+      },
+      {
+        "start": 623.519,
+        "duration": 4.861,
+        "text": "it doesn't align around what I wanted to"
+      },
+      {
+        "start": 625.74,
+        "duration": 5.82,
+        "text": "do for Cassandra which is have a vector"
+      },
+      {
+        "start": 628.38,
+        "duration": 5.519,
+        "text": "index that uh you know as soon as you as"
+      },
+      {
+        "start": 631.56,
+        "duration": 4.98,
+        "text": "soon as you enter that row you can you"
+      },
+      {
+        "start": 633.899,
+        "duration": 6.741,
+        "text": "can see it you can search for it uh so"
+      },
+      {
+        "start": 636.54,
+        "duration": 9.12,
+        "text": "the first thing I did was to uh rebuild"
+      },
+      {
+        "start": 640.64,
+        "duration": 6.1,
+        "text": "that uh that Builder that uh that index"
+      },
+      {
+        "start": 645.66,
+        "duration": 4.859,
+        "text": "Builder"
+      },
+      {
+        "start": 646.74,
+        "duration": 6.96,
+        "text": "to be uh non-blocking and so not only"
+      },
+      {
+        "start": 650.519,
+        "duration": 5.76,
+        "text": "can I uh build it with multiple threads"
+      },
+      {
+        "start": 653.7,
+        "duration": 6.42,
+        "text": "but I can query it concurrently as it's"
+      },
+      {
+        "start": 656.279,
+        "duration": 6.18,
+        "text": "being built and uh and so that was uh so"
+      },
+      {
+        "start": 660.12,
+        "duration": 4.74,
+        "text": "when I said that the first version of"
+      },
+      {
+        "start": 662.459,
+        "duration": 4.741,
+        "text": "Astra Vector search was built on the"
+      },
+      {
+        "start": 664.86,
+        "duration": 5.64,
+        "text": "scene it was actually built on that you"
+      },
+      {
+        "start": 667.2,
+        "duration": 5.52,
+        "text": "know hacked up uh new and improved Uh"
+      },
+      {
+        "start": 670.5,
+        "duration": 4.56,
+        "text": "custom work of Lucy with the"
+      },
+      {
+        "start": 672.72,
+        "duration": 4.92,
+        "text": "non-blocking index yeah so you you're a"
+      },
+      {
+        "start": 675.06,
+        "duration": 5.459,
+        "text": "contributor to Lucy now I saw those"
+      },
+      {
+        "start": 677.64,
+        "duration": 6.439,
+        "text": "commits go through yeah so well so I had"
+      },
+      {
+        "start": 680.519,
+        "duration": 5.76,
+        "text": "a a couple kind of uh"
+      },
+      {
+        "start": 684.079,
+        "duration": 4.301,
+        "text": "byproducts of what I was doing that got"
+      },
+      {
+        "start": 686.279,
+        "duration": 4.261,
+        "text": "committed to Lucine but the actual"
+      },
+      {
+        "start": 688.38,
+        "duration": 3.12,
+        "text": "concurrent index uh never did get"
+      },
+      {
+        "start": 690.54,
+        "duration": 3.12,
+        "text": "committed"
+      },
+      {
+        "start": 691.5,
+        "duration": 5.04,
+        "text": "yeah and it's in that single thread"
+      },
+      {
+        "start": 693.66,
+        "duration": 5.76,
+        "text": "business uh I mean when you look at why"
+      },
+      {
+        "start": 696.54,
+        "duration": 5.7,
+        "text": "it exists in leucine it makes a lot of"
+      },
+      {
+        "start": 699.42,
+        "duration": 4.32,
+        "text": "sense in lucene but it does not make a"
+      },
+      {
+        "start": 702.24,
+        "duration": 3.599,
+        "text": "lot of sense in a highly concurrent"
+      },
+      {
+        "start": 703.74,
+        "duration": 4.74,
+        "text": "distributed database that needs to have"
+      },
+      {
+        "start": 705.839,
+        "duration": 5.341,
+        "text": "a real-time like developers expect to"
+      },
+      {
+        "start": 708.48,
+        "duration": 5.4,
+        "text": "read their rights and within a"
+      },
+      {
+        "start": 711.18,
+        "duration": 4.44,
+        "text": "reasonable amount of time or and I think"
+      },
+      {
+        "start": 713.88,
+        "duration": 4.62,
+        "text": "this is probably another part of it is"
+      },
+      {
+        "start": 715.62,
+        "duration": 6.06,
+        "text": "that your your rights should not impact"
+      },
+      {
+        "start": 718.5,
+        "duration": 5.04,
+        "text": "your reads for performance yeah and like"
+      },
+      {
+        "start": 721.68,
+        "duration": 3.899,
+        "text": "I don't want to blow my own horn too"
+      },
+      {
+        "start": 723.54,
+        "duration": 6.78,
+        "text": "hard here because I don't think this was"
+      },
+      {
+        "start": 725.579,
+        "duration": 7.681,
+        "text": "rocket science but uh it it's I did some"
+      },
+      {
+        "start": 730.32,
+        "duration": 6.079,
+        "text": "good work here where you know it you're"
+      },
+      {
+        "start": 733.26,
+        "duration": 3.139,
+        "text": "having a lot of fun"
+      },
+      {
+        "start": 736.459,
+        "duration": 6.521,
+        "text": "I've tested this out to uh 32 concurrent"
+      },
+      {
+        "start": 740.279,
+        "duration": 4.8,
+        "text": "threads uh you go from one thread to two"
+      },
+      {
+        "start": 742.98,
+        "duration": 4.38,
+        "text": "threads to four threads to eight to"
+      },
+      {
+        "start": 745.079,
+        "duration": 3.901,
+        "text": "sixteen to thirty two and every time you"
+      },
+      {
+        "start": 747.36,
+        "duration": 4.56,
+        "text": "double the number of threads that are"
+      },
+      {
+        "start": 748.98,
+        "duration": 6.539,
+        "text": "building it the uh time to do the gold"
+      },
+      {
+        "start": 751.92,
+        "duration": 7.8,
+        "text": "goes down by half uh so it's a it's a"
+      },
+      {
+        "start": 755.519,
+        "duration": 6.241,
+        "text": "very very scalable design and what the I"
+      },
+      {
+        "start": 759.72,
+        "duration": 3.9,
+        "text": "mean like I no doubt on the technical"
+      },
+      {
+        "start": 761.76,
+        "duration": 6.06,
+        "text": "part like that was a fun challenge but"
+      },
+      {
+        "start": 763.62,
+        "duration": 6.0,
+        "text": "for users of Astra Vector Surge and"
+      },
+      {
+        "start": 767.82,
+        "duration": 5.34,
+        "text": "Cassandra Vector search what that means"
+      },
+      {
+        "start": 769.62,
+        "duration": 8.339,
+        "text": "for them is that search doesn't slow"
+      },
+      {
+        "start": 773.16,
+        "duration": 9.66,
+        "text": "down while you are adding new rows which"
+      },
+      {
+        "start": 777.959,
+        "duration": 7.021,
+        "text": "is actually an unusual property uh for a"
+      },
+      {
+        "start": 782.82,
+        "duration": 4.5,
+        "text": "lot of these sector databases so I"
+      },
+      {
+        "start": 784.98,
+        "duration": 5.099,
+        "text": "already I already called out uh PG"
+      },
+      {
+        "start": 787.32,
+        "duration": 5.34,
+        "text": "Vector so let's keep going uh Pineview"
+      },
+      {
+        "start": 790.079,
+        "duration": 4.801,
+        "text": "actually really struggles with this uh"
+      },
+      {
+        "start": 792.66,
+        "duration": 5.52,
+        "text": "so if if you're if you have like a"
+      },
+      {
+        "start": 794.88,
+        "duration": 6.0,
+        "text": "steady static set of vectors that you've"
+      },
+      {
+        "start": 798.18,
+        "duration": 4.86,
+        "text": "ingested like great everything's fine"
+      },
+      {
+        "start": 800.88,
+        "duration": 4.139,
+        "text": "and the sun is shining and birds are"
+      },
+      {
+        "start": 803.04,
+        "duration": 5.88,
+        "text": "chirping and whatever but as soon as you"
+      },
+      {
+        "start": 805.019,
+        "duration": 6.481,
+        "text": "start doing concurrent uh inserts or"
+      },
+      {
+        "start": 808.92,
+        "duration": 4.68,
+        "text": "modifications of those vectors then uh"
+      },
+      {
+        "start": 811.5,
+        "duration": 4.86,
+        "text": "then Pinecone really struggles you know"
+      },
+      {
+        "start": 813.6,
+        "duration": 4.44,
+        "text": "I I want to give the every Vector"
+      },
+      {
+        "start": 816.36,
+        "duration": 4.02,
+        "text": "database that was built in the last few"
+      },
+      {
+        "start": 818.04,
+        "duration": 4.979,
+        "text": "years a break maybe like give them an"
+      },
+      {
+        "start": 820.38,
+        "duration": 5.759,
+        "text": "out is that I feel like the the use case"
+      },
+      {
+        "start": 823.019,
+        "duration": 5.401,
+        "text": "at that time was some batch process"
+      },
+      {
+        "start": 826.139,
+        "duration": 3.961,
+        "text": "creating a lot of embeddings and then"
+      },
+      {
+        "start": 828.42,
+        "duration": 5.099,
+        "text": "dumping them into a place where they can"
+      },
+      {
+        "start": 830.1,
+        "duration": 5.94,
+        "text": "be indexed and then later ever read in"
+      },
+      {
+        "start": 833.519,
+        "duration": 5.961,
+        "text": "us in a very performant way no you're"
+      },
+      {
+        "start": 836.04,
+        "duration": 3.44,
+        "text": "right and and to the degree of"
+      },
+      {
+        "start": 840.6,
+        "duration": 3.359,
+        "text": "degree there to"
+      },
+      {
+        "start": 841.92,
+        "duration": 6.3,
+        "text": "for the test"
+      },
+      {
+        "start": 843.959,
+        "duration": 6.841,
+        "text": "and the The Big Industry Benchmark here"
+      },
+      {
+        "start": 848.22,
+        "duration": 6.119,
+        "text": "is called a n Dash benchmarks you can"
+      },
+      {
+        "start": 850.8,
+        "duration": 5.88,
+        "text": "find it on GitHub they have a dozen data"
+      },
+      {
+        "start": 854.339,
+        "duration": 4.261,
+        "text": "sets uh that are all standardized and"
+      },
+      {
+        "start": 856.68,
+        "duration": 4.56,
+        "text": "you can point your vector database at"
+      },
+      {
+        "start": 858.6,
+        "duration": 7.14,
+        "text": "them but the way that in in benchmarks"
+      },
+      {
+        "start": 861.24,
+        "duration": 7.56,
+        "text": "works is it's a single threaded uh it's"
+      },
+      {
+        "start": 865.74,
+        "duration": 7.92,
+        "text": "a single threaded design and it's split"
+      },
+      {
+        "start": 868.8,
+        "duration": 8.42,
+        "text": "up in uh into load my stuff right and"
+      },
+      {
+        "start": 873.66,
+        "duration": 6.679,
+        "text": "then query my stuff so there's no you"
+      },
+      {
+        "start": 877.22,
+        "duration": 7.359,
+        "text": "can be the slowest design in the world"
+      },
+      {
+        "start": 880.339,
+        "duration": 6.101,
+        "text": "at uh ingesting while you are querying"
+      },
+      {
+        "start": 884.579,
+        "duration": 3.721,
+        "text": "and it doesn't show up in the Benchmark"
+      },
+      {
+        "start": 886.44,
+        "duration": 4.139,
+        "text": "at all because that's not what it's"
+      },
+      {
+        "start": 888.3,
+        "duration": 4.86,
+        "text": "designed for so so yeah there's there's"
+      },
+      {
+        "start": 890.579,
+        "duration": 5.161,
+        "text": "definitely a temptation to say well you"
+      },
+      {
+        "start": 893.16,
+        "duration": 4.2,
+        "text": "know nobody's looking at how this works"
+      },
+      {
+        "start": 895.74,
+        "duration": 3.36,
+        "text": "when when I'm doing those concurrent"
+      },
+      {
+        "start": 897.36,
+        "duration": 4.86,
+        "text": "operations so maybe we'll leave that for"
+      },
+      {
+        "start": 899.1,
+        "duration": 4.62,
+        "text": "later it reminds me of like uh when you"
+      },
+      {
+        "start": 902.22,
+        "duration": 6.559,
+        "text": "can fit your data into memory and then"
+      },
+      {
+        "start": 903.72,
+        "duration": 5.059,
+        "text": "do Benchmark on that like like yeah"
+      },
+      {
+        "start": 909.5,
+        "duration": 5.16,
+        "text": "I remember writing"
+      },
+      {
+        "start": 912.0,
+        "duration": 6.06,
+        "text": "uh this must be 10 years ago now like"
+      },
+      {
+        "start": 914.66,
+        "duration": 6.46,
+        "text": "2012-ish where uh I got really"
+      },
+      {
+        "start": 918.06,
+        "duration": 5.82,
+        "text": "frustrated at people benchmarking"
+      },
+      {
+        "start": 921.12,
+        "duration": 5.219,
+        "text": "Cassandra with a for Loop like I'll do"
+      },
+      {
+        "start": 923.88,
+        "duration": 3.48,
+        "text": "one request and then I'll wait for it to"
+      },
+      {
+        "start": 926.339,
+        "duration": 3.481,
+        "text": "come back and then I'll do another"
+      },
+      {
+        "start": 927.36,
+        "duration": 5.52,
+        "text": "request and then I'll do another it"
+      },
+      {
+        "start": 929.82,
+        "duration": 4.86,
+        "text": "Cassandra is designed for thousands and"
+      },
+      {
+        "start": 932.88,
+        "duration": 4.8,
+        "text": "hundreds of thousands of concurrent"
+      },
+      {
+        "start": 934.68,
+        "duration": 5.3,
+        "text": "requests uh so so yeah it's super"
+      },
+      {
+        "start": 937.68,
+        "duration": 4.68,
+        "text": "frustrating to to see that like"
+      },
+      {
+        "start": 939.98,
+        "duration": 4.84,
+        "text": "enshrined in the in and Benchmark that"
+      },
+      {
+        "start": 942.36,
+        "duration": 3.96,
+        "text": "oh yeah it's just a single thread yeah"
+      },
+      {
+        "start": 944.82,
+        "duration": 3.0,
+        "text": "well it doesn't really I mean it's it's"
+      },
+      {
+        "start": 946.32,
+        "duration": 4.5,
+        "text": "interesting if you're testing the"
+      },
+      {
+        "start": 947.82,
+        "duration": 5.22,
+        "text": "indexing algorithm for one use case and"
+      },
+      {
+        "start": 950.82,
+        "duration": 4.019,
+        "text": "that's I think that's what en benchmarks"
+      },
+      {
+        "start": 953.04,
+        "duration": 4.2,
+        "text": "does is it's like hey here's this"
+      },
+      {
+        "start": 954.839,
+        "duration": 6.601,
+        "text": "algorithm with this very pure type of"
+      },
+      {
+        "start": 957.24,
+        "duration": 6.779,
+        "text": "Benchmark but as as many benchmarks go"
+      },
+      {
+        "start": 961.44,
+        "duration": 4.56,
+        "text": "it doesn't actually translate to"
+      },
+      {
+        "start": 964.019,
+        "duration": 4.94,
+        "text": "application developers that are building"
+      },
+      {
+        "start": 966.0,
+        "duration": 5.579,
+        "text": "stuff that needs to perform uh like yeah"
+      },
+      {
+        "start": 968.959,
+        "duration": 6.701,
+        "text": "it's like in the Java world right you"
+      },
+      {
+        "start": 971.579,
+        "duration": 7.021,
+        "text": "have I believe parallel GC is still the"
+      },
+      {
+        "start": 975.66,
+        "duration": 5.1,
+        "text": "throughput champion it will pause your"
+      },
+      {
+        "start": 978.6,
+        "duration": 5.039,
+        "text": "application for multiple seconds while"
+      },
+      {
+        "start": 980.76,
+        "duration": 5.519,
+        "text": "it does its garbage collections but its"
+      },
+      {
+        "start": 983.639,
+        "duration": 6.601,
+        "text": "throughput is amazing uh on the other"
+      },
+      {
+        "start": 986.279,
+        "duration": 7.521,
+        "text": "hand like there's a reason why the jdk"
+      },
+      {
+        "start": 990.24,
+        "duration": 6.42,
+        "text": "team has spent years uh making"
+      },
+      {
+        "start": 993.8,
+        "duration": 5.56,
+        "text": "zgc production ready to bring pause"
+      },
+      {
+        "start": 996.66,
+        "duration": 5.22,
+        "text": "times down to single digit milliseconds"
+      },
+      {
+        "start": 999.36,
+        "duration": 4.8,
+        "text": "because that matters in practice so so"
+      },
+      {
+        "start": 1001.88,
+        "duration": 4.5,
+        "text": "yeah I get it like there's a place for"
+      },
+      {
+        "start": 1004.16,
+        "duration": 4.039,
+        "text": "you know benchmarking the pure single"
+      },
+      {
+        "start": 1006.38,
+        "duration": 4.019,
+        "text": "threaded algorithm"
+      },
+      {
+        "start": 1008.199,
+        "duration": 4.241,
+        "text": "but there's also a place for"
+      },
+      {
+        "start": 1010.399,
+        "duration": 4.021,
+        "text": "understanding that you know hey in the"
+      },
+      {
+        "start": 1012.44,
+        "duration": 6.66,
+        "text": "real world it matters if you can do"
+      },
+      {
+        "start": 1014.42,
+        "duration": 8.039,
+        "text": "concurrency yeah well and so back to in"
+      },
+      {
+        "start": 1019.1,
+        "duration": 5.699,
+        "text": "keeping on the theme of real world scale"
+      },
+      {
+        "start": 1022.459,
+        "duration": 5.88,
+        "text": "um you know I I I'm giving a talk right"
+      },
+      {
+        "start": 1024.799,
+        "duration": 5.52,
+        "text": "now on vector and I I talk about like if"
+      },
+      {
+        "start": 1028.339,
+        "duration": 4.201,
+        "text": "you it may work great on your laptop but"
+      },
+      {
+        "start": 1030.319,
+        "duration": 3.661,
+        "text": "we wouldn't you put in production right"
+      },
+      {
+        "start": 1032.54,
+        "duration": 3.18,
+        "text": "so"
+      },
+      {
+        "start": 1033.98,
+        "duration": 3.06,
+        "text": "um scale that's that's yet another"
+      },
+      {
+        "start": 1035.72,
+        "duration": 3.359,
+        "text": "problem and one that we've been talking"
+      },
+      {
+        "start": 1037.04,
+        "duration": 3.72,
+        "text": "about for years only from the beginning"
+      },
+      {
+        "start": 1039.079,
+        "duration": 4.321,
+        "text": "with Cassandra so maybe you could talk a"
+      },
+      {
+        "start": 1040.76,
+        "duration": 4.02,
+        "text": "little bit about that and I'll just"
+      },
+      {
+        "start": 1043.4,
+        "duration": 3.299,
+        "text": "Prime the next question because I know"
+      },
+      {
+        "start": 1044.78,
+        "duration": 4.74,
+        "text": "they're related is"
+      },
+      {
+        "start": 1046.699,
+        "duration": 4.98,
+        "text": "the the vectors that don't fit in memory"
+      },
+      {
+        "start": 1049.52,
+        "duration": 4.38,
+        "text": "the ones that have to go to disk like"
+      },
+      {
+        "start": 1051.679,
+        "duration": 5.341,
+        "text": "how do those two things play together"
+      },
+      {
+        "start": 1053.9,
+        "duration": 5.04,
+        "text": "so like yeah for for scale I've been"
+      },
+      {
+        "start": 1057.02,
+        "duration": 3.96,
+        "text": "saying for years that if your problem"
+      },
+      {
+        "start": 1058.94,
+        "duration": 4.2,
+        "text": "fits on a single machine"
+      },
+      {
+        "start": 1060.98,
+        "duration": 5.22,
+        "text": "in Ram like it kind of doesn't matter"
+      },
+      {
+        "start": 1063.14,
+        "duration": 6.06,
+        "text": "what you use to solve that problem like"
+      },
+      {
+        "start": 1066.2,
+        "duration": 4.8,
+        "text": "you can use redis you can use mongodb"
+      },
+      {
+        "start": 1069.2,
+        "duration": 5.339,
+        "text": "you can use SQL Lite like it doesn't"
+      },
+      {
+        "start": 1071.0,
+        "duration": 6.12,
+        "text": "matter uh because"
+      },
+      {
+        "start": 1074.539,
+        "duration": 4.26,
+        "text": "it's just not a challenging problem"
+      },
+      {
+        "start": 1077.12,
+        "duration": 4.74,
+        "text": "domain"
+      },
+      {
+        "start": 1078.799,
+        "duration": 5.181,
+        "text": "um so the same thing is true with Vector"
+      },
+      {
+        "start": 1081.86,
+        "duration": 5.76,
+        "text": "search however"
+      },
+      {
+        "start": 1083.98,
+        "duration": 5.74,
+        "text": "the slightly different piece with Vector"
+      },
+      {
+        "start": 1087.62,
+        "duration": 5.1,
+        "text": "search is that vectors are large"
+      },
+      {
+        "start": 1089.72,
+        "duration": 5.6,
+        "text": "relatively speaking relative to what the"
+      },
+      {
+        "start": 1092.72,
+        "duration": 7.5,
+        "text": "database world is used to optimizing for"
+      },
+      {
+        "start": 1095.32,
+        "duration": 10.78,
+        "text": "uh especially if you're using open AI uh"
+      },
+      {
+        "start": 1100.22,
+        "duration": 8.4,
+        "text": "Ada two embeddings which are 1536 float"
+      },
+      {
+        "start": 1106.1,
+        "duration": 5.34,
+        "text": "32 so that's about six kilobytes a piece"
+      },
+      {
+        "start": 1108.62,
+        "duration": 5.58,
+        "text": "like that's you know it"
+      },
+      {
+        "start": 1111.44,
+        "duration": 6.0,
+        "text": "it's uh it takes one to two orders of"
+      },
+      {
+        "start": 1114.2,
+        "duration": 5.219,
+        "text": "magnitude less of those uh to max out"
+      },
+      {
+        "start": 1117.44,
+        "duration": 4.14,
+        "text": "your RAM than you're used to if you're"
+      },
+      {
+        "start": 1119.419,
+        "duration": 5.221,
+        "text": "used to dealing with you know integers"
+      },
+      {
+        "start": 1121.58,
+        "duration": 4.74,
+        "text": "or Longs or you know a few of those"
+      },
+      {
+        "start": 1124.64,
+        "duration": 3.659,
+        "text": "together"
+      },
+      {
+        "start": 1126.32,
+        "duration": 4.08,
+        "text": "um and I'm going to flag that as your"
+      },
+      {
+        "start": 1128.299,
+        "duration": 4.38,
+        "text": "first shock of working with you those of"
+      },
+      {
+        "start": 1130.4,
+        "duration": 5.04,
+        "text": "you who have not worked with vectors yet"
+      },
+      {
+        "start": 1132.679,
+        "duration": 4.62,
+        "text": "warning that is a thing I mean these"
+      },
+      {
+        "start": 1135.44,
+        "duration": 4.619,
+        "text": "aren't just a single you know this isn't"
+      },
+      {
+        "start": 1137.299,
+        "duration": 7.201,
+        "text": "a 32-bit number"
+      },
+      {
+        "start": 1140.059,
+        "duration": 7.98,
+        "text": "um these are massive and per row you get"
+      },
+      {
+        "start": 1144.5,
+        "duration": 5.58,
+        "text": "these so this is why scale is a thing"
+      },
+      {
+        "start": 1148.039,
+        "duration": 3.121,
+        "text": "yeah and and by the way I'll throw out a"
+      },
+      {
+        "start": 1150.08,
+        "duration": 5.099,
+        "text": "recommendation"
+      },
+      {
+        "start": 1151.16,
+        "duration": 6.42,
+        "text": "if you're not locked into an embedding"
+      },
+      {
+        "start": 1155.179,
+        "duration": 4.981,
+        "text": "implementation yet you should be using"
+      },
+      {
+        "start": 1157.58,
+        "duration": 4.44,
+        "text": "the E5 family which you can find on"
+      },
+      {
+        "start": 1160.16,
+        "duration": 6.42,
+        "text": "hugging face"
+      },
+      {
+        "start": 1162.02,
+        "duration": 7.44,
+        "text": "um the E5 standard and the E5 large uh"
+      },
+      {
+        "start": 1166.58,
+        "duration": 7.08,
+        "text": "both outperform uh"
+      },
+      {
+        "start": 1169.46,
+        "duration": 6.78,
+        "text": "open AIS embeddings for retrieval which"
+      },
+      {
+        "start": 1173.66,
+        "duration": 6.06,
+        "text": "is what most people are doing here uh"
+      },
+      {
+        "start": 1176.24,
+        "duration": 7.74,
+        "text": "while being smaller and the E5 small or"
+      },
+      {
+        "start": 1179.72,
+        "duration": 6.839,
+        "text": "E5 small V2 even better is a quarter the"
+      },
+      {
+        "start": 1183.98,
+        "duration": 5.4,
+        "text": "size of open AIS and it's very very"
+      },
+      {
+        "start": 1186.559,
+        "duration": 6.12,
+        "text": "close it's like within five percent of"
+      },
+      {
+        "start": 1189.38,
+        "duration": 5.039,
+        "text": "uh of the open AI relevance that you get"
+      },
+      {
+        "start": 1192.679,
+        "duration": 4.86,
+        "text": "out of it so definitely recommend those"
+      },
+      {
+        "start": 1194.419,
+        "duration": 5.701,
+        "text": "because like it's not just the like disk"
+      },
+      {
+        "start": 1197.539,
+        "duration": 4.5,
+        "text": "space is cheap we'll talk about uh disk"
+      },
+      {
+        "start": 1200.12,
+        "duration": 6.38,
+        "text": "space in a second"
+      },
+      {
+        "start": 1202.039,
+        "duration": 7.741,
+        "text": "um this space is cheap but CPU and GPU"
+      },
+      {
+        "start": 1206.5,
+        "duration": 4.84,
+        "text": "uh Cycles are actually not cheap in the"
+      },
+      {
+        "start": 1209.78,
+        "duration": 4.32,
+        "text": "vector search space you can Max those"
+      },
+      {
+        "start": 1211.34,
+        "duration": 4.8,
+        "text": "out relatively easily because what's"
+      },
+      {
+        "start": 1214.1,
+        "duration": 4.5,
+        "text": "going on when you're doing a vector"
+      },
+      {
+        "start": 1216.14,
+        "duration": 5.64,
+        "text": "search in your index you're doing a"
+      },
+      {
+        "start": 1218.6,
+        "duration": 6.66,
+        "text": "whole bunch of comparisons between your"
+      },
+      {
+        "start": 1221.78,
+        "duration": 6.42,
+        "text": "query vector and what's in the index and"
+      },
+      {
+        "start": 1225.26,
+        "duration": 6.24,
+        "text": "so uh if you have a query Vector that's"
+      },
+      {
+        "start": 1228.2,
+        "duration": 5.04,
+        "text": "a quarter the size then your search is"
+      },
+      {
+        "start": 1231.5,
+        "duration": 4.799,
+        "text": "going to be four times as fast other"
+      },
+      {
+        "start": 1233.24,
+        "duration": 4.799,
+        "text": "things being equal uh so it's it's in it"
+      },
+      {
+        "start": 1236.299,
+        "duration": 3.481,
+        "text": "it's in your best interest as an"
+      },
+      {
+        "start": 1238.039,
+        "duration": 4.921,
+        "text": "application developer trying to get low"
+      },
+      {
+        "start": 1239.78,
+        "duration": 5.519,
+        "text": "latencies to your customers uh to use a"
+      },
+      {
+        "start": 1242.96,
+        "duration": 3.54,
+        "text": "smaller embedding Vector if that can do"
+      },
+      {
+        "start": 1245.299,
+        "duration": 3.781,
+        "text": "the job"
+      },
+      {
+        "start": 1246.5,
+        "duration": 5.84,
+        "text": "but the question was uh what do you what"
+      },
+      {
+        "start": 1249.08,
+        "duration": 5.64,
+        "text": "do you do when your uh data set"
+      },
+      {
+        "start": 1252.34,
+        "duration": 5.56,
+        "text": "outstrips Ram"
+      },
+      {
+        "start": 1254.72,
+        "duration": 6.66,
+        "text": "um and so I mentioned that leucine and"
+      },
+      {
+        "start": 1257.9,
+        "duration": 7.5,
+        "text": "uh by extension Astra started out using"
+      },
+      {
+        "start": 1261.38,
+        "duration": 6.679,
+        "text": "an hsw uh Vector search algorithm and"
+      },
+      {
+        "start": 1265.4,
+        "duration": 6.36,
+        "text": "agent SW is what everybody starts with"
+      },
+      {
+        "start": 1268.059,
+        "duration": 6.281,
+        "text": "uh for two reasons and like seriously uh"
+      },
+      {
+        "start": 1271.76,
+        "duration": 4.02,
+        "text": "like if you name a vector database uh"
+      },
+      {
+        "start": 1274.34,
+        "duration": 2.699,
+        "text": "well actually PG Vector didn't start"
+      },
+      {
+        "start": 1275.78,
+        "duration": 4.56,
+        "text": "with it they started with something else"
+      },
+      {
+        "start": 1277.039,
+        "duration": 4.981,
+        "text": "but now they're now they have H and SW"
+      },
+      {
+        "start": 1280.34,
+        "duration": 5.459,
+        "text": "um but if you name a vector database"
+      },
+      {
+        "start": 1282.02,
+        "duration": 5.94,
+        "text": "odds are they have hnsw and that's in"
+      },
+      {
+        "start": 1285.799,
+        "duration": 4.5,
+        "text": "most cases that's all they support yeah"
+      },
+      {
+        "start": 1287.96,
+        "duration": 5.099,
+        "text": "and there's good reasons for that the"
+      },
+      {
+        "start": 1290.299,
+        "duration": 6.36,
+        "text": "the two very good reasons are hnsw is"
+      },
+      {
+        "start": 1293.059,
+        "duration": 9.261,
+        "text": "fast uh it's faster than almost anything"
+      },
+      {
+        "start": 1296.659,
+        "duration": 11.161,
+        "text": "else uh and it is high relevance uh so"
+      },
+      {
+        "start": 1302.32,
+        "duration": 8.02,
+        "text": "you if you say uh Hey hnsw index find me"
+      },
+      {
+        "start": 1307.82,
+        "duration": 6.239,
+        "text": "the top 10 vectors that are closest to"
+      },
+      {
+        "start": 1310.34,
+        "duration": 6.12,
+        "text": "this query uh you will get you know"
+      },
+      {
+        "start": 1314.059,
+        "duration": 5.701,
+        "text": "seven eight nine out of the actual"
+      },
+      {
+        "start": 1316.46,
+        "duration": 4.86,
+        "text": "closest vectors uh just without without"
+      },
+      {
+        "start": 1319.76,
+        "duration": 3.24,
+        "text": "much effort like you're not going to"
+      },
+      {
+        "start": 1321.32,
+        "duration": 4.5,
+        "text": "have to tune it you're not going to have"
+      },
+      {
+        "start": 1323.0,
+        "duration": 4.799,
+        "text": "to explore your problem domain super"
+      },
+      {
+        "start": 1325.82,
+        "duration": 4.8,
+        "text": "hard like just out of the box that's"
+      },
+      {
+        "start": 1327.799,
+        "duration": 6.961,
+        "text": "what you'll get whereas with uh most of"
+      },
+      {
+        "start": 1330.62,
+        "duration": 7.26,
+        "text": "the other alternatives to hnsw uh you're"
+      },
+      {
+        "start": 1334.76,
+        "duration": 7.14,
+        "text": "going to get like five out of ten uh out"
+      },
+      {
+        "start": 1337.88,
+        "duration": 6.48,
+        "text": "of the box and so the the relevance"
+      },
+      {
+        "start": 1341.9,
+        "duration": 3.899,
+        "text": "matters and the speed matters uh and"
+      },
+      {
+        "start": 1344.36,
+        "duration": 4.679,
+        "text": "then one more thing that's actually"
+      },
+      {
+        "start": 1345.799,
+        "duration": 6.24,
+        "text": "really good for uh a database like"
+      },
+      {
+        "start": 1349.039,
+        "duration": 5.401,
+        "text": "Cassandra that hnsw can be built"
+      },
+      {
+        "start": 1352.039,
+        "duration": 4.201,
+        "text": "incrementally meaning uh you know I put"
+      },
+      {
+        "start": 1354.44,
+        "duration": 4.8,
+        "text": "my first Vector in I put my first five"
+      },
+      {
+        "start": 1356.24,
+        "duration": 4.86,
+        "text": "vectors in I can search that that is a"
+      },
+      {
+        "start": 1359.24,
+        "duration": 4.02,
+        "text": "searchable index with just five vectors"
+      },
+      {
+        "start": 1361.1,
+        "duration": 5.1,
+        "text": "even if I'm inserting a total of a"
+      },
+      {
+        "start": 1363.26,
+        "duration": 4.38,
+        "text": "million or more I can I can build it"
+      },
+      {
+        "start": 1366.2,
+        "duration": 3.479,
+        "text": "incrementally and search it"
+      },
+      {
+        "start": 1367.64,
+        "duration": 6.0,
+        "text": "incrementally which is not a property"
+      },
+      {
+        "start": 1369.679,
+        "duration": 5.941,
+        "text": "that a lot of other uh options have"
+      },
+      {
+        "start": 1373.64,
+        "duration": 4.62,
+        "text": "so those are the reasons why everybody"
+      },
+      {
+        "start": 1375.62,
+        "duration": 4.74,
+        "text": "starts with hsw the problem is and this"
+      },
+      {
+        "start": 1378.26,
+        "duration": 4.14,
+        "text": "is again this is not a secret this is"
+      },
+      {
+        "start": 1380.36,
+        "duration": 4.86,
+        "text": "not something we uniquely discovered"
+      },
+      {
+        "start": 1382.4,
+        "duration": 7.92,
+        "text": "this is very well known in the industry"
+      },
+      {
+        "start": 1385.22,
+        "duration": 7.8,
+        "text": "agent SW does use a lot of Ram uh for"
+      },
+      {
+        "start": 1390.32,
+        "duration": 7.32,
+        "text": "those indexes and"
+      },
+      {
+        "start": 1393.02,
+        "duration": 6.72,
+        "text": "once you exceed Ram then your"
+      },
+      {
+        "start": 1397.64,
+        "duration": 6.18,
+        "text": "performance starts to get bad very very"
+      },
+      {
+        "start": 1399.74,
+        "duration": 7.62,
+        "text": "quickly because unlike in a relational"
+      },
+      {
+        "start": 1403.82,
+        "duration": 6.9,
+        "text": "database unlike with most B tree indexes"
+      },
+      {
+        "start": 1407.36,
+        "duration": 5.46,
+        "text": "there's no you know there's no hot data"
+      },
+      {
+        "start": 1410.72,
+        "duration": 4.56,
+        "text": "set there's no hot subset that you can"
+      },
+      {
+        "start": 1412.82,
+        "duration": 5.28,
+        "text": "say okay like that'll live inside the"
+      },
+      {
+        "start": 1415.28,
+        "duration": 4.34,
+        "text": "cache and then everything else we can"
+      },
+      {
+        "start": 1418.1,
+        "duration": 4.439,
+        "text": "just kind of pretend it doesn't matter"
+      },
+      {
+        "start": 1419.62,
+        "duration": 5.76,
+        "text": "uh because every Vector in your vector"
+      },
+      {
+        "start": 1422.539,
+        "duration": 6.0,
+        "text": "index is there's some exceptions but"
+      },
+      {
+        "start": 1425.38,
+        "duration": 5.38,
+        "text": "mostly you have an equal chance of"
+      },
+      {
+        "start": 1428.539,
+        "duration": 7.38,
+        "text": "needing to read any of those vectors"
+      },
+      {
+        "start": 1430.76,
+        "duration": 7.919,
+        "text": "during a query uh so the property of not"
+      },
+      {
+        "start": 1435.919,
+        "duration": 4.74,
+        "text": "doing well once you exceed Ram really"
+      },
+      {
+        "start": 1438.679,
+        "duration": 5.88,
+        "text": "really matters much more than you would"
+      },
+      {
+        "start": 1440.659,
+        "duration": 6.601,
+        "text": "expect if your intuition like mine comes"
+      },
+      {
+        "start": 1444.559,
+        "duration": 6.061,
+        "text": "from other kinds of databases and other"
+      },
+      {
+        "start": 1447.26,
+        "duration": 6.84,
+        "text": "kinds of retrieval patterns so that's"
+      },
+      {
+        "start": 1450.62,
+        "duration": 5.1,
+        "text": "the that's the long way to uh explain"
+      },
+      {
+        "start": 1454.1,
+        "duration": 3.54,
+        "text": "why"
+      },
+      {
+        "start": 1455.72,
+        "duration": 3.6,
+        "text": "I don't think a lot of people know that"
+      },
+      {
+        "start": 1457.64,
+        "duration": 3.84,
+        "text": "though I think that's and I thought it"
+      },
+      {
+        "start": 1459.32,
+        "duration": 4.38,
+        "text": "was interesting because Lucine the Lucy"
+      },
+      {
+        "start": 1461.48,
+        "duration": 5.16,
+        "text": "NH and SW as I was reading through their"
+      },
+      {
+        "start": 1463.7,
+        "duration": 4.859,
+        "text": "their the issue that they created for it"
+      },
+      {
+        "start": 1466.64,
+        "duration": 5.279,
+        "text": "um they you know they hierarchical"
+      },
+      {
+        "start": 1468.559,
+        "duration": 6.181,
+        "text": "Network small world H and SW it does"
+      },
+      {
+        "start": 1471.919,
+        "duration": 4.801,
+        "text": "multiple Dimensions by Design but the"
+      },
+      {
+        "start": 1474.74,
+        "duration": 4.679,
+        "text": "leucine folks decided to do one"
+      },
+      {
+        "start": 1476.72,
+        "duration": 4.68,
+        "text": "dimension because like that's it"
+      },
+      {
+        "start": 1479.419,
+        "duration": 3.301,
+        "text": "um it doesn't do multiple layers and I"
+      },
+      {
+        "start": 1481.4,
+        "duration": 3.12,
+        "text": "think that probably has a lot to do with"
+      },
+      {
+        "start": 1482.72,
+        "duration": 4.199,
+        "text": "memory are you do you think that might"
+      },
+      {
+        "start": 1484.52,
+        "duration": 4.62,
+        "text": "be true I'm not 100 sure what you're"
+      },
+      {
+        "start": 1486.919,
+        "duration": 4.081,
+        "text": "thinking of there because the leucine H"
+      },
+      {
+        "start": 1489.14,
+        "duration": 4.22,
+        "text": "and SW absolutely does do multiple"
+      },
+      {
+        "start": 1491.0,
+        "duration": 2.36,
+        "text": "layers"
+      },
+      {
+        "start": 1498.28,
+        "duration": 6.879,
+        "text": "uh the problem that that we're trying to"
+      },
+      {
+        "start": 1501.14,
+        "duration": 6.0,
+        "text": "to solve with with hsw is or with Vector"
+      },
+      {
+        "start": 1505.159,
+        "duration": 5.4,
+        "text": "indexing is I want to find the closest"
+      },
+      {
+        "start": 1507.14,
+        "duration": 6.18,
+        "text": "vectors to my query without exhaustively"
+      },
+      {
+        "start": 1510.559,
+        "duration": 5.341,
+        "text": "examining every Vector in my data set"
+      },
+      {
+        "start": 1513.32,
+        "duration": 5.28,
+        "text": "like because if I'm having to do a"
+      },
+      {
+        "start": 1515.9,
+        "duration": 4.56,
+        "text": "linear scan for every search like I run"
+      },
+      {
+        "start": 1518.6,
+        "duration": 4.68,
+        "text": "out of gas somewhere in the hundred"
+      },
+      {
+        "start": 1520.46,
+        "duration": 4.5,
+        "text": "thousand or million Vector range uh it's"
+      },
+      {
+        "start": 1523.28,
+        "duration": 5.94,
+        "text": "just too slow"
+      },
+      {
+        "start": 1524.96,
+        "duration": 6.959,
+        "text": "um and so what hnsw proposes is"
+      },
+      {
+        "start": 1529.22,
+        "duration": 4.86,
+        "text": "um it's it's actually an extension of an"
+      },
+      {
+        "start": 1531.919,
+        "duration": 4.921,
+        "text": "earlier thing called nsw and navigable"
+      },
+      {
+        "start": 1534.08,
+        "duration": 6.24,
+        "text": "small world where nsw says hey let's"
+      },
+      {
+        "start": 1536.84,
+        "duration": 7.339,
+        "text": "make a graph of our vectors as we add"
+      },
+      {
+        "start": 1540.32,
+        "duration": 8.339,
+        "text": "them to the index and I'll look at each"
+      },
+      {
+        "start": 1544.179,
+        "duration": 8.681,
+        "text": "uh node in the graph and I will set as"
+      },
+      {
+        "start": 1548.659,
+        "duration": 6.12,
+        "text": "its edges to other nodes uh the vectors"
+      },
+      {
+        "start": 1552.86,
+        "duration": 5.1,
+        "text": "the other the other vectors that are"
+      },
+      {
+        "start": 1554.779,
+        "duration": 5.101,
+        "text": "closest to it and then uh the"
+      },
+      {
+        "start": 1557.96,
+        "duration": 3.78,
+        "text": "hierarchical Yuri"
+      },
+      {
+        "start": 1559.88,
+        "duration": 4.56,
+        "text": "um whose last name escapes me but the"
+      },
+      {
+        "start": 1561.74,
+        "duration": 7.2,
+        "text": "the guy who created H and SW"
+      },
+      {
+        "start": 1564.44,
+        "duration": 7.38,
+        "text": "uh he said hey like this is great but uh"
+      },
+      {
+        "start": 1568.94,
+        "duration": 5.58,
+        "text": "it has worst case properties that are"
+      },
+      {
+        "start": 1571.82,
+        "duration": 5.82,
+        "text": "not desirable like if it's relatively"
+      },
+      {
+        "start": 1574.52,
+        "duration": 6.96,
+        "text": "easy to end up in a degenerate uh nsw"
+      },
+      {
+        "start": 1577.64,
+        "duration": 7.019,
+        "text": "where you're actually getting linear uh"
+      },
+      {
+        "start": 1581.48,
+        "duration": 5.16,
+        "text": "search times again so what he added was"
+      },
+      {
+        "start": 1584.659,
+        "duration": 3.12,
+        "text": "the H part the hierarchical part which"
+      },
+      {
+        "start": 1586.64,
+        "duration": 5.7,
+        "text": "said"
+      },
+      {
+        "start": 1587.779,
+        "duration": 7.741,
+        "text": "um every 10 or so of my vectors I'll put"
+      },
+      {
+        "start": 1592.34,
+        "duration": 6.12,
+        "text": "those in a new graph layer that sits"
+      },
+      {
+        "start": 1595.52,
+        "duration": 4.68,
+        "text": "above the first one and so that's going"
+      },
+      {
+        "start": 1598.46,
+        "duration": 5.099,
+        "text": "to have just a smaller pool of"
+      },
+      {
+        "start": 1600.2,
+        "duration": 6.0,
+        "text": "candidates uh and what that means is"
+      },
+      {
+        "start": 1603.559,
+        "duration": 6.381,
+        "text": "that my edges between nodes are going to"
+      },
+      {
+        "start": 1606.2,
+        "duration": 6.479,
+        "text": "be longer and so traversing each Edge"
+      },
+      {
+        "start": 1609.94,
+        "duration": 5.08,
+        "text": "moves me a farther distance in a single"
+      },
+      {
+        "start": 1612.679,
+        "duration": 4.141,
+        "text": "traversal and so I have my base layer"
+      },
+      {
+        "start": 1615.02,
+        "duration": 4.139,
+        "text": "and then the next layer is 10 of that"
+      },
+      {
+        "start": 1616.82,
+        "duration": 4.38,
+        "text": "then my next layer up above that is"
+      },
+      {
+        "start": 1619.159,
+        "duration": 4.02,
+        "text": "another 10 so it's one percent of the"
+      },
+      {
+        "start": 1621.2,
+        "duration": 4.079,
+        "text": "original then the third layer is point"
+      },
+      {
+        "start": 1623.179,
+        "duration": 4.141,
+        "text": "one percent of the original all so it's"
+      },
+      {
+        "start": 1625.279,
+        "duration": 3.961,
+        "text": "got this kind of skipless property where"
+      },
+      {
+        "start": 1627.32,
+        "duration": 5.4,
+        "text": "you start at the top layer find the"
+      },
+      {
+        "start": 1629.24,
+        "duration": 7.08,
+        "text": "closest match then go you know follow"
+      },
+      {
+        "start": 1632.72,
+        "duration": 5.579,
+        "text": "that to the next layer uh because each"
+      },
+      {
+        "start": 1636.32,
+        "duration": 3.9,
+        "text": "layer down is a strict superset of the"
+      },
+      {
+        "start": 1638.299,
+        "duration": 3.541,
+        "text": "one above it so you follow that down to"
+      },
+      {
+        "start": 1640.22,
+        "duration": 3.66,
+        "text": "the next layer find the closest one"
+      },
+      {
+        "start": 1641.84,
+        "duration": 4.38,
+        "text": "there then go down find the closest one"
+      },
+      {
+        "start": 1643.88,
+        "duration": 5.279,
+        "text": "there and so you kind of drill down to"
+      },
+      {
+        "start": 1646.22,
+        "duration": 5.4,
+        "text": "the right area in logarithmic time which"
+      },
+      {
+        "start": 1649.159,
+        "duration": 4.38,
+        "text": "is which is what uh what what you want"
+      },
+      {
+        "start": 1651.62,
+        "duration": 3.9,
+        "text": "out of an index"
+      },
+      {
+        "start": 1653.539,
+        "duration": 6.361,
+        "text": "I'm going to stand corrected by the way"
+      },
+      {
+        "start": 1655.52,
+        "duration": 6.539,
+        "text": "I the original the initial hsw was a"
+      },
+      {
+        "start": 1659.9,
+        "duration": 4.279,
+        "text": "single layer but oh yeah I think you're"
+      },
+      {
+        "start": 1662.059,
+        "duration": 5.401,
+        "text": "right about that yeah yeah"
+      },
+      {
+        "start": 1664.179,
+        "duration": 5.321,
+        "text": "posted yeah yeah so we've seen ten"
+      },
+      {
+        "start": 1667.46,
+        "duration": 4.079,
+        "text": "thousand zero five four just you know I"
+      },
+      {
+        "start": 1669.5,
+        "duration": 4.919,
+        "text": "want to make sure I quote my sources uh"
+      },
+      {
+        "start": 1671.539,
+        "duration": 6.061,
+        "text": "Maya Sharapova made it multi-layer"
+      },
+      {
+        "start": 1674.419,
+        "duration": 4.38,
+        "text": "because the single layer sucked so yeah"
+      },
+      {
+        "start": 1677.6,
+        "duration": 4.439,
+        "text": "yeah"
+      },
+      {
+        "start": 1678.799,
+        "duration": 7.641,
+        "text": "um it does because you only have if"
+      },
+      {
+        "start": 1682.039,
+        "duration": 7.921,
+        "text": "you're in a single layer then a you have"
+      },
+      {
+        "start": 1686.44,
+        "duration": 6.88,
+        "text": "well the biggest problem is is the that"
+      },
+      {
+        "start": 1689.96,
+        "duration": 5.16,
+        "text": "you're not traversing uh you know if you"
+      },
+      {
+        "start": 1693.32,
+        "duration": 3.959,
+        "text": "start if your entry point to the graph"
+      },
+      {
+        "start": 1695.12,
+        "duration": 4.26,
+        "text": "is not close to your query that you're"
+      },
+      {
+        "start": 1697.279,
+        "duration": 3.541,
+        "text": "looking for it takes you a long time to"
+      },
+      {
+        "start": 1699.38,
+        "duration": 3.06,
+        "text": "navigate to the right net neighborhood"
+      },
+      {
+        "start": 1700.82,
+        "duration": 3.959,
+        "text": "because you don't have those longer"
+      },
+      {
+        "start": 1702.44,
+        "duration": 5.219,
+        "text": "edges uh that you get with the the"
+      },
+      {
+        "start": 1704.779,
+        "duration": 5.341,
+        "text": "hierarchical layers yeah"
+      },
+      {
+        "start": 1707.659,
+        "duration": 5.581,
+        "text": "um and I should add uh everyone who's"
+      },
+      {
+        "start": 1710.12,
+        "duration": 4.799,
+        "text": "watching live right now uh please ask"
+      },
+      {
+        "start": 1713.24,
+        "duration": 3.96,
+        "text": "questions I mean we're sitting in here"
+      },
+      {
+        "start": 1714.919,
+        "duration": 4.74,
+        "text": "talking about all kinds of neat cool"
+      },
+      {
+        "start": 1717.2,
+        "duration": 4.56,
+        "text": "stuff but uh you should feel free to"
+      },
+      {
+        "start": 1719.659,
+        "duration": 4.981,
+        "text": "answer ask questions"
+      },
+      {
+        "start": 1721.76,
+        "duration": 4.74,
+        "text": "um you know it's you you've got clearly"
+      },
+      {
+        "start": 1724.64,
+        "duration": 4.019,
+        "text": "you got someone here that can answer the"
+      },
+      {
+        "start": 1726.5,
+        "duration": 6.539,
+        "text": "most incredible questions like"
+      },
+      {
+        "start": 1728.659,
+        "duration": 6.841,
+        "text": "how many layers hnsw hasn't leucine"
+      },
+      {
+        "start": 1733.039,
+        "duration": 4.441,
+        "text": "um but yeah I feel free to answer or to"
+      },
+      {
+        "start": 1735.5,
+        "duration": 5.4,
+        "text": "ask questions uh sorry so back to you"
+      },
+      {
+        "start": 1737.48,
+        "duration": 5.34,
+        "text": "there Jonathan um yeah so aware so I"
+      },
+      {
+        "start": 1740.9,
+        "duration": 4.139,
+        "text": "mentioned that I mean we got a little"
+      },
+      {
+        "start": 1742.82,
+        "duration": 3.599,
+        "text": "bit deep on the hnsw and I made a claim"
+      },
+      {
+        "start": 1745.039,
+        "duration": 3.601,
+        "text": "earlier that you can't"
+      },
+      {
+        "start": 1746.419,
+        "duration": 4.201,
+        "text": "like a hot and a cold data set with with"
+      },
+      {
+        "start": 1748.64,
+        "duration": 4.44,
+        "text": "a vector index"
+      },
+      {
+        "start": 1750.62,
+        "duration": 4.86,
+        "text": "um what you can do with hsw is you can"
+      },
+      {
+        "start": 1753.08,
+        "duration": 5.4,
+        "text": "say okay I'm gonna cash all but the"
+      },
+      {
+        "start": 1755.48,
+        "duration": 5.1,
+        "text": "bottom layer or if I'm really sensitive"
+      },
+      {
+        "start": 1758.48,
+        "duration": 4.679,
+        "text": "to memory UCL cash I'll put the bottom"
+      },
+      {
+        "start": 1760.58,
+        "duration": 5.579,
+        "text": "two layers which get me like I'm I'm"
+      },
+      {
+        "start": 1763.159,
+        "duration": 5.821,
+        "text": "caching 10 or one percent respectively"
+      },
+      {
+        "start": 1766.159,
+        "duration": 5.941,
+        "text": "the problem is that once you get to that"
+      },
+      {
+        "start": 1768.98,
+        "duration": 5.819,
+        "text": "bottom layer you're still in a world of"
+      },
+      {
+        "start": 1772.1,
+        "duration": 5.459,
+        "text": "like I'm just doing random iops all over"
+      },
+      {
+        "start": 1774.799,
+        "duration": 5.521,
+        "text": "the place and my performance sucks so"
+      },
+      {
+        "start": 1777.559,
+        "duration": 5.461,
+        "text": "being able to Cache those top layers yes"
+      },
+      {
+        "start": 1780.32,
+        "duration": 3.78,
+        "text": "you can do that and yes we did uh but"
+      },
+      {
+        "start": 1783.02,
+        "duration": 4.56,
+        "text": "it's not enough"
+      },
+      {
+        "start": 1784.1,
+        "duration": 6.9,
+        "text": "and so uh what I started looking for"
+      },
+      {
+        "start": 1787.58,
+        "duration": 5.699,
+        "text": "basically as soon as we released the hsw"
+      },
+      {
+        "start": 1791.0,
+        "duration": 5.34,
+        "text": "as beta I know where you're going this"
+      },
+      {
+        "start": 1793.279,
+        "duration": 6.721,
+        "text": "is great keep going let's let's do look"
+      },
+      {
+        "start": 1796.34,
+        "duration": 6.719,
+        "text": "for an alternative that would work"
+      },
+      {
+        "start": 1800.0,
+        "duration": 6.72,
+        "text": "better when data sets uh get larger than"
+      },
+      {
+        "start": 1803.059,
+        "duration": 5.881,
+        "text": "memory and so the the two that are I"
+      },
+      {
+        "start": 1806.72,
+        "duration": 3.959,
+        "text": "think the state of the art right now"
+      },
+      {
+        "start": 1808.94,
+        "duration": 3.479,
+        "text": "they're actually both from Microsoft"
+      },
+      {
+        "start": 1810.679,
+        "duration": 2.341,
+        "text": "research"
+      },
+      {
+        "start": 1812.419,
+        "duration": 3.061,
+        "text": "um"
+      },
+      {
+        "start": 1813.02,
+        "duration": 4.82,
+        "text": "and I don't actually know the details of"
+      },
+      {
+        "start": 1815.48,
+        "duration": 5.699,
+        "text": "like which parts of Microsoft"
+      },
+      {
+        "start": 1817.84,
+        "duration": 7.18,
+        "text": "uh created which one but the the first"
+      },
+      {
+        "start": 1821.179,
+        "duration": 7.041,
+        "text": "one is called span s-p-a-n-n and the"
+      },
+      {
+        "start": 1825.02,
+        "duration": 6.779,
+        "text": "second is called uh disc a n"
+      },
+      {
+        "start": 1828.22,
+        "duration": 6.16,
+        "text": "d-i-s-k-a-n-n and uh I'll I'll let"
+      },
+      {
+        "start": 1831.799,
+        "duration": 4.021,
+        "text": "reading span be an exercise for the"
+      },
+      {
+        "start": 1834.38,
+        "duration": 4.26,
+        "text": "reader if you're interested it's"
+      },
+      {
+        "start": 1835.82,
+        "duration": 5.339,
+        "text": "actually a really interesting design uh"
+      },
+      {
+        "start": 1838.64,
+        "duration": 4.56,
+        "text": "and it's completely different from hnsw"
+      },
+      {
+        "start": 1841.159,
+        "duration": 3.721,
+        "text": "and diskin and because it's not a graph"
+      },
+      {
+        "start": 1843.2,
+        "duration": 4.62,
+        "text": "design"
+      },
+      {
+        "start": 1844.88,
+        "duration": 5.94,
+        "text": "um and so while that's an interesting"
+      },
+      {
+        "start": 1847.82,
+        "duration": 5.82,
+        "text": "approach uh I decided to build the next"
+      },
+      {
+        "start": 1850.82,
+        "duration": 5.88,
+        "text": "version of Astra Vector search on top of"
+      },
+      {
+        "start": 1853.64,
+        "duration": 6.779,
+        "text": "the disk engine design because it is"
+      },
+      {
+        "start": 1856.7,
+        "duration": 6.66,
+        "text": "also a graph index like H and SW and so"
+      },
+      {
+        "start": 1860.419,
+        "duration": 5.76,
+        "text": "the distance between what I had and what"
+      },
+      {
+        "start": 1863.36,
+        "duration": 6.059,
+        "text": "I wanted to get to uh was relatively"
+      },
+      {
+        "start": 1866.179,
+        "duration": 4.921,
+        "text": "small and so uh what I what I've done is"
+      },
+      {
+        "start": 1869.419,
+        "duration": 3.421,
+        "text": "I've taken"
+      },
+      {
+        "start": 1871.1,
+        "duration": 3.959,
+        "text": "because this is starting to get farther"
+      },
+      {
+        "start": 1872.84,
+        "duration": 4.98,
+        "text": "and farther away what uh from what"
+      },
+      {
+        "start": 1875.059,
+        "duration": 5.821,
+        "text": "leucine's implementation looks like I"
+      },
+      {
+        "start": 1877.82,
+        "duration": 6.62,
+        "text": "actually extracted the graph index into"
+      },
+      {
+        "start": 1880.88,
+        "duration": 6.96,
+        "text": "a new Standalone project called J vector"
+      },
+      {
+        "start": 1884.44,
+        "duration": 5.979,
+        "text": "and uh and I built disc in and there's"
+      },
+      {
+        "start": 1887.84,
+        "duration": 5.16,
+        "text": "your link in the jpeg I knew it was"
+      },
+      {
+        "start": 1890.419,
+        "duration": 6.901,
+        "text": "coming I was ready for it you were ready"
+      },
+      {
+        "start": 1893.0,
+        "duration": 7.2,
+        "text": "yeah so uh so if you follow the link uh"
+      },
+      {
+        "start": 1897.32,
+        "duration": 7.2,
+        "text": "you'll see some preliminary benchmarking"
+      },
+      {
+        "start": 1900.2,
+        "duration": 13.14,
+        "text": "results versus leucine uh what I did was"
+      },
+      {
+        "start": 1904.52,
+        "duration": 8.82,
+        "text": "I built a uh index of 100 million uh"
+      },
+      {
+        "start": 1913.46,
+        "duration": 7.5,
+        "text": "uh sorry I'm mixing my so I benchmarked"
+      },
+      {
+        "start": 1916.46,
+        "duration": 7.439,
+        "text": "100 million vectors of the E5 family E5"
+      },
+      {
+        "start": 1920.96,
+        "duration": 5.04,
+        "text": "small V2 like I recommended earlier from"
+      },
+      {
+        "start": 1923.899,
+        "duration": 4.321,
+        "text": "Wikipedia uh but that's not what's"
+      },
+      {
+        "start": 1926.0,
+        "duration": 4.2,
+        "text": "that's not the graph that's on the front"
+      },
+      {
+        "start": 1928.22,
+        "duration": 5.22,
+        "text": "page of the jvector repo by the way the"
+      },
+      {
+        "start": 1930.2,
+        "duration": 5.52,
+        "text": "J Vector repo all of Wikipedia right"
+      },
+      {
+        "start": 1933.44,
+        "duration": 4.979,
+        "text": "yeah actually that's that's basically"
+      },
+      {
+        "start": 1935.72,
+        "duration": 6.6,
+        "text": "all of Wikipedia chunked into roughly"
+      },
+      {
+        "start": 1938.419,
+        "duration": 5.76,
+        "text": "sentence sized uh pieces and embedded uh"
+      },
+      {
+        "start": 1942.32,
+        "duration": 4.56,
+        "text": "but yeah what's on what's on the repo"
+      },
+      {
+        "start": 1944.179,
+        "duration": 5.88,
+        "text": "what's on the repo front page is a"
+      },
+      {
+        "start": 1946.88,
+        "duration": 7.32,
+        "text": "comparison with The Deep 100 million uh"
+      },
+      {
+        "start": 1950.059,
+        "duration": 7.381,
+        "text": "data set and so that is about a 60"
+      },
+      {
+        "start": 1954.2,
+        "duration": 6.839,
+        "text": "gigabyte index once you've built it and"
+      },
+      {
+        "start": 1957.44,
+        "duration": 7.5,
+        "text": "so I I built the index on a on a large"
+      },
+      {
+        "start": 1961.039,
+        "duration": 6.841,
+        "text": "ec2 machine and then I I downloaded it"
+      },
+      {
+        "start": 1964.94,
+        "duration": 5.04,
+        "text": "to my MacBook Air with 24 gigabytes of"
+      },
+      {
+        "start": 1967.88,
+        "duration": 4.019,
+        "text": "memory uh so roughly about I've got"
+      },
+      {
+        "start": 1969.98,
+        "duration": 5.1,
+        "text": "about a third of the memory on the"
+      },
+      {
+        "start": 1971.899,
+        "duration": 5.581,
+        "text": "MacBook as uh the size of the the index"
+      },
+      {
+        "start": 1975.08,
+        "duration": 5.04,
+        "text": "uh and so even if you know even before"
+      },
+      {
+        "start": 1977.48,
+        "duration": 4.74,
+        "text": "you start taking away things for Mac OS"
+      },
+      {
+        "start": 1980.12,
+        "duration": 3.72,
+        "text": "and for the jvm you know it's not going"
+      },
+      {
+        "start": 1982.22,
+        "duration": 4.5,
+        "text": "to fit"
+      },
+      {
+        "start": 1983.84,
+        "duration": 4.86,
+        "text": "um and so what you see is that jfactor"
+      },
+      {
+        "start": 1986.72,
+        "duration": 4.92,
+        "text": "is outperforming was seen by a factor of"
+      },
+      {
+        "start": 1988.7,
+        "duration": 4.92,
+        "text": "about four uh on that data set and and"
+      },
+      {
+        "start": 1991.64,
+        "duration": 4.68,
+        "text": "that's gonna that graph's gonna be up"
+      },
+      {
+        "start": 1993.62,
+        "duration": 4.98,
+        "text": "updated because we're still optimizing J"
+      },
+      {
+        "start": 1996.32,
+        "duration": 4.68,
+        "text": "vector and it's just getting better"
+      },
+      {
+        "start": 1998.6,
+        "duration": 4.62,
+        "text": "yeah well I mean that's the thing if you"
+      },
+      {
+        "start": 2001.0,
+        "duration": 4.919,
+        "text": "follow that link there's some some very"
+      },
+      {
+        "start": 2003.22,
+        "duration": 4.14,
+        "text": "compelling graphs in here but you know"
+      },
+      {
+        "start": 2005.919,
+        "duration": 3.301,
+        "text": "one of the things that you mentioned"
+      },
+      {
+        "start": 2007.36,
+        "duration": 5.22,
+        "text": "earlier was around this this going from"
+      },
+      {
+        "start": 2009.22,
+        "duration": 7.86,
+        "text": "single thread to multi-thread and"
+      },
+      {
+        "start": 2012.58,
+        "duration": 7.14,
+        "text": "um I also CMD which you know for Java"
+      },
+      {
+        "start": 2017.08,
+        "duration": 6.54,
+        "text": "folks simd has been kind of hard to get"
+      },
+      {
+        "start": 2019.72,
+        "duration": 5.76,
+        "text": "to but now you can which uh single"
+      },
+      {
+        "start": 2023.62,
+        "duration": 4.5,
+        "text": "instruction multiple data and that's"
+      },
+      {
+        "start": 2025.48,
+        "duration": 5.819,
+        "text": "that's a basically using that the way"
+      },
+      {
+        "start": 2028.12,
+        "duration": 5.34,
+        "text": "the architecture of modern chips to not"
+      },
+      {
+        "start": 2031.299,
+        "duration": 4.021,
+        "text": "have to reload data directly from memory"
+      },
+      {
+        "start": 2033.46,
+        "duration": 3.78,
+        "text": "all the time you use a single"
+      },
+      {
+        "start": 2035.32,
+        "duration": 4.02,
+        "text": "instruction and just pipelines it all"
+      },
+      {
+        "start": 2037.24,
+        "duration": 4.02,
+        "text": "through the same instruction"
+      },
+      {
+        "start": 2039.34,
+        "duration": 4.86,
+        "text": "um you get tons and tons of performance"
+      },
+      {
+        "start": 2041.26,
+        "duration": 4.139,
+        "text": "out of that not using a GPU by the way"
+      },
+      {
+        "start": 2044.2,
+        "duration": 3.479,
+        "text": "um but maybe you can talk a little bit"
+      },
+      {
+        "start": 2045.399,
+        "duration": 4.44,
+        "text": "about that like that multi-thread like"
+      },
+      {
+        "start": 2047.679,
+        "duration": 5.881,
+        "text": "what you got out of it you know before"
+      },
+      {
+        "start": 2049.839,
+        "duration": 5.58,
+        "text": "and after yeah okay so uh so some of"
+      },
+      {
+        "start": 2053.56,
+        "duration": 5.819,
+        "text": "what you're talking about isn't actually"
+      },
+      {
+        "start": 2055.419,
+        "duration": 6.301,
+        "text": "unique to J Vector so lucine's doing the"
+      },
+      {
+        "start": 2059.379,
+        "duration": 6.181,
+        "text": "this well for instance"
+      },
+      {
+        "start": 2061.72,
+        "duration": 6.0,
+        "text": "um and so but for for people"
+      },
+      {
+        "start": 2065.56,
+        "duration": 4.68,
+        "text": "who haven't looked at that or or who"
+      },
+      {
+        "start": 2067.72,
+        "duration": 5.639,
+        "text": "have looked jealously at the at C plus"
+      },
+      {
+        "start": 2070.24,
+        "duration": 6.24,
+        "text": "plus and what you can do uh there uh"
+      },
+      {
+        "start": 2073.359,
+        "duration": 5.82,
+        "text": "starting in I want to say Java 17"
+      },
+      {
+        "start": 2076.48,
+        "duration": 5.76,
+        "text": "actually no 20. I think it might even"
+      },
+      {
+        "start": 2079.179,
+        "duration": 5.22,
+        "text": "have been Java 14. for several releases"
+      },
+      {
+        "start": 2082.24,
+        "duration": 3.96,
+        "text": "now you've been able to do simdi using"
+      },
+      {
+        "start": 2084.399,
+        "duration": 4.44,
+        "text": "Java but it's a it's an incubator"
+      },
+      {
+        "start": 2086.2,
+        "duration": 6.36,
+        "text": "feature which means that you have to opt"
+      },
+      {
+        "start": 2088.839,
+        "duration": 6.661,
+        "text": "in to enabling it and uh it's subject to"
+      },
+      {
+        "start": 2092.56,
+        "duration": 5.88,
+        "text": "change and so it's actually changing it"
+      },
+      {
+        "start": 2095.5,
+        "duration": 6.0,
+        "text": "actually has changed several times uh"
+      },
+      {
+        "start": 2098.44,
+        "duration": 6.48,
+        "text": "across the releases uh but it looks like"
+      },
+      {
+        "start": 2101.5,
+        "duration": 6.66,
+        "text": "it's starting to stabilize because in uh"
+      },
+      {
+        "start": 2104.92,
+        "duration": 5.34,
+        "text": "Java 20 I believe that that our our job"
+      },
+      {
+        "start": 2108.16,
+        "duration": 8.58,
+        "text": "at 20 implementation runs unchanged on"
+      },
+      {
+        "start": 2110.26,
+        "duration": 8.04,
+        "text": "21. uh but that's Panama yeah yeah so"
+      },
+      {
+        "start": 2116.74,
+        "duration": 4.92,
+        "text": "there there's a there's an"
+      },
+      {
+        "start": 2118.3,
+        "duration": 5.4,
+        "text": "implementation of that lets you use AVX"
+      },
+      {
+        "start": 2121.66,
+        "duration": 6.84,
+        "text": "or whatever the uh"
+      },
+      {
+        "start": 2123.7,
+        "duration": 7.04,
+        "text": "whatever the arch 64 equivalent is and"
+      },
+      {
+        "start": 2128.5,
+        "duration": 5.64,
+        "text": "uh and you know"
+      },
+      {
+        "start": 2130.74,
+        "duration": 6.46,
+        "text": "dot products faster do sums of floats"
+      },
+      {
+        "start": 2134.14,
+        "duration": 4.439,
+        "text": "faster uh because you're you're taking"
+      },
+      {
+        "start": 2137.2,
+        "duration": 4.2,
+        "text": "advantage of the hardware to do what"
+      },
+      {
+        "start": 2138.579,
+        "duration": 5.161,
+        "text": "it's supposed to do yeah so so that's"
+      },
+      {
+        "start": 2141.4,
+        "duration": 4.32,
+        "text": "not like I said that's not unique to J"
+      },
+      {
+        "start": 2143.74,
+        "duration": 5.58,
+        "text": "Vector although"
+      },
+      {
+        "start": 2145.72,
+        "duration": 6.84,
+        "text": "although uh some of the things that we"
+      },
+      {
+        "start": 2149.32,
+        "duration": 5.519,
+        "text": "are doing in J Vector are unique uh so"
+      },
+      {
+        "start": 2152.56,
+        "duration": 4.98,
+        "text": "let me back up a second so I said that"
+      },
+      {
+        "start": 2154.839,
+        "duration": 6.78,
+        "text": "the J Vector implements uh disc in N"
+      },
+      {
+        "start": 2157.54,
+        "duration": 7.559,
+        "text": "which lets us uh serve larger than"
+      },
+      {
+        "start": 2161.619,
+        "duration": 7.921,
+        "text": "memory indexes uh much much faster than"
+      },
+      {
+        "start": 2165.099,
+        "duration": 6.421,
+        "text": "an hnsw index there's two"
+      },
+      {
+        "start": 2169.54,
+        "duration": 4.14,
+        "text": "well there's one main component to that"
+      },
+      {
+        "start": 2171.52,
+        "duration": 4.68,
+        "text": "there's another piece of of disk and end"
+      },
+      {
+        "start": 2173.68,
+        "duration": 6.78,
+        "text": "that I won't cover uh the main component"
+      },
+      {
+        "start": 2176.2,
+        "duration": 6.72,
+        "text": "to uh dealing with larger data sets is"
+      },
+      {
+        "start": 2180.46,
+        "duration": 7.02,
+        "text": "that uh disk and ninja says hey we're"
+      },
+      {
+        "start": 2182.92,
+        "duration": 6.54,
+        "text": "going to quantize the vectors and store"
+      },
+      {
+        "start": 2187.48,
+        "duration": 3.84,
+        "text": "those in memory so quantizing means"
+      },
+      {
+        "start": 2189.46,
+        "duration": 3.96,
+        "text": "we're basically doing a lossy"
+      },
+      {
+        "start": 2191.32,
+        "duration": 4.68,
+        "text": "compression on your vectors we're doing"
+      },
+      {
+        "start": 2193.42,
+        "duration": 5.939,
+        "text": "you know we're basically jpegging your"
+      },
+      {
+        "start": 2196.0,
+        "duration": 6.119,
+        "text": "your vectors uh and so that means that I"
+      },
+      {
+        "start": 2199.359,
+        "duration": 7.081,
+        "text": "can keep those in memory at the price of"
+      },
+      {
+        "start": 2202.119,
+        "duration": 8.101,
+        "text": "you know 1 8 or 1 16 of their original"
+      },
+      {
+        "start": 2206.44,
+        "duration": 4.88,
+        "text": "size and so what what diskanim does to"
+      },
+      {
+        "start": 2210.22,
+        "duration": 2.899,
+        "text": "reduce"
+      },
+      {
+        "start": 2211.32,
+        "duration": 4.42,
+        "text": "the uh"
+      },
+      {
+        "start": 2213.119,
+        "duration": 6.581,
+        "text": "the relevance impact or the Precision"
+      },
+      {
+        "start": 2215.74,
+        "duration": 6.359,
+        "text": "impact uh it will if it does two things"
+      },
+      {
+        "start": 2219.7,
+        "duration": 4.32,
+        "text": "first it building the graph is always"
+      },
+      {
+        "start": 2222.099,
+        "duration": 6.661,
+        "text": "done with original precision"
+      },
+      {
+        "start": 2224.02,
+        "duration": 7.8,
+        "text": "and then what you can do is uh"
+      },
+      {
+        "start": 2228.76,
+        "duration": 6.48,
+        "text": "you can search if you if the if you're"
+      },
+      {
+        "start": 2231.82,
+        "duration": 6.24,
+        "text": "searching for 10 vectors you can"
+      },
+      {
+        "start": 2235.24,
+        "duration": 7.22,
+        "text": "look for more you can look for the 20"
+      },
+      {
+        "start": 2238.06,
+        "duration": 7.74,
+        "text": "closest using those quantized lossily"
+      },
+      {
+        "start": 2242.46,
+        "duration": 7.78,
+        "text": "compressed vectors uh I can look for the"
+      },
+      {
+        "start": 2245.8,
+        "duration": 7.74,
+        "text": "20 closes and then only sort those 20 by"
+      },
+      {
+        "start": 2250.24,
+        "duration": 5.58,
+        "text": "the original vector and so what uh what"
+      },
+      {
+        "start": 2253.54,
+        "duration": 5.1,
+        "text": "disk in and does is when it's storing"
+      },
+      {
+        "start": 2255.82,
+        "duration": 5.58,
+        "text": "the graph on disk every node it stores"
+      },
+      {
+        "start": 2258.64,
+        "duration": 6.36,
+        "text": "the original vector and then the"
+      },
+      {
+        "start": 2261.4,
+        "duration": 6.06,
+        "text": "neighbors of uh of that node it stores"
+      },
+      {
+        "start": 2265.0,
+        "duration": 4.079,
+        "text": "those as a group and so when I touch"
+      },
+      {
+        "start": 2267.46,
+        "duration": 5.0,
+        "text": "that node during the search I'll just"
+      },
+      {
+        "start": 2269.079,
+        "duration": 6.181,
+        "text": "save the original Vector uh for later"
+      },
+      {
+        "start": 2272.46,
+        "duration": 4.3,
+        "text": "and when I'm done with my search I'll go"
+      },
+      {
+        "start": 2275.26,
+        "duration": 4.859,
+        "text": "through those original vectors and use"
+      },
+      {
+        "start": 2276.76,
+        "duration": 6.54,
+        "text": "those to Resort and get the you know the"
+      },
+      {
+        "start": 2280.119,
+        "duration": 4.261,
+        "text": "the actual top pay that the the query"
+      },
+      {
+        "start": 2283.3,
+        "duration": 3.48,
+        "text": "asked for"
+      },
+      {
+        "start": 2284.38,
+        "duration": 4.32,
+        "text": "and that actually is a very interesting"
+      },
+      {
+        "start": 2286.78,
+        "duration": 4.98,
+        "text": "point about the top k"
+      },
+      {
+        "start": 2288.7,
+        "duration": 5.399,
+        "text": "um which is the relevancy you know I and"
+      },
+      {
+        "start": 2291.76,
+        "duration": 4.14,
+        "text": "I've said this a few times like you know"
+      },
+      {
+        "start": 2294.099,
+        "duration": 2.701,
+        "text": "for database folks out there you know"
+      },
+      {
+        "start": 2295.9,
+        "duration": 5.04,
+        "text": "we've always been worried about"
+      },
+      {
+        "start": 2296.8,
+        "duration": 5.76,
+        "text": "throughput and latency but the dimension"
+      },
+      {
+        "start": 2300.94,
+        "duration": 4.86,
+        "text": "that you need to consider with vectors"
+      },
+      {
+        "start": 2302.56,
+        "duration": 4.68,
+        "text": "is this relevancy and it seems like you"
+      },
+      {
+        "start": 2305.8,
+        "duration": 4.319,
+        "text": "know I'm looking at the graphs in the"
+      },
+      {
+        "start": 2307.24,
+        "duration": 5.4,
+        "text": "project it seems like relevancy is"
+      },
+      {
+        "start": 2310.119,
+        "duration": 4.261,
+        "text": "actually better because of the way this"
+      },
+      {
+        "start": 2312.64,
+        "duration": 4.74,
+        "text": "works"
+      },
+      {
+        "start": 2314.38,
+        "duration": 4.86,
+        "text": "thank you does that seem right"
+      },
+      {
+        "start": 2317.38,
+        "duration": 3.66,
+        "text": "um so"
+      },
+      {
+        "start": 2319.24,
+        "duration": 3.72,
+        "text": "I know you're gonna oh this is great"
+      },
+      {
+        "start": 2321.04,
+        "duration": 5.12,
+        "text": "I've got you a little uh Twitchy here"
+      },
+      {
+        "start": 2322.96,
+        "duration": 8.58,
+        "text": "okay so what is it"
+      },
+      {
+        "start": 2326.16,
+        "duration": 10.48,
+        "text": "so if you do a quantized search with"
+      },
+      {
+        "start": 2331.54,
+        "duration": 6.72,
+        "text": "exactly the same number of nodes uh"
+      },
+      {
+        "start": 2336.64,
+        "duration": 4.86,
+        "text": "uh traversed"
+      },
+      {
+        "start": 2338.26,
+        "duration": 6.9,
+        "text": "then you will get worse relevancy but"
+      },
+      {
+        "start": 2341.5,
+        "duration": 7.859,
+        "text": "having that doing that faster comparison"
+      },
+      {
+        "start": 2345.16,
+        "duration": 7.08,
+        "text": "of the quantized vectors means that I"
+      },
+      {
+        "start": 2349.359,
+        "duration": 5.401,
+        "text": "can afford given the same time budget I"
+      },
+      {
+        "start": 2352.24,
+        "duration": 4.379,
+        "text": "can afford to look deeper which will"
+      },
+      {
+        "start": 2354.76,
+        "duration": 5.76,
+        "text": "actually increase my relevant past where"
+      },
+      {
+        "start": 2356.619,
+        "duration": 5.881,
+        "text": "it was originally uh so I would say that"
+      },
+      {
+        "start": 2360.52,
+        "duration": 5.4,
+        "text": "having having a better implementation"
+      },
+      {
+        "start": 2362.5,
+        "duration": 7.02,
+        "text": "lets you choose uh whether you want to"
+      },
+      {
+        "start": 2365.92,
+        "duration": 6.48,
+        "text": "spend that savings on do I want more"
+      },
+      {
+        "start": 2369.52,
+        "duration": 4.079,
+        "text": "throughput or do I want better relevance"
+      },
+      {
+        "start": 2372.4,
+        "duration": 3.78,
+        "text": "right"
+      },
+      {
+        "start": 2373.599,
+        "duration": 6.061,
+        "text": "yeah I mean not I think that's going to"
+      },
+      {
+        "start": 2376.18,
+        "duration": 5.7,
+        "text": "be something we as an industry as users"
+      },
+      {
+        "start": 2379.66,
+        "duration": 3.72,
+        "text": "are going to have to just really this is"
+      },
+      {
+        "start": 2381.88,
+        "duration": 3.18,
+        "text": "just a competency we're all building"
+      },
+      {
+        "start": 2383.38,
+        "duration": 3.9,
+        "text": "it's like oh what how do I measure"
+      },
+      {
+        "start": 2385.06,
+        "duration": 4.26,
+        "text": "relevancy why is it important"
+      },
+      {
+        "start": 2387.28,
+        "duration": 4.26,
+        "text": "um you know and that's the hard thing"
+      },
+      {
+        "start": 2389.32,
+        "duration": 6.0,
+        "text": "about a n it's like it it's like"
+      },
+      {
+        "start": 2391.54,
+        "duration": 4.98,
+        "text": "horseshoes close counts but how it does"
+      },
+      {
+        "start": 2395.32,
+        "duration": 4.62,
+        "text": "yeah"
+      },
+      {
+        "start": 2396.52,
+        "duration": 5.52,
+        "text": "yeah you just don't get an exact match"
+      },
+      {
+        "start": 2399.94,
+        "duration": 4.62,
+        "text": "um that's not the point"
+      },
+      {
+        "start": 2402.04,
+        "duration": 4.92,
+        "text": "um but you don't want something that's"
+      },
+      {
+        "start": 2404.56,
+        "duration": 4.62,
+        "text": "just so often left field that you're"
+      },
+      {
+        "start": 2406.96,
+        "duration": 3.36,
+        "text": "like why why are you even giving me this"
+      },
+      {
+        "start": 2409.18,
+        "duration": 4.08,
+        "text": "result"
+      },
+      {
+        "start": 2410.32,
+        "duration": 4.98,
+        "text": "yeah and so this is"
+      },
+      {
+        "start": 2413.26,
+        "duration": 3.48,
+        "text": "interestingly"
+      },
+      {
+        "start": 2415.3,
+        "duration": 3.36,
+        "text": "um"
+      },
+      {
+        "start": 2416.74,
+        "duration": 4.379,
+        "text": "this is this is kind of an open area of"
+      },
+      {
+        "start": 2418.66,
+        "duration": 6.679,
+        "text": "research of how do you apply gpus to"
+      },
+      {
+        "start": 2421.119,
+        "duration": 7.321,
+        "text": "make Vector search faster uh so Nvidia"
+      },
+      {
+        "start": 2425.339,
+        "duration": 5.201,
+        "text": "uh you know has an implementation of"
+      },
+      {
+        "start": 2428.44,
+        "duration": 5.46,
+        "text": "vector search that runs basically"
+      },
+      {
+        "start": 2430.54,
+        "duration": 6.66,
+        "text": "entirely on the GPU uh but that means"
+      },
+      {
+        "start": 2433.9,
+        "duration": 6.12,
+        "text": "that your data set is limited to stuff"
+      },
+      {
+        "start": 2437.2,
+        "duration": 4.86,
+        "text": "that fits in your GPU and it also it"
+      },
+      {
+        "start": 2440.02,
+        "duration": 5.28,
+        "text": "also means that you know the thing about"
+      },
+      {
+        "start": 2442.06,
+        "duration": 7.4,
+        "text": "about gpus is they are super cost"
+      },
+      {
+        "start": 2445.3,
+        "duration": 7.319,
+        "text": "effective if you can keep them 90 100"
+      },
+      {
+        "start": 2449.46,
+        "duration": 5.74,
+        "text": "utilized but if your GPU is like 10"
+      },
+      {
+        "start": 2452.619,
+        "duration": 5.22,
+        "text": "utilized then you're just paying a lot"
+      },
+      {
+        "start": 2455.2,
+        "duration": 6.48,
+        "text": "of extra money for performance that"
+      },
+      {
+        "start": 2457.839,
+        "duration": 6.981,
+        "text": "you're leaving on the table uh so I"
+      },
+      {
+        "start": 2461.68,
+        "duration": 6.02,
+        "text": "believe I'm not 100 sure but I believe"
+      },
+      {
+        "start": 2464.82,
+        "duration": 6.759,
+        "text": "that it will continue to be the case"
+      },
+      {
+        "start": 2467.7,
+        "duration": 7.0,
+        "text": "that gpus for Vector search mostly do"
+      },
+      {
+        "start": 2471.579,
+        "duration": 4.741,
+        "text": "not make sense uh especially for"
+      },
+      {
+        "start": 2474.7,
+        "duration": 3.96,
+        "text": "scenarios like what Cassandra's"
+      },
+      {
+        "start": 2476.32,
+        "duration": 5.16,
+        "text": "designing for for where my data set is"
+      },
+      {
+        "start": 2478.66,
+        "duration": 5.939,
+        "text": "dynamic it changes as rows get inserted"
+      },
+      {
+        "start": 2481.48,
+        "duration": 5.58,
+        "text": "as rows get deleted and we need to"
+      },
+      {
+        "start": 2484.599,
+        "duration": 4.321,
+        "text": "handle both of those conditions it's"
+      },
+      {
+        "start": 2487.06,
+        "duration": 4.62,
+        "text": "possible that you know if you've got a"
+      },
+      {
+        "start": 2488.92,
+        "duration": 5.1,
+        "text": "you know a data set of"
+      },
+      {
+        "start": 2491.68,
+        "duration": 5.28,
+        "text": "you know 25 gigabytes of vectors like"
+      },
+      {
+        "start": 2494.02,
+        "duration": 5.099,
+        "text": "the Deep uh 100 million data set which"
+      },
+      {
+        "start": 2496.96,
+        "duration": 5.639,
+        "text": "is by the way those are vectors that are"
+      },
+      {
+        "start": 2499.119,
+        "duration": 8.46,
+        "text": "96 float 32s large which is smaller than"
+      },
+      {
+        "start": 2502.599,
+        "duration": 5.76,
+        "text": "almost any uh text embedding out there"
+      },
+      {
+        "start": 2507.579,
+        "duration": 2.941,
+        "text": "um"
+      },
+      {
+        "start": 2508.359,
+        "duration": 5.161,
+        "text": "so you can get a lot more into 25"
+      },
+      {
+        "start": 2510.52,
+        "duration": 4.86,
+        "text": "gigabytes when they're tiny vectors uh"
+      },
+      {
+        "start": 2513.52,
+        "duration": 3.24,
+        "text": "but if you've got a static data set like"
+      },
+      {
+        "start": 2515.38,
+        "duration": 4.5,
+        "text": "that then yeah maybe it makes sense to"
+      },
+      {
+        "start": 2516.76,
+        "duration": 6.96,
+        "text": "use a GPU search if you're saturating it"
+      },
+      {
+        "start": 2519.88,
+        "duration": 6.66,
+        "text": "constantly but otherwise uh probably not"
+      },
+      {
+        "start": 2523.72,
+        "duration": 4.92,
+        "text": "what however however where I was going"
+      },
+      {
+        "start": 2526.54,
+        "duration": 5.4,
+        "text": "with this was one of the one of the"
+      },
+      {
+        "start": 2528.64,
+        "duration": 5.16,
+        "text": "things that we did but wait one of the"
+      },
+      {
+        "start": 2531.94,
+        "duration": 6.48,
+        "text": "things that we did with this was my"
+      },
+      {
+        "start": 2533.8,
+        "duration": 8.1,
+        "text": "colleague Sebastian Estevez built a uh a"
+      },
+      {
+        "start": 2538.42,
+        "duration": 5.52,
+        "text": "data set generator using GPU so one of"
+      },
+      {
+        "start": 2541.9,
+        "duration": 3.84,
+        "text": "the one of the reasons why you only have"
+      },
+      {
+        "start": 2543.94,
+        "duration": 5.46,
+        "text": "a dozen or so data sets that everyone"
+      },
+      {
+        "start": 2545.74,
+        "duration": 6.06,
+        "text": "uses to Benchmark their Vector search"
+      },
+      {
+        "start": 2549.4,
+        "duration": 6.54,
+        "text": "with is that it's really computationally"
+      },
+      {
+        "start": 2551.8,
+        "duration": 7.86,
+        "text": "expensive to find the closest hundred"
+      },
+      {
+        "start": 2555.94,
+        "duration": 7.44,
+        "text": "matches to a query Vector when you have"
+      },
+      {
+        "start": 2559.66,
+        "duration": 6.12,
+        "text": "100 million vectors to scan uh to find"
+      },
+      {
+        "start": 2563.38,
+        "duration": 4.979,
+        "text": "you know to determine what the actual we"
+      },
+      {
+        "start": 2565.78,
+        "duration": 5.579,
+        "text": "call it the ground truth what the ground"
+      },
+      {
+        "start": 2568.359,
+        "duration": 4.98,
+        "text": "truth results should be and then that"
+      },
+      {
+        "start": 2571.359,
+        "duration": 4.26,
+        "text": "gives you a yardstick to measure oh how"
+      },
+      {
+        "start": 2573.339,
+        "duration": 4.141,
+        "text": "many did I get correct you need to know"
+      },
+      {
+        "start": 2575.619,
+        "duration": 4.561,
+        "text": "what the actually correct values are to"
+      },
+      {
+        "start": 2577.48,
+        "duration": 5.52,
+        "text": "to see how close your approximation got"
+      },
+      {
+        "start": 2580.18,
+        "duration": 5.659,
+        "text": "uh and so Sebastian built a tool that"
+      },
+      {
+        "start": 2583.0,
+        "duration": 6.9,
+        "text": "that computes those ground truth values"
+      },
+      {
+        "start": 2585.839,
+        "duration": 6.821,
+        "text": "uh on the GPU and so uh"
+      },
+      {
+        "start": 2589.9,
+        "duration": 7.64,
+        "text": "now we have some good stuff right there"
+      },
+      {
+        "start": 2592.66,
+        "duration": 4.88,
+        "text": "yeah so so we've got we've got a 100"
+      },
+      {
+        "start": 2597.7,
+        "duration": 5.1,
+        "text": "million"
+      },
+      {
+        "start": 2599.319,
+        "duration": 5.821,
+        "text": "Hector data set uh from that subset of"
+      },
+      {
+        "start": 2602.8,
+        "duration": 3.779,
+        "text": "Wikipedia vectors where we know the"
+      },
+      {
+        "start": 2605.14,
+        "duration": 3.719,
+        "text": "exact answers"
+      },
+      {
+        "start": 2606.579,
+        "duration": 4.321,
+        "text": "yeah next stop one billion but I mean"
+      },
+      {
+        "start": 2608.859,
+        "duration": 3.181,
+        "text": "they like all Wikipedia is 100 million"
+      },
+      {
+        "start": 2610.9,
+        "duration": 3.36,
+        "text": "what's next"
+      },
+      {
+        "start": 2612.04,
+        "duration": 5.22,
+        "text": "um well maybe that's that's you know"
+      },
+      {
+        "start": 2614.26,
+        "duration": 4.98,
+        "text": "we're we've been talking for 45 minutes"
+      },
+      {
+        "start": 2617.26,
+        "duration": 4.2,
+        "text": "I can't believe this but this is great"
+      },
+      {
+        "start": 2619.24,
+        "duration": 6.119,
+        "text": "um I'm gonna I'm gonna try to wrap this"
+      },
+      {
+        "start": 2621.46,
+        "duration": 4.859,
+        "text": "up with uh so here we are today point in"
+      },
+      {
+        "start": 2625.359,
+        "duration": 4.921,
+        "text": "time"
+      },
+      {
+        "start": 2626.319,
+        "duration": 7.981,
+        "text": "um today is September 20th 2023 just to"
+      },
+      {
+        "start": 2630.28,
+        "duration": 6.6,
+        "text": "Mark time Epoch uh but like what do you"
+      },
+      {
+        "start": 2634.3,
+        "duration": 4.44,
+        "text": "what are you thinking this is an arms"
+      },
+      {
+        "start": 2636.88,
+        "duration": 3.479,
+        "text": "race right now I mean Vector is not a"
+      },
+      {
+        "start": 2638.74,
+        "duration": 4.32,
+        "text": "differentiator anymore"
+      },
+      {
+        "start": 2640.359,
+        "duration": 5.041,
+        "text": "um it's every database is doing it"
+      },
+      {
+        "start": 2643.06,
+        "duration": 4.799,
+        "text": "um but there are things that Cassandra"
+      },
+      {
+        "start": 2645.4,
+        "duration": 5.64,
+        "text": "can do I think better than any database"
+      },
+      {
+        "start": 2647.859,
+        "duration": 4.5,
+        "text": "for sure but what it what is your what's"
+      },
+      {
+        "start": 2651.04,
+        "duration": 3.059,
+        "text": "driving you what are you thinking about"
+      },
+      {
+        "start": 2652.359,
+        "duration": 4.26,
+        "text": "in the future what do you want to try to"
+      },
+      {
+        "start": 2654.099,
+        "duration": 5.941,
+        "text": "what do you want to try to achieve"
+      },
+      {
+        "start": 2656.619,
+        "duration": 6.48,
+        "text": "so the the first thing is to to just"
+      },
+      {
+        "start": 2660.04,
+        "duration": 5.1,
+        "text": "make our implementation the best that we"
+      },
+      {
+        "start": 2663.099,
+        "duration": 3.321,
+        "text": "possibly can so we've been working on"
+      },
+      {
+        "start": 2665.14,
+        "duration": 6.3,
+        "text": "this for"
+      },
+      {
+        "start": 2666.42,
+        "duration": 6.28,
+        "text": "four months uh five months now and uh"
+      },
+      {
+        "start": 2671.44,
+        "duration": 3.6,
+        "text": "you know we've got the basics there"
+      },
+      {
+        "start": 2672.7,
+        "duration": 4.98,
+        "text": "we've got uh larger than memory data"
+      },
+      {
+        "start": 2675.04,
+        "duration": 6.72,
+        "text": "sets with disk a n uh we've got"
+      },
+      {
+        "start": 2677.68,
+        "duration": 6.0,
+        "text": "composing with uh other query predicates"
+      },
+      {
+        "start": 2681.76,
+        "duration": 5.4,
+        "text": "and by the way this is this is something"
+      },
+      {
+        "start": 2683.68,
+        "duration": 6.6,
+        "text": "that you should be looking for in in a"
+      },
+      {
+        "start": 2687.16,
+        "duration": 6.12,
+        "text": "vector database like uh"
+      },
+      {
+        "start": 2690.28,
+        "duration": 5.4,
+        "text": "you need to be able to do both"
+      },
+      {
+        "start": 2693.28,
+        "duration": 5.4,
+        "text": "traditional databasy things and also"
+      },
+      {
+        "start": 2695.68,
+        "duration": 4.919,
+        "text": "Vector search and combine the two so if"
+      },
+      {
+        "start": 2698.68,
+        "duration": 3.72,
+        "text": "you're if if you're talking to a vendor"
+      },
+      {
+        "start": 2700.599,
+        "duration": 5.461,
+        "text": "who's like oh yeah we do the vector part"
+      },
+      {
+        "start": 2702.4,
+        "duration": 6.0,
+        "text": "keep using your existing database for"
+      },
+      {
+        "start": 2706.06,
+        "duration": 4.2,
+        "text": "everything else well you know that"
+      },
+      {
+        "start": 2708.4,
+        "duration": 3.78,
+        "text": "that's the classic okay now I need to"
+      },
+      {
+        "start": 2710.26,
+        "duration": 4.319,
+        "text": "keep these in sync and what happens when"
+      },
+      {
+        "start": 2712.18,
+        "duration": 6.84,
+        "text": "the replication pipeline breaks how do I"
+      },
+      {
+        "start": 2714.579,
+        "duration": 6.601,
+        "text": "rebuild it like it's it's it's a mess uh"
+      },
+      {
+        "start": 2719.02,
+        "duration": 3.66,
+        "text": "it's it's yeah you don't want to go"
+      },
+      {
+        "start": 2721.18,
+        "duration": 3.899,
+        "text": "there it's like back when you were"
+      },
+      {
+        "start": 2722.68,
+        "duration": 5.34,
+        "text": "stitching the scene and Oracle together"
+      },
+      {
+        "start": 2725.079,
+        "duration": 6.661,
+        "text": "to get full text search uh don't do that"
+      },
+      {
+        "start": 2728.02,
+        "duration": 5.839,
+        "text": "uh so with with Cassandra you can do the"
+      },
+      {
+        "start": 2731.74,
+        "duration": 4.98,
+        "text": "the vector search parts and you can also"
+      },
+      {
+        "start": 2733.859,
+        "duration": 7.061,
+        "text": "restrict the vector search by your other"
+      },
+      {
+        "start": 2736.72,
+        "duration": 6.599,
+        "text": "indexes but you can also do queries and"
+      },
+      {
+        "start": 2740.92,
+        "duration": 4.14,
+        "text": "uh and indexed searches that don't"
+      },
+      {
+        "start": 2743.319,
+        "duration": 3.841,
+        "text": "involve vectors because sometimes your"
+      },
+      {
+        "start": 2745.06,
+        "duration": 3.96,
+        "text": "application needs to do that like just"
+      },
+      {
+        "start": 2747.16,
+        "duration": 4.62,
+        "text": "as just as a really simple example like"
+      },
+      {
+        "start": 2749.02,
+        "duration": 5.099,
+        "text": "everybody like the hello world of"
+      },
+      {
+        "start": 2751.78,
+        "duration": 5.46,
+        "text": "retrieval augmented generation is to do"
+      },
+      {
+        "start": 2754.119,
+        "duration": 5.281,
+        "text": "a chat bot that knows that about your"
+      },
+      {
+        "start": 2757.24,
+        "duration": 4.14,
+        "text": "documentation and so you do a vector"
+      },
+      {
+        "start": 2759.4,
+        "duration": 3.78,
+        "text": "search to find the doc pages that are"
+      },
+      {
+        "start": 2761.38,
+        "duration": 3.78,
+        "text": "closest to the query that the user asked"
+      },
+      {
+        "start": 2763.18,
+        "duration": 4.139,
+        "text": "and then you pull that back and give it"
+      },
+      {
+        "start": 2765.16,
+        "duration": 4.679,
+        "text": "to the large language model is context"
+      },
+      {
+        "start": 2767.319,
+        "duration": 4.5,
+        "text": "to answer the question uh but but even"
+      },
+      {
+        "start": 2769.839,
+        "duration": 4.141,
+        "text": "in that hello world"
+      },
+      {
+        "start": 2771.819,
+        "duration": 3.54,
+        "text": "like the vector search is just part of"
+      },
+      {
+        "start": 2773.98,
+        "duration": 3.48,
+        "text": "what you need from your database because"
+      },
+      {
+        "start": 2775.359,
+        "duration": 3.841,
+        "text": "you also need to be able to say hey"
+      },
+      {
+        "start": 2777.46,
+        "duration": 4.56,
+        "text": "database what are the last 10 messages"
+      },
+      {
+        "start": 2779.2,
+        "duration": 4.619,
+        "text": "that we sent back and forth and that's"
+      },
+      {
+        "start": 2782.02,
+        "duration": 4.44,
+        "text": "not a vector query that's just a"
+      },
+      {
+        "start": 2783.819,
+        "duration": 4.081,
+        "text": "standard timeline query uh for the"
+      },
+      {
+        "start": 2786.46,
+        "duration": 2.22,
+        "text": "database so you need to be able to do"
+      },
+      {
+        "start": 2787.9,
+        "duration": 2.82,
+        "text": "both"
+      },
+      {
+        "start": 2788.68,
+        "duration": 4.5,
+        "text": "yeah yeah then"
+      },
+      {
+        "start": 2790.72,
+        "duration": 5.28,
+        "text": "um I I do worry"
+      },
+      {
+        "start": 2793.18,
+        "duration": 4.62,
+        "text": "um that we are well I don't know I'm"
+      },
+      {
+        "start": 2796.0,
+        "duration": 3.18,
+        "text": "particularly worried we've you know been"
+      },
+      {
+        "start": 2797.8,
+        "duration": 3.42,
+        "text": "around long enough I know where this is"
+      },
+      {
+        "start": 2799.18,
+        "duration": 3.84,
+        "text": "going we we're all pocing right now"
+      },
+      {
+        "start": 2801.22,
+        "duration": 4.26,
+        "text": "we're all looking you know and the chat"
+      },
+      {
+        "start": 2803.02,
+        "duration": 4.86,
+        "text": "bot is the POC that's the hello world of"
+      },
+      {
+        "start": 2805.48,
+        "duration": 4.02,
+        "text": "of gen AI right now everybody's trying"
+      },
+      {
+        "start": 2807.88,
+        "duration": 3.54,
+        "text": "to add a chat bot to whatever they have"
+      },
+      {
+        "start": 2809.5,
+        "duration": 4.44,
+        "text": "but"
+      },
+      {
+        "start": 2811.42,
+        "duration": 4.26,
+        "text": "um I think quickly and and I this is the"
+      },
+      {
+        "start": 2813.94,
+        "duration": 4.919,
+        "text": "where things are headed so quickly is"
+      },
+      {
+        "start": 2815.68,
+        "duration": 4.439,
+        "text": "Agents agents agents and that's when"
+      },
+      {
+        "start": 2818.859,
+        "duration": 2.701,
+        "text": "things are going to get really"
+      },
+      {
+        "start": 2820.119,
+        "duration": 3.901,
+        "text": "interesting because that's gonna need"
+      },
+      {
+        "start": 2821.56,
+        "duration": 5.039,
+        "text": "High concurrency a lot of distribution"
+      },
+      {
+        "start": 2824.02,
+        "duration": 4.2,
+        "text": "and then scale because multimodal"
+      },
+      {
+        "start": 2826.599,
+        "duration": 3.541,
+        "text": "everything"
+      },
+      {
+        "start": 2828.22,
+        "duration": 3.66,
+        "text": "um it's not just a bunch of typed in"
+      },
+      {
+        "start": 2830.14,
+        "duration": 3.9,
+        "text": "words from a human it's going to be"
+      },
+      {
+        "start": 2831.88,
+        "duration": 5.959,
+        "text": "images and everything else but"
+      },
+      {
+        "start": 2834.04,
+        "duration": 7.319,
+        "text": "um yeah I I think of scale as as such"
+      },
+      {
+        "start": 2837.839,
+        "duration": 5.441,
+        "text": "it's going to be the problem that most"
+      },
+      {
+        "start": 2841.359,
+        "duration": 3.841,
+        "text": "Vector databases are going to have"
+      },
+      {
+        "start": 2843.28,
+        "duration": 3.539,
+        "text": "because of users"
+      },
+      {
+        "start": 2845.2,
+        "duration": 4.379,
+        "text": "yeah I think that I think that's right"
+      },
+      {
+        "start": 2846.819,
+        "duration": 5.641,
+        "text": "and not just the scale and the hey I'm"
+      },
+      {
+        "start": 2849.579,
+        "duration": 5.581,
+        "text": "going to ingest a larger static set but"
+      },
+      {
+        "start": 2852.46,
+        "duration": 4.92,
+        "text": "scale in the sense of it's changing it's"
+      },
+      {
+        "start": 2855.16,
+        "duration": 5.179,
+        "text": "Dynamic and I need to be able to deal"
+      },
+      {
+        "start": 2857.38,
+        "duration": 6.54,
+        "text": "with that right right"
+      },
+      {
+        "start": 2860.339,
+        "duration": 5.081,
+        "text": "well wow man 50 minutes we've done good"
+      },
+      {
+        "start": 2863.92,
+        "duration": 3.96,
+        "text": "here"
+      },
+      {
+        "start": 2865.42,
+        "duration": 4.14,
+        "text": "um I don't see any questions I think"
+      },
+      {
+        "start": 2867.88,
+        "duration": 4.08,
+        "text": "that probably a lot of people are like"
+      },
+      {
+        "start": 2869.56,
+        "duration": 4.559,
+        "text": "like trying to drink from the fire hose"
+      },
+      {
+        "start": 2871.96,
+        "duration": 2.82,
+        "text": "right now that's okay"
+      },
+      {
+        "start": 2874.119,
+        "duration": 3.361,
+        "text": "um"
+      },
+      {
+        "start": 2874.78,
+        "duration": 4.26,
+        "text": "you know it feel free if you see this"
+      },
+      {
+        "start": 2877.48,
+        "duration": 3.18,
+        "text": "after the fact and you want to put a"
+      },
+      {
+        "start": 2879.04,
+        "duration": 4.02,
+        "text": "comment in"
+      },
+      {
+        "start": 2880.66,
+        "duration": 4.8,
+        "text": "do it we'll be there we'll answer those"
+      },
+      {
+        "start": 2883.06,
+        "duration": 3.9,
+        "text": "questions after the fact um Jonathan I"
+      },
+      {
+        "start": 2885.46,
+        "duration": 4.859,
+        "text": "really appreciate spending the time here"
+      },
+      {
+        "start": 2886.96,
+        "duration": 5.52,
+        "text": "with you I I almost got the bins we went"
+      },
+      {
+        "start": 2890.319,
+        "duration": 6.0,
+        "text": "so on such a deep dive this is great"
+      },
+      {
+        "start": 2892.48,
+        "duration": 6.599,
+        "text": "thanks Patrick it's been fun yeah so um"
+      },
+      {
+        "start": 2896.319,
+        "duration": 5.3,
+        "text": "thanks everyone for being here today"
+      },
+      {
+        "start": 2899.079,
+        "duration": 2.54,
+        "text": "bye"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T17:35:37.170817+00:00"
+}

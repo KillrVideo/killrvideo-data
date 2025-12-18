@@ -1,0 +1,4480 @@
+{
+  "video_id": "4_KzZAzoIPs",
+  "title": "DataStax Presents: Property Graph Modeling with an FU Towards Supernodes - Jonathan Lacefield",
+  "description": "Graph databases are receiving a lot of hype these days because of the promise of fast and flexible queries that aren’t possible within either traditional RDBMs or NoSQL stores built on simple/singular access patterns. There are some practical tips and tricks that ensure that your graph database project is going to live up to the hype. In this talk, we will walk through the data modeling tips and tricks that are being used to help graph users achieve success. We’ll also highlight how to avoid the largest graph problem that can plague any graph database project, the dreaded supernode. This will be a demo led presentation with lots of examples. Beginners to advanced participants are welcomed as there’s something to learn for everyone.\n\nABOUT DATASTAX ENTERPRISE 6\nDataStax  powers  the  Right-Now  Enterprise  with  the  always-on,  distributed  cloud  database  built  on  Apache  Cassandra™  and designed for hybrid cloud. DataStax Enterprise 6 (DSE 6) includes industry-leading performance, self-driving operational simplicity, and robust analytics.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://www.datastax.com/products/datastax-enterprise-6\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax | https://twitter.com/datastax-academy\nLinkedin: https://www.linkedin.com/company/datastax\nhttp://feeds.feedburner.com/datastax \nhttps://github.com/datastax \n\nABOUT DATASTAX ACADEMY\nOn the DataStax Academy YouTube channel, you can find tutorials, webinars and much more to help you learn and stay updated with the latest information on DataStax Enterprise©.  Create an account on https://academy.datastax.com to watch our free online courses, tutorials, and more.",
+  "published_at": "2018-10-10T12:30:01Z",
+  "thumbnail": "https://i.ytimg.com/vi/4_KzZAzoIPs/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "data_modeling",
+    "cassandra",
+    "database",
+    "tutorial",
+    "performance",
+    "nosql",
+    "talk",
+    "demo",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=4_KzZAzoIPs",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "so my name is Jonathan Lacefield I'm a member of the product team at data stacks for the past two and a half years I've been focusing on helping users solve graph problems with data stacks enterprise and DSC graph you know along the way I've personally gotten very immersing myself in the graph world I had some unfortunate very nice mentors in the aurelius team dr. Matthias brochure and Marco Rodriguez and all those folks as well as dr. d-nice Gosnell along the way so today we're gonna discuss one of those implementation details that not everybody really wants to talk about and particularly from a graph database perspective yeah perspective and that is super nodes and you know my my original title was gonna be like very boring and manager II worthy and then you know I was talking to McFadden over there and I was like well this is my working title you know dealing with property property graphs with friends and unity towards super nodes and he told me to run with it so we're gonna do that and now we have this wonderful title slide just spoil alert everything goes downhill from here so I hope you enjoy gloriousness all right so really we're gonna do three things today we're gonna ground ourselves and probably formalize some discussion around what a super node is in the context of a property model a property graph model we're gonna talk about some common patterns that I've observed the release team has observed data stacks team has observed I guess we're all data stacks that lead to super nodes and some mitigation strategies particularly around the modeling of property graphs finally we're gonna provide some practical tips for what to do when you think you have a super node so just just a note I do work for data stacks this is not a vendor talk so I will be explicit when something is data stacks specific or when it applies to a wider breadth of vendors to that point we are going to focus on the property side of the graph world this isn't not ID no this is RDF applies to the RDF world right most of my research has been on the property side and that's what we're gonna talk about so just just some grounding to get us into super node problem let's let's refresh ourselves on what a property graph is we have a very simple one here in the middle and property graph is just a representation of a graph structure using three main elements or a vertex an edge and a relationship or excuse me a property which can belong to a an edge or vertex alright we all know that so here we have a property model representing two people Jonna Kelly there's a relationship an edge between them knows it's bi-directional John and Kelly has some attributes like name and looks like maybe birthdate or something and John owns a phone and Apple phone while Kelly owns an Android phone right so what becomes interesting here is when we talk about a data structure that's optimized for traversing graphs and that's called an adjacency list and why this is important for our talk today is that a lot of property graph databases or property graph representations in data and persistence use this adjacency list format and the Jason see lists optimize the ability optimize edge retrieval they collect all the edges to an incident vertex so I have one vertex and all the edges right there and they persist data in that format so as I walk a graph and we'll take a look at this in just a minute it's a very quick retrieval to understand all the connected components of that vertex so if you see on the right yeah that's your right we see the adjacency list for John we see the edge knows and we see the edge owns and the same for Kelly right it's a lot of graph databases whether they're in memory use project onto no single stores even you know taking a relational view or a document store view of a graph database will use adjacency lists because they're efficient for graph processing in a property world but there's a trade-off and that trade-off happens context of what we're gonna call a super node the trade-off is if I have an outlier from an adjacency perspective right I can run into issues when I'm performing when I'm walking my graph when I'm traversing ok so let's talk about what a super node is Denise showed this dr. Gosnell showed this earlier this is a graph representing patients and doctors overlaid on a US map a on e and you know for our purposes what we're looking for and how super nodes typically show up in your graphs they're highly connected components and you'll typically see large areas so like the large dots here would represent highly connected components or potential super nodes ok the trick with super nodes is there's not a hard mathematical rule of when I have too much adjacency what would cause a super node right it's gonna differ depending on your application your graph your usage of your graph the main theme though is I have an outlier that could potentially cause trouble for my my graph application my my what I've come to learn is that super nodes really impact most that's probably you know I could say all that be too broad brushing but most graph applications regardless if we're talking about analytical or transactional nature and most people have them in their graph and they're not aware of them but they become aware when as soon as they traverse a graph and they hit a super node I consider these like the sleeping time bombs of the graph space and it's just really a trade off of adjacency list as a data structure but the important part and why we're talking about this today is for those that run graphs today where their analytical transactional both you probably have this in your graph right and just a matter of if excuse me win not if you're gonna run into some of these issues so to make this more concrete let's kind of refine the definition of a super node and let's look at two star graphs right what we have represented is essentially a vertex just call it whatever with a Jason see around it and by the way for those not familiar with some of the formal graphed terminology we call two vertexes two vertices there's Denise's one two birds disease that share an edge we call those adjacent vertex vertices right so an adjacency list is just the representation of a vertex in all of its neighbors so here if we're traversing a graph with a vertex that's represent on the right with a branching factor for no big deal we'll probably move on regardless of whatever your implementation is right but we start running into issues with computational explosion when we hit things like what's represent on the left it could be thousands hundreds of thousands millions of adjacent vertices and if you look at this in isolation this is a linear relationship between the number of incident edges or adjacent BIRT vertices and the the performance you're going to get during traversal time now the true super node problem has two impacts one's on query traversal performance the other is on storage retrieval because I'm going to take an abstract view and try to not take a vendor specific view of this problem we're going to focus on the computational side right and to drive this home a little bit we're gonna use a graphic we saw this morning during dr. Gosnell's presentation which who's talking about how traversals manifests themselves or map themselves to system resources right so let's take a look at a gremlin traversal GBL something touristing a graph and gremlin there's a concept of a traversal which represents your like a better term your query what you're trying to do and at every step every vertex along the way every path along the way gremlin will create Traverse just think of those as objects all right and there used some kind of system resource and everything works well until you get in situations like this or I'm about to run into a super node and more than likely you won't know until you've hit it right and this is where the commentation will explosion happens from a processing affective you've just all the sudden created a whole bunch of Traverse errs in the gremlin world I'm not familiar with the underpinnings of cipher or let's say a rangos query language but conceptually I could see the same thing happening here right you're gonna have compensate it's just physics right alright sweet yeah okay the funniest part about the slide I was practicing this presentation and the person I was practicing with was like you know if you put this slide up and it wasn't in a graph context it still applies like stability problems performance issues all right so how you typically will find out you have a super node is you're gonna run into these Simpson cysts symptoms this could be at an application perspective like I'm a dev and also things are going great and then they're not or maybe I'm an operator as well right we're talking about outliers here so a lie our impact is on performance you'll see maybe your p95 everything's low milliseconds and then you go and do a study right and my p95 jump up to hundreds of milliseconds or seconds something like that or maybe I have an application traversal that's timing out stability issues alright if you start consuming simulations is interesting I'm from a graph database perspective but this actually happens in both an application level and the database level depending on how you said something set up so from an application level just imagine you traverse a node that has a million adjacent vertices and it the database cranks away and returns you all that data on the application side will hold the cow that's a lot of data I've got a process on the application side all right something in my stacks gonna become unstable when I hit one of these things a lot of people will put safeguards just natural limits in so you'll be traversing and you'll get a subset of the results back maybe you know that maybe you don't that's the scary part you don't you return a result that is only maybe it's cuz a paging or some kind of limit right the first 10,000 adjacent vertices all right and finally is it will set out to our graph digitalization friends they've been working on this problem forever and it's very similar to that application you know view as well how do I what happens is my visualization if I have like some kind of is a way to explore my graph and also and I hit a super node and you know ten million vertices pop up what am I really gonna do right so if you're starting to see symptoms like this in your graph today you may likely have this type of issue alright so that kind of grounds us on on the super node concept itself right we're looking for outliers and adjacency and the trade off of any adjacency list implementation again regardless if it's in memory doubly linked lists however you persist to project your graph model is that too much adjacency causes issues that's at its con you know the core what it is so some common patterns I've noticed and our team at data stacks and in talking with users really you know if you wanted abstract to search there's two there is modeling itself which would cause a super node condition or there's the actual data pipeline all right and what's happening and how I'm they're moving data in into my graph through batch or streaming processing itself so let's take a little bit deeper look here so modeling could be an explicit choice design decision or maybe I did something implicitly and didn't really realize the the impact of my action right so the explicit modeling mistake we see a lot particularly for new users to a property graph model is to do something like this and what this shows is the relationship between a person that resides at an address right and typically folks will want to normalize for whatever reason city out of the address and that works great all right gives you a nice higher and : nice graphical nice graph excuse me view of that relationship works great and this actually works well if I'm traversing from person to city so if I go to per from person they reside maybe you know a handful residence addresses no big deal each address has one city no big deal graphs are really awesome because they provide flexible flexibility at query time that's a concept of traversing I explore graph so we call it traversing as soon as you go from city to address for a city like New York San Francisco Miami BAM there it is you'll see it right same concept applies and we've seen applied to digital asset networks which is another nice use case for graph databases make sense and graph applications is a good graph problem but as soon as you start putting aggregation points into your graph like this with a potential of a cardinality of hundreds of thousands two more all right you're gonna run into it logistics as well logistics is is is interesting I was having a sidebar with something outside about this but same concept right we have a physical representation we're graph we want to physically put that we've mapped it out looks good let's go put it into our graph database whatever that is but as soon as I start from distribution center and I go back to truck without any kind of concept of time I'm probably gonna run into the super node challenge itself so when modeling your data explicitly and graph the number one issue are these hierarchical relationships and not paying attention to cardinality and we'll talk about some mitigation strategies there in just a second as well all right my favorite is this one here because this one represents us right we are all people we know a lot of people this is the basis of like social networking it's the also the canonical model for for any super node or celebrity node type of issue and on the surface it looks nice I have one vertex type one edge type very elegant very extensible I could do a lot with that relationship all right well this is why we have the beads at the very front and Denise talked about this a little bit earlier with her her keynote and just a fun fact I looked up exactly how many Twitter followers both Justin Bieber had and I had he's beaten me by a little bit so he's got a hundred and four million followers I have I 123 I I don't I'm old I don't get social media system that's the thing but yeah so you know if you take that in the context graph traversing everything's fine if you come across me and your your social your social graph right you're gonna keep on going cool you hit you hit the Bieber node because of this relationship all right if everybody is equal and then BAM I'm having some kind of issues because I've just hit an adjacency list with 104 million records in it all right so let's shift gears a little bit you know with data modelling I'm either gonna put explicit aggregation points in my graph or I'm gonna create typically a self self type of relationship without really understanding what I'm doing there and all the nuances that could go into that so data pipelines even if I get the model correct right when we create our data pipelines and our ingest regardless again if this is batch or streaming typically it's going to be both in a graph space the business rules that define what we've modeled can change so this is an example of what I'm talking about and this comes from a retailer and this happened in the real world so what this represents is a very simple view of what would be a product catalog and product catalogs again map nicely to the graph space very hierarchical nature a lot of relationships we care about both the attributes associated with products as much as we do the products and how those things relate but also gives us the flexibility to overlay things like supply chain and adjust yeah inventory into our product catalog as well but this simple example highlights a business rule change a change of our data that happened in the ingest process that no one on the application team understood until it happened so a marketer at a company this a product marketer decided to change how they wanted to view their product catalog they wanted to go from like a individuals called a hammer individual thing with a whole bunch of flexible tags they changed the grain the granularity of it and they blew out what it meant to be a product they changed the definition of a product from being a single hammer to now hammer blue and red yellow Hummer and green hammer red right and they never told anybody on this nice product product catalog team so what happened well the impact because of the model here is that we just blew out the number of products we had and our product vertex type and so that nice relationship of going from a sub category that they spent a good amount of time making sure it would work and be performant they measured it they tested it went to prod just blew up all the rules chains on them right I know this is probably the only time that's ever happened that you know your data changes and no one told you about it or maybe you know somebody marketing did something without talking to the the folks in IT but data pipelines you know we got to be smart with what we do with the data going into our graph protect ourselves a little bit and I know the the second point here doesn't apply to anybody in this room but sometimes like coding defects can also result in this at the scenario so again the common patterns I i've seen we've seen you know that cause super nodes explicit modeling like just not really being aware that implicit relationships and then you know setting up I would call it naive data pipeline it's gonna graph right because the relationships matter so much we need to pay attention there all right so let's shift gears and talk about how we can mitigate what we can do to mitigate some of some of these items so to kind of mitigate the impact or the potential that a super node will make it into our graph anybody like the shield yeah no okay okay so you know I look at this as having three three main things we're gonna do and doctor Gosnell spoke about the first one a little bit and I'm gonna tease it up some as well no your cardinality profile your data get a good representative sample of your data you know even though these graph applications or graph problems are showing up more in transactional more rapid you know application development cycles more transactional systems if you will there's a lot of techniques to be used from data science when preparing the data to be used in a graph and we'll talk about some of those in particular here second one is know the tools you have so the nice part about the graph database industry it is maturing and we as database vendors have come across this with our customers and we're doing things to help prevent this know the tools you have to prevent this type of system if you're gonna go property graph your potential with the run into a super node is there your database vendor probably probably provides some kind of solution for you use it and third let's be smart with our data pipelines since of what that that's this so let's dive into each one of these data profiling this is like actually where I get excited about data and it's not that great but this can be a whole talk or conference on its own I'm gonna provide a couple of simple techniques you can use in the graph space and apply those the real concepts around data profiling graph world is understand not the number of entities I have or the types of entities I have but it's really how many relationships do I have what do these adjacency lists what are they gonna look like and we're gonna be looking for outliers and for folks that are new to graph or don't have analytics background I just put a couple examples up there for no reason but to two main things we can do simple counts or looking at histograms all right and the point of this is to find again those outliers so a very simple thing we can do would profiling data for graphs is to create a single source of data which represents your agent a Jason C list that's representative try to get a good sample and that is a hard problem itself when we're talking about very large data sets but do your best to get a good representative sample and then count how many edges exist are coming out of one vertex and the same with the other side so up here two simple counts y-axis are a number of adjacent vertices x-axis or actual vertex IDs all right this is a made-up example but what we're seeing here is the relationship going from b1 to b2 we would know this first vertex 1 V 19 is AB normally connected in our graph it's an outlier that we may need to pay attention to and the same thing on the other side is to make sure to check the other side I'd edge right and the same thing here now personally I like this view a little bit better say they're both bar charts but this is a histogram and what we're looking at here are the number of occurrences of connectivity so not just simple counts and what's cool about this and histogram so on the Left we have number of occurrences and on the bottom our x-axis is number of connections right and so we can see here as most of our vertices our agency lists in fact this little sample was 60 something 70 something vertices in it have you know a hundred ish or so connections but what's cool about histograms is whenever you see this long tail to the right that indicates an outlier and even if it's just a count of one you'll see it and it immediately pops out and that's the thing you really want to watch in graph graph modeling right so over here we have maybe one instance of a vertex with 900 adjacent vertices again this is just a mocked up example that shows you know leveraging histograms for profiling for a graph space all right so that's great we have some outliers what do we do about it this is what it comes down to and graph modeling right and really it comes on this simple choice and this is why graph modeling still a bit of an art and that is do I create a new vertex type new no type with an edge who do I nest that as a property in an existing vertex type so if you apply this to some of the explicit examples we saw earlier around people address city logical choice is to take city and just make it a property of address all right and then you can act on it and act on it safely all right this is where dr. Gosnell spoke about this again this morning but this is where you'll spend a lot of time do I create a new vertex type or do I nest a property in existing vertex type ok no I you know I would still say the graph database market itself is is youngish compared to other worlds but as I mentioned we are learning and the vendors are providing some some tools and techniques to solve these based on my research most of the graph databases that use adjacency lists also provide this first item vertex centric indexes and we'll talk about what that is but that is a tool that's designed to help if you've persisted super nodes to help mitigate the chance that during traversal time you'll have issues that normally come come with super nodes to make it real simple the selectivity thing that denise showed earlier this is a tool this is a specialized index to help with that partitioning strategies right so this is a technique that we've all in the data world known for a long time and you can either do this manually or your database vendors will have some kind of optimization to allow you to partition your data to break up those long super nodes and do something about them and finally this is where there's differentiation between the different database vendors some vendors will offer like hash based indexing to help solve this problem others like DC graph does this as well we'll have a term or Lucene indexing in there so you can do different types of modeling and take advantage of some some indexing to get the results all right so vertex centric indexes the goal here is to go from that linear relationship between adjacency list size and query performance if you will and to get it either two constant that's ideal theoretical idea I would say but at least to make it logarithmic and what we're gonna do is essentially be selective and create some optimized indexes so that when we are selective in our traversals we can get some local to the vertex performance gains and we don't have to pull in that whole adjacency list and do filtering there it'll happen for us and we have an index structure built for that type of instance so the flip for BC is is you have to be selective you have to build them and this is I I am like 98% insurance is for all the BCI implementations least the ones I've been able to research and you have to be selective and how you use them so here think of that person knows relationship right we saw earlier in the modeling and ooh I should have changed out my my graph in the Miller my chart oh well so to leverage the VCI we would do something like instead of just give me all of the the vertices that are connected to Justin Bieber which could represent anything like people he's following people following him takes no context of time how long has somebody been following we can ride our traversal so that we pull out all of the followed by a edges from a certain point in time and that certain point in time is gonna be very very fast with a vertex centric indexes and get them give us that nice performance gain ok partitioning from what I've seen in the graph space partitioning comes in again one of two flavors you have this manual partitioning I used to call it starting and you know old school days and this I believe is what LinkedIn does for their graph they isolate super nodes into their own schema and their own structure on their own set of servers that traversing super nodes kind of has its own path and they have the ability to not impact other users and they have resources set up to handle this explicitly but the idea is pretty simple I can either isolate my super nodes when I know I have them or maybe I want to break up that super node and create new vertices that are obfuscated for my user by partitioning chunking bucketing insert ending term that talks about that there some of the graph databases themselves can do this for you depending on how they're set up so I'll just break this is like something in DC graph will project a graph onto Cassandra that allows us to leverage the Cassandra partitioning schema itself to change the granularity of a vertex to mitigate this type of scenario and finally with with data pipelines this is where we get a little more theory and the basic concept is don't let any super nodes into your graph and to do that in theory you would track connectiveness on ingest and disallow super nodes to enter whether you're talking through batch or you know some kind of stream processing in theory that sounds great the practical notion there is overhead and trying to do this so be smart when you try to apply this technique so to apply this technique you can do things like in your application servers keep like some kind of probabilistic index probabilistic metadata some probabilistic count of connectiveness right and use that Denise mentioned how old Twitter did this with counters inside of Cassandra and well I say probabilistic it doesn't matter if your exact you just need to err on the side of not creating a super node right so it needs to be good enough you can also store counts you know like a caching layer in your database as well and just use them and be selective where you use them if you have a higher propensity to create a super node on a certain vertex type may it happens possible you've seen through your batch party pipeline well maybe put a stage gate there that does a quick check for the connectedness of each individual vertex as it's flowing in and just don't allow the the vertices to flow in that will create supernovae okay so mitigation strategies know your cardinality profile your data make that hard trade-off for a text or property and be intelligent about about the impacts of doing so and write good data pipelines that protect yourselves from doing this all right so what do you do if you have a super node well first we're gonna need to identify if we truly have a super node in our graph most of time error message won't say hey you hit a super node you'll get back a timeout you'll get back like some kind of warning that your traversal has been unlimited right something symptomatic is going to be displayed to you as an operator or developer and so you have the job to figure out what's going on and if you see any of those symptoms it's good to go check for the existence of super nodes and to do so we can do things like check out our application logs and correlate high CPU or high resource utilization or database servers with the same timestamps as our App servers maybe we have auditing turned on in our application and we know what traversals timed out sweet let's use those vertex types or those edges or the filter condition something to narrow down our search for this super node itself you can be smart about using either your graph level or your database file level indicators of super node so an example this would be in like a DC graph or titanor janus as well anything on top of the Cassandra or projecting graph on top of Cassandra look for wide partitions in Cassandra that's pretty easy to do these days that's gonna indicate hey I have a super node and I wants to know why we can talk afterwards about how that model is projected there but you can use you know look at your database file sizes or any kind of statistics around that as well if you're projecting your graph on top of a relational model look up just statistics there you should be able to figure that out pretty good pretty quickly third if you have to walk your graph to find this do that intelligently if you're able to maybe depending on the size your graph you know use something like i graph take the graph put it into a single lead contained analytical structure and then do some connectedness right or run things in background real low processing impact alright once you find it you have essentially two choices throw it away all right that is the easiest thing to do or we're talking about some kind of form of surgery right and for some people with transient graphs just deleting is cool and it's like awesome because that's the easiest thing we can do the next two twice's as far as like you know impact from it like surgery level we're talking like outpatient maybe i just chunk up that partition I read it out all right I'd take that adjacency list that vertex out I break it up into you know finer grained and i just insert back in don't touch my model the third and the most in you know most invasive would be changing your actual graph model to mitigate whatever is causing your super nodes begin with alright so you find the super node identifying it you think you have a super node identify it and then act on it remove it change something in your model if needed alright so just one more observation then we'll wrap this whole thing up you know what we've come across working with users is that there are common pitfalls where super nodes will occur in your property models so for things and and these are very common graph use cases by the way that we see over and over and other database vendors speak to as well so customer 360s watch out for your address that city you know state any kind of country again that people that social relationship and the third is organizational structures I can tell you firsthand organizational structures don't you think about supernovas you don't typically think of millions of people working at a single company but depending on how you structure that organizational structure maybe there are parent companies which own many different companies you could potentially have the super node thing happen they're digital assets and networking again any aggregation point and then the second thing is really interesting when you start talking about events and adding you know IOT data into your graph if you get a million events from one sensor a day all right setting yourself up for you know and you model that out for a super node so when you're ever talking about sensor data make sure you're chunking and using the concept of time to limit that in your property model or you have a solution around that you know a product catalog we kind of spoke about the first two supply chains as well very nice graph problem and 2-ply graph not technology to solve for but very easily to set up super nodes all right so just to wrap up today we just went through a lot of material pretty quickly we have a good nice grounding and formal understanding of what a super node is right it is an anomaly and adjacency list size we talked about common patterns you know how people create these accidentally or how super nodes come into your property graph some common techniques to mitigate the chances that they they will and then what to do once you finally have a suit if you get a super node when you get a super node in your property graph model and then shameless plug time we're hiring across company engineers sales marketing a whole bit if you want to know more about the product you can come talk to me out here or go to this site here thank you you",
+    "segments": [
+      {
+        "start": 4.35,
+        "duration": 5.01,
+        "text": "so my name is Jonathan Lacefield I'm a"
+      },
+      {
+        "start": 7.71,
+        "duration": 5.19,
+        "text": "member of the product team at data"
+      },
+      {
+        "start": 9.36,
+        "duration": 4.949,
+        "text": "stacks for the past two and a half years"
+      },
+      {
+        "start": 12.9,
+        "duration": 4.08,
+        "text": "I've been focusing on helping users"
+      },
+      {
+        "start": 14.309,
+        "duration": 6.39,
+        "text": "solve graph problems with data stacks"
+      },
+      {
+        "start": 16.98,
+        "duration": 5.789,
+        "text": "enterprise and DSC graph you know along"
+      },
+      {
+        "start": 20.699,
+        "duration": 4.801,
+        "text": "the way I've personally gotten very"
+      },
+      {
+        "start": 22.769,
+        "duration": 5.041,
+        "text": "immersing myself in the graph world I"
+      },
+      {
+        "start": 25.5,
+        "duration": 5.009,
+        "text": "had some unfortunate very nice mentors"
+      },
+      {
+        "start": 27.81,
+        "duration": 5.34,
+        "text": "in the aurelius team dr. Matthias"
+      },
+      {
+        "start": 30.509,
+        "duration": 4.291,
+        "text": "brochure and Marco Rodriguez and all"
+      },
+      {
+        "start": 33.15,
+        "duration": 5.76,
+        "text": "those folks as well as dr. d-nice"
+      },
+      {
+        "start": 34.8,
+        "duration": 5.849,
+        "text": "Gosnell along the way so today we're"
+      },
+      {
+        "start": 38.91,
+        "duration": 3.39,
+        "text": "gonna discuss one of those"
+      },
+      {
+        "start": 40.649,
+        "duration": 3.84,
+        "text": "implementation details that not"
+      },
+      {
+        "start": 42.3,
+        "duration": 3.54,
+        "text": "everybody really wants to talk about and"
+      },
+      {
+        "start": 44.489,
+        "duration": 4.651,
+        "text": "particularly from a graph database"
+      },
+      {
+        "start": 45.84,
+        "duration": 7.5,
+        "text": "perspective yeah perspective and that is"
+      },
+      {
+        "start": 49.14,
+        "duration": 6.739,
+        "text": "super nodes and you know my my original"
+      },
+      {
+        "start": 53.34,
+        "duration": 5.94,
+        "text": "title was gonna be like very boring and"
+      },
+      {
+        "start": 55.879,
+        "duration": 4.691,
+        "text": "manager II worthy and then you know I"
+      },
+      {
+        "start": 59.28,
+        "duration": 2.509,
+        "text": "was talking to McFadden over there and I"
+      },
+      {
+        "start": 60.57,
+        "duration": 4.05,
+        "text": "was like well this is my working title"
+      },
+      {
+        "start": 61.789,
+        "duration": 4.481,
+        "text": "you know dealing with property property"
+      },
+      {
+        "start": 64.62,
+        "duration": 3.39,
+        "text": "graphs with friends and unity towards"
+      },
+      {
+        "start": 66.27,
+        "duration": 3.81,
+        "text": "super nodes and he told me to run with"
+      },
+      {
+        "start": 68.01,
+        "duration": 4.53,
+        "text": "it so we're gonna do that and now we"
+      },
+      {
+        "start": 70.08,
+        "duration": 3.719,
+        "text": "have this wonderful title slide just"
+      },
+      {
+        "start": 72.54,
+        "duration": 3.71,
+        "text": "spoil alert everything goes downhill"
+      },
+      {
+        "start": 73.799,
+        "duration": 6.57,
+        "text": "from here so I hope you enjoy"
+      },
+      {
+        "start": 76.25,
+        "duration": 6.79,
+        "text": "gloriousness all right so really we're"
+      },
+      {
+        "start": 80.369,
+        "duration": 5.101,
+        "text": "gonna do three things today we're gonna"
+      },
+      {
+        "start": 83.04,
+        "duration": 4.8,
+        "text": "ground ourselves and probably formalize"
+      },
+      {
+        "start": 85.47,
+        "duration": 5.57,
+        "text": "some discussion around what a super node"
+      },
+      {
+        "start": 87.84,
+        "duration": 5.91,
+        "text": "is in the context of a property model a"
+      },
+      {
+        "start": 91.04,
+        "duration": 5.469,
+        "text": "property graph model we're gonna talk"
+      },
+      {
+        "start": 93.75,
+        "duration": 5.009,
+        "text": "about some common patterns that I've"
+      },
+      {
+        "start": 96.509,
+        "duration": 4.14,
+        "text": "observed the release team has observed"
+      },
+      {
+        "start": 98.759,
+        "duration": 4.711,
+        "text": "data stacks team has observed I guess"
+      },
+      {
+        "start": 100.649,
+        "duration": 4.891,
+        "text": "we're all data stacks that lead to super"
+      },
+      {
+        "start": 103.47,
+        "duration": 4.38,
+        "text": "nodes and some mitigation strategies"
+      },
+      {
+        "start": 105.54,
+        "duration": 5.34,
+        "text": "particularly around the modeling of"
+      },
+      {
+        "start": 107.85,
+        "duration": 8.94,
+        "text": "property graphs finally we're gonna"
+      },
+      {
+        "start": 110.88,
+        "duration": 8.059,
+        "text": "provide some practical tips for what to"
+      },
+      {
+        "start": 116.79,
+        "duration": 5.039,
+        "text": "do when you think you have a super node"
+      },
+      {
+        "start": 118.939,
+        "duration": 5.68,
+        "text": "so just just a note I do work for data"
+      },
+      {
+        "start": 121.829,
+        "duration": 5.4,
+        "text": "stacks this is not a vendor talk so I"
+      },
+      {
+        "start": 124.619,
+        "duration": 4.771,
+        "text": "will be explicit when something is data"
+      },
+      {
+        "start": 127.229,
+        "duration": 6.421,
+        "text": "stacks specific or when it applies to a"
+      },
+      {
+        "start": 129.39,
+        "duration": 5.97,
+        "text": "wider breadth of vendors to that point"
+      },
+      {
+        "start": 133.65,
+        "duration": 3.3,
+        "text": "we are going to focus on the property"
+      },
+      {
+        "start": 135.36,
+        "duration": 2.26,
+        "text": "side of the graph world this isn't not"
+      },
+      {
+        "start": 136.95,
+        "duration": 3.7,
+        "text": "ID"
+      },
+      {
+        "start": 137.62,
+        "duration": 5.31,
+        "text": "no this is RDF applies to the RDF world"
+      },
+      {
+        "start": 140.65,
+        "duration": 3.509,
+        "text": "right most of my research has been on"
+      },
+      {
+        "start": 142.93,
+        "duration": 3.089,
+        "text": "the property side and that's what we're"
+      },
+      {
+        "start": 144.159,
+        "duration": 4.231,
+        "text": "gonna talk about so just just some"
+      },
+      {
+        "start": 146.019,
+        "duration": 4.201,
+        "text": "grounding to get us into super node"
+      },
+      {
+        "start": 148.39,
+        "duration": 3.269,
+        "text": "problem let's let's refresh ourselves on"
+      },
+      {
+        "start": 150.22,
+        "duration": 3.65,
+        "text": "what a property graph is we have a very"
+      },
+      {
+        "start": 151.659,
+        "duration": 4.17,
+        "text": "simple one here in the middle and"
+      },
+      {
+        "start": 153.87,
+        "duration": 4.57,
+        "text": "property graph is just a representation"
+      },
+      {
+        "start": 155.829,
+        "duration": 6.3,
+        "text": "of a graph structure using three main"
+      },
+      {
+        "start": 158.44,
+        "duration": 5.85,
+        "text": "elements or a vertex an edge and a"
+      },
+      {
+        "start": 162.129,
+        "duration": 4.231,
+        "text": "relationship or excuse me a property"
+      },
+      {
+        "start": 164.29,
+        "duration": 3.93,
+        "text": "which can belong to a an edge or vertex"
+      },
+      {
+        "start": 166.36,
+        "duration": 5.64,
+        "text": "alright we all know that so here we have"
+      },
+      {
+        "start": 168.22,
+        "duration": 6.0,
+        "text": "a property model representing two people"
+      },
+      {
+        "start": 172.0,
+        "duration": 4.049,
+        "text": "Jonna Kelly there's a relationship an"
+      },
+      {
+        "start": 174.22,
+        "duration": 5.43,
+        "text": "edge between them knows it's"
+      },
+      {
+        "start": 176.049,
+        "duration": 5.641,
+        "text": "bi-directional John and Kelly has some"
+      },
+      {
+        "start": 179.65,
+        "duration": 5.49,
+        "text": "attributes like name and looks like"
+      },
+      {
+        "start": 181.69,
+        "duration": 6.299,
+        "text": "maybe birthdate or something and John"
+      },
+      {
+        "start": 185.14,
+        "duration": 7.459,
+        "text": "owns a phone and Apple phone while Kelly"
+      },
+      {
+        "start": 187.989,
+        "duration": 6.961,
+        "text": "owns an Android phone right so what"
+      },
+      {
+        "start": 192.599,
+        "duration": 4.51,
+        "text": "becomes interesting here is when we talk"
+      },
+      {
+        "start": 194.95,
+        "duration": 4.679,
+        "text": "about a data structure that's optimized"
+      },
+      {
+        "start": 197.109,
+        "duration": 5.341,
+        "text": "for traversing graphs and that's called"
+      },
+      {
+        "start": 199.629,
+        "duration": 4.651,
+        "text": "an adjacency list and why this is"
+      },
+      {
+        "start": 202.45,
+        "duration": 4.17,
+        "text": "important for our talk today is that a"
+      },
+      {
+        "start": 204.28,
+        "duration": 5.01,
+        "text": "lot of property graph databases or"
+      },
+      {
+        "start": 206.62,
+        "duration": 5.01,
+        "text": "property graph representations in data"
+      },
+      {
+        "start": 209.29,
+        "duration": 5.879,
+        "text": "and persistence use this adjacency list"
+      },
+      {
+        "start": 211.63,
+        "duration": 6.99,
+        "text": "format and the Jason see lists optimize"
+      },
+      {
+        "start": 215.169,
+        "duration": 6.69,
+        "text": "the ability optimize edge retrieval they"
+      },
+      {
+        "start": 218.62,
+        "duration": 5.61,
+        "text": "collect all the edges to an incident"
+      },
+      {
+        "start": 221.859,
+        "duration": 4.56,
+        "text": "vertex so I have one vertex and all the"
+      },
+      {
+        "start": 224.23,
+        "duration": 5.31,
+        "text": "edges right there and they persist data"
+      },
+      {
+        "start": 226.419,
+        "duration": 4.41,
+        "text": "in that format so as I walk a graph and"
+      },
+      {
+        "start": 229.54,
+        "duration": 1.65,
+        "text": "we'll take a look at this in just a"
+      },
+      {
+        "start": 230.829,
+        "duration": 3.12,
+        "text": "minute"
+      },
+      {
+        "start": 231.19,
+        "duration": 4.769,
+        "text": "it's a very quick retrieval to"
+      },
+      {
+        "start": 233.949,
+        "duration": 3.93,
+        "text": "understand all the connected components"
+      },
+      {
+        "start": 235.959,
+        "duration": 5.37,
+        "text": "of that vertex so if you see on the"
+      },
+      {
+        "start": 237.879,
+        "duration": 6.33,
+        "text": "right yeah that's your right we see the"
+      },
+      {
+        "start": 241.329,
+        "duration": 5.431,
+        "text": "adjacency list for John we see the edge"
+      },
+      {
+        "start": 244.209,
+        "duration": 5.43,
+        "text": "knows and we see the edge owns and the"
+      },
+      {
+        "start": 246.76,
+        "duration": 6.39,
+        "text": "same for Kelly right it's a lot of graph"
+      },
+      {
+        "start": 249.639,
+        "duration": 7.261,
+        "text": "databases whether they're in memory use"
+      },
+      {
+        "start": 253.15,
+        "duration": 6.989,
+        "text": "project onto no single stores even you"
+      },
+      {
+        "start": 256.9,
+        "duration": 4.769,
+        "text": "know taking a relational view or a"
+      },
+      {
+        "start": 260.139,
+        "duration": 3.571,
+        "text": "document store view of a graph database"
+      },
+      {
+        "start": 261.669,
+        "duration": 3.511,
+        "text": "will use adjacency lists because they're"
+      },
+      {
+        "start": 263.71,
+        "duration": 3.6,
+        "text": "efficient for graph processing in a"
+      },
+      {
+        "start": 265.18,
+        "duration": 5.829,
+        "text": "property world but there's a trade-off"
+      },
+      {
+        "start": 267.31,
+        "duration": 5.439,
+        "text": "and that trade-off happens"
+      },
+      {
+        "start": 271.009,
+        "duration": 5.58,
+        "text": "context of what we're gonna call a super"
+      },
+      {
+        "start": 272.749,
+        "duration": 6.26,
+        "text": "node the trade-off is if I have an"
+      },
+      {
+        "start": 276.589,
+        "duration": 5.31,
+        "text": "outlier from an adjacency perspective"
+      },
+      {
+        "start": 279.009,
+        "duration": 5.08,
+        "text": "right I can run into issues when I'm"
+      },
+      {
+        "start": 281.899,
+        "duration": 5.281,
+        "text": "performing when I'm walking my graph"
+      },
+      {
+        "start": 284.089,
+        "duration": 4.89,
+        "text": "when I'm traversing ok so let's talk"
+      },
+      {
+        "start": 287.18,
+        "duration": 3.359,
+        "text": "about what a super node is Denise showed"
+      },
+      {
+        "start": 288.979,
+        "duration": 5.31,
+        "text": "this dr. Gosnell showed this earlier"
+      },
+      {
+        "start": 290.539,
+        "duration": 9.201,
+        "text": "this is a graph representing patients"
+      },
+      {
+        "start": 294.289,
+        "duration": 9.6,
+        "text": "and doctors overlaid on a US map a on e"
+      },
+      {
+        "start": 299.74,
+        "duration": 5.769,
+        "text": "and you know for our purposes what we're"
+      },
+      {
+        "start": 303.889,
+        "duration": 3.721,
+        "text": "looking for and how super nodes"
+      },
+      {
+        "start": 305.509,
+        "duration": 3.69,
+        "text": "typically show up in your graphs they're"
+      },
+      {
+        "start": 307.61,
+        "duration": 5.01,
+        "text": "highly connected components and you'll"
+      },
+      {
+        "start": 309.199,
+        "duration": 5.19,
+        "text": "typically see large areas so like the"
+      },
+      {
+        "start": 312.62,
+        "duration": 3.479,
+        "text": "large dots here would represent highly"
+      },
+      {
+        "start": 314.389,
+        "duration": 6.39,
+        "text": "connected components or potential super"
+      },
+      {
+        "start": 316.099,
+        "duration": 7.021,
+        "text": "nodes ok the trick with super nodes is"
+      },
+      {
+        "start": 320.779,
+        "duration": 6.42,
+        "text": "there's not a hard mathematical rule of"
+      },
+      {
+        "start": 323.12,
+        "duration": 5.849,
+        "text": "when I have too much adjacency what"
+      },
+      {
+        "start": 327.199,
+        "duration": 3.12,
+        "text": "would cause a super node right it's"
+      },
+      {
+        "start": 328.969,
+        "duration": 3.06,
+        "text": "gonna differ depending on your"
+      },
+      {
+        "start": 330.319,
+        "duration": 3.72,
+        "text": "application your graph your usage of"
+      },
+      {
+        "start": 332.029,
+        "duration": 4.5,
+        "text": "your graph the main theme though is I"
+      },
+      {
+        "start": 334.039,
+        "duration": 5.821,
+        "text": "have an outlier that could potentially"
+      },
+      {
+        "start": 336.529,
+        "duration": 7.47,
+        "text": "cause trouble for my my graph"
+      },
+      {
+        "start": 339.86,
+        "duration": 7.669,
+        "text": "application my my what I've come to"
+      },
+      {
+        "start": 343.999,
+        "duration": 6.78,
+        "text": "learn is that super nodes really impact"
+      },
+      {
+        "start": 347.529,
+        "duration": 4.75,
+        "text": "most that's probably you know I could"
+      },
+      {
+        "start": 350.779,
+        "duration": 3.66,
+        "text": "say all that be too broad brushing but"
+      },
+      {
+        "start": 352.279,
+        "duration": 3.651,
+        "text": "most graph applications regardless if"
+      },
+      {
+        "start": 354.439,
+        "duration": 4.681,
+        "text": "we're talking about analytical or"
+      },
+      {
+        "start": 355.93,
+        "duration": 4.779,
+        "text": "transactional nature and most people"
+      },
+      {
+        "start": 359.12,
+        "duration": 4.769,
+        "text": "have them in their graph and they're not"
+      },
+      {
+        "start": 360.709,
+        "duration": 5.221,
+        "text": "aware of them but they become aware when"
+      },
+      {
+        "start": 363.889,
+        "duration": 4.17,
+        "text": "as soon as they traverse a graph and"
+      },
+      {
+        "start": 365.93,
+        "duration": 4.56,
+        "text": "they hit a super node I consider these"
+      },
+      {
+        "start": 368.059,
+        "duration": 4.771,
+        "text": "like the sleeping time bombs of the"
+      },
+      {
+        "start": 370.49,
+        "duration": 4.199,
+        "text": "graph space and it's just really a trade"
+      },
+      {
+        "start": 372.83,
+        "duration": 4.53,
+        "text": "off of adjacency list as a data"
+      },
+      {
+        "start": 374.689,
+        "duration": 4.801,
+        "text": "structure but the important part and why"
+      },
+      {
+        "start": 377.36,
+        "duration": 4.649,
+        "text": "we're talking about this today is for"
+      },
+      {
+        "start": 379.49,
+        "duration": 5.219,
+        "text": "those that run graphs today where their"
+      },
+      {
+        "start": 382.009,
+        "duration": 4.38,
+        "text": "analytical transactional both you"
+      },
+      {
+        "start": 384.709,
+        "duration": 3.5,
+        "text": "probably have this in your graph right"
+      },
+      {
+        "start": 386.389,
+        "duration": 4.17,
+        "text": "and just a matter of if"
+      },
+      {
+        "start": 388.209,
+        "duration": 5.71,
+        "text": "excuse me win not if you're gonna run"
+      },
+      {
+        "start": 390.559,
+        "duration": 5.4,
+        "text": "into some of these issues so to make"
+      },
+      {
+        "start": 393.919,
+        "duration": 4.35,
+        "text": "this more concrete let's kind of refine"
+      },
+      {
+        "start": 395.959,
+        "duration": 5.161,
+        "text": "the definition of a super node and let's"
+      },
+      {
+        "start": 398.269,
+        "duration": 5.971,
+        "text": "look at two star graphs right what we"
+      },
+      {
+        "start": 401.12,
+        "duration": 3.69,
+        "text": "have represented is essentially a vertex"
+      },
+      {
+        "start": 404.24,
+        "duration": 3.6,
+        "text": "just"
+      },
+      {
+        "start": 404.81,
+        "duration": 4.8,
+        "text": "call it whatever with a Jason see around"
+      },
+      {
+        "start": 407.84,
+        "duration": 3.69,
+        "text": "it and by the way for those not familiar"
+      },
+      {
+        "start": 409.61,
+        "duration": 4.5,
+        "text": "with some of the formal graphed"
+      },
+      {
+        "start": 411.53,
+        "duration": 3.359,
+        "text": "terminology we call two vertexes two"
+      },
+      {
+        "start": 414.11,
+        "duration": 3.42,
+        "text": "vertices"
+      },
+      {
+        "start": 414.889,
+        "duration": 5.361,
+        "text": "there's Denise's one two birds disease"
+      },
+      {
+        "start": 417.53,
+        "duration": 5.88,
+        "text": "that share an edge we call those"
+      },
+      {
+        "start": 420.25,
+        "duration": 4.419,
+        "text": "adjacent vertex vertices right so an"
+      },
+      {
+        "start": 423.41,
+        "duration": 3.66,
+        "text": "adjacency list is just the"
+      },
+      {
+        "start": 424.669,
+        "duration": 5.851,
+        "text": "representation of a vertex in all of its"
+      },
+      {
+        "start": 427.07,
+        "duration": 6.63,
+        "text": "neighbors so here if we're traversing a"
+      },
+      {
+        "start": 430.52,
+        "duration": 4.74,
+        "text": "graph with a vertex that's represent on"
+      },
+      {
+        "start": 433.7,
+        "duration": 2.79,
+        "text": "the right with a branching factor for no"
+      },
+      {
+        "start": 435.26,
+        "duration": 2.52,
+        "text": "big deal we'll probably move on"
+      },
+      {
+        "start": 436.49,
+        "duration": 4.38,
+        "text": "regardless of whatever your"
+      },
+      {
+        "start": 437.78,
+        "duration": 5.31,
+        "text": "implementation is right but we start"
+      },
+      {
+        "start": 440.87,
+        "duration": 4.2,
+        "text": "running into issues with computational"
+      },
+      {
+        "start": 443.09,
+        "duration": 3.72,
+        "text": "explosion when we hit things like what's"
+      },
+      {
+        "start": 445.07,
+        "duration": 4.02,
+        "text": "represent on the left it could be"
+      },
+      {
+        "start": 446.81,
+        "duration": 6.15,
+        "text": "thousands hundreds of thousands millions"
+      },
+      {
+        "start": 449.09,
+        "duration": 5.88,
+        "text": "of adjacent vertices and if you look at"
+      },
+      {
+        "start": 452.96,
+        "duration": 5.49,
+        "text": "this in isolation this is a linear"
+      },
+      {
+        "start": 454.97,
+        "duration": 6.18,
+        "text": "relationship between the number of"
+      },
+      {
+        "start": 458.45,
+        "duration": 6.15,
+        "text": "incident edges or adjacent BIRT vertices"
+      },
+      {
+        "start": 461.15,
+        "duration": 7.23,
+        "text": "and the the performance you're going to"
+      },
+      {
+        "start": 464.6,
+        "duration": 6.75,
+        "text": "get during traversal time now the true"
+      },
+      {
+        "start": 468.38,
+        "duration": 6.63,
+        "text": "super node problem has two impacts one's"
+      },
+      {
+        "start": 471.35,
+        "duration": 7.53,
+        "text": "on query traversal performance the other"
+      },
+      {
+        "start": 475.01,
+        "duration": 5.52,
+        "text": "is on storage retrieval because I'm"
+      },
+      {
+        "start": 478.88,
+        "duration": 4.409,
+        "text": "going to take an abstract view and try"
+      },
+      {
+        "start": 480.53,
+        "duration": 5.34,
+        "text": "to not take a vendor specific view of"
+      },
+      {
+        "start": 483.289,
+        "duration": 6.511,
+        "text": "this problem we're going to focus on the"
+      },
+      {
+        "start": 485.87,
+        "duration": 6.12,
+        "text": "computational side right and to drive"
+      },
+      {
+        "start": 489.8,
+        "duration": 4.53,
+        "text": "this home a little bit we're gonna use a"
+      },
+      {
+        "start": 491.99,
+        "duration": 4.53,
+        "text": "graphic we saw this morning during dr."
+      },
+      {
+        "start": 494.33,
+        "duration": 4.77,
+        "text": "Gosnell's presentation which who's"
+      },
+      {
+        "start": 496.52,
+        "duration": 3.959,
+        "text": "talking about how traversals manifests"
+      },
+      {
+        "start": 499.1,
+        "duration": 4.8,
+        "text": "themselves or map themselves to system"
+      },
+      {
+        "start": 500.479,
+        "duration": 6.361,
+        "text": "resources right so let's take a look at"
+      },
+      {
+        "start": 503.9,
+        "duration": 5.31,
+        "text": "a gremlin traversal GBL something"
+      },
+      {
+        "start": 506.84,
+        "duration": 4.29,
+        "text": "touristing a graph and gremlin there's a"
+      },
+      {
+        "start": 509.21,
+        "duration": 3.99,
+        "text": "concept of a traversal which represents"
+      },
+      {
+        "start": 511.13,
+        "duration": 5.43,
+        "text": "your like a better term your query what"
+      },
+      {
+        "start": 513.2,
+        "duration": 5.88,
+        "text": "you're trying to do and at every step"
+      },
+      {
+        "start": 516.56,
+        "duration": 5.219,
+        "text": "every vertex along the way every path"
+      },
+      {
+        "start": 519.08,
+        "duration": 5.49,
+        "text": "along the way gremlin will create"
+      },
+      {
+        "start": 521.779,
+        "duration": 4.021,
+        "text": "Traverse just think of those as objects"
+      },
+      {
+        "start": 524.57,
+        "duration": 3.48,
+        "text": "all right and there used some kind of"
+      },
+      {
+        "start": 525.8,
+        "duration": 5.64,
+        "text": "system resource and everything works"
+      },
+      {
+        "start": 528.05,
+        "duration": 6.39,
+        "text": "well until you get in situations like"
+      },
+      {
+        "start": 531.44,
+        "duration": 5.01,
+        "text": "this or I'm about to run into a super"
+      },
+      {
+        "start": 534.44,
+        "duration": 3.42,
+        "text": "node and more than likely you won't know"
+      },
+      {
+        "start": 536.45,
+        "duration": 3.42,
+        "text": "until you've hit it"
+      },
+      {
+        "start": 537.86,
+        "duration": 3.93,
+        "text": "right and this is where the commentation"
+      },
+      {
+        "start": 539.87,
+        "duration": 4.08,
+        "text": "will explosion happens from a processing"
+      },
+      {
+        "start": 541.79,
+        "duration": 4.08,
+        "text": "affective you've just all the sudden"
+      },
+      {
+        "start": 543.95,
+        "duration": 4.41,
+        "text": "created a whole bunch of Traverse errs"
+      },
+      {
+        "start": 545.87,
+        "duration": 4.29,
+        "text": "in the gremlin world I'm not familiar"
+      },
+      {
+        "start": 548.36,
+        "duration": 5.16,
+        "text": "with the underpinnings of cipher or"
+      },
+      {
+        "start": 550.16,
+        "duration": 5.55,
+        "text": "let's say a rangos query language but"
+      },
+      {
+        "start": 553.52,
+        "duration": 3.99,
+        "text": "conceptually I could see the same thing"
+      },
+      {
+        "start": 555.71,
+        "duration": 3.92,
+        "text": "happening here right you're gonna have"
+      },
+      {
+        "start": 557.51,
+        "duration": 9.96,
+        "text": "compensate it's just physics right"
+      },
+      {
+        "start": 559.63,
+        "duration": 9.28,
+        "text": "alright sweet yeah okay the funniest"
+      },
+      {
+        "start": 567.47,
+        "duration": 3.48,
+        "text": "part about the slide I was practicing"
+      },
+      {
+        "start": 568.91,
+        "duration": 3.69,
+        "text": "this presentation and the person I was"
+      },
+      {
+        "start": 570.95,
+        "duration": 3.03,
+        "text": "practicing with was like you know if you"
+      },
+      {
+        "start": 572.6,
+        "duration": 4.41,
+        "text": "put this slide up and it wasn't in a"
+      },
+      {
+        "start": 573.98,
+        "duration": 6.68,
+        "text": "graph context it still applies like"
+      },
+      {
+        "start": 577.01,
+        "duration": 4.98,
+        "text": "stability problems performance issues"
+      },
+      {
+        "start": 580.66,
+        "duration": 4.24,
+        "text": "all right"
+      },
+      {
+        "start": 581.99,
+        "duration": 4.53,
+        "text": "so how you typically will find out you"
+      },
+      {
+        "start": 584.9,
+        "duration": 4.05,
+        "text": "have a super node is you're gonna run"
+      },
+      {
+        "start": 586.52,
+        "duration": 3.72,
+        "text": "into these Simpson cysts symptoms this"
+      },
+      {
+        "start": 588.95,
+        "duration": 3.66,
+        "text": "could be at an application perspective"
+      },
+      {
+        "start": 590.24,
+        "duration": 3.66,
+        "text": "like I'm a dev and also things are going"
+      },
+      {
+        "start": 592.61,
+        "duration": 3.71,
+        "text": "great and then they're not"
+      },
+      {
+        "start": 593.9,
+        "duration": 5.67,
+        "text": "or maybe I'm an operator as well right"
+      },
+      {
+        "start": 596.32,
+        "duration": 5.08,
+        "text": "we're talking about outliers here so a"
+      },
+      {
+        "start": 599.57,
+        "duration": 4.74,
+        "text": "lie our impact is on performance you'll"
+      },
+      {
+        "start": 601.4,
+        "duration": 5.16,
+        "text": "see maybe your p95 everything's low"
+      },
+      {
+        "start": 604.31,
+        "duration": 5.34,
+        "text": "milliseconds and then you go and do a"
+      },
+      {
+        "start": 606.56,
+        "duration": 4.59,
+        "text": "study right and my p95 jump up to"
+      },
+      {
+        "start": 609.65,
+        "duration": 3.36,
+        "text": "hundreds of milliseconds or seconds"
+      },
+      {
+        "start": 611.15,
+        "duration": 5.0,
+        "text": "something like that or maybe I have an"
+      },
+      {
+        "start": 613.01,
+        "duration": 7.43,
+        "text": "application traversal that's timing out"
+      },
+      {
+        "start": 616.15,
+        "duration": 7.33,
+        "text": "stability issues alright if you start"
+      },
+      {
+        "start": 620.44,
+        "duration": 4.54,
+        "text": "consuming simulations is interesting I'm"
+      },
+      {
+        "start": 623.48,
+        "duration": 2.76,
+        "text": "from a graph database perspective but"
+      },
+      {
+        "start": 624.98,
+        "duration": 3.39,
+        "text": "this actually happens in both an"
+      },
+      {
+        "start": 626.24,
+        "duration": 3.42,
+        "text": "application level and the database level"
+      },
+      {
+        "start": 628.37,
+        "duration": 3.33,
+        "text": "depending on how you said something set"
+      },
+      {
+        "start": 629.66,
+        "duration": 5.04,
+        "text": "up so from an application level just"
+      },
+      {
+        "start": 631.7,
+        "duration": 5.52,
+        "text": "imagine you traverse a node that has a"
+      },
+      {
+        "start": 634.7,
+        "duration": 4.23,
+        "text": "million adjacent vertices and it the"
+      },
+      {
+        "start": 637.22,
+        "duration": 3.24,
+        "text": "database cranks away and returns you all"
+      },
+      {
+        "start": 638.93,
+        "duration": 3.69,
+        "text": "that data on the application side will"
+      },
+      {
+        "start": 640.46,
+        "duration": 3.51,
+        "text": "hold the cow that's a lot of data I've"
+      },
+      {
+        "start": 642.62,
+        "duration": 3.93,
+        "text": "got a process on the application side"
+      },
+      {
+        "start": 643.97,
+        "duration": 4.35,
+        "text": "all right something in my stacks gonna"
+      },
+      {
+        "start": 646.55,
+        "duration": 5.76,
+        "text": "become unstable when I hit one of these"
+      },
+      {
+        "start": 648.32,
+        "duration": 7.23,
+        "text": "things a lot of people will put"
+      },
+      {
+        "start": 652.31,
+        "duration": 4.65,
+        "text": "safeguards just natural limits in so"
+      },
+      {
+        "start": 655.55,
+        "duration": 3.93,
+        "text": "you'll be traversing and you'll get a"
+      },
+      {
+        "start": 656.96,
+        "duration": 4.5,
+        "text": "subset of the results back maybe you"
+      },
+      {
+        "start": 659.48,
+        "duration": 3.96,
+        "text": "know that maybe you don't that's the"
+      },
+      {
+        "start": 661.46,
+        "duration": 4.11,
+        "text": "scary part you don't you return a result"
+      },
+      {
+        "start": 663.44,
+        "duration": 3.81,
+        "text": "that is only maybe it's cuz a paging or"
+      },
+      {
+        "start": 665.57,
+        "duration": 5.58,
+        "text": "some kind of limit right the first"
+      },
+      {
+        "start": 667.25,
+        "duration": 6.09,
+        "text": "10,000 adjacent vertices all right"
+      },
+      {
+        "start": 671.15,
+        "duration": 3.75,
+        "text": "and finally is it will set out to our"
+      },
+      {
+        "start": 673.34,
+        "duration": 3.99,
+        "text": "graph digitalization friends they've"
+      },
+      {
+        "start": 674.9,
+        "duration": 4.11,
+        "text": "been working on this problem forever and"
+      },
+      {
+        "start": 677.33,
+        "duration": 6.99,
+        "text": "it's very similar to that application"
+      },
+      {
+        "start": 679.01,
+        "duration": 7.11,
+        "text": "you know view as well how do I what"
+      },
+      {
+        "start": 684.32,
+        "duration": 3.9,
+        "text": "happens is my visualization if I have"
+      },
+      {
+        "start": 686.12,
+        "duration": 3.78,
+        "text": "like some kind of is a way to explore my"
+      },
+      {
+        "start": 688.22,
+        "duration": 4.47,
+        "text": "graph and also and I hit a super node"
+      },
+      {
+        "start": 689.9,
+        "duration": 5.49,
+        "text": "and you know ten million vertices pop up"
+      },
+      {
+        "start": 692.69,
+        "duration": 3.81,
+        "text": "what am I really gonna do right so if"
+      },
+      {
+        "start": 695.39,
+        "duration": 3.75,
+        "text": "you're starting to see symptoms like"
+      },
+      {
+        "start": 696.5,
+        "duration": 8.76,
+        "text": "this in your graph today you may likely"
+      },
+      {
+        "start": 699.14,
+        "duration": 7.88,
+        "text": "have this type of issue alright so that"
+      },
+      {
+        "start": 705.26,
+        "duration": 4.08,
+        "text": "kind of grounds us on on the super node"
+      },
+      {
+        "start": 707.02,
+        "duration": 5.65,
+        "text": "concept itself right we're looking for"
+      },
+      {
+        "start": 709.34,
+        "duration": 5.04,
+        "text": "outliers and adjacency and the trade off"
+      },
+      {
+        "start": 712.67,
+        "duration": 3.84,
+        "text": "of any adjacency list implementation"
+      },
+      {
+        "start": 714.38,
+        "duration": 4.92,
+        "text": "again regardless if it's in memory"
+      },
+      {
+        "start": 716.51,
+        "duration": 5.82,
+        "text": "doubly linked lists however you persist"
+      },
+      {
+        "start": 719.3,
+        "duration": 6.18,
+        "text": "to project your graph model is that too"
+      },
+      {
+        "start": 722.33,
+        "duration": 5.82,
+        "text": "much adjacency causes issues that's at"
+      },
+      {
+        "start": 725.48,
+        "duration": 5.13,
+        "text": "its con you know the core what it is so"
+      },
+      {
+        "start": 728.15,
+        "duration": 4.8,
+        "text": "some common patterns I've noticed and"
+      },
+      {
+        "start": 730.61,
+        "duration": 6.12,
+        "text": "our team at data stacks and in talking"
+      },
+      {
+        "start": 732.95,
+        "duration": 5.97,
+        "text": "with users really you know if you wanted"
+      },
+      {
+        "start": 736.73,
+        "duration": 3.87,
+        "text": "abstract to search there's two there is"
+      },
+      {
+        "start": 738.92,
+        "duration": 3.87,
+        "text": "modeling itself which would cause a"
+      },
+      {
+        "start": 740.6,
+        "duration": 4.53,
+        "text": "super node condition or there's the"
+      },
+      {
+        "start": 742.79,
+        "duration": 3.75,
+        "text": "actual data pipeline all right and"
+      },
+      {
+        "start": 745.13,
+        "duration": 3.57,
+        "text": "what's happening and how I'm they're"
+      },
+      {
+        "start": 746.54,
+        "duration": 4.89,
+        "text": "moving data in into my graph through"
+      },
+      {
+        "start": 748.7,
+        "duration": 4.61,
+        "text": "batch or streaming processing itself so"
+      },
+      {
+        "start": 751.43,
+        "duration": 4.97,
+        "text": "let's take a little bit deeper look here"
+      },
+      {
+        "start": 753.31,
+        "duration": 5.5,
+        "text": "so modeling could be an explicit choice"
+      },
+      {
+        "start": 756.4,
+        "duration": 4.98,
+        "text": "design decision or maybe I did something"
+      },
+      {
+        "start": 758.81,
+        "duration": 6.69,
+        "text": "implicitly and didn't really realize the"
+      },
+      {
+        "start": 761.38,
+        "duration": 6.37,
+        "text": "the impact of my action right so the"
+      },
+      {
+        "start": 765.5,
+        "duration": 4.68,
+        "text": "explicit modeling mistake we see a lot"
+      },
+      {
+        "start": 767.75,
+        "duration": 4.74,
+        "text": "particularly for new users to a property"
+      },
+      {
+        "start": 770.18,
+        "duration": 5.31,
+        "text": "graph model is to do something like this"
+      },
+      {
+        "start": 772.49,
+        "duration": 5.13,
+        "text": "and what this shows is the relationship"
+      },
+      {
+        "start": 775.49,
+        "duration": 5.67,
+        "text": "between a person that resides at an"
+      },
+      {
+        "start": 777.62,
+        "duration": 5.16,
+        "text": "address right and typically folks will"
+      },
+      {
+        "start": 781.16,
+        "duration": 5.22,
+        "text": "want to normalize for whatever reason"
+      },
+      {
+        "start": 782.78,
+        "duration": 4.86,
+        "text": "city out of the address and that works"
+      },
+      {
+        "start": 786.38,
+        "duration": 3.81,
+        "text": "great all right gives you a nice higher"
+      },
+      {
+        "start": 787.64,
+        "duration": 5.97,
+        "text": "and : nice graphical nice graph excuse"
+      },
+      {
+        "start": 790.19,
+        "duration": 6.42,
+        "text": "me view of that relationship works great"
+      },
+      {
+        "start": 793.61,
+        "duration": 5.58,
+        "text": "and this actually works well if I'm"
+      },
+      {
+        "start": 796.61,
+        "duration": 5.04,
+        "text": "traversing from person to city so if I"
+      },
+      {
+        "start": 799.19,
+        "duration": 4.51,
+        "text": "go to per from person they reside maybe"
+      },
+      {
+        "start": 801.65,
+        "duration": 4.84,
+        "text": "you know a handful"
+      },
+      {
+        "start": 803.7,
+        "duration": 6.11,
+        "text": "residence addresses no big deal each"
+      },
+      {
+        "start": 806.49,
+        "duration": 5.79,
+        "text": "address has one city no big deal"
+      },
+      {
+        "start": 809.81,
+        "duration": 5.11,
+        "text": "graphs are really awesome because they"
+      },
+      {
+        "start": 812.28,
+        "duration": 5.07,
+        "text": "provide flexible flexibility at query"
+      },
+      {
+        "start": 814.92,
+        "duration": 5.15,
+        "text": "time that's a concept of traversing I"
+      },
+      {
+        "start": 817.35,
+        "duration": 5.96,
+        "text": "explore graph so we call it traversing"
+      },
+      {
+        "start": 820.07,
+        "duration": 6.48,
+        "text": "as soon as you go from city to address"
+      },
+      {
+        "start": 823.31,
+        "duration": 7.18,
+        "text": "for a city like New York San Francisco"
+      },
+      {
+        "start": 826.55,
+        "duration": 7.99,
+        "text": "Miami BAM there it is you'll see it"
+      },
+      {
+        "start": 830.49,
+        "duration": 5.82,
+        "text": "right same concept applies and we've"
+      },
+      {
+        "start": 834.54,
+        "duration": 4.86,
+        "text": "seen applied to digital asset networks"
+      },
+      {
+        "start": 836.31,
+        "duration": 5.58,
+        "text": "which is another nice use case for graph"
+      },
+      {
+        "start": 839.4,
+        "duration": 5.04,
+        "text": "databases make sense and graph"
+      },
+      {
+        "start": 841.89,
+        "duration": 4.53,
+        "text": "applications is a good graph problem but"
+      },
+      {
+        "start": 844.44,
+        "duration": 4.53,
+        "text": "as soon as you start putting aggregation"
+      },
+      {
+        "start": 846.42,
+        "duration": 4.47,
+        "text": "points into your graph like this with a"
+      },
+      {
+        "start": 848.97,
+        "duration": 4.26,
+        "text": "potential of a cardinality of hundreds"
+      },
+      {
+        "start": 850.89,
+        "duration": 6.2,
+        "text": "of thousands two more all right you're"
+      },
+      {
+        "start": 853.23,
+        "duration": 7.2,
+        "text": "gonna run into it logistics as well"
+      },
+      {
+        "start": 857.09,
+        "duration": 4.93,
+        "text": "logistics is is is interesting I was"
+      },
+      {
+        "start": 860.43,
+        "duration": 3.87,
+        "text": "having a sidebar with something outside"
+      },
+      {
+        "start": 862.02,
+        "duration": 4.11,
+        "text": "about this but same concept right we"
+      },
+      {
+        "start": 864.3,
+        "duration": 3.84,
+        "text": "have a physical representation we're"
+      },
+      {
+        "start": 866.13,
+        "duration": 4.77,
+        "text": "graph we want to physically put that"
+      },
+      {
+        "start": 868.14,
+        "duration": 4.68,
+        "text": "we've mapped it out looks good let's go"
+      },
+      {
+        "start": 870.9,
+        "duration": 4.74,
+        "text": "put it into our graph database whatever"
+      },
+      {
+        "start": 872.82,
+        "duration": 4.38,
+        "text": "that is but as soon as I start from"
+      },
+      {
+        "start": 875.64,
+        "duration": 4.17,
+        "text": "distribution center and I go back to"
+      },
+      {
+        "start": 877.2,
+        "duration": 4.95,
+        "text": "truck without any kind of concept of"
+      },
+      {
+        "start": 879.81,
+        "duration": 5.19,
+        "text": "time I'm probably gonna run into the"
+      },
+      {
+        "start": 882.15,
+        "duration": 5.07,
+        "text": "super node challenge itself so when"
+      },
+      {
+        "start": 885.0,
+        "duration": 5.1,
+        "text": "modeling your data explicitly and graph"
+      },
+      {
+        "start": 887.22,
+        "duration": 5.01,
+        "text": "the number one issue are these"
+      },
+      {
+        "start": 890.1,
+        "duration": 3.96,
+        "text": "hierarchical relationships and not"
+      },
+      {
+        "start": 892.23,
+        "duration": 2.97,
+        "text": "paying attention to cardinality and"
+      },
+      {
+        "start": 894.06,
+        "duration": 2.43,
+        "text": "we'll talk about some mitigation"
+      },
+      {
+        "start": 895.2,
+        "duration": 2.6,
+        "text": "strategies there in just a second as"
+      },
+      {
+        "start": 896.49,
+        "duration": 5.49,
+        "text": "well"
+      },
+      {
+        "start": 897.8,
+        "duration": 6.85,
+        "text": "all right my favorite is this one here"
+      },
+      {
+        "start": 901.98,
+        "duration": 4.11,
+        "text": "because this one represents us right we"
+      },
+      {
+        "start": 904.65,
+        "duration": 3.15,
+        "text": "are all people we know a lot of people"
+      },
+      {
+        "start": 906.09,
+        "duration": 3.87,
+        "text": "this is the basis of like social"
+      },
+      {
+        "start": 907.8,
+        "duration": 3.75,
+        "text": "networking it's the also the canonical"
+      },
+      {
+        "start": 909.96,
+        "duration": 4.86,
+        "text": "model for for any super node or"
+      },
+      {
+        "start": 911.55,
+        "duration": 5.67,
+        "text": "celebrity node type of issue and on the"
+      },
+      {
+        "start": 914.82,
+        "duration": 4.95,
+        "text": "surface it looks nice I have one vertex"
+      },
+      {
+        "start": 917.22,
+        "duration": 4.29,
+        "text": "type one edge type very elegant very"
+      },
+      {
+        "start": 919.77,
+        "duration": 5.19,
+        "text": "extensible I could do a lot with that"
+      },
+      {
+        "start": 921.51,
+        "duration": 6.11,
+        "text": "relationship all right well this is why"
+      },
+      {
+        "start": 924.96,
+        "duration": 4.68,
+        "text": "we have the beads at the very front and"
+      },
+      {
+        "start": 927.62,
+        "duration": 6.31,
+        "text": "Denise talked about this a little bit"
+      },
+      {
+        "start": 929.64,
+        "duration": 5.69,
+        "text": "earlier with her her keynote and just a"
+      },
+      {
+        "start": 933.93,
+        "duration": 3.71,
+        "text": "fun fact"
+      },
+      {
+        "start": 935.33,
+        "duration": 4.29,
+        "text": "I looked up exactly how many Twitter"
+      },
+      {
+        "start": 937.64,
+        "duration": 4.92,
+        "text": "followers both Justin Bieber had and I"
+      },
+      {
+        "start": 939.62,
+        "duration": 4.44,
+        "text": "had he's beaten me by a little bit so"
+      },
+      {
+        "start": 942.56,
+        "duration": 7.47,
+        "text": "he's got a hundred and four million"
+      },
+      {
+        "start": 944.06,
+        "duration": 7.59,
+        "text": "followers I have I 123 I I don't I'm old"
+      },
+      {
+        "start": 950.03,
+        "duration": 6.03,
+        "text": "I don't get social media system that's"
+      },
+      {
+        "start": 951.65,
+        "duration": 6.39,
+        "text": "the thing but yeah so you know if you"
+      },
+      {
+        "start": 956.06,
+        "duration": 4.32,
+        "text": "take that in the context graph"
+      },
+      {
+        "start": 958.04,
+        "duration": 4.08,
+        "text": "traversing everything's fine if you come"
+      },
+      {
+        "start": 960.38,
+        "duration": 3.6,
+        "text": "across me and your your social your"
+      },
+      {
+        "start": 962.12,
+        "duration": 4.23,
+        "text": "social graph right you're gonna keep on"
+      },
+      {
+        "start": 963.98,
+        "duration": 4.86,
+        "text": "going cool you hit you hit the Bieber"
+      },
+      {
+        "start": 966.35,
+        "duration": 5.7,
+        "text": "node because of this relationship all"
+      },
+      {
+        "start": 968.84,
+        "duration": 5.37,
+        "text": "right if everybody is equal and then BAM"
+      },
+      {
+        "start": 972.05,
+        "duration": 4.68,
+        "text": "I'm having some kind of issues because"
+      },
+      {
+        "start": 974.21,
+        "duration": 9.36,
+        "text": "I've just hit an adjacency list with 104"
+      },
+      {
+        "start": 976.73,
+        "duration": 8.52,
+        "text": "million records in it all right so let's"
+      },
+      {
+        "start": 983.57,
+        "duration": 3.0,
+        "text": "shift gears a little bit you know with"
+      },
+      {
+        "start": 985.25,
+        "duration": 4.05,
+        "text": "data modelling I'm either gonna put"
+      },
+      {
+        "start": 986.57,
+        "duration": 4.79,
+        "text": "explicit aggregation points in my graph"
+      },
+      {
+        "start": 989.3,
+        "duration": 4.47,
+        "text": "or I'm gonna create typically a self"
+      },
+      {
+        "start": 991.36,
+        "duration": 4.54,
+        "text": "self type of relationship without really"
+      },
+      {
+        "start": 993.77,
+        "duration": 6.05,
+        "text": "understanding what I'm doing there and"
+      },
+      {
+        "start": 995.9,
+        "duration": 7.02,
+        "text": "all the nuances that could go into that"
+      },
+      {
+        "start": 999.82,
+        "duration": 6.34,
+        "text": "so data pipelines even if I get the"
+      },
+      {
+        "start": 1002.92,
+        "duration": 6.6,
+        "text": "model correct right when we create our"
+      },
+      {
+        "start": 1006.16,
+        "duration": 5.16,
+        "text": "data pipelines and our ingest regardless"
+      },
+      {
+        "start": 1009.52,
+        "duration": 4.35,
+        "text": "again if this is batch or streaming"
+      },
+      {
+        "start": 1011.32,
+        "duration": 6.51,
+        "text": "typically it's going to be both in a"
+      },
+      {
+        "start": 1013.87,
+        "duration": 9.62,
+        "text": "graph space the business rules that"
+      },
+      {
+        "start": 1017.83,
+        "duration": 9.18,
+        "text": "define what we've modeled can change so"
+      },
+      {
+        "start": 1023.49,
+        "duration": 5.349,
+        "text": "this is an example of what I'm talking"
+      },
+      {
+        "start": 1027.01,
+        "duration": 7.05,
+        "text": "about and this comes from a retailer and"
+      },
+      {
+        "start": 1028.839,
+        "duration": 7.261,
+        "text": "this happened in the real world so what"
+      },
+      {
+        "start": 1034.06,
+        "duration": 4.529,
+        "text": "this represents is a very simple view of"
+      },
+      {
+        "start": 1036.1,
+        "duration": 4.77,
+        "text": "what would be a product catalog and"
+      },
+      {
+        "start": 1038.589,
+        "duration": 5.941,
+        "text": "product catalogs again map nicely to the"
+      },
+      {
+        "start": 1040.87,
+        "duration": 6.48,
+        "text": "graph space very hierarchical nature a"
+      },
+      {
+        "start": 1044.53,
+        "duration": 4.92,
+        "text": "lot of relationships we care about both"
+      },
+      {
+        "start": 1047.35,
+        "duration": 3.6,
+        "text": "the attributes associated with products"
+      },
+      {
+        "start": 1049.45,
+        "duration": 4.11,
+        "text": "as much as we do the products and how"
+      },
+      {
+        "start": 1050.95,
+        "duration": 4.32,
+        "text": "those things relate but also gives us"
+      },
+      {
+        "start": 1053.56,
+        "duration": 6.09,
+        "text": "the flexibility to overlay things like"
+      },
+      {
+        "start": 1055.27,
+        "duration": 6.42,
+        "text": "supply chain and adjust yeah"
+      },
+      {
+        "start": 1059.65,
+        "duration": 5.25,
+        "text": "inventory into our product catalog as"
+      },
+      {
+        "start": 1061.69,
+        "duration": 5.82,
+        "text": "well but this simple example highlights"
+      },
+      {
+        "start": 1064.9,
+        "duration": 3.57,
+        "text": "a business rule change a change of our"
+      },
+      {
+        "start": 1067.51,
+        "duration": 5.23,
+        "text": "data"
+      },
+      {
+        "start": 1068.47,
+        "duration": 6.16,
+        "text": "that happened in the ingest process that"
+      },
+      {
+        "start": 1072.74,
+        "duration": 4.049,
+        "text": "no one on the application team"
+      },
+      {
+        "start": 1074.63,
+        "duration": 4.769,
+        "text": "understood until it happened so a"
+      },
+      {
+        "start": 1076.789,
+        "duration": 5.071,
+        "text": "marketer at a company this a product"
+      },
+      {
+        "start": 1079.399,
+        "duration": 4.801,
+        "text": "marketer decided to change how they"
+      },
+      {
+        "start": 1081.86,
+        "duration": 4.199,
+        "text": "wanted to view their product catalog"
+      },
+      {
+        "start": 1084.2,
+        "duration": 4.199,
+        "text": "they wanted to go from like a"
+      },
+      {
+        "start": 1086.059,
+        "duration": 3.99,
+        "text": "individuals called a hammer individual"
+      },
+      {
+        "start": 1088.399,
+        "duration": 3.571,
+        "text": "thing with a whole bunch of flexible"
+      },
+      {
+        "start": 1090.049,
+        "duration": 4.531,
+        "text": "tags they changed the grain the"
+      },
+      {
+        "start": 1091.97,
+        "duration": 3.63,
+        "text": "granularity of it and they blew out what"
+      },
+      {
+        "start": 1094.58,
+        "duration": 3.14,
+        "text": "it meant to be a product they changed"
+      },
+      {
+        "start": 1095.6,
+        "duration": 5.189,
+        "text": "the definition of a product from being a"
+      },
+      {
+        "start": 1097.72,
+        "duration": 5.199,
+        "text": "single hammer to now hammer blue and red"
+      },
+      {
+        "start": 1100.789,
+        "duration": 4.711,
+        "text": "yellow Hummer and green hammer red right"
+      },
+      {
+        "start": 1102.919,
+        "duration": 5.401,
+        "text": "and they never told anybody on this nice"
+      },
+      {
+        "start": 1105.5,
+        "duration": 5.7,
+        "text": "product product catalog team so what"
+      },
+      {
+        "start": 1108.32,
+        "duration": 5.04,
+        "text": "happened well the impact because of the"
+      },
+      {
+        "start": 1111.2,
+        "duration": 4.199,
+        "text": "model here is that we just blew out the"
+      },
+      {
+        "start": 1113.36,
+        "duration": 4.71,
+        "text": "number of products we had and our"
+      },
+      {
+        "start": 1115.399,
+        "duration": 4.14,
+        "text": "product vertex type and so that nice"
+      },
+      {
+        "start": 1118.07,
+        "duration": 3.089,
+        "text": "relationship of going from a sub"
+      },
+      {
+        "start": 1119.539,
+        "duration": 3.451,
+        "text": "category that they spent a good amount"
+      },
+      {
+        "start": 1121.159,
+        "duration": 3.661,
+        "text": "of time making sure it would work and be"
+      },
+      {
+        "start": 1122.99,
+        "duration": 4.08,
+        "text": "performant they measured it they tested"
+      },
+      {
+        "start": 1124.82,
+        "duration": 7.739,
+        "text": "it went to prod just blew up all the"
+      },
+      {
+        "start": 1127.07,
+        "duration": 6.69,
+        "text": "rules chains on them right I know this"
+      },
+      {
+        "start": 1132.559,
+        "duration": 3.24,
+        "text": "is probably the only time that's ever"
+      },
+      {
+        "start": 1133.76,
+        "duration": 3.81,
+        "text": "happened that you know your data changes"
+      },
+      {
+        "start": 1135.799,
+        "duration": 2.97,
+        "text": "and no one told you about it or maybe"
+      },
+      {
+        "start": 1137.57,
+        "duration": 2.91,
+        "text": "you know somebody marketing did"
+      },
+      {
+        "start": 1138.769,
+        "duration": 6.181,
+        "text": "something without talking to the the"
+      },
+      {
+        "start": 1140.48,
+        "duration": 7.199,
+        "text": "folks in IT but data pipelines you know"
+      },
+      {
+        "start": 1144.95,
+        "duration": 4.469,
+        "text": "we got to be smart with what we do with"
+      },
+      {
+        "start": 1147.679,
+        "duration": 4.051,
+        "text": "the data going into our graph protect"
+      },
+      {
+        "start": 1149.419,
+        "duration": 3.99,
+        "text": "ourselves a little bit and I know the"
+      },
+      {
+        "start": 1151.73,
+        "duration": 3.929,
+        "text": "the second point here doesn't apply to"
+      },
+      {
+        "start": 1153.409,
+        "duration": 5.161,
+        "text": "anybody in this room but sometimes like"
+      },
+      {
+        "start": 1155.659,
+        "duration": 7.441,
+        "text": "coding defects can also result in this"
+      },
+      {
+        "start": 1158.57,
+        "duration": 6.87,
+        "text": "at the scenario so again the common"
+      },
+      {
+        "start": 1163.1,
+        "duration": 5.25,
+        "text": "patterns I i've seen we've seen you know"
+      },
+      {
+        "start": 1165.44,
+        "duration": 5.579,
+        "text": "that cause super nodes explicit modeling"
+      },
+      {
+        "start": 1168.35,
+        "duration": 5.309,
+        "text": "like just not really being aware that"
+      },
+      {
+        "start": 1171.019,
+        "duration": 5.76,
+        "text": "implicit relationships and then you know"
+      },
+      {
+        "start": 1173.659,
+        "duration": 4.77,
+        "text": "setting up I would call it naive data"
+      },
+      {
+        "start": 1176.779,
+        "duration": 3.181,
+        "text": "pipeline it's gonna graph right because"
+      },
+      {
+        "start": 1178.429,
+        "duration": 3.901,
+        "text": "the relationships matter so much we need"
+      },
+      {
+        "start": 1179.96,
+        "duration": 4.319,
+        "text": "to pay attention there all right so"
+      },
+      {
+        "start": 1182.33,
+        "duration": 3.569,
+        "text": "let's shift gears and talk about how we"
+      },
+      {
+        "start": 1184.279,
+        "duration": 4.171,
+        "text": "can mitigate what we can do to mitigate"
+      },
+      {
+        "start": 1185.899,
+        "duration": 4.681,
+        "text": "some of some of these items so to kind"
+      },
+      {
+        "start": 1188.45,
+        "duration": 3.839,
+        "text": "of mitigate the impact or the potential"
+      },
+      {
+        "start": 1190.58,
+        "duration": 5.76,
+        "text": "that a super node will make it into our"
+      },
+      {
+        "start": 1192.289,
+        "duration": 6.951,
+        "text": "graph anybody like the shield yeah no"
+      },
+      {
+        "start": 1196.34,
+        "duration": 2.9,
+        "text": "okay"
+      },
+      {
+        "start": 1199.37,
+        "duration": 6.19,
+        "text": "okay so you know I look at this as"
+      },
+      {
+        "start": 1203.13,
+        "duration": 5.13,
+        "text": "having three three main things we're"
+      },
+      {
+        "start": 1205.56,
+        "duration": 4.35,
+        "text": "gonna do and doctor Gosnell spoke about"
+      },
+      {
+        "start": 1208.26,
+        "duration": 3.9,
+        "text": "the first one a little bit and I'm gonna"
+      },
+      {
+        "start": 1209.91,
+        "duration": 4.83,
+        "text": "tease it up some as well no your"
+      },
+      {
+        "start": 1212.16,
+        "duration": 4.98,
+        "text": "cardinality profile your data get a good"
+      },
+      {
+        "start": 1214.74,
+        "duration": 4.08,
+        "text": "representative sample of your data you"
+      },
+      {
+        "start": 1217.14,
+        "duration": 3.0,
+        "text": "know even though these graph"
+      },
+      {
+        "start": 1218.82,
+        "duration": 3.57,
+        "text": "applications or graph problems are"
+      },
+      {
+        "start": 1220.14,
+        "duration": 4.17,
+        "text": "showing up more in transactional more"
+      },
+      {
+        "start": 1222.39,
+        "duration": 4.38,
+        "text": "rapid you know application development"
+      },
+      {
+        "start": 1224.31,
+        "duration": 5.76,
+        "text": "cycles more transactional systems if you"
+      },
+      {
+        "start": 1226.77,
+        "duration": 6.69,
+        "text": "will there's a lot of techniques to be"
+      },
+      {
+        "start": 1230.07,
+        "duration": 5.16,
+        "text": "used from data science when preparing"
+      },
+      {
+        "start": 1233.46,
+        "duration": 2.88,
+        "text": "the data to be used in a graph and we'll"
+      },
+      {
+        "start": 1235.23,
+        "duration": 3.53,
+        "text": "talk about some of those in particular"
+      },
+      {
+        "start": 1236.34,
+        "duration": 2.42,
+        "text": "here"
+      },
+      {
+        "start": 1239.04,
+        "duration": 6.39,
+        "text": "second one is know the tools you have so"
+      },
+      {
+        "start": 1243.66,
+        "duration": 5.22,
+        "text": "the nice part about the graph database"
+      },
+      {
+        "start": 1245.43,
+        "duration": 5.28,
+        "text": "industry it is maturing and we as"
+      },
+      {
+        "start": 1248.88,
+        "duration": 3.72,
+        "text": "database vendors have come across this"
+      },
+      {
+        "start": 1250.71,
+        "duration": 4.2,
+        "text": "with our customers and we're doing"
+      },
+      {
+        "start": 1252.6,
+        "duration": 4.68,
+        "text": "things to help prevent this know the"
+      },
+      {
+        "start": 1254.91,
+        "duration": 3.84,
+        "text": "tools you have to prevent this type of"
+      },
+      {
+        "start": 1257.28,
+        "duration": 4.02,
+        "text": "system if you're gonna go property graph"
+      },
+      {
+        "start": 1258.75,
+        "duration": 4.53,
+        "text": "your potential with the run into a super"
+      },
+      {
+        "start": 1261.3,
+        "duration": 3.87,
+        "text": "node is there your database vendor"
+      },
+      {
+        "start": 1263.28,
+        "duration": 6.84,
+        "text": "probably probably provides some kind of"
+      },
+      {
+        "start": 1265.17,
+        "duration": 6.96,
+        "text": "solution for you use it and third let's"
+      },
+      {
+        "start": 1270.12,
+        "duration": 3.63,
+        "text": "be smart with our data pipelines since"
+      },
+      {
+        "start": 1272.13,
+        "duration": 6.11,
+        "text": "of what that that's this so let's dive"
+      },
+      {
+        "start": 1273.75,
+        "duration": 6.66,
+        "text": "into each one of these data profiling"
+      },
+      {
+        "start": 1278.24,
+        "duration": 4.12,
+        "text": "this is like actually where I get"
+      },
+      {
+        "start": 1280.41,
+        "duration": 4.8,
+        "text": "excited about data and it's not that"
+      },
+      {
+        "start": 1282.36,
+        "duration": 5.07,
+        "text": "great but this can be a whole talk or"
+      },
+      {
+        "start": 1285.21,
+        "duration": 3.84,
+        "text": "conference on its own I'm gonna provide"
+      },
+      {
+        "start": 1287.43,
+        "duration": 3.92,
+        "text": "a couple of simple techniques you can"
+      },
+      {
+        "start": 1289.05,
+        "duration": 4.89,
+        "text": "use in the graph space and apply those"
+      },
+      {
+        "start": 1291.35,
+        "duration": 5.14,
+        "text": "the real concepts around data profiling"
+      },
+      {
+        "start": 1293.94,
+        "duration": 4.77,
+        "text": "graph world is understand not the number"
+      },
+      {
+        "start": 1296.49,
+        "duration": 5.31,
+        "text": "of entities I have or the types of"
+      },
+      {
+        "start": 1298.71,
+        "duration": 5.61,
+        "text": "entities I have but it's really how many"
+      },
+      {
+        "start": 1301.8,
+        "duration": 4.23,
+        "text": "relationships do I have what do these"
+      },
+      {
+        "start": 1304.32,
+        "duration": 3.15,
+        "text": "adjacency lists what are they gonna look"
+      },
+      {
+        "start": 1306.03,
+        "duration": 4.41,
+        "text": "like and we're gonna be looking for"
+      },
+      {
+        "start": 1307.47,
+        "duration": 6.0,
+        "text": "outliers and for folks that are new to"
+      },
+      {
+        "start": 1310.44,
+        "duration": 4.92,
+        "text": "graph or don't have analytics background"
+      },
+      {
+        "start": 1313.47,
+        "duration": 4.59,
+        "text": "I just put a couple examples up there"
+      },
+      {
+        "start": 1315.36,
+        "duration": 7.32,
+        "text": "for no reason but to two main things we"
+      },
+      {
+        "start": 1318.06,
+        "duration": 8.49,
+        "text": "can do simple counts or looking at"
+      },
+      {
+        "start": 1322.68,
+        "duration": 6.78,
+        "text": "histograms all right and the point of"
+      },
+      {
+        "start": 1326.55,
+        "duration": 5.16,
+        "text": "this is to find again those outliers so"
+      },
+      {
+        "start": 1329.46,
+        "duration": 5.43,
+        "text": "a very simple thing we can do would"
+      },
+      {
+        "start": 1331.71,
+        "duration": 4.92,
+        "text": "profiling data for graphs is to create a"
+      },
+      {
+        "start": 1334.89,
+        "duration": 4.919,
+        "text": "single source of data which represents"
+      },
+      {
+        "start": 1336.63,
+        "duration": 5.669,
+        "text": "your agent a Jason C list that's"
+      },
+      {
+        "start": 1339.809,
+        "duration": 4.201,
+        "text": "representative try to get a good sample"
+      },
+      {
+        "start": 1342.299,
+        "duration": 3.0,
+        "text": "and that is a hard problem itself when"
+      },
+      {
+        "start": 1344.01,
+        "duration": 2.549,
+        "text": "we're talking about very large data sets"
+      },
+      {
+        "start": 1345.299,
+        "duration": 3.99,
+        "text": "but do your best to get a good"
+      },
+      {
+        "start": 1346.559,
+        "duration": 6.061,
+        "text": "representative sample and then count how"
+      },
+      {
+        "start": 1349.289,
+        "duration": 5.701,
+        "text": "many edges exist are coming out of one"
+      },
+      {
+        "start": 1352.62,
+        "duration": 5.7,
+        "text": "vertex and the same with the other side"
+      },
+      {
+        "start": 1354.99,
+        "duration": 7.26,
+        "text": "so up here two simple counts y-axis are"
+      },
+      {
+        "start": 1358.32,
+        "duration": 7.65,
+        "text": "a number of adjacent vertices x-axis or"
+      },
+      {
+        "start": 1362.25,
+        "duration": 5.549,
+        "text": "actual vertex IDs all right this is a"
+      },
+      {
+        "start": 1365.97,
+        "duration": 3.449,
+        "text": "made-up example but what we're seeing"
+      },
+      {
+        "start": 1367.799,
+        "duration": 6.661,
+        "text": "here is the relationship going from b1"
+      },
+      {
+        "start": 1369.419,
+        "duration": 8.551,
+        "text": "to b2 we would know this first vertex 1"
+      },
+      {
+        "start": 1374.46,
+        "duration": 5.189,
+        "text": "V 19 is AB normally connected in our"
+      },
+      {
+        "start": 1377.97,
+        "duration": 4.17,
+        "text": "graph it's an outlier that we may need"
+      },
+      {
+        "start": 1379.649,
+        "duration": 4.02,
+        "text": "to pay attention to and the same thing"
+      },
+      {
+        "start": 1382.14,
+        "duration": 5.31,
+        "text": "on the other side is to make sure to"
+      },
+      {
+        "start": 1383.669,
+        "duration": 6.0,
+        "text": "check the other side I'd edge right and"
+      },
+      {
+        "start": 1387.45,
+        "duration": 4.74,
+        "text": "the same thing here now personally I"
+      },
+      {
+        "start": 1389.669,
+        "duration": 4.201,
+        "text": "like this view a little bit better say"
+      },
+      {
+        "start": 1392.19,
+        "duration": 3.93,
+        "text": "they're both bar charts but this is a"
+      },
+      {
+        "start": 1393.87,
+        "duration": 4.38,
+        "text": "histogram and what we're looking at here"
+      },
+      {
+        "start": 1396.12,
+        "duration": 4.62,
+        "text": "are the number of occurrences of"
+      },
+      {
+        "start": 1398.25,
+        "duration": 4.77,
+        "text": "connectivity so not just simple counts"
+      },
+      {
+        "start": 1400.74,
+        "duration": 5.25,
+        "text": "and what's cool about this and histogram"
+      },
+      {
+        "start": 1403.02,
+        "duration": 5.61,
+        "text": "so on the Left we have number of"
+      },
+      {
+        "start": 1405.99,
+        "duration": 6.9,
+        "text": "occurrences and on the bottom our x-axis"
+      },
+      {
+        "start": 1408.63,
+        "duration": 7.529,
+        "text": "is number of connections right and so we"
+      },
+      {
+        "start": 1412.89,
+        "duration": 6.029,
+        "text": "can see here as most of our vertices our"
+      },
+      {
+        "start": 1416.159,
+        "duration": 6.39,
+        "text": "agency lists in fact this little sample"
+      },
+      {
+        "start": 1418.919,
+        "duration": 7.171,
+        "text": "was 60 something 70 something vertices"
+      },
+      {
+        "start": 1422.549,
+        "duration": 6.12,
+        "text": "in it have you know a hundred ish or so"
+      },
+      {
+        "start": 1426.09,
+        "duration": 4.68,
+        "text": "connections but what's cool about"
+      },
+      {
+        "start": 1428.669,
+        "duration": 4.351,
+        "text": "histograms is whenever you see this long"
+      },
+      {
+        "start": 1430.77,
+        "duration": 4.92,
+        "text": "tail to the right that indicates an"
+      },
+      {
+        "start": 1433.02,
+        "duration": 4.56,
+        "text": "outlier and even if it's just a count of"
+      },
+      {
+        "start": 1435.69,
+        "duration": 3.81,
+        "text": "one you'll see it and it immediately"
+      },
+      {
+        "start": 1437.58,
+        "duration": 3.93,
+        "text": "pops out and that's the thing you really"
+      },
+      {
+        "start": 1439.5,
+        "duration": 5.1,
+        "text": "want to watch in graph graph modeling"
+      },
+      {
+        "start": 1441.51,
+        "duration": 7.139,
+        "text": "right so over here we have maybe one"
+      },
+      {
+        "start": 1444.6,
+        "duration": 6.63,
+        "text": "instance of a vertex with 900 adjacent"
+      },
+      {
+        "start": 1448.649,
+        "duration": 4.14,
+        "text": "vertices again this is just a mocked up"
+      },
+      {
+        "start": 1451.23,
+        "duration": 3.09,
+        "text": "example that shows you know leveraging"
+      },
+      {
+        "start": 1452.789,
+        "duration": 4.951,
+        "text": "histograms for profiling for a graph"
+      },
+      {
+        "start": 1454.32,
+        "duration": 4.849,
+        "text": "space all right so that's great we have"
+      },
+      {
+        "start": 1457.74,
+        "duration": 4.26,
+        "text": "some outliers what do we do about it"
+      },
+      {
+        "start": 1459.169,
+        "duration": 5.951,
+        "text": "this is what it comes down to and graph"
+      },
+      {
+        "start": 1462.0,
+        "duration": 3.4,
+        "text": "modeling right and really it comes on"
+      },
+      {
+        "start": 1465.12,
+        "duration": 2.02,
+        "text": "this"
+      },
+      {
+        "start": 1465.4,
+        "duration": 3.99,
+        "text": "simple choice and this is why graph"
+      },
+      {
+        "start": 1467.14,
+        "duration": 5.19,
+        "text": "modeling still a bit of an art and that"
+      },
+      {
+        "start": 1469.39,
+        "duration": 4.32,
+        "text": "is do I create a new vertex type new no"
+      },
+      {
+        "start": 1472.33,
+        "duration": 4.89,
+        "text": "type with an edge"
+      },
+      {
+        "start": 1473.71,
+        "duration": 6.93,
+        "text": "who do I nest that as a property in an"
+      },
+      {
+        "start": 1477.22,
+        "duration": 5.37,
+        "text": "existing vertex type so if you apply"
+      },
+      {
+        "start": 1480.64,
+        "duration": 5.21,
+        "text": "this to some of the explicit examples we"
+      },
+      {
+        "start": 1482.59,
+        "duration": 6.42,
+        "text": "saw earlier around people address city"
+      },
+      {
+        "start": 1485.85,
+        "duration": 5.35,
+        "text": "logical choice is to take city and just"
+      },
+      {
+        "start": 1489.01,
+        "duration": 3.51,
+        "text": "make it a property of address all right"
+      },
+      {
+        "start": 1491.2,
+        "duration": 5.91,
+        "text": "and then you can act on it and act on it"
+      },
+      {
+        "start": 1492.52,
+        "duration": 5.79,
+        "text": "safely all right this is where dr."
+      },
+      {
+        "start": 1497.11,
+        "duration": 2.34,
+        "text": "Gosnell spoke about this again this"
+      },
+      {
+        "start": 1498.31,
+        "duration": 2.91,
+        "text": "morning but this is where you'll spend a"
+      },
+      {
+        "start": 1499.45,
+        "duration": 4.65,
+        "text": "lot of time do I create a new vertex"
+      },
+      {
+        "start": 1501.22,
+        "duration": 11.04,
+        "text": "type or do I nest a property in existing"
+      },
+      {
+        "start": 1504.1,
+        "duration": 10.08,
+        "text": "vertex type ok no I you know I would"
+      },
+      {
+        "start": 1512.26,
+        "duration": 4.62,
+        "text": "still say the graph database market"
+      },
+      {
+        "start": 1514.18,
+        "duration": 4.74,
+        "text": "itself is is youngish compared to other"
+      },
+      {
+        "start": 1516.88,
+        "duration": 4.82,
+        "text": "worlds but as I mentioned we are"
+      },
+      {
+        "start": 1518.92,
+        "duration": 5.49,
+        "text": "learning and the vendors are providing"
+      },
+      {
+        "start": 1521.7,
+        "duration": 5.71,
+        "text": "some some tools and techniques to solve"
+      },
+      {
+        "start": 1524.41,
+        "duration": 5.82,
+        "text": "these based on my research most of the"
+      },
+      {
+        "start": 1527.41,
+        "duration": 5.85,
+        "text": "graph databases that use adjacency lists"
+      },
+      {
+        "start": 1530.23,
+        "duration": 7.32,
+        "text": "also provide this first item vertex"
+      },
+      {
+        "start": 1533.26,
+        "duration": 6.63,
+        "text": "centric indexes and we'll talk about"
+      },
+      {
+        "start": 1537.55,
+        "duration": 5.07,
+        "text": "what that is but that is a tool that's"
+      },
+      {
+        "start": 1539.89,
+        "duration": 5.01,
+        "text": "designed to help if you've persisted"
+      },
+      {
+        "start": 1542.62,
+        "duration": 3.93,
+        "text": "super nodes to help mitigate the chance"
+      },
+      {
+        "start": 1544.9,
+        "duration": 4.92,
+        "text": "that during traversal time you'll have"
+      },
+      {
+        "start": 1546.55,
+        "duration": 6.0,
+        "text": "issues that normally come come with"
+      },
+      {
+        "start": 1549.82,
+        "duration": 4.53,
+        "text": "super nodes to make it real simple"
+      },
+      {
+        "start": 1552.55,
+        "duration": 3.66,
+        "text": "the selectivity thing that denise showed"
+      },
+      {
+        "start": 1554.35,
+        "duration": 4.7,
+        "text": "earlier this is a tool this is a"
+      },
+      {
+        "start": 1556.21,
+        "duration": 6.72,
+        "text": "specialized index to help with that"
+      },
+      {
+        "start": 1559.05,
+        "duration": 5.23,
+        "text": "partitioning strategies right so this is"
+      },
+      {
+        "start": 1562.93,
+        "duration": 4.08,
+        "text": "a technique that we've all in the data"
+      },
+      {
+        "start": 1564.28,
+        "duration": 4.89,
+        "text": "world known for a long time and you can"
+      },
+      {
+        "start": 1567.01,
+        "duration": 3.45,
+        "text": "either do this manually or your database"
+      },
+      {
+        "start": 1569.17,
+        "duration": 3.0,
+        "text": "vendors will have some kind of"
+      },
+      {
+        "start": 1570.46,
+        "duration": 3.96,
+        "text": "optimization to allow you to partition"
+      },
+      {
+        "start": 1572.17,
+        "duration": 5.3,
+        "text": "your data to break up those long super"
+      },
+      {
+        "start": 1574.42,
+        "duration": 5.88,
+        "text": "nodes and do something about them and"
+      },
+      {
+        "start": 1577.47,
+        "duration": 4.42,
+        "text": "finally this is where there's"
+      },
+      {
+        "start": 1580.3,
+        "duration": 3.69,
+        "text": "differentiation between the different"
+      },
+      {
+        "start": 1581.89,
+        "duration": 3.9,
+        "text": "database vendors some vendors will offer"
+      },
+      {
+        "start": 1583.99,
+        "duration": 2.57,
+        "text": "like hash based indexing to help solve"
+      },
+      {
+        "start": 1585.79,
+        "duration": 3.63,
+        "text": "this problem"
+      },
+      {
+        "start": 1586.56,
+        "duration": 5.5,
+        "text": "others like DC graph does this as well"
+      },
+      {
+        "start": 1589.42,
+        "duration": 4.98,
+        "text": "we'll have a term or Lucene indexing in"
+      },
+      {
+        "start": 1592.06,
+        "duration": 4.02,
+        "text": "there so you can do different types of"
+      },
+      {
+        "start": 1594.4,
+        "duration": 5.239,
+        "text": "modeling and take advantage of some some"
+      },
+      {
+        "start": 1596.08,
+        "duration": 9.449,
+        "text": "indexing to get the results"
+      },
+      {
+        "start": 1599.639,
+        "duration": 8.201,
+        "text": "all right so vertex centric indexes the"
+      },
+      {
+        "start": 1605.529,
+        "duration": 4.291,
+        "text": "goal here is to go from that linear"
+      },
+      {
+        "start": 1607.84,
+        "duration": 5.699,
+        "text": "relationship between adjacency list size"
+      },
+      {
+        "start": 1609.82,
+        "duration": 7.849,
+        "text": "and query performance if you will and to"
+      },
+      {
+        "start": 1613.539,
+        "duration": 7.14,
+        "text": "get it either two constant that's ideal"
+      },
+      {
+        "start": 1617.669,
+        "duration": 5.98,
+        "text": "theoretical idea I would say but at"
+      },
+      {
+        "start": 1620.679,
+        "duration": 4.291,
+        "text": "least to make it logarithmic and what"
+      },
+      {
+        "start": 1623.649,
+        "duration": 3.33,
+        "text": "we're gonna do is essentially be"
+      },
+      {
+        "start": 1624.97,
+        "duration": 6.209,
+        "text": "selective and create some optimized"
+      },
+      {
+        "start": 1626.979,
+        "duration": 8.491,
+        "text": "indexes so that when we are selective in"
+      },
+      {
+        "start": 1631.179,
+        "duration": 6.48,
+        "text": "our traversals we can get some local to"
+      },
+      {
+        "start": 1635.47,
+        "duration": 3.629,
+        "text": "the vertex performance gains and we"
+      },
+      {
+        "start": 1637.659,
+        "duration": 3.6,
+        "text": "don't have to pull in that whole"
+      },
+      {
+        "start": 1639.099,
+        "duration": 4.17,
+        "text": "adjacency list and do filtering there"
+      },
+      {
+        "start": 1641.259,
+        "duration": 3.3,
+        "text": "it'll happen for us and we have an index"
+      },
+      {
+        "start": 1643.269,
+        "duration": 4.83,
+        "text": "structure built for that type of"
+      },
+      {
+        "start": 1644.559,
+        "duration": 5.46,
+        "text": "instance so the flip for BC is is you"
+      },
+      {
+        "start": 1648.099,
+        "duration": 4.92,
+        "text": "have to be selective you have to build"
+      },
+      {
+        "start": 1650.019,
+        "duration": 4.35,
+        "text": "them and this is I I am like 98%"
+      },
+      {
+        "start": 1653.019,
+        "duration": 2.61,
+        "text": "insurance is for all the BCI"
+      },
+      {
+        "start": 1654.369,
+        "duration": 3.571,
+        "text": "implementations least the ones I've been"
+      },
+      {
+        "start": 1655.629,
+        "duration": 6.47,
+        "text": "able to research and you have to be"
+      },
+      {
+        "start": 1657.94,
+        "duration": 7.409,
+        "text": "selective and how you use them so here"
+      },
+      {
+        "start": 1662.099,
+        "duration": 7.29,
+        "text": "think of that person knows relationship"
+      },
+      {
+        "start": 1665.349,
+        "duration": 7.741,
+        "text": "right we saw earlier in the modeling and"
+      },
+      {
+        "start": 1669.389,
+        "duration": 5.86,
+        "text": "ooh I should have changed out my my"
+      },
+      {
+        "start": 1673.09,
+        "duration": 4.86,
+        "text": "graph in the Miller my chart oh well"
+      },
+      {
+        "start": 1675.249,
+        "duration": 4.5,
+        "text": "so to leverage the VCI we would do"
+      },
+      {
+        "start": 1677.95,
+        "duration": 3.809,
+        "text": "something like instead of just give me"
+      },
+      {
+        "start": 1679.749,
+        "duration": 4.05,
+        "text": "all of the the vertices that are"
+      },
+      {
+        "start": 1681.759,
+        "duration": 4.02,
+        "text": "connected to Justin Bieber which could"
+      },
+      {
+        "start": 1683.799,
+        "duration": 5.1,
+        "text": "represent anything like people he's"
+      },
+      {
+        "start": 1685.779,
+        "duration": 5.1,
+        "text": "following people following him takes no"
+      },
+      {
+        "start": 1688.899,
+        "duration": 4.2,
+        "text": "context of time how long has somebody"
+      },
+      {
+        "start": 1690.879,
+        "duration": 5.16,
+        "text": "been following we can ride our traversal"
+      },
+      {
+        "start": 1693.099,
+        "duration": 5.55,
+        "text": "so that we pull out all of the followed"
+      },
+      {
+        "start": 1696.039,
+        "duration": 4.95,
+        "text": "by a edges from a certain point in time"
+      },
+      {
+        "start": 1698.649,
+        "duration": 4.59,
+        "text": "and that certain point in time is gonna"
+      },
+      {
+        "start": 1700.989,
+        "duration": 4.49,
+        "text": "be very very fast with a vertex centric"
+      },
+      {
+        "start": 1703.239,
+        "duration": 9.24,
+        "text": "indexes and get them give us that nice"
+      },
+      {
+        "start": 1705.479,
+        "duration": 7.87,
+        "text": "performance gain ok partitioning from"
+      },
+      {
+        "start": 1712.479,
+        "duration": 2.55,
+        "text": "what I've seen in the graph space"
+      },
+      {
+        "start": 1713.349,
+        "duration": 3.45,
+        "text": "partitioning comes in again one of two"
+      },
+      {
+        "start": 1715.029,
+        "duration": 3.48,
+        "text": "flavors you have this manual"
+      },
+      {
+        "start": 1716.799,
+        "duration": 5.791,
+        "text": "partitioning I used to call it starting"
+      },
+      {
+        "start": 1718.509,
+        "duration": 6.571,
+        "text": "and you know old school days and this I"
+      },
+      {
+        "start": 1722.59,
+        "duration": 2.969,
+        "text": "believe is what LinkedIn does for their"
+      },
+      {
+        "start": 1725.08,
+        "duration": 3.059,
+        "text": "graph"
+      },
+      {
+        "start": 1725.559,
+        "duration": 4.261,
+        "text": "they isolate super nodes into their own"
+      },
+      {
+        "start": 1728.139,
+        "duration": 2.951,
+        "text": "schema and their own structure on their"
+      },
+      {
+        "start": 1729.82,
+        "duration": 4.3,
+        "text": "own set of servers"
+      },
+      {
+        "start": 1731.09,
+        "duration": 6.45,
+        "text": "that traversing super nodes kind of has"
+      },
+      {
+        "start": 1734.12,
+        "duration": 6.09,
+        "text": "its own path and they have the ability"
+      },
+      {
+        "start": 1737.54,
+        "duration": 4.29,
+        "text": "to not impact other users and they have"
+      },
+      {
+        "start": 1740.21,
+        "duration": 5.94,
+        "text": "resources set up to handle this"
+      },
+      {
+        "start": 1741.83,
+        "duration": 7.92,
+        "text": "explicitly but the idea is pretty simple"
+      },
+      {
+        "start": 1746.15,
+        "duration": 6.3,
+        "text": "I can either isolate my super nodes when"
+      },
+      {
+        "start": 1749.75,
+        "duration": 5.18,
+        "text": "I know I have them or maybe I want to"
+      },
+      {
+        "start": 1752.45,
+        "duration": 5.64,
+        "text": "break up that super node and create new"
+      },
+      {
+        "start": 1754.93,
+        "duration": 5.71,
+        "text": "vertices that are obfuscated for my user"
+      },
+      {
+        "start": 1758.09,
+        "duration": 5.01,
+        "text": "by partitioning chunking bucketing"
+      },
+      {
+        "start": 1760.64,
+        "duration": 6.69,
+        "text": "insert ending term that talks about that"
+      },
+      {
+        "start": 1763.1,
+        "duration": 7.47,
+        "text": "there some of the graph databases"
+      },
+      {
+        "start": 1767.33,
+        "duration": 6.93,
+        "text": "themselves can do this for you depending"
+      },
+      {
+        "start": 1770.57,
+        "duration": 5.58,
+        "text": "on how they're set up so I'll just break"
+      },
+      {
+        "start": 1774.26,
+        "duration": 3.69,
+        "text": "this is like something in DC graph will"
+      },
+      {
+        "start": 1776.15,
+        "duration": 2.76,
+        "text": "project a graph onto Cassandra that"
+      },
+      {
+        "start": 1777.95,
+        "duration": 3.81,
+        "text": "allows us to leverage the Cassandra"
+      },
+      {
+        "start": 1778.91,
+        "duration": 5.19,
+        "text": "partitioning schema itself to change the"
+      },
+      {
+        "start": 1781.76,
+        "duration": 7.05,
+        "text": "granularity of a vertex to mitigate this"
+      },
+      {
+        "start": 1784.1,
+        "duration": 6.93,
+        "text": "type of scenario and finally with with"
+      },
+      {
+        "start": 1788.81,
+        "duration": 5.52,
+        "text": "data pipelines this is where we get a"
+      },
+      {
+        "start": 1791.03,
+        "duration": 6.63,
+        "text": "little more theory and the basic concept"
+      },
+      {
+        "start": 1794.33,
+        "duration": 7.49,
+        "text": "is don't let any super nodes into your"
+      },
+      {
+        "start": 1797.66,
+        "duration": 8.51,
+        "text": "graph and to do that in theory you would"
+      },
+      {
+        "start": 1801.82,
+        "duration": 7.48,
+        "text": "track connectiveness on ingest and"
+      },
+      {
+        "start": 1806.17,
+        "duration": 5.56,
+        "text": "disallow super nodes to enter whether"
+      },
+      {
+        "start": 1809.3,
+        "duration": 4.59,
+        "text": "you're talking through batch or you know"
+      },
+      {
+        "start": 1811.73,
+        "duration": 3.87,
+        "text": "some kind of stream processing in theory"
+      },
+      {
+        "start": 1813.89,
+        "duration": 3.72,
+        "text": "that sounds great the practical notion"
+      },
+      {
+        "start": 1815.6,
+        "duration": 4.29,
+        "text": "there is overhead and trying to do this"
+      },
+      {
+        "start": 1817.61,
+        "duration": 5.37,
+        "text": "so be smart when you try to apply this"
+      },
+      {
+        "start": 1819.89,
+        "duration": 4.56,
+        "text": "technique so to apply this technique you"
+      },
+      {
+        "start": 1822.98,
+        "duration": 4.05,
+        "text": "can do things like in your application"
+      },
+      {
+        "start": 1824.45,
+        "duration": 5.19,
+        "text": "servers keep like some kind of"
+      },
+      {
+        "start": 1827.03,
+        "duration": 5.04,
+        "text": "probabilistic index probabilistic"
+      },
+      {
+        "start": 1829.64,
+        "duration": 3.57,
+        "text": "metadata some probabilistic count of"
+      },
+      {
+        "start": 1832.07,
+        "duration": 4.44,
+        "text": "connectiveness"
+      },
+      {
+        "start": 1833.21,
+        "duration": 5.52,
+        "text": "right and use that Denise mentioned how"
+      },
+      {
+        "start": 1836.51,
+        "duration": 4.83,
+        "text": "old Twitter did this with counters"
+      },
+      {
+        "start": 1838.73,
+        "duration": 4.14,
+        "text": "inside of Cassandra and well I say"
+      },
+      {
+        "start": 1841.34,
+        "duration": 3.99,
+        "text": "probabilistic it doesn't matter if your"
+      },
+      {
+        "start": 1842.87,
+        "duration": 5.46,
+        "text": "exact you just need to err on the side"
+      },
+      {
+        "start": 1845.33,
+        "duration": 5.28,
+        "text": "of not creating a super node right so it"
+      },
+      {
+        "start": 1848.33,
+        "duration": 5.22,
+        "text": "needs to be good enough you can also"
+      },
+      {
+        "start": 1850.61,
+        "duration": 4.8,
+        "text": "store counts you know like a caching"
+      },
+      {
+        "start": 1853.55,
+        "duration": 4.47,
+        "text": "layer in your database as well and just"
+      },
+      {
+        "start": 1855.41,
+        "duration": 6.24,
+        "text": "use them and be selective where you use"
+      },
+      {
+        "start": 1858.02,
+        "duration": 5.01,
+        "text": "them if you have a higher propensity to"
+      },
+      {
+        "start": 1861.65,
+        "duration": 2.57,
+        "text": "create a super node on a certain vertex"
+      },
+      {
+        "start": 1863.03,
+        "duration": 3.35,
+        "text": "type may"
+      },
+      {
+        "start": 1864.22,
+        "duration": 4.199,
+        "text": "it happens possible you've seen through"
+      },
+      {
+        "start": 1866.38,
+        "duration": 3.929,
+        "text": "your batch party pipeline"
+      },
+      {
+        "start": 1868.419,
+        "duration": 3.75,
+        "text": "well maybe put a stage gate there that"
+      },
+      {
+        "start": 1870.309,
+        "duration": 4.11,
+        "text": "does a quick check for the connectedness"
+      },
+      {
+        "start": 1872.169,
+        "duration": 5.941,
+        "text": "of each individual vertex as it's"
+      },
+      {
+        "start": 1874.419,
+        "duration": 4.951,
+        "text": "flowing in and just don't allow the the"
+      },
+      {
+        "start": 1878.11,
+        "duration": 9.809,
+        "text": "vertices to flow in that will create"
+      },
+      {
+        "start": 1879.37,
+        "duration": 11.809,
+        "text": "supernovae okay so mitigation strategies"
+      },
+      {
+        "start": 1887.919,
+        "duration": 6.451,
+        "text": "know your cardinality profile your data"
+      },
+      {
+        "start": 1891.179,
+        "duration": 5.561,
+        "text": "make that hard trade-off for a text or"
+      },
+      {
+        "start": 1894.37,
+        "duration": 5.46,
+        "text": "property and be intelligent about about"
+      },
+      {
+        "start": 1896.74,
+        "duration": 4.89,
+        "text": "the impacts of doing so and write good"
+      },
+      {
+        "start": 1899.83,
+        "duration": 5.25,
+        "text": "data pipelines that protect yourselves"
+      },
+      {
+        "start": 1901.63,
+        "duration": 10.07,
+        "text": "from doing this all right so what do you"
+      },
+      {
+        "start": 1905.08,
+        "duration": 9.42,
+        "text": "do if you have a super node well first"
+      },
+      {
+        "start": 1911.7,
+        "duration": 6.7,
+        "text": "we're gonna need to identify if we truly"
+      },
+      {
+        "start": 1914.5,
+        "duration": 6.809,
+        "text": "have a super node in our graph most of"
+      },
+      {
+        "start": 1918.4,
+        "duration": 4.95,
+        "text": "time error message won't say hey you hit"
+      },
+      {
+        "start": 1921.309,
+        "duration": 4.291,
+        "text": "a super node you'll get back a timeout"
+      },
+      {
+        "start": 1923.35,
+        "duration": 4.439,
+        "text": "you'll get back like some kind of"
+      },
+      {
+        "start": 1925.6,
+        "duration": 5.4,
+        "text": "warning that your traversal has been"
+      },
+      {
+        "start": 1927.789,
+        "duration": 5.281,
+        "text": "unlimited right something symptomatic is"
+      },
+      {
+        "start": 1931.0,
+        "duration": 5.1,
+        "text": "going to be displayed to you as an"
+      },
+      {
+        "start": 1933.07,
+        "duration": 4.77,
+        "text": "operator or developer and so you have"
+      },
+      {
+        "start": 1936.1,
+        "duration": 3.66,
+        "text": "the job to figure out what's going on"
+      },
+      {
+        "start": 1937.84,
+        "duration": 5.01,
+        "text": "and if you see any of those symptoms"
+      },
+      {
+        "start": 1939.76,
+        "duration": 5.31,
+        "text": "it's good to go check for the existence"
+      },
+      {
+        "start": 1942.85,
+        "duration": 3.63,
+        "text": "of super nodes and to do so we can do"
+      },
+      {
+        "start": 1945.07,
+        "duration": 4.77,
+        "text": "things like check out our application"
+      },
+      {
+        "start": 1946.48,
+        "duration": 5.13,
+        "text": "logs and correlate high CPU or high"
+      },
+      {
+        "start": 1949.84,
+        "duration": 3.06,
+        "text": "resource utilization or database servers"
+      },
+      {
+        "start": 1951.61,
+        "duration": 3.84,
+        "text": "with the same timestamps as our App"
+      },
+      {
+        "start": 1952.9,
+        "duration": 4.83,
+        "text": "servers maybe we have auditing turned on"
+      },
+      {
+        "start": 1955.45,
+        "duration": 4.709,
+        "text": "in our application and we know what"
+      },
+      {
+        "start": 1957.73,
+        "duration": 5.67,
+        "text": "traversals timed out sweet let's use"
+      },
+      {
+        "start": 1960.159,
+        "duration": 5.25,
+        "text": "those vertex types or those edges or the"
+      },
+      {
+        "start": 1963.4,
+        "duration": 5.279,
+        "text": "filter condition something to narrow"
+      },
+      {
+        "start": 1965.409,
+        "duration": 7.171,
+        "text": "down our search for this super node"
+      },
+      {
+        "start": 1968.679,
+        "duration": 5.851,
+        "text": "itself you can be smart about using"
+      },
+      {
+        "start": 1972.58,
+        "duration": 6.74,
+        "text": "either your graph level or your database"
+      },
+      {
+        "start": 1974.53,
+        "duration": 7.5,
+        "text": "file level indicators of super node so"
+      },
+      {
+        "start": 1979.32,
+        "duration": 5.08,
+        "text": "an example this would be in like a DC"
+      },
+      {
+        "start": 1982.03,
+        "duration": 3.899,
+        "text": "graph or titanor janus as well anything"
+      },
+      {
+        "start": 1984.4,
+        "duration": 3.389,
+        "text": "on top of the Cassandra or projecting"
+      },
+      {
+        "start": 1985.929,
+        "duration": 3.961,
+        "text": "graph on top of Cassandra look for wide"
+      },
+      {
+        "start": 1987.789,
+        "duration": 3.39,
+        "text": "partitions in Cassandra that's pretty"
+      },
+      {
+        "start": 1989.89,
+        "duration": 3.98,
+        "text": "easy to do these days that's gonna"
+      },
+      {
+        "start": 1991.179,
+        "duration": 4.801,
+        "text": "indicate hey I have a super node and I"
+      },
+      {
+        "start": 1993.87,
+        "duration": 3.9,
+        "text": "wants to know why we can talk afterwards"
+      },
+      {
+        "start": 1995.98,
+        "duration": 3.87,
+        "text": "about how that model is projected there"
+      },
+      {
+        "start": 1997.77,
+        "duration": 3.52,
+        "text": "but you can use you know look at your"
+      },
+      {
+        "start": 1999.85,
+        "duration": 3.15,
+        "text": "database file sizes or any kind of"
+      },
+      {
+        "start": 2001.29,
+        "duration": 3.09,
+        "text": "statistics around that as well if you're"
+      },
+      {
+        "start": 2003.0,
+        "duration": 4.38,
+        "text": "projecting your graph on top of a"
+      },
+      {
+        "start": 2004.38,
+        "duration": 4.35,
+        "text": "relational model look up just statistics"
+      },
+      {
+        "start": 2007.38,
+        "duration": 4.98,
+        "text": "there you should be able to figure that"
+      },
+      {
+        "start": 2008.73,
+        "duration": 5.58,
+        "text": "out pretty good pretty quickly third if"
+      },
+      {
+        "start": 2012.36,
+        "duration": 5.43,
+        "text": "you have to walk your graph to find this"
+      },
+      {
+        "start": 2014.31,
+        "duration": 5.12,
+        "text": "do that intelligently if you're able to"
+      },
+      {
+        "start": 2017.79,
+        "duration": 4.89,
+        "text": "maybe depending on the size your graph"
+      },
+      {
+        "start": 2019.43,
+        "duration": 4.96,
+        "text": "you know use something like i graph take"
+      },
+      {
+        "start": 2022.68,
+        "duration": 2.34,
+        "text": "the graph put it into a single lead"
+      },
+      {
+        "start": 2024.39,
+        "duration": 2.61,
+        "text": "contained"
+      },
+      {
+        "start": 2025.02,
+        "duration": 5.19,
+        "text": "analytical structure and then do some"
+      },
+      {
+        "start": 2027.0,
+        "duration": 6.44,
+        "text": "connectedness right or run things in"
+      },
+      {
+        "start": 2030.21,
+        "duration": 5.88,
+        "text": "background real low processing impact"
+      },
+      {
+        "start": 2033.44,
+        "duration": 4.77,
+        "text": "alright once you find it you have"
+      },
+      {
+        "start": 2036.09,
+        "duration": 4.38,
+        "text": "essentially two choices throw it away"
+      },
+      {
+        "start": 2038.21,
+        "duration": 4.3,
+        "text": "all right that is the easiest thing to"
+      },
+      {
+        "start": 2040.47,
+        "duration": 4.59,
+        "text": "do or we're talking about some kind of"
+      },
+      {
+        "start": 2042.51,
+        "duration": 4.74,
+        "text": "form of surgery right and for some"
+      },
+      {
+        "start": 2045.06,
+        "duration": 4.829,
+        "text": "people with transient graphs just"
+      },
+      {
+        "start": 2047.25,
+        "duration": 4.2,
+        "text": "deleting is cool and it's like awesome"
+      },
+      {
+        "start": 2049.889,
+        "duration": 4.74,
+        "text": "because that's the easiest thing we can"
+      },
+      {
+        "start": 2051.45,
+        "duration": 6.27,
+        "text": "do the next two twice's as far as like"
+      },
+      {
+        "start": 2054.629,
+        "duration": 5.131,
+        "text": "you know impact from it like surgery"
+      },
+      {
+        "start": 2057.72,
+        "duration": 4.02,
+        "text": "level we're talking like outpatient"
+      },
+      {
+        "start": 2059.76,
+        "duration": 3.75,
+        "text": "maybe i just chunk up that partition I"
+      },
+      {
+        "start": 2061.74,
+        "duration": 3.96,
+        "text": "read it out all right I'd take that"
+      },
+      {
+        "start": 2063.51,
+        "duration": 4.74,
+        "text": "adjacency list that vertex out I break"
+      },
+      {
+        "start": 2065.7,
+        "duration": 4.76,
+        "text": "it up into you know finer grained and i"
+      },
+      {
+        "start": 2068.25,
+        "duration": 5.37,
+        "text": "just insert back in don't touch my model"
+      },
+      {
+        "start": 2070.46,
+        "duration": 5.469,
+        "text": "the third and the most in you know most"
+      },
+      {
+        "start": 2073.62,
+        "duration": 6.269,
+        "text": "invasive would be changing your actual"
+      },
+      {
+        "start": 2075.929,
+        "duration": 5.551,
+        "text": "graph model to mitigate whatever is"
+      },
+      {
+        "start": 2079.889,
+        "duration": 5.75,
+        "text": "causing your super nodes begin with"
+      },
+      {
+        "start": 2081.48,
+        "duration": 6.24,
+        "text": "alright so you find the super node"
+      },
+      {
+        "start": 2085.639,
+        "duration": 4.24,
+        "text": "identifying it you think you have a"
+      },
+      {
+        "start": 2087.72,
+        "duration": 5.459,
+        "text": "super node identify it and then act on"
+      },
+      {
+        "start": 2089.879,
+        "duration": 9.151,
+        "text": "it remove it change something in your"
+      },
+      {
+        "start": 2093.179,
+        "duration": 7.141,
+        "text": "model if needed alright so just one more"
+      },
+      {
+        "start": 2099.03,
+        "duration": 3.27,
+        "text": "observation then we'll wrap this whole"
+      },
+      {
+        "start": 2100.32,
+        "duration": 5.1,
+        "text": "thing up"
+      },
+      {
+        "start": 2102.3,
+        "duration": 4.98,
+        "text": "you know what we've come across working"
+      },
+      {
+        "start": 2105.42,
+        "duration": 4.05,
+        "text": "with users is that there are common"
+      },
+      {
+        "start": 2107.28,
+        "duration": 4.35,
+        "text": "pitfalls where super nodes will occur in"
+      },
+      {
+        "start": 2109.47,
+        "duration": 4.83,
+        "text": "your property models so for things and"
+      },
+      {
+        "start": 2111.63,
+        "duration": 4.65,
+        "text": "and these are very common graph use"
+      },
+      {
+        "start": 2114.3,
+        "duration": 3.63,
+        "text": "cases by the way that we see over and"
+      },
+      {
+        "start": 2116.28,
+        "duration": 4.05,
+        "text": "over and other database vendors speak to"
+      },
+      {
+        "start": 2117.93,
+        "duration": 5.76,
+        "text": "as well so customer 360s watch out for"
+      },
+      {
+        "start": 2120.33,
+        "duration": 6.0,
+        "text": "your address that city you know state"
+      },
+      {
+        "start": 2123.69,
+        "duration": 5.16,
+        "text": "any kind of country again that people"
+      },
+      {
+        "start": 2126.33,
+        "duration": 4.789,
+        "text": "that social relationship and the third"
+      },
+      {
+        "start": 2128.85,
+        "duration": 4.79,
+        "text": "is organizational structures"
+      },
+      {
+        "start": 2131.119,
+        "duration": 4.261,
+        "text": "I can tell you firsthand organizational"
+      },
+      {
+        "start": 2133.64,
+        "duration": 2.969,
+        "text": "structures don't you think about"
+      },
+      {
+        "start": 2135.38,
+        "duration": 2.969,
+        "text": "supernovas you don't typically think of"
+      },
+      {
+        "start": 2136.609,
+        "duration": 4.98,
+        "text": "millions of people working at a single"
+      },
+      {
+        "start": 2138.349,
+        "duration": 4.621,
+        "text": "company but depending on how you"
+      },
+      {
+        "start": 2141.589,
+        "duration": 3.061,
+        "text": "structure that organizational structure"
+      },
+      {
+        "start": 2142.97,
+        "duration": 3.51,
+        "text": "maybe there are parent companies which"
+      },
+      {
+        "start": 2144.65,
+        "duration": 3.689,
+        "text": "own many different companies you could"
+      },
+      {
+        "start": 2146.48,
+        "duration": 4.98,
+        "text": "potentially have the super node thing"
+      },
+      {
+        "start": 2148.339,
+        "duration": 5.43,
+        "text": "happen they're digital assets and"
+      },
+      {
+        "start": 2151.46,
+        "duration": 4.079,
+        "text": "networking again any aggregation point"
+      },
+      {
+        "start": 2153.769,
+        "duration": 3.09,
+        "text": "and then the second thing is really"
+      },
+      {
+        "start": 2155.539,
+        "duration": 5.28,
+        "text": "interesting when you start talking about"
+      },
+      {
+        "start": 2156.859,
+        "duration": 7.4,
+        "text": "events and adding you know IOT data into"
+      },
+      {
+        "start": 2160.819,
+        "duration": 8.25,
+        "text": "your graph if you get a million events"
+      },
+      {
+        "start": 2164.259,
+        "duration": 6.911,
+        "text": "from one sensor a day all right setting"
+      },
+      {
+        "start": 2169.069,
+        "duration": 4.411,
+        "text": "yourself up for you know and you model"
+      },
+      {
+        "start": 2171.17,
+        "duration": 3.899,
+        "text": "that out for a super node so when you're"
+      },
+      {
+        "start": 2173.48,
+        "duration": 3.18,
+        "text": "ever talking about sensor data make sure"
+      },
+      {
+        "start": 2175.069,
+        "duration": 3.45,
+        "text": "you're chunking and using the concept of"
+      },
+      {
+        "start": 2176.66,
+        "duration": 5.089,
+        "text": "time to limit that in your property"
+      },
+      {
+        "start": 2178.519,
+        "duration": 5.79,
+        "text": "model or you have a solution around that"
+      },
+      {
+        "start": 2181.749,
+        "duration": 4.36,
+        "text": "you know a product catalog we kind of"
+      },
+      {
+        "start": 2184.309,
+        "duration": 5.31,
+        "text": "spoke about the first two supply chains"
+      },
+      {
+        "start": 2186.109,
+        "duration": 5.73,
+        "text": "as well very nice graph problem and"
+      },
+      {
+        "start": 2189.619,
+        "duration": 4.64,
+        "text": "2-ply graph not technology to solve for"
+      },
+      {
+        "start": 2191.839,
+        "duration": 7.02,
+        "text": "but very easily to set up super nodes"
+      },
+      {
+        "start": 2194.259,
+        "duration": 5.83,
+        "text": "all right so just to wrap up today we"
+      },
+      {
+        "start": 2198.859,
+        "duration": 4.351,
+        "text": "just went through a lot of material"
+      },
+      {
+        "start": 2200.089,
+        "duration": 5.041,
+        "text": "pretty quickly we have a good nice"
+      },
+      {
+        "start": 2203.21,
+        "duration": 4.829,
+        "text": "grounding and formal understanding of"
+      },
+      {
+        "start": 2205.13,
+        "duration": 5.639,
+        "text": "what a super node is right it is an"
+      },
+      {
+        "start": 2208.039,
+        "duration": 5.07,
+        "text": "anomaly and adjacency list size we"
+      },
+      {
+        "start": 2210.769,
+        "duration": 4.171,
+        "text": "talked about common patterns you know"
+      },
+      {
+        "start": 2213.109,
+        "duration": 3.72,
+        "text": "how people create these accidentally or"
+      },
+      {
+        "start": 2214.94,
+        "duration": 4.409,
+        "text": "how super nodes come into your property"
+      },
+      {
+        "start": 2216.829,
+        "duration": 5.371,
+        "text": "graph some common techniques to mitigate"
+      },
+      {
+        "start": 2219.349,
+        "duration": 5.581,
+        "text": "the chances that they they will and then"
+      },
+      {
+        "start": 2222.2,
+        "duration": 4.71,
+        "text": "what to do once you finally have a suit"
+      },
+      {
+        "start": 2224.93,
+        "duration": 4.02,
+        "text": "if you get a super node when you get a"
+      },
+      {
+        "start": 2226.91,
+        "duration": 4.349,
+        "text": "super node in your property graph model"
+      },
+      {
+        "start": 2228.95,
+        "duration": 5.43,
+        "text": "and then shameless plug time we're"
+      },
+      {
+        "start": 2231.259,
+        "duration": 4.951,
+        "text": "hiring across company engineers sales"
+      },
+      {
+        "start": 2234.38,
+        "duration": 3.51,
+        "text": "marketing a whole bit if you want to"
+      },
+      {
+        "start": 2236.21,
+        "duration": 5.279,
+        "text": "know more about the product you can come"
+      },
+      {
+        "start": 2237.89,
+        "duration": 6.8,
+        "text": "talk to me out here or go to this site"
+      },
+      {
+        "start": 2241.489,
+        "duration": 3.201,
+        "text": "here thank you"
+      },
+      {
+        "start": 2244.839,
+        "duration": 2.061,
+        "text": "you"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T05:53:20.258274+00:00"
+}

@@ -1,0 +1,2874 @@
+{
+  "video_id": "At8hBHJJtF4",
+  "title": "Distributed Data Show Episode 51: Graph Tips and Tricks with Ted Wilmes",
+  "description": "David and Jeff talk with Ted Wilmes from Expero about best practices regarding DSE Graph and the importance of proper data modeling.\n\nHighlights\n0:16 - David goes through introductions and gets an answer about who/what is Expero\n0:57 - Expero has the best swag and David realizes his laptop is already wearing some\n2:13 - What does Expero help developers understand?\n3:55 - Ted explains why core DSE data modeling is so important because everything you do in DSE Graph eventually maps down to your model\n4:39 - Potential graph pitfalls from not understanding implications of the underlying data model\n6:40 - We dig a little deeper into the how and why some models might cause larger and less performant partitions\n10:04 - Temptation to take a logical (whiteboard) drawing and code it directly into the actual data model\n11:15 - Ted talks to some other challenges with writing large datasets, data streams, and maintaining a production graph\n12:59 - Finding a balance between read and write operations and potentially using a cache to reduce unnecessary reads\n14:38 - Performance considerations when dealing with reads\n17:04 - Best practices when using indexes in DSE Graph\n19:45 - Understanding data model implications are required for performance at scale\n21:23 - Parting words on the importance of checking out DataStax Academy and the value of watching some of the intro to Apache Cassandra videos\n\n\nABOUT DATASTAX ENTERPRISE 6\nDataStax  powers  the  Right-Now  Enterprise  with  the  always-on,  distributed  cloud  database  built  on  Apache  Cassandra™  and designed for hybrid cloud. DataStax Enterprise 6 (DSE 6) includes industry-leading performance, self-driving operational simplicity, and robust analytics.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://www.datastax.com/products/datastax-enterprise-6\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datast",
+  "published_at": "2018-06-12T15:00:00Z",
+  "thumbnail": "https://i.ytimg.com/vi/At8hBHJJtF4/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "data_modeling",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "performance",
+    "talk",
+    "introduction",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=At8hBHJJtF4",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems hello and welcome to another episode of the distributed data show I'm David Gilardi a Technical Evangelist here data stacks along with me is Jeff carpenter a fellow evangelist and we have Ted Wilmes from XP row are you doing all right all right so first question what's its peril good question so expiry consulting company we do a lot of software development and we have a great UX and front-end design team and we're actually partners with data stacks so as part of that we do a lot of work with DC graph and the other data stacks components okay now I just realized something I don't realize it before uh-huh but I think we have the graph yeah grab his new bacon and B I like B graphs and I cannot lie those are they those aren't those are those are totally yours aren't they like okay that is some experience way oh yeah full disclosure I just put the bling onto here wearing Ted's got its heads got more swag I mean you guys have good swag game yeah let me see about you can we see this connoisseur slash your swag yeah it's the grass too awesome well this is this is how we measure your credibility as an engineer in this world of distributed data no connection though our sales guy will he'll appreciate that okay so you passed the first test but once you get in the door with your Deathstar t-shirt you know I'll do a customer graph star yes sir what are the kinds of things that that you see cuz you as you mentioned you are doing you know applications of data sacks enterprise graph and your I assume hoping helping to get customers up to speed and competent and just firing on all cylinders with DSC graph so what are the kinds of things that your helping developers understand when you're kind of you know walking in the door first experience with DSC graph and a new customer yeah no that's a great question so it's it's kind of interesting we were on a with DSC graph from the beginning and so we got to see it as it was first rolling out and there was a number of customers who were starting to use it who were already DSC customers and they were very aware of you know how Cassandra worked how search worked all those different pieces but then there was a whole new class of customer where we would show up start working with them they were excited about graph but it was also their first experience with DSC so my first experience with Cassandra or any of those components having used spark before or any of that so it's a case where you have two things that are very new and kind of complex and interesting technologies at the same time so on the one hand they're excited about using graph but on the other side of it they don't know much about kind of the underlying component so the thing that I think we found and that I've seen going forward is that it's really important to have just an understanding of the internals of DSC in general as you're picking up speed on that graph piece because if you've come to DSC graph chances are maybe not in all cases but chances are you're gonna want to run a you know fairly sizable amount of data through the system um you know some people aren't but a lot of people are or at least have have hopes to be doing that at some point so it's really important once you get out of that hey I ran it on my laptop phase to understand what's really going on here cuz I'm gonna actually have to operate this thing at scale yeah okay so what is it that you want them to know so I'd say probably probably first thing is is you're kind of working through your gremlin tutorial getting excited about tinker pop and all those pieces don't shy away from the data stacks Academy courses on just like what is Cassandra what is a partition key how do I design a table in Cassandra because everything you do in DSC graph is mapping down to things that were already present and all the other DSC components and so the implications of you model it and graph will become very relevant as you go forward how that translates down to those TSE components okay well you know that kind of hmm kind of starts into another thing I was just thinking about is like maybe what are some of the pitfalls you can run into if you don't understand the underlying data store right because there's this clear connection there so do you have any thoughts on that yeah so one really good example that comes up just kind of over and over again is you come from the relational world relational data model is very flexible you look at the graph model on the face of it that is also very flexible like you can take anything put it into a graph Kremlin's very expressive you can write a gremlin traversal to do anything that you wanted to use like so that's great it's so it's easy to get something going and so when you start making your graph you may have some of the same same tendencies as you would in a relational database one example would be to normalize your data model which to a certain extent you still do in graph but I can give you kind of one concrete example say you have just use you know kind of the canonical social network example and you want to have some information about a user's location in it like the state that they're in so let's say we have a few hundred million users in our system and so they're all pointing to your models very simple like user and then a state vertex okay okay so the classic everybody who's probably been in graph a little bit they're probably sick of this word was this the super node problem you know where you're gonna have a ton of people pointing to this single state very natural sort of thing you would do in your relational database you know somebody say normalize it do that in the graph and how the data actually maps down to Cassandra what you can end up having at the Cassandra level are these partitions that become basically too wide and then you run into operational issues so that's an example where we still want to store that data in the graph but we may not actually normalize that quite as far we may actually just stored is like a property on those on people let's dig into this a little bit more because I want to make sure that we understand that mapping is what you're saying here that that lets say California is vertex in the graph and it's modeled as a partition in a cassandra table kind of under the covers if states are for texas or nodes in our graph then that's get a map to an underlying table and cassandra and then the relationships that map to that are what's going to cause that partitioning to get too wide is it something like that or exactly yeah so so the way that it's going to be stored if you just you know start up DSC graph and in DSC graph you have the ability to define your graph schema so you can create two new vertex labels say like a state and a person and then maybe an edge like a lives in edge so if you just go look you're gonna go if you go to the CQ l shell if anybody's familiar with Cassandra you can just look at how all this stuff is laid out that's the other kind of nice part of this is exposed you can see it you'll be able to see that there's gonna be two tables per vertex label one's gonna store the properties on the vertex and one's gonna store the edges that are associated with that vertex okay and so what can happen is you're adding edges in all these things are partitioned is they would be in regular old because they're just regular that's regular old Cassandra under the covers so the way that they're partitioned those edges are going to be essentially partitioned by the vertex IDs you could think about it so each of vertex is gonna have this partition of edges associated with it coordinate both directions but I'll try not to go too far into the weeds here that would basically can end up happening is you say you have a a million edges off of a vertex you're gonna have a partition that resolves to some very large number of rows in it and up to a point that works and but it will slowly degrade as it gets you know larger and larger he's incredibly right Cassandra are familiar with that problem hmm okay so how is that a a normalization problem that's the one other aspect of how you stated things that I wanted to dig into yeah the way that I like to think about it is sometimes you hear about graphs you think whiteboard friendly that comes up a lot people say I can go draw my data model on the board and then that's what's gonna end up in the database right in certain cases that can work so then the relational world people are very used to kind of not really the opposite but something different where you have a logical model and I have a physical model and the physical model that goes in the database may look a little bit different than my logical model did and graph for better or worse on the face of it is very friendly it's a very friendly data modeling paradigm and so people don't realize necessarily that they're we're still running this on computers they're complicated systems there's trade-offs and sometimes that models not gonna look as pristine as you want it so when I'm talking about normalization I'm talking about kind of that tendency to maybe make this very nice normalized model versus making some tactical decisions where you change that model to be more performant because of the system that is running out so it sounds like there's a temptation to take a whiteboard drawing which might be a form of a conceptual or logical model and just say okay I'm just gonna code that right up in graph and you know it's like without thinking about the considerations you could actually means make it look like that in studio because there's the schema viewer that takes a stuff you say like look I I correctly replicated the whiteboard drawing and look it looks just like this in the schema viewer I must have done it right yeah exactly and that in certain cases that'll work and that's fine but especially as you grow out in scale a number of nodes and things like that it becomes important to kind of step away from that and you guys said I think Dave pepper around a few weeks ago who had the pleasure with working with at one point and he liked how he put it I think he said pragmatic graph and that's that's my that's my philosophy exactly you need to be pragmatic about these decisions okay so so you know I already I think just talking about the data modeling aspect right we're we're already talking about what it sounds like are some challenges that people ran - do you have any other like any other challenges that that people run into and then how to address those types of things yeah I think another thing that comes up frequently is okay I have the my graphs set up again just by the nature of these projects they usually start out is a very small sort of thing where you're kind of kicking the tires but then you want to actually load some quantity of data in it you're not just running you to test anymore you want to actually like load this thing up with a billion vertices and so do see graph comes with a really nice tool called DAC graph loader which which can take a number of different formats and help you load data from CS peas or other things like that and that has some optimizations built into it and it allows you to load data pretty quickly but then people also want to move from doing say just a bulk load to like oh I'm running you know I've kafka data coming in real time how do I actually load this graph up and maintain it and then at that point you're gonna be writing some code and so the things there that we like to look at are one some common things are you know a lot of times people will have a large number of say reads in their right path that's a big performance killer if you can get away from having to say read a value every time you go in to write something right you can get a big boost there and if you take that kind of ratio from 50/50 readwrite to maybe more like 90% right you know 10% read you can make a big difference especially since DSC provides the nice functionality of being able to have multiple data centers where you can actually drive a lot of say right load into one and then serve read traffic out of another so this that's one so let's but want to pick that apart for a second so what's what's happening there is it that I have to in order to load data in my graph I'm actually have to have to do a read first like I'm consistency checking something or how do people kind of find their saw themselves in that situation of doing of mixing and reeds with rites yeah so one so what maybe one good example would be it's there isn't an out of the box say like uniqueness constraint that you can turn on with TSE graph so if you have excuse our person you know Twitter user example here where it's like well we want to make sure there's only one person with so-and-so's handle in the system so there's there's not a way to enforce that at the system level so then that moves up into the application layer and so one kind of first crack at trying to handle that may be like okay well before I write this user every time I do it I'm gonna go check the database to see if they already exist which that already is problematic skin yeah it's already problematic from a race condition perspective probably really won't work but it's also introducing this potentially unnecessary read so we could do there is are there certain values that we're always just kind of looking up from the database these kind of point lookups maybe cache them somewhere else where we can get a much quicker latency just to look up that one little thing and then just drive all that right traffic into into a DAC graph okay that's a great example okay yeah so all right so we're talking about maybe some of the challenges especially with data loading and in people like getting data into the graph how about if we flip that around right to the the read performance standpoint how about any any feel as far as performance considerations things like that yeah yeah I think so a lot of times for both these scenarios a lot of it really comes back to again the data modeling sound like a broken record properly but like Cassandra all the time to actually if you think about one thing that I really like about the about Cassandra and kind of the way cuz Sanders has been presented for a month educational perspective is a focus on queries fer and then like what are the read what do we need to read out of this thing okay now let's develop our data model based upon that to a certain extent graph is similar it's a little deceiving though again because if you look at the graph model itself it's it's not as obvious it's not like if you look at cql and it's like I literally can't join anything you know I just can't do it that's different you can do whatever you want um but that doesn't necessarily mean it's gonna be performant so we start with the modeling there we look at okay you need to perform the sort of pattern to grab you know this amount of data out of the system how many vertices is that can have to touch with this model all those traversals that's just translating down to i/o against this Cassandra cluster so you can pretty easily write a gremlin query that resolves to you know under the few hundred thousand basically read requests against your cluster okay maybe one person doing that that's fine but then if we actually want to try to scale this thing out that's probably not you know it's not tenable so what can we do with that model to cut down on the number of say reads we need to do always measure you know if something slow don't just start twiddling you know knobs changing steps out on your gremlin traversal you know look at the profile step look at the results that come out of that studio is a really nice display of that so measure and and then just keep in mind what's going on down at that Cassandra layer when you execute your queries so is there um you know as far as both read and write performance right you know one thing we haven't really touched about so much like indexes do you have a particular take on some maybe some best practices around indexing and how you should use that to help or hopefully not hinder your read or write performance yeah that's a good question so index is the documentation has some some pretty good recommendations there's kind of broadly speaking two sorts of indexes in DSC graph there's global indexes which allow you to look up ok out of this whole world of vertices I want to look up all the vertices that match some property your number and then there's vertex centric indexes which say okay I'm at a vertex I have a hundred edges here I want to filter them out efficiently by some predicate right so there's those two types on the first type is where you actually have some decisions to make you can use materialized view and Cassandra a secondary index or DSC search index again this is kind of very clearly showing the user like hey you probably should understand what that means in Cassandra language when you're making your decision about this so for indexes the biggest I think hurdle that people can run into is sometimes they want to look up things that their queries are not selective at all so that's probably the biggest issue where it's like I want to do the equivalent of you know almost a select star maybe not a full graph scan but give me all the people that are in Texas who are using my social network platform and I want it in 200 milliseconds or something like that so the bigger that that's to me and so it's it's sometimes like you need to identify what the graph is good at access pattern wise and then what might be just better in a Cassandra table and so it's there's differences between the different indexes type but to in kind of common practice the bigger issue I've seen in is is that point where it's like the index isn't really going to be able to help you with this you need to think about being able to create kind of a materialized view this data in a form that can that can you know meet your latency requirements nice and no I noticed that you use the quote fingers on the materialized what was that about a material like a Cassandra but you not eyes can say that at realize you know I guess the other term the other term might be another read model okay mother no that's a good clarification okay so you know I think you're really calling out something that I think is important we when we talk about Cassandra are constantly harping on data models and the importance of understanding and you know sometimes people push back against that and they'll they'll say well you know it should just work and why do I have to think so hard about I don't know what all my read patterns are that I'm possibly going to ever need why do I have to think about them up front but I feel like you're using you know a system a database like Cassandra like DSE and with DSE graph you're using it because you have these characteristics where you need the high performance at very large scales and so you are not absolved of having to think about the implications if you want the performance at scale then yeah you're gonna have to think about your data model whether it's Cassandra or graph I mean am i right any database that I've ever used where it were it hasn't just been kind of you know if it's a small set of data it you know fits in memory on a single machine okay that's that's then you're kind of absolved of some of these issues but in reality it doesn't matter if it's Oracle or sequel server I mean that's why there's loads of Oracle DBAs out there and there's you know 30 plus years of engineering in that system and it's but they're just as computers they're running programs they have to do stuff there's no magic here so like you need to learn these these parts if you really want to make this system work well yep awesome - you have any parting words for us on just thoughts on how people get good how to get smart at graph data modeling yeah I guess I'd say like I said you know if you're just starting out on a graph project you're new to graph you're new to Cassandra I mean I I know it's a fire hose of information you need to take in so I'm not saying like you need to become a guru on all these different parts but I think something like at least spending some time on data sex Academy watching some of the intro Cassandra videos I think it will be well worth it you will have a better understanding down the road as to what's going on why things are slow and really save yourself some time in the future so take your time now it'll take a little extra time but I it'll pay dividends going forward excellent well thank you for the words of wisdom Ted we've really enjoyed having you on this week's show and thanks everyone for watching listening engaging with this content however it is that you do that thanks and we'll see you next time thank you thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data Stax Academy and tell us what you think you can also find us on the data Stax Academy YouTube channel or find our podcast on iTunes Google Play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.31,
+        "duration": 4.17,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.48,
+        "duration": 4.17,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 8.01,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 7.799,
+        "text": "large-scale distributed systems hello"
+      },
+      {
+        "start": 16.47,
+        "duration": 4.5,
+        "text": "and welcome to another episode of the"
+      },
+      {
+        "start": 18.449,
+        "duration": 4.231,
+        "text": "distributed data show I'm David Gilardi"
+      },
+      {
+        "start": 20.97,
+        "duration": 4.71,
+        "text": "a Technical Evangelist here data stacks"
+      },
+      {
+        "start": 22.68,
+        "duration": 6.03,
+        "text": "along with me is Jeff carpenter a fellow"
+      },
+      {
+        "start": 25.68,
+        "duration": 7.59,
+        "text": "evangelist and we have Ted Wilmes from"
+      },
+      {
+        "start": 28.71,
+        "duration": 7.89,
+        "text": "XP row are you doing all right all right"
+      },
+      {
+        "start": 33.27,
+        "duration": 4.26,
+        "text": "so first question what's its peril good"
+      },
+      {
+        "start": 36.6,
+        "duration": 4.32,
+        "text": "question"
+      },
+      {
+        "start": 37.53,
+        "duration": 5.13,
+        "text": "so expiry consulting company we do a lot"
+      },
+      {
+        "start": 40.92,
+        "duration": 6.209,
+        "text": "of software development and we have a"
+      },
+      {
+        "start": 42.66,
+        "duration": 6.57,
+        "text": "great UX and front-end design team and"
+      },
+      {
+        "start": 47.129,
+        "duration": 5.25,
+        "text": "we're actually partners with data stacks"
+      },
+      {
+        "start": 49.23,
+        "duration": 5.25,
+        "text": "so as part of that we do a lot of work"
+      },
+      {
+        "start": 52.379,
+        "duration": 4.741,
+        "text": "with DC graph and the other data stacks"
+      },
+      {
+        "start": 54.48,
+        "duration": 2.969,
+        "text": "components okay now I just realized"
+      },
+      {
+        "start": 57.12,
+        "duration": 3.439,
+        "text": "something"
+      },
+      {
+        "start": 57.449,
+        "duration": 6.78,
+        "text": "I don't realize it before uh-huh but I"
+      },
+      {
+        "start": 60.559,
+        "duration": 6.341,
+        "text": "think we have the graph yeah grab his"
+      },
+      {
+        "start": 64.229,
+        "duration": 3.811,
+        "text": "new bacon and B I like B graphs and I"
+      },
+      {
+        "start": 66.9,
+        "duration": 3.3,
+        "text": "cannot lie those are they"
+      },
+      {
+        "start": 68.04,
+        "duration": 3.93,
+        "text": "those aren't those are those are totally"
+      },
+      {
+        "start": 70.2,
+        "duration": 4.11,
+        "text": "yours aren't they like okay that is some"
+      },
+      {
+        "start": 71.97,
+        "duration": 3.93,
+        "text": "experience way oh yeah full disclosure I"
+      },
+      {
+        "start": 74.31,
+        "duration": 4.5,
+        "text": "just put the bling onto here wearing"
+      },
+      {
+        "start": 75.9,
+        "duration": 5.52,
+        "text": "Ted's got its heads got more swag I mean"
+      },
+      {
+        "start": 78.81,
+        "duration": 3.54,
+        "text": "you guys have good swag game yeah let me"
+      },
+      {
+        "start": 81.42,
+        "duration": 7.589,
+        "text": "see about you can we see this"
+      },
+      {
+        "start": 82.35,
+        "duration": 9.12,
+        "text": "connoisseur slash your swag yeah it's"
+      },
+      {
+        "start": 89.009,
+        "duration": 6.991,
+        "text": "the grass too awesome well this is this"
+      },
+      {
+        "start": 91.47,
+        "duration": 6.359,
+        "text": "is how we measure your credibility as an"
+      },
+      {
+        "start": 96.0,
+        "duration": 4.95,
+        "text": "engineer in this world of distributed"
+      },
+      {
+        "start": 97.829,
+        "duration": 5.191,
+        "text": "data no connection though our sales guy"
+      },
+      {
+        "start": 100.95,
+        "duration": 4.77,
+        "text": "will he'll appreciate that okay so you"
+      },
+      {
+        "start": 103.02,
+        "duration": 5.04,
+        "text": "passed the first test but once you get"
+      },
+      {
+        "start": 105.72,
+        "duration": 5.7,
+        "text": "in the door with your Deathstar t-shirt"
+      },
+      {
+        "start": 108.06,
+        "duration": 5.04,
+        "text": "you know I'll do a customer graph star"
+      },
+      {
+        "start": 111.42,
+        "duration": 3.659,
+        "text": "yes sir what are the kinds of things"
+      },
+      {
+        "start": 113.1,
+        "duration": 3.36,
+        "text": "that that you see cuz you as you"
+      },
+      {
+        "start": 115.079,
+        "duration": 3.481,
+        "text": "mentioned you are doing you know"
+      },
+      {
+        "start": 116.46,
+        "duration": 6.689,
+        "text": "applications of data sacks enterprise"
+      },
+      {
+        "start": 118.56,
+        "duration": 6.69,
+        "text": "graph and your I assume hoping helping"
+      },
+      {
+        "start": 123.149,
+        "duration": 4.89,
+        "text": "to get customers up to speed and"
+      },
+      {
+        "start": 125.25,
+        "duration": 6.06,
+        "text": "competent and just firing on all"
+      },
+      {
+        "start": 128.039,
+        "duration": 4.641,
+        "text": "cylinders with DSC graph so what are the"
+      },
+      {
+        "start": 131.31,
+        "duration": 3.739,
+        "text": "kinds of things that your"
+      },
+      {
+        "start": 132.68,
+        "duration": 4.02,
+        "text": "helping developers understand when"
+      },
+      {
+        "start": 135.049,
+        "duration": 3.931,
+        "text": "you're kind of you know walking in the"
+      },
+      {
+        "start": 136.7,
+        "duration": 4.319,
+        "text": "door first experience with DSC graph and"
+      },
+      {
+        "start": 138.98,
+        "duration": 4.47,
+        "text": "a new customer yeah no that's a great"
+      },
+      {
+        "start": 141.019,
+        "duration": 5.461,
+        "text": "question so it's it's kind of"
+      },
+      {
+        "start": 143.45,
+        "duration": 5.039,
+        "text": "interesting we were on a with DSC graph"
+      },
+      {
+        "start": 146.48,
+        "duration": 4.979,
+        "text": "from the beginning and so we got to see"
+      },
+      {
+        "start": 148.489,
+        "duration": 4.53,
+        "text": "it as it was first rolling out and there"
+      },
+      {
+        "start": 151.459,
+        "duration": 3.45,
+        "text": "was a number of customers who were"
+      },
+      {
+        "start": 153.019,
+        "duration": 4.86,
+        "text": "starting to use it who were already DSC"
+      },
+      {
+        "start": 154.909,
+        "duration": 5.58,
+        "text": "customers and they were very aware of"
+      },
+      {
+        "start": 157.879,
+        "duration": 5.19,
+        "text": "you know how Cassandra worked how search"
+      },
+      {
+        "start": 160.489,
+        "duration": 4.14,
+        "text": "worked all those different pieces but"
+      },
+      {
+        "start": 163.069,
+        "duration": 4.411,
+        "text": "then there was a whole new class of"
+      },
+      {
+        "start": 164.629,
+        "duration": 4.08,
+        "text": "customer where we would show up start"
+      },
+      {
+        "start": 167.48,
+        "duration": 3.119,
+        "text": "working with them they were excited"
+      },
+      {
+        "start": 168.709,
+        "duration": 4.65,
+        "text": "about graph but it was also their first"
+      },
+      {
+        "start": 170.599,
+        "duration": 4.711,
+        "text": "experience with DSC so my first"
+      },
+      {
+        "start": 173.359,
+        "duration": 3.481,
+        "text": "experience with Cassandra or any of"
+      },
+      {
+        "start": 175.31,
+        "duration": 5.429,
+        "text": "those components having used spark"
+      },
+      {
+        "start": 176.84,
+        "duration": 5.61,
+        "text": "before or any of that so it's a case"
+      },
+      {
+        "start": 180.739,
+        "duration": 3.991,
+        "text": "where you have two things that are very"
+      },
+      {
+        "start": 182.45,
+        "duration": 4.769,
+        "text": "new and kind of complex and interesting"
+      },
+      {
+        "start": 184.73,
+        "duration": 3.929,
+        "text": "technologies at the same time so on the"
+      },
+      {
+        "start": 187.219,
+        "duration": 3.481,
+        "text": "one hand they're excited about using"
+      },
+      {
+        "start": 188.659,
+        "duration": 3.39,
+        "text": "graph but on the other side of it they"
+      },
+      {
+        "start": 190.7,
+        "duration": 3.33,
+        "text": "don't know much about kind of the"
+      },
+      {
+        "start": 192.049,
+        "duration": 4.291,
+        "text": "underlying component so the thing that I"
+      },
+      {
+        "start": 194.03,
+        "duration": 4.289,
+        "text": "think we found and that I've seen going"
+      },
+      {
+        "start": 196.34,
+        "duration": 4.709,
+        "text": "forward is that it's really important to"
+      },
+      {
+        "start": 198.319,
+        "duration": 6.06,
+        "text": "have just an understanding of the"
+      },
+      {
+        "start": 201.049,
+        "duration": 5.25,
+        "text": "internals of DSC in general as you're"
+      },
+      {
+        "start": 204.379,
+        "duration": 3.89,
+        "text": "picking up speed on that graph piece"
+      },
+      {
+        "start": 206.299,
+        "duration": 4.59,
+        "text": "because if you've come to DSC graph"
+      },
+      {
+        "start": 208.269,
+        "duration": 4.18,
+        "text": "chances are maybe not in all cases but"
+      },
+      {
+        "start": 210.889,
+        "duration": 4.201,
+        "text": "chances are you're gonna want to run a"
+      },
+      {
+        "start": 212.449,
+        "duration": 5.731,
+        "text": "you know fairly sizable amount of data"
+      },
+      {
+        "start": 215.09,
+        "duration": 5.639,
+        "text": "through the system um you know some"
+      },
+      {
+        "start": 218.18,
+        "duration": 4.739,
+        "text": "people aren't but a lot of people are or"
+      },
+      {
+        "start": 220.729,
+        "duration": 4.23,
+        "text": "at least have have hopes to be doing"
+      },
+      {
+        "start": 222.919,
+        "duration": 3.72,
+        "text": "that at some point so it's really"
+      },
+      {
+        "start": 224.959,
+        "duration": 6.09,
+        "text": "important once you get out of that hey I"
+      },
+      {
+        "start": 226.639,
+        "duration": 5.85,
+        "text": "ran it on my laptop phase to understand"
+      },
+      {
+        "start": 231.049,
+        "duration": 2.701,
+        "text": "what's really going on here cuz I'm"
+      },
+      {
+        "start": 232.489,
+        "duration": 3.21,
+        "text": "gonna actually have to operate this"
+      },
+      {
+        "start": 233.75,
+        "duration": 4.47,
+        "text": "thing at scale yeah okay so what is it"
+      },
+      {
+        "start": 235.699,
+        "duration": 4.35,
+        "text": "that you want them to know so I'd say"
+      },
+      {
+        "start": 238.22,
+        "duration": 3.0,
+        "text": "probably probably first thing is is"
+      },
+      {
+        "start": 240.049,
+        "duration": 3.3,
+        "text": "you're kind of working through your"
+      },
+      {
+        "start": 241.22,
+        "duration": 5.34,
+        "text": "gremlin tutorial getting excited about"
+      },
+      {
+        "start": 243.349,
+        "duration": 5.551,
+        "text": "tinker pop and all those pieces don't"
+      },
+      {
+        "start": 246.56,
+        "duration": 4.679,
+        "text": "shy away from the data stacks Academy"
+      },
+      {
+        "start": 248.9,
+        "duration": 4.799,
+        "text": "courses on just like what is Cassandra"
+      },
+      {
+        "start": 251.239,
+        "duration": 5.28,
+        "text": "what is a partition key how do I design"
+      },
+      {
+        "start": 253.699,
+        "duration": 5.85,
+        "text": "a table in Cassandra because everything"
+      },
+      {
+        "start": 256.519,
+        "duration": 5.34,
+        "text": "you do in DSC graph is mapping down to"
+      },
+      {
+        "start": 259.549,
+        "duration": 5.011,
+        "text": "things that were already present and all"
+      },
+      {
+        "start": 261.859,
+        "duration": 4.131,
+        "text": "the other DSC components and so the"
+      },
+      {
+        "start": 264.56,
+        "duration": 3.32,
+        "text": "implications of"
+      },
+      {
+        "start": 265.99,
+        "duration": 4.44,
+        "text": "you model it and graph will become very"
+      },
+      {
+        "start": 267.88,
+        "duration": 5.18,
+        "text": "relevant as you go forward how that"
+      },
+      {
+        "start": 270.43,
+        "duration": 5.609,
+        "text": "translates down to those TSE components"
+      },
+      {
+        "start": 273.06,
+        "duration": 4.99,
+        "text": "okay well you know that kind of hmm kind"
+      },
+      {
+        "start": 276.039,
+        "duration": 4.38,
+        "text": "of starts into another thing I was just"
+      },
+      {
+        "start": 278.05,
+        "duration": 4.56,
+        "text": "thinking about is like maybe what are"
+      },
+      {
+        "start": 280.419,
+        "duration": 3.75,
+        "text": "some of the pitfalls you can run into if"
+      },
+      {
+        "start": 282.61,
+        "duration": 2.82,
+        "text": "you don't understand the underlying data"
+      },
+      {
+        "start": 284.169,
+        "duration": 2.521,
+        "text": "store right because there's this clear"
+      },
+      {
+        "start": 285.43,
+        "duration": 4.29,
+        "text": "connection there so do you have any"
+      },
+      {
+        "start": 286.69,
+        "duration": 6.449,
+        "text": "thoughts on that yeah so one really good"
+      },
+      {
+        "start": 289.72,
+        "duration": 5.49,
+        "text": "example that comes up just kind of over"
+      },
+      {
+        "start": 293.139,
+        "duration": 4.231,
+        "text": "and over again is you come from the"
+      },
+      {
+        "start": 295.21,
+        "duration": 5.13,
+        "text": "relational world relational data model"
+      },
+      {
+        "start": 297.37,
+        "duration": 5.31,
+        "text": "is very flexible you look at the graph"
+      },
+      {
+        "start": 300.34,
+        "duration": 4.199,
+        "text": "model on the face of it that is also"
+      },
+      {
+        "start": 302.68,
+        "duration": 4.019,
+        "text": "very flexible like you can take anything"
+      },
+      {
+        "start": 304.539,
+        "duration": 4.171,
+        "text": "put it into a graph Kremlin's very"
+      },
+      {
+        "start": 306.699,
+        "duration": 4.021,
+        "text": "expressive you can write a gremlin"
+      },
+      {
+        "start": 308.71,
+        "duration": 9.75,
+        "text": "traversal to do anything that you wanted"
+      },
+      {
+        "start": 310.72,
+        "duration": 9.96,
+        "text": "to use like so that's great it's so it's"
+      },
+      {
+        "start": 318.46,
+        "duration": 4.019,
+        "text": "easy to get something going and so when"
+      },
+      {
+        "start": 320.68,
+        "duration": 5.25,
+        "text": "you start making your graph you may have"
+      },
+      {
+        "start": 322.479,
+        "duration": 5.131,
+        "text": "some of the same same tendencies as you"
+      },
+      {
+        "start": 325.93,
+        "duration": 3.989,
+        "text": "would in a relational database one"
+      },
+      {
+        "start": 327.61,
+        "duration": 5.429,
+        "text": "example would be to normalize your data"
+      },
+      {
+        "start": 329.919,
+        "duration": 5.401,
+        "text": "model which to a certain extent you"
+      },
+      {
+        "start": 333.039,
+        "duration": 3.991,
+        "text": "still do in graph but I can give you"
+      },
+      {
+        "start": 335.32,
+        "duration": 3.81,
+        "text": "kind of one concrete example say you"
+      },
+      {
+        "start": 337.03,
+        "duration": 4.229,
+        "text": "have just use you know kind of the"
+      },
+      {
+        "start": 339.13,
+        "duration": 4.5,
+        "text": "canonical social network example and you"
+      },
+      {
+        "start": 341.259,
+        "duration": 5.311,
+        "text": "want to have some information about a"
+      },
+      {
+        "start": 343.63,
+        "duration": 4.98,
+        "text": "user's location in it like the state"
+      },
+      {
+        "start": 346.57,
+        "duration": 4.49,
+        "text": "that they're in so let's say we have a"
+      },
+      {
+        "start": 348.61,
+        "duration": 5.309,
+        "text": "few hundred million users in our system"
+      },
+      {
+        "start": 351.06,
+        "duration": 5.5,
+        "text": "and so they're all pointing to your"
+      },
+      {
+        "start": 353.919,
+        "duration": 6.06,
+        "text": "models very simple like user and then a"
+      },
+      {
+        "start": 356.56,
+        "duration": 5.22,
+        "text": "state vertex okay okay so the classic"
+      },
+      {
+        "start": 359.979,
+        "duration": 3.0,
+        "text": "everybody who's probably been in graph a"
+      },
+      {
+        "start": 361.78,
+        "duration": 4.41,
+        "text": "little bit they're probably sick of this"
+      },
+      {
+        "start": 362.979,
+        "duration": 5.101,
+        "text": "word was this the super node problem you"
+      },
+      {
+        "start": 366.19,
+        "duration": 3.629,
+        "text": "know where you're gonna have a ton of"
+      },
+      {
+        "start": 368.08,
+        "duration": 3.78,
+        "text": "people pointing to this single state"
+      },
+      {
+        "start": 369.819,
+        "duration": 4.231,
+        "text": "very natural sort of thing you would do"
+      },
+      {
+        "start": 371.86,
+        "duration": 5.339,
+        "text": "in your relational database you know"
+      },
+      {
+        "start": 374.05,
+        "duration": 5.369,
+        "text": "somebody say normalize it do that in the"
+      },
+      {
+        "start": 377.199,
+        "duration": 4.02,
+        "text": "graph and how the data actually maps"
+      },
+      {
+        "start": 379.419,
+        "duration": 4.021,
+        "text": "down to Cassandra what you can end up"
+      },
+      {
+        "start": 381.219,
+        "duration": 4.32,
+        "text": "having at the Cassandra level are these"
+      },
+      {
+        "start": 383.44,
+        "duration": 4.259,
+        "text": "partitions that become basically too"
+      },
+      {
+        "start": 385.539,
+        "duration": 4.921,
+        "text": "wide and then you run into operational"
+      },
+      {
+        "start": 387.699,
+        "duration": 4.051,
+        "text": "issues so that's an example where we"
+      },
+      {
+        "start": 390.46,
+        "duration": 4.319,
+        "text": "still want to store that data in the"
+      },
+      {
+        "start": 391.75,
+        "duration": 4.589,
+        "text": "graph but we may not actually normalize"
+      },
+      {
+        "start": 394.779,
+        "duration": 3.95,
+        "text": "that quite as far we may actually just"
+      },
+      {
+        "start": 396.339,
+        "duration": 5.031,
+        "text": "stored is like a property on those on"
+      },
+      {
+        "start": 398.729,
+        "duration": 3.96,
+        "text": "people let's dig into this a little bit"
+      },
+      {
+        "start": 401.37,
+        "duration": 3.15,
+        "text": "more because I want to make sure that we"
+      },
+      {
+        "start": 402.689,
+        "duration": 5.25,
+        "text": "understand that mapping is what you're"
+      },
+      {
+        "start": 404.52,
+        "duration": 7.699,
+        "text": "saying here that that lets say"
+      },
+      {
+        "start": 407.939,
+        "duration": 7.47,
+        "text": "California is vertex in the graph and"
+      },
+      {
+        "start": 412.219,
+        "duration": 5.47,
+        "text": "it's modeled as a partition in a"
+      },
+      {
+        "start": 415.409,
+        "duration": 6.6,
+        "text": "cassandra table kind of under the covers"
+      },
+      {
+        "start": 417.689,
+        "duration": 6.331,
+        "text": "if states are for texas or nodes in our"
+      },
+      {
+        "start": 422.009,
+        "duration": 3.9,
+        "text": "graph then that's get a map to an"
+      },
+      {
+        "start": 424.02,
+        "duration": 4.919,
+        "text": "underlying table and cassandra and then"
+      },
+      {
+        "start": 425.909,
+        "duration": 4.32,
+        "text": "the relationships that map to that are"
+      },
+      {
+        "start": 428.939,
+        "duration": 2.91,
+        "text": "what's going to cause that partitioning"
+      },
+      {
+        "start": 430.229,
+        "duration": 5.37,
+        "text": "to get too wide is it something like"
+      },
+      {
+        "start": 431.849,
+        "duration": 5.641,
+        "text": "that or exactly yeah so so the way that"
+      },
+      {
+        "start": 435.599,
+        "duration": 5.49,
+        "text": "it's going to be stored if you just you"
+      },
+      {
+        "start": 437.49,
+        "duration": 5.039,
+        "text": "know start up DSC graph and in DSC graph"
+      },
+      {
+        "start": 441.089,
+        "duration": 3.6,
+        "text": "you have the ability to define your"
+      },
+      {
+        "start": 442.529,
+        "duration": 5.581,
+        "text": "graph schema so you can create two new"
+      },
+      {
+        "start": 444.689,
+        "duration": 5.88,
+        "text": "vertex labels say like a state and a"
+      },
+      {
+        "start": 448.11,
+        "duration": 6.449,
+        "text": "person and then maybe an edge like a"
+      },
+      {
+        "start": 450.569,
+        "duration": 5.91,
+        "text": "lives in edge so if you just go look"
+      },
+      {
+        "start": 454.559,
+        "duration": 3.39,
+        "text": "you're gonna go if you go to the CQ l"
+      },
+      {
+        "start": 456.479,
+        "duration": 3.03,
+        "text": "shell if anybody's familiar with"
+      },
+      {
+        "start": 457.949,
+        "duration": 3.09,
+        "text": "Cassandra you can just look at how all"
+      },
+      {
+        "start": 459.509,
+        "duration": 4.291,
+        "text": "this stuff is laid out that's the other"
+      },
+      {
+        "start": 461.039,
+        "duration": 4.891,
+        "text": "kind of nice part of this is exposed you"
+      },
+      {
+        "start": 463.8,
+        "duration": 5.869,
+        "text": "can see it you'll be able to see that"
+      },
+      {
+        "start": 465.93,
+        "duration": 6.75,
+        "text": "there's gonna be two tables per vertex"
+      },
+      {
+        "start": 469.669,
+        "duration": 5.321,
+        "text": "label one's gonna store the properties"
+      },
+      {
+        "start": 472.68,
+        "duration": 4.199,
+        "text": "on the vertex and one's gonna store the"
+      },
+      {
+        "start": 474.99,
+        "duration": 4.109,
+        "text": "edges that are associated with that"
+      },
+      {
+        "start": 476.879,
+        "duration": 5.13,
+        "text": "vertex okay and so what can happen is"
+      },
+      {
+        "start": 479.099,
+        "duration": 4.68,
+        "text": "you're adding edges in all these things"
+      },
+      {
+        "start": 482.009,
+        "duration": 3.511,
+        "text": "are partitioned is they would be in"
+      },
+      {
+        "start": 483.779,
+        "duration": 3.331,
+        "text": "regular old because they're just regular"
+      },
+      {
+        "start": 485.52,
+        "duration": 3.509,
+        "text": "that's regular old Cassandra under the"
+      },
+      {
+        "start": 487.11,
+        "duration": 3.599,
+        "text": "covers so the way that they're"
+      },
+      {
+        "start": 489.029,
+        "duration": 5.07,
+        "text": "partitioned those edges are going to be"
+      },
+      {
+        "start": 490.709,
+        "duration": 5.401,
+        "text": "essentially partitioned by the vertex"
+      },
+      {
+        "start": 494.099,
+        "duration": 5.011,
+        "text": "IDs you could think about it so each of"
+      },
+      {
+        "start": 496.11,
+        "duration": 6.75,
+        "text": "vertex is gonna have this partition of"
+      },
+      {
+        "start": 499.11,
+        "duration": 5.279,
+        "text": "edges associated with it coordinate both"
+      },
+      {
+        "start": 502.86,
+        "duration": 4.199,
+        "text": "directions but I'll try not to go too"
+      },
+      {
+        "start": 504.389,
+        "duration": 4.351,
+        "text": "far into the weeds here that would"
+      },
+      {
+        "start": 507.059,
+        "duration": 4.35,
+        "text": "basically can end up happening is you"
+      },
+      {
+        "start": 508.74,
+        "duration": 4.38,
+        "text": "say you have a a million edges off of a"
+      },
+      {
+        "start": 511.409,
+        "duration": 4.74,
+        "text": "vertex you're gonna have a partition"
+      },
+      {
+        "start": 513.12,
+        "duration": 5.609,
+        "text": "that resolves to some very large number"
+      },
+      {
+        "start": 516.149,
+        "duration": 6.721,
+        "text": "of rows in it and up to a point that"
+      },
+      {
+        "start": 518.729,
+        "duration": 6.121,
+        "text": "works and but it will slowly degrade as"
+      },
+      {
+        "start": 522.87,
+        "duration": 3.779,
+        "text": "it gets you know larger and larger he's"
+      },
+      {
+        "start": 524.85,
+        "duration": 4.679,
+        "text": "incredibly right Cassandra are familiar"
+      },
+      {
+        "start": 526.649,
+        "duration": 3.891,
+        "text": "with that problem hmm okay so how is"
+      },
+      {
+        "start": 529.529,
+        "duration": 4.071,
+        "text": "that a"
+      },
+      {
+        "start": 530.54,
+        "duration": 5.58,
+        "text": "a normalization problem that's the one"
+      },
+      {
+        "start": 533.6,
+        "duration": 4.349,
+        "text": "other aspect of how you stated things"
+      },
+      {
+        "start": 536.12,
+        "duration": 2.94,
+        "text": "that I wanted to dig into yeah the way"
+      },
+      {
+        "start": 537.949,
+        "duration": 2.64,
+        "text": "that I like to think about it is"
+      },
+      {
+        "start": 539.06,
+        "duration": 5.279,
+        "text": "sometimes you hear about graphs you"
+      },
+      {
+        "start": 540.589,
+        "duration": 7.081,
+        "text": "think whiteboard friendly that comes up"
+      },
+      {
+        "start": 544.339,
+        "duration": 4.951,
+        "text": "a lot people say I can go draw my data"
+      },
+      {
+        "start": 547.67,
+        "duration": 2.789,
+        "text": "model on the board and then that's"
+      },
+      {
+        "start": 549.29,
+        "duration": 5.31,
+        "text": "what's gonna end up in the database"
+      },
+      {
+        "start": 550.459,
+        "duration": 5.791,
+        "text": "right in certain cases that can work so"
+      },
+      {
+        "start": 554.6,
+        "duration": 3.78,
+        "text": "then the relational world people are"
+      },
+      {
+        "start": 556.25,
+        "duration": 3.63,
+        "text": "very used to kind of not really the"
+      },
+      {
+        "start": 558.38,
+        "duration": 4.23,
+        "text": "opposite but something different where"
+      },
+      {
+        "start": 559.88,
+        "duration": 4.8,
+        "text": "you have a logical model and I have a"
+      },
+      {
+        "start": 562.61,
+        "duration": 4.26,
+        "text": "physical model and the physical model"
+      },
+      {
+        "start": 564.68,
+        "duration": 3.719,
+        "text": "that goes in the database may look a"
+      },
+      {
+        "start": 566.87,
+        "duration": 4.23,
+        "text": "little bit different than my logical"
+      },
+      {
+        "start": 568.399,
+        "duration": 5.61,
+        "text": "model did and graph for better or worse"
+      },
+      {
+        "start": 571.1,
+        "duration": 3.69,
+        "text": "on the face of it is very friendly it's"
+      },
+      {
+        "start": 574.009,
+        "duration": 3.0,
+        "text": "a very friendly"
+      },
+      {
+        "start": 574.79,
+        "duration": 4.409,
+        "text": "data modeling paradigm and so people"
+      },
+      {
+        "start": 577.009,
+        "duration": 3.961,
+        "text": "don't realize necessarily that they're"
+      },
+      {
+        "start": 579.199,
+        "duration": 4.021,
+        "text": "we're still running this on computers"
+      },
+      {
+        "start": 580.97,
+        "duration": 4.89,
+        "text": "they're complicated systems there's"
+      },
+      {
+        "start": 583.22,
+        "duration": 4.5,
+        "text": "trade-offs and sometimes that models not"
+      },
+      {
+        "start": 585.86,
+        "duration": 3.479,
+        "text": "gonna look as pristine as you want it so"
+      },
+      {
+        "start": 587.72,
+        "duration": 4.14,
+        "text": "when I'm talking about normalization I'm"
+      },
+      {
+        "start": 589.339,
+        "duration": 5.43,
+        "text": "talking about kind of that tendency to"
+      },
+      {
+        "start": 591.86,
+        "duration": 5.43,
+        "text": "maybe make this very nice normalized"
+      },
+      {
+        "start": 594.769,
+        "duration": 5.37,
+        "text": "model versus making some tactical"
+      },
+      {
+        "start": 597.29,
+        "duration": 4.799,
+        "text": "decisions where you change that model to"
+      },
+      {
+        "start": 600.139,
+        "duration": 4.291,
+        "text": "be more performant because of the system"
+      },
+      {
+        "start": 602.089,
+        "duration": 3.631,
+        "text": "that is running out so it sounds like"
+      },
+      {
+        "start": 604.43,
+        "duration": 3.69,
+        "text": "there's a temptation to take a"
+      },
+      {
+        "start": 605.72,
+        "duration": 4.59,
+        "text": "whiteboard drawing which might be a form"
+      },
+      {
+        "start": 608.12,
+        "duration": 4.68,
+        "text": "of a conceptual or logical model and"
+      },
+      {
+        "start": 610.31,
+        "duration": 5.1,
+        "text": "just say okay I'm just gonna code that"
+      },
+      {
+        "start": 612.8,
+        "duration": 3.479,
+        "text": "right up in graph and you know it's like"
+      },
+      {
+        "start": 615.41,
+        "duration": 2.429,
+        "text": "without thinking about the"
+      },
+      {
+        "start": 616.279,
+        "duration": 3.631,
+        "text": "considerations you could actually means"
+      },
+      {
+        "start": 617.839,
+        "duration": 4.381,
+        "text": "make it look like that in studio because"
+      },
+      {
+        "start": 619.91,
+        "duration": 4.53,
+        "text": "there's the schema viewer that takes a"
+      },
+      {
+        "start": 622.22,
+        "duration": 5.179,
+        "text": "stuff you say like look I I correctly"
+      },
+      {
+        "start": 624.44,
+        "duration": 5.37,
+        "text": "replicated the whiteboard drawing and"
+      },
+      {
+        "start": 627.399,
+        "duration": 3.821,
+        "text": "look it looks just like this in the"
+      },
+      {
+        "start": 629.81,
+        "duration": 3.99,
+        "text": "schema viewer I must have done it right"
+      },
+      {
+        "start": 631.22,
+        "duration": 5.52,
+        "text": "yeah exactly and that in certain cases"
+      },
+      {
+        "start": 633.8,
+        "duration": 4.8,
+        "text": "that'll work and that's fine but"
+      },
+      {
+        "start": 636.74,
+        "duration": 4.77,
+        "text": "especially as you grow out in scale a"
+      },
+      {
+        "start": 638.6,
+        "duration": 4.53,
+        "text": "number of nodes and things like that it"
+      },
+      {
+        "start": 641.51,
+        "duration": 4.019,
+        "text": "becomes important to kind of step away"
+      },
+      {
+        "start": 643.13,
+        "duration": 5.009,
+        "text": "from that and you guys said I think Dave"
+      },
+      {
+        "start": 645.529,
+        "duration": 4.5,
+        "text": "pepper around a few weeks ago who had"
+      },
+      {
+        "start": 648.139,
+        "duration": 4.171,
+        "text": "the pleasure with working with at one"
+      },
+      {
+        "start": 650.029,
+        "duration": 5.43,
+        "text": "point and he liked how he put it I think"
+      },
+      {
+        "start": 652.31,
+        "duration": 5.73,
+        "text": "he said pragmatic graph and that's"
+      },
+      {
+        "start": 655.459,
+        "duration": 4.201,
+        "text": "that's my that's my philosophy exactly"
+      },
+      {
+        "start": 658.04,
+        "duration": 5.159,
+        "text": "you need to be pragmatic about these"
+      },
+      {
+        "start": 659.66,
+        "duration": 4.41,
+        "text": "decisions okay so so you know I already"
+      },
+      {
+        "start": 663.199,
+        "duration": 2.191,
+        "text": "I think just"
+      },
+      {
+        "start": 664.07,
+        "duration": 2.52,
+        "text": "talking about the data modeling aspect"
+      },
+      {
+        "start": 665.39,
+        "duration": 2.73,
+        "text": "right we're we're already talking about"
+      },
+      {
+        "start": 666.59,
+        "duration": 3.24,
+        "text": "what it sounds like are some challenges"
+      },
+      {
+        "start": 668.12,
+        "duration": 3.99,
+        "text": "that people ran - do you have any other"
+      },
+      {
+        "start": 669.83,
+        "duration": 3.99,
+        "text": "like any other challenges that that"
+      },
+      {
+        "start": 672.11,
+        "duration": 3.45,
+        "text": "people run into and then how to address"
+      },
+      {
+        "start": 673.82,
+        "duration": 4.76,
+        "text": "those types of things yeah I think"
+      },
+      {
+        "start": 675.56,
+        "duration": 7.95,
+        "text": "another thing that comes up frequently"
+      },
+      {
+        "start": 678.58,
+        "duration": 6.97,
+        "text": "is okay I have the my graphs set up"
+      },
+      {
+        "start": 683.51,
+        "duration": 3.9,
+        "text": "again just by the nature of these"
+      },
+      {
+        "start": 685.55,
+        "duration": 3.51,
+        "text": "projects they usually start out is a"
+      },
+      {
+        "start": 687.41,
+        "duration": 3.6,
+        "text": "very small sort of thing where you're"
+      },
+      {
+        "start": 689.06,
+        "duration": 4.05,
+        "text": "kind of kicking the tires but then you"
+      },
+      {
+        "start": 691.01,
+        "duration": 4.29,
+        "text": "want to actually load some quantity of"
+      },
+      {
+        "start": 693.11,
+        "duration": 3.51,
+        "text": "data in it you're not just running you"
+      },
+      {
+        "start": 695.3,
+        "duration": 3.72,
+        "text": "to test anymore you want to actually"
+      },
+      {
+        "start": 696.62,
+        "duration": 6.54,
+        "text": "like load this thing up with a billion"
+      },
+      {
+        "start": 699.02,
+        "duration": 5.79,
+        "text": "vertices and so do see graph comes with"
+      },
+      {
+        "start": 703.16,
+        "duration": 5.58,
+        "text": "a really nice tool called DAC graph"
+      },
+      {
+        "start": 704.81,
+        "duration": 6.09,
+        "text": "loader which which can take a number of"
+      },
+      {
+        "start": 708.74,
+        "duration": 4.08,
+        "text": "different formats and help you load data"
+      },
+      {
+        "start": 710.9,
+        "duration": 5.16,
+        "text": "from CS peas or other things like that"
+      },
+      {
+        "start": 712.82,
+        "duration": 4.74,
+        "text": "and that has some optimizations built"
+      },
+      {
+        "start": 716.06,
+        "duration": 3.93,
+        "text": "into it and it allows you to load data"
+      },
+      {
+        "start": 717.56,
+        "duration": 4.68,
+        "text": "pretty quickly but then people also want"
+      },
+      {
+        "start": 719.99,
+        "duration": 3.69,
+        "text": "to move from doing say just a bulk load"
+      },
+      {
+        "start": 722.24,
+        "duration": 4.83,
+        "text": "to like oh I'm running you know I've"
+      },
+      {
+        "start": 723.68,
+        "duration": 5.43,
+        "text": "kafka data coming in real time how do I"
+      },
+      {
+        "start": 727.07,
+        "duration": 4.05,
+        "text": "actually load this graph up and maintain"
+      },
+      {
+        "start": 729.11,
+        "duration": 4.47,
+        "text": "it and then at that point you're gonna"
+      },
+      {
+        "start": 731.12,
+        "duration": 5.75,
+        "text": "be writing some code and so the things"
+      },
+      {
+        "start": 733.58,
+        "duration": 8.82,
+        "text": "there that we like to look at are one"
+      },
+      {
+        "start": 736.87,
+        "duration": 7.21,
+        "text": "some common things are you know a lot of"
+      },
+      {
+        "start": 742.4,
+        "duration": 4.77,
+        "text": "times people will have a large number of"
+      },
+      {
+        "start": 744.08,
+        "duration": 5.28,
+        "text": "say reads in their right path that's a"
+      },
+      {
+        "start": 747.17,
+        "duration": 4.74,
+        "text": "big performance killer if you can get"
+      },
+      {
+        "start": 749.36,
+        "duration": 4.41,
+        "text": "away from having to say read a value"
+      },
+      {
+        "start": 751.91,
+        "duration": 3.96,
+        "text": "every time you go in to write something"
+      },
+      {
+        "start": 753.77,
+        "duration": 3.78,
+        "text": "right you can get a big boost there and"
+      },
+      {
+        "start": 755.87,
+        "duration": 5.43,
+        "text": "if you take that kind of ratio from"
+      },
+      {
+        "start": 757.55,
+        "duration": 7.5,
+        "text": "50/50 readwrite to maybe more like 90%"
+      },
+      {
+        "start": 761.3,
+        "duration": 5.76,
+        "text": "right you know 10% read you can make a"
+      },
+      {
+        "start": 765.05,
+        "duration": 3.78,
+        "text": "big difference especially since DSC"
+      },
+      {
+        "start": 767.06,
+        "duration": 3.96,
+        "text": "provides the nice functionality of being"
+      },
+      {
+        "start": 768.83,
+        "duration": 4.38,
+        "text": "able to have multiple data centers where"
+      },
+      {
+        "start": 771.02,
+        "duration": 4.8,
+        "text": "you can actually drive a lot of say"
+      },
+      {
+        "start": 773.21,
+        "duration": 4.77,
+        "text": "right load into one and then serve read"
+      },
+      {
+        "start": 775.82,
+        "duration": 4.86,
+        "text": "traffic out of another so this that's"
+      },
+      {
+        "start": 777.98,
+        "duration": 5.01,
+        "text": "one so let's but want to pick that apart"
+      },
+      {
+        "start": 780.68,
+        "duration": 5.7,
+        "text": "for a second so what's what's happening"
+      },
+      {
+        "start": 782.99,
+        "duration": 6.15,
+        "text": "there is it that I have to in order to"
+      },
+      {
+        "start": 786.38,
+        "duration": 4.17,
+        "text": "load data in my graph I'm actually have"
+      },
+      {
+        "start": 789.14,
+        "duration": 3.3,
+        "text": "to have to do a read first like I'm"
+      },
+      {
+        "start": 790.55,
+        "duration": 4.53,
+        "text": "consistency checking something or how do"
+      },
+      {
+        "start": 792.44,
+        "duration": 4.26,
+        "text": "people kind of find their saw themselves"
+      },
+      {
+        "start": 795.08,
+        "duration": 3.96,
+        "text": "in that situation of doing"
+      },
+      {
+        "start": 796.7,
+        "duration": 4.8,
+        "text": "of mixing and reeds with rites yeah so"
+      },
+      {
+        "start": 799.04,
+        "duration": 5.97,
+        "text": "one so what maybe one good example would"
+      },
+      {
+        "start": 801.5,
+        "duration": 6.15,
+        "text": "be it's there isn't an out of the box"
+      },
+      {
+        "start": 805.01,
+        "duration": 4.71,
+        "text": "say like uniqueness constraint that you"
+      },
+      {
+        "start": 807.65,
+        "duration": 4.98,
+        "text": "can turn on with TSE graph so if you"
+      },
+      {
+        "start": 809.72,
+        "duration": 5.58,
+        "text": "have excuse our person you know Twitter"
+      },
+      {
+        "start": 812.63,
+        "duration": 3.93,
+        "text": "user example here where it's like well"
+      },
+      {
+        "start": 815.3,
+        "duration": 4.59,
+        "text": "we want to make sure there's only one"
+      },
+      {
+        "start": 816.56,
+        "duration": 7.95,
+        "text": "person with so-and-so's handle in the"
+      },
+      {
+        "start": 819.89,
+        "duration": 7.08,
+        "text": "system so there's there's not a way to"
+      },
+      {
+        "start": 824.51,
+        "duration": 4.47,
+        "text": "enforce that at the system level so then"
+      },
+      {
+        "start": 826.97,
+        "duration": 5.58,
+        "text": "that moves up into the application layer"
+      },
+      {
+        "start": 828.98,
+        "duration": 5.66,
+        "text": "and so one kind of first crack at trying"
+      },
+      {
+        "start": 832.55,
+        "duration": 5.43,
+        "text": "to handle that may be like okay well"
+      },
+      {
+        "start": 834.64,
+        "duration": 4.84,
+        "text": "before I write this user every time I do"
+      },
+      {
+        "start": 837.98,
+        "duration": 4.08,
+        "text": "it I'm gonna go check the database to"
+      },
+      {
+        "start": 839.48,
+        "duration": 7.62,
+        "text": "see if they already exist which that"
+      },
+      {
+        "start": 842.06,
+        "duration": 6.54,
+        "text": "already is problematic skin yeah it's"
+      },
+      {
+        "start": 847.1,
+        "duration": 3.63,
+        "text": "already problematic from a race"
+      },
+      {
+        "start": 848.6,
+        "duration": 4.8,
+        "text": "condition perspective probably really"
+      },
+      {
+        "start": 850.73,
+        "duration": 4.89,
+        "text": "won't work but it's also introducing"
+      },
+      {
+        "start": 853.4,
+        "duration": 4.62,
+        "text": "this potentially unnecessary read so we"
+      },
+      {
+        "start": 855.62,
+        "duration": 3.9,
+        "text": "could do there is are there certain"
+      },
+      {
+        "start": 858.02,
+        "duration": 3.99,
+        "text": "values that we're always just kind of"
+      },
+      {
+        "start": 859.52,
+        "duration": 4.65,
+        "text": "looking up from the database these kind"
+      },
+      {
+        "start": 862.01,
+        "duration": 4.44,
+        "text": "of point lookups maybe cache them"
+      },
+      {
+        "start": 864.17,
+        "duration": 4.44,
+        "text": "somewhere else where we can get a much"
+      },
+      {
+        "start": 866.45,
+        "duration": 4.59,
+        "text": "quicker latency just to look up that one"
+      },
+      {
+        "start": 868.61,
+        "duration": 5.81,
+        "text": "little thing and then just drive all"
+      },
+      {
+        "start": 871.04,
+        "duration": 6.63,
+        "text": "that right traffic into into a DAC graph"
+      },
+      {
+        "start": 874.42,
+        "duration": 5.17,
+        "text": "okay that's a great example okay yeah so"
+      },
+      {
+        "start": 877.67,
+        "duration": 3.24,
+        "text": "all right so we're talking about maybe"
+      },
+      {
+        "start": 879.59,
+        "duration": 3.09,
+        "text": "some of the challenges especially with"
+      },
+      {
+        "start": 880.91,
+        "duration": 3.96,
+        "text": "data loading and in people like getting"
+      },
+      {
+        "start": 882.68,
+        "duration": 4.35,
+        "text": "data into the graph how about if we flip"
+      },
+      {
+        "start": 884.87,
+        "duration": 4.89,
+        "text": "that around right to the the read"
+      },
+      {
+        "start": 887.03,
+        "duration": 5.28,
+        "text": "performance standpoint how about any any"
+      },
+      {
+        "start": 889.76,
+        "duration": 4.38,
+        "text": "feel as far as performance"
+      },
+      {
+        "start": 892.31,
+        "duration": 6.78,
+        "text": "considerations things like that yeah"
+      },
+      {
+        "start": 894.14,
+        "duration": 6.84,
+        "text": "yeah I think so a lot of times for both"
+      },
+      {
+        "start": 899.09,
+        "duration": 5.19,
+        "text": "these scenarios a lot of it really comes"
+      },
+      {
+        "start": 900.98,
+        "duration": 5.88,
+        "text": "back to again the data modeling sound"
+      },
+      {
+        "start": 904.28,
+        "duration": 15.42,
+        "text": "like a broken record properly but like"
+      },
+      {
+        "start": 906.86,
+        "duration": 14.73,
+        "text": "Cassandra all the time to actually if"
+      },
+      {
+        "start": 919.7,
+        "duration": 4.08,
+        "text": "you think about one thing that I really"
+      },
+      {
+        "start": 921.59,
+        "duration": 3.21,
+        "text": "like about the about Cassandra and kind"
+      },
+      {
+        "start": 923.78,
+        "duration": 2.94,
+        "text": "of the way cuz Sanders has been"
+      },
+      {
+        "start": 924.8,
+        "duration": 5.699,
+        "text": "presented for a month educational"
+      },
+      {
+        "start": 926.72,
+        "duration": 6.509,
+        "text": "perspective is a focus on queries fer"
+      },
+      {
+        "start": 930.499,
+        "duration": 4.26,
+        "text": "and then like what are the read what do"
+      },
+      {
+        "start": 933.229,
+        "duration": 3.6,
+        "text": "we need to read out of this thing okay"
+      },
+      {
+        "start": 934.759,
+        "duration": 4.77,
+        "text": "now let's develop our data model based"
+      },
+      {
+        "start": 936.829,
+        "duration": 5.91,
+        "text": "upon that to a certain extent graph is"
+      },
+      {
+        "start": 939.529,
+        "duration": 4.92,
+        "text": "similar it's a little deceiving though"
+      },
+      {
+        "start": 942.739,
+        "duration": 4.5,
+        "text": "again because if you look at the graph"
+      },
+      {
+        "start": 944.449,
+        "duration": 4.47,
+        "text": "model itself it's it's not as obvious"
+      },
+      {
+        "start": 947.239,
+        "duration": 3.09,
+        "text": "it's not like if you look at cql and"
+      },
+      {
+        "start": 948.919,
+        "duration": 3.24,
+        "text": "it's like I literally can't join"
+      },
+      {
+        "start": 950.329,
+        "duration": 4.32,
+        "text": "anything you know I just can't do it"
+      },
+      {
+        "start": 952.159,
+        "duration": 5.46,
+        "text": "that's different you can do whatever you"
+      },
+      {
+        "start": 954.649,
+        "duration": 4.92,
+        "text": "want um but that doesn't necessarily"
+      },
+      {
+        "start": 957.619,
+        "duration": 4.2,
+        "text": "mean it's gonna be performant so we"
+      },
+      {
+        "start": 959.569,
+        "duration": 4.68,
+        "text": "start with the modeling there we look at"
+      },
+      {
+        "start": 961.819,
+        "duration": 4.92,
+        "text": "okay you need to perform the sort of"
+      },
+      {
+        "start": 964.249,
+        "duration": 4.26,
+        "text": "pattern to grab you know this amount of"
+      },
+      {
+        "start": 966.739,
+        "duration": 3.51,
+        "text": "data out of the system how many vertices"
+      },
+      {
+        "start": 968.509,
+        "duration": 5.55,
+        "text": "is that can have to touch with this"
+      },
+      {
+        "start": 970.249,
+        "duration": 5.7,
+        "text": "model all those traversals that's just"
+      },
+      {
+        "start": 974.059,
+        "duration": 4.29,
+        "text": "translating down to i/o against this"
+      },
+      {
+        "start": 975.949,
+        "duration": 3.93,
+        "text": "Cassandra cluster so you can pretty"
+      },
+      {
+        "start": 978.349,
+        "duration": 4.02,
+        "text": "easily write a gremlin query that"
+      },
+      {
+        "start": 979.879,
+        "duration": 4.83,
+        "text": "resolves to you know under the few"
+      },
+      {
+        "start": 982.369,
+        "duration": 4.29,
+        "text": "hundred thousand basically read requests"
+      },
+      {
+        "start": 984.709,
+        "duration": 4.5,
+        "text": "against your cluster okay maybe one"
+      },
+      {
+        "start": 986.659,
+        "duration": 4.23,
+        "text": "person doing that that's fine but then"
+      },
+      {
+        "start": 989.209,
+        "duration": 3.84,
+        "text": "if we actually want to try to scale this"
+      },
+      {
+        "start": 990.889,
+        "duration": 4.62,
+        "text": "thing out that's probably not you know"
+      },
+      {
+        "start": 993.049,
+        "duration": 4.38,
+        "text": "it's not tenable so what can we do with"
+      },
+      {
+        "start": 995.509,
+        "duration": 5.37,
+        "text": "that model to cut down on the number of"
+      },
+      {
+        "start": 997.429,
+        "duration": 6.21,
+        "text": "say reads we need to do always measure"
+      },
+      {
+        "start": 1000.879,
+        "duration": 5.85,
+        "text": "you know if something slow don't just"
+      },
+      {
+        "start": 1003.639,
+        "duration": 5.37,
+        "text": "start twiddling you know knobs changing"
+      },
+      {
+        "start": 1006.729,
+        "duration": 4.08,
+        "text": "steps out on your gremlin traversal you"
+      },
+      {
+        "start": 1009.009,
+        "duration": 3.69,
+        "text": "know look at the profile step look at"
+      },
+      {
+        "start": 1010.809,
+        "duration": 5.43,
+        "text": "the results that come out of that studio"
+      },
+      {
+        "start": 1012.699,
+        "duration": 7.47,
+        "text": "is a really nice display of that so"
+      },
+      {
+        "start": 1016.239,
+        "duration": 5.64,
+        "text": "measure and and then just keep in mind"
+      },
+      {
+        "start": 1020.169,
+        "duration": 4.2,
+        "text": "what's going on down at that Cassandra"
+      },
+      {
+        "start": 1021.879,
+        "duration": 5.341,
+        "text": "layer when you execute your queries so"
+      },
+      {
+        "start": 1024.369,
+        "duration": 4.68,
+        "text": "is there um you know as far as both read"
+      },
+      {
+        "start": 1027.22,
+        "duration": 2.88,
+        "text": "and write performance right you know one"
+      },
+      {
+        "start": 1029.049,
+        "duration": 2.28,
+        "text": "thing we haven't really touched about so"
+      },
+      {
+        "start": 1030.1,
+        "duration": 3.449,
+        "text": "much like indexes do you have a"
+      },
+      {
+        "start": 1031.329,
+        "duration": 3.81,
+        "text": "particular take on some maybe some best"
+      },
+      {
+        "start": 1033.549,
+        "duration": 4.41,
+        "text": "practices around indexing and how you"
+      },
+      {
+        "start": 1035.139,
+        "duration": 5.39,
+        "text": "should use that to help or hopefully not"
+      },
+      {
+        "start": 1037.959,
+        "duration": 7.291,
+        "text": "hinder your read or write performance"
+      },
+      {
+        "start": 1040.529,
+        "duration": 6.91,
+        "text": "yeah that's a good question so index is"
+      },
+      {
+        "start": 1045.25,
+        "duration": 3.779,
+        "text": "the documentation has some some pretty"
+      },
+      {
+        "start": 1047.439,
+        "duration": 4.62,
+        "text": "good recommendations there's kind of"
+      },
+      {
+        "start": 1049.029,
+        "duration": 5.791,
+        "text": "broadly speaking two sorts of indexes in"
+      },
+      {
+        "start": 1052.059,
+        "duration": 5.041,
+        "text": "DSC graph there's global indexes which"
+      },
+      {
+        "start": 1054.82,
+        "duration": 4.709,
+        "text": "allow you to look up ok out of this"
+      },
+      {
+        "start": 1057.1,
+        "duration": 4.189,
+        "text": "whole world of vertices I want to look"
+      },
+      {
+        "start": 1059.529,
+        "duration": 3.571,
+        "text": "up all the vertices that match some"
+      },
+      {
+        "start": 1061.289,
+        "duration": 4.541,
+        "text": "property your number"
+      },
+      {
+        "start": 1063.1,
+        "duration": 4.86,
+        "text": "and then there's vertex centric indexes"
+      },
+      {
+        "start": 1065.83,
+        "duration": 5.099,
+        "text": "which say okay I'm at a vertex I have a"
+      },
+      {
+        "start": 1067.96,
+        "duration": 5.31,
+        "text": "hundred edges here I want to filter them"
+      },
+      {
+        "start": 1070.929,
+        "duration": 4.261,
+        "text": "out efficiently by some predicate right"
+      },
+      {
+        "start": 1073.27,
+        "duration": 3.42,
+        "text": "so there's those two types on the first"
+      },
+      {
+        "start": 1075.19,
+        "duration": 2.94,
+        "text": "type is where you actually have some"
+      },
+      {
+        "start": 1076.69,
+        "duration": 3.599,
+        "text": "decisions to make you can use"
+      },
+      {
+        "start": 1078.13,
+        "duration": 4.95,
+        "text": "materialized view and Cassandra a"
+      },
+      {
+        "start": 1080.289,
+        "duration": 5.581,
+        "text": "secondary index or DSC search index"
+      },
+      {
+        "start": 1083.08,
+        "duration": 4.77,
+        "text": "again this is kind of very clearly"
+      },
+      {
+        "start": 1085.87,
+        "duration": 3.99,
+        "text": "showing the user like hey you probably"
+      },
+      {
+        "start": 1087.85,
+        "duration": 4.05,
+        "text": "should understand what that means in"
+      },
+      {
+        "start": 1089.86,
+        "duration": 3.449,
+        "text": "Cassandra language when you're making"
+      },
+      {
+        "start": 1091.9,
+        "duration": 4.769,
+        "text": "your decision about this"
+      },
+      {
+        "start": 1093.309,
+        "duration": 5.671,
+        "text": "so for indexes the biggest I think"
+      },
+      {
+        "start": 1096.669,
+        "duration": 3.721,
+        "text": "hurdle that people can run into is"
+      },
+      {
+        "start": 1098.98,
+        "duration": 4.559,
+        "text": "sometimes they want to look up things"
+      },
+      {
+        "start": 1100.39,
+        "duration": 5.909,
+        "text": "that their queries are not selective at"
+      },
+      {
+        "start": 1103.539,
+        "duration": 4.291,
+        "text": "all so that's probably the biggest issue"
+      },
+      {
+        "start": 1106.299,
+        "duration": 4.081,
+        "text": "where it's like I want to do the"
+      },
+      {
+        "start": 1107.83,
+        "duration": 4.95,
+        "text": "equivalent of you know almost a select"
+      },
+      {
+        "start": 1110.38,
+        "duration": 6.72,
+        "text": "star maybe not a full graph scan but"
+      },
+      {
+        "start": 1112.78,
+        "duration": 6.24,
+        "text": "give me all the people that are in Texas"
+      },
+      {
+        "start": 1117.1,
+        "duration": 5.579,
+        "text": "who are using my social network platform"
+      },
+      {
+        "start": 1119.02,
+        "duration": 6.24,
+        "text": "and I want it in 200 milliseconds or"
+      },
+      {
+        "start": 1122.679,
+        "duration": 5.191,
+        "text": "something like that so the bigger that"
+      },
+      {
+        "start": 1125.26,
+        "duration": 4.649,
+        "text": "that's to me and so it's it's sometimes"
+      },
+      {
+        "start": 1127.87,
+        "duration": 5.039,
+        "text": "like you need to identify what the graph"
+      },
+      {
+        "start": 1129.909,
+        "duration": 5.01,
+        "text": "is good at access pattern wise and then"
+      },
+      {
+        "start": 1132.909,
+        "duration": 6.571,
+        "text": "what might be just better in a Cassandra"
+      },
+      {
+        "start": 1134.919,
+        "duration": 6.51,
+        "text": "table and so it's there's differences"
+      },
+      {
+        "start": 1139.48,
+        "duration": 5.88,
+        "text": "between the different indexes type but"
+      },
+      {
+        "start": 1141.429,
+        "duration": 6.12,
+        "text": "to in kind of common practice the bigger"
+      },
+      {
+        "start": 1145.36,
+        "duration": 4.17,
+        "text": "issue I've seen in is is that point"
+      },
+      {
+        "start": 1147.549,
+        "duration": 3.331,
+        "text": "where it's like the index isn't really"
+      },
+      {
+        "start": 1149.53,
+        "duration": 3.59,
+        "text": "going to be able to help you with this"
+      },
+      {
+        "start": 1150.88,
+        "duration": 6.299,
+        "text": "you need to think about being able to"
+      },
+      {
+        "start": 1153.12,
+        "duration": 7.21,
+        "text": "create kind of a materialized view this"
+      },
+      {
+        "start": 1157.179,
+        "duration": 6.141,
+        "text": "data in a form that can that can you"
+      },
+      {
+        "start": 1160.33,
+        "duration": 6.42,
+        "text": "know meet your latency requirements nice"
+      },
+      {
+        "start": 1163.32,
+        "duration": 7.54,
+        "text": "and no I noticed that you use the quote"
+      },
+      {
+        "start": 1166.75,
+        "duration": 7.23,
+        "text": "fingers on the materialized what was"
+      },
+      {
+        "start": 1170.86,
+        "duration": 5.069,
+        "text": "that about a material like a Cassandra"
+      },
+      {
+        "start": 1173.98,
+        "duration": 3.569,
+        "text": "but you not eyes can say that at realize"
+      },
+      {
+        "start": 1175.929,
+        "duration": 3.651,
+        "text": "you know I guess the other term the"
+      },
+      {
+        "start": 1177.549,
+        "duration": 5.401,
+        "text": "other term might be another read model"
+      },
+      {
+        "start": 1179.58,
+        "duration": 7.3,
+        "text": "okay mother no that's a good"
+      },
+      {
+        "start": 1182.95,
+        "duration": 6.78,
+        "text": "clarification okay so you know I think"
+      },
+      {
+        "start": 1186.88,
+        "duration": 4.74,
+        "text": "you're really calling out something that"
+      },
+      {
+        "start": 1189.73,
+        "duration": 3.48,
+        "text": "I think is important we when we talk"
+      },
+      {
+        "start": 1191.62,
+        "duration": 4.22,
+        "text": "about Cassandra are constantly harping"
+      },
+      {
+        "start": 1193.21,
+        "duration": 5.42,
+        "text": "on data models and the importance of"
+      },
+      {
+        "start": 1195.84,
+        "duration": 4.319,
+        "text": "understanding and you know sometimes"
+      },
+      {
+        "start": 1198.63,
+        "duration": 3.029,
+        "text": "people push back against that and"
+      },
+      {
+        "start": 1200.159,
+        "duration": 3.12,
+        "text": "they'll they'll say well you know it"
+      },
+      {
+        "start": 1201.659,
+        "duration": 3.361,
+        "text": "should just work and why do I have to"
+      },
+      {
+        "start": 1203.279,
+        "duration": 3.871,
+        "text": "think so hard about I don't know what"
+      },
+      {
+        "start": 1205.02,
+        "duration": 3.779,
+        "text": "all my read patterns are that I'm"
+      },
+      {
+        "start": 1207.15,
+        "duration": 3.99,
+        "text": "possibly going to ever need why do I"
+      },
+      {
+        "start": 1208.799,
+        "duration": 5.76,
+        "text": "have to think about them up front but I"
+      },
+      {
+        "start": 1211.14,
+        "duration": 6.45,
+        "text": "feel like you're using you know a system"
+      },
+      {
+        "start": 1214.559,
+        "duration": 4.86,
+        "text": "a database like Cassandra like DSE and"
+      },
+      {
+        "start": 1217.59,
+        "duration": 4.14,
+        "text": "with DSE graph you're using it because"
+      },
+      {
+        "start": 1219.419,
+        "duration": 4.831,
+        "text": "you have these characteristics where you"
+      },
+      {
+        "start": 1221.73,
+        "duration": 5.97,
+        "text": "need the high performance at very large"
+      },
+      {
+        "start": 1224.25,
+        "duration": 5.13,
+        "text": "scales and so you are not absolved of"
+      },
+      {
+        "start": 1227.7,
+        "duration": 3.3,
+        "text": "having to think about the implications"
+      },
+      {
+        "start": 1229.38,
+        "duration": 3.81,
+        "text": "if you want the performance at scale"
+      },
+      {
+        "start": 1231.0,
+        "duration": 4.14,
+        "text": "then yeah you're gonna have to think"
+      },
+      {
+        "start": 1233.19,
+        "duration": 4.95,
+        "text": "about your data model whether it's"
+      },
+      {
+        "start": 1235.14,
+        "duration": 6.779,
+        "text": "Cassandra or graph I mean am i right any"
+      },
+      {
+        "start": 1238.14,
+        "duration": 5.519,
+        "text": "database that I've ever used where it"
+      },
+      {
+        "start": 1241.919,
+        "duration": 5.13,
+        "text": "were it hasn't just been kind of you"
+      },
+      {
+        "start": 1243.659,
+        "duration": 6.5,
+        "text": "know if it's a small set of data it you"
+      },
+      {
+        "start": 1247.049,
+        "duration": 6.301,
+        "text": "know fits in memory on a single machine"
+      },
+      {
+        "start": 1250.159,
+        "duration": 5.26,
+        "text": "okay that's that's then you're kind of"
+      },
+      {
+        "start": 1253.35,
+        "duration": 4.92,
+        "text": "absolved of some of these issues but in"
+      },
+      {
+        "start": 1255.419,
+        "duration": 5.37,
+        "text": "reality it doesn't matter if it's Oracle"
+      },
+      {
+        "start": 1258.27,
+        "duration": 5.58,
+        "text": "or sequel server I mean that's why"
+      },
+      {
+        "start": 1260.789,
+        "duration": 6.711,
+        "text": "there's loads of Oracle DBAs out there"
+      },
+      {
+        "start": 1263.85,
+        "duration": 6.569,
+        "text": "and there's you know 30 plus years of"
+      },
+      {
+        "start": 1267.5,
+        "duration": 4.63,
+        "text": "engineering in that system and it's but"
+      },
+      {
+        "start": 1270.419,
+        "duration": 4.351,
+        "text": "they're just as computers they're"
+      },
+      {
+        "start": 1272.13,
+        "duration": 5.669,
+        "text": "running programs they have to do stuff"
+      },
+      {
+        "start": 1274.77,
+        "duration": 5.039,
+        "text": "there's no magic here so like you need"
+      },
+      {
+        "start": 1277.799,
+        "duration": 3.711,
+        "text": "to learn these these parts if you really"
+      },
+      {
+        "start": 1279.809,
+        "duration": 4.62,
+        "text": "want to make this system work well yep"
+      },
+      {
+        "start": 1281.51,
+        "duration": 5.2,
+        "text": "awesome - you have any parting words for"
+      },
+      {
+        "start": 1284.429,
+        "duration": 4.801,
+        "text": "us on just thoughts on how people get"
+      },
+      {
+        "start": 1286.71,
+        "duration": 5.969,
+        "text": "good how to get smart at graph data"
+      },
+      {
+        "start": 1289.23,
+        "duration": 5.429,
+        "text": "modeling yeah I guess I'd say like I"
+      },
+      {
+        "start": 1292.679,
+        "duration": 3.931,
+        "text": "said you know if you're just starting"
+      },
+      {
+        "start": 1294.659,
+        "duration": 5.581,
+        "text": "out on a graph project you're new to"
+      },
+      {
+        "start": 1296.61,
+        "duration": 5.819,
+        "text": "graph you're new to Cassandra I mean I I"
+      },
+      {
+        "start": 1300.24,
+        "duration": 3.9,
+        "text": "know it's a fire hose of information you"
+      },
+      {
+        "start": 1302.429,
+        "duration": 4.171,
+        "text": "need to take in so I'm not saying like"
+      },
+      {
+        "start": 1304.14,
+        "duration": 5.279,
+        "text": "you need to become a guru on all these"
+      },
+      {
+        "start": 1306.6,
+        "duration": 5.64,
+        "text": "different parts but I think something"
+      },
+      {
+        "start": 1309.419,
+        "duration": 5.071,
+        "text": "like at least spending some time on data"
+      },
+      {
+        "start": 1312.24,
+        "duration": 5.069,
+        "text": "sex Academy watching some of the intro"
+      },
+      {
+        "start": 1314.49,
+        "duration": 5.069,
+        "text": "Cassandra videos I think it will be well"
+      },
+      {
+        "start": 1317.309,
+        "duration": 4.681,
+        "text": "worth it you will have a better"
+      },
+      {
+        "start": 1319.559,
+        "duration": 4.381,
+        "text": "understanding down the road as to what's"
+      },
+      {
+        "start": 1321.99,
+        "duration": 4.59,
+        "text": "going on why things are slow and really"
+      },
+      {
+        "start": 1323.94,
+        "duration": 4.5,
+        "text": "save yourself some time in the future so"
+      },
+      {
+        "start": 1326.58,
+        "duration": 2.94,
+        "text": "take your time now it'll take a little"
+      },
+      {
+        "start": 1328.44,
+        "duration": 2.87,
+        "text": "extra time but I"
+      },
+      {
+        "start": 1329.52,
+        "duration": 4.29,
+        "text": "it'll pay dividends going forward"
+      },
+      {
+        "start": 1331.31,
+        "duration": 4.36,
+        "text": "excellent well thank you for the words"
+      },
+      {
+        "start": 1333.81,
+        "duration": 3.51,
+        "text": "of wisdom Ted we've really enjoyed"
+      },
+      {
+        "start": 1335.67,
+        "duration": 4.46,
+        "text": "having you on this week's show and"
+      },
+      {
+        "start": 1337.32,
+        "duration": 5.19,
+        "text": "thanks everyone for watching listening"
+      },
+      {
+        "start": 1340.13,
+        "duration": 3.76,
+        "text": "engaging with this content however it is"
+      },
+      {
+        "start": 1342.51,
+        "duration": 3.69,
+        "text": "that you do that thanks and we'll see"
+      },
+      {
+        "start": 1343.89,
+        "duration": 3.54,
+        "text": "you next time thank you thank you for"
+      },
+      {
+        "start": 1346.2,
+        "duration": 3.75,
+        "text": "joining us again for the distributed"
+      },
+      {
+        "start": 1347.43,
+        "duration": 4.35,
+        "text": "data show we love your feedback so go to"
+      },
+      {
+        "start": 1349.95,
+        "duration": 3.45,
+        "text": "the distributed data show page on data"
+      },
+      {
+        "start": 1351.78,
+        "duration": 3.57,
+        "text": "Stax Academy and tell us what you think"
+      },
+      {
+        "start": 1353.4,
+        "duration": 4.35,
+        "text": "you can also find us on the data Stax"
+      },
+      {
+        "start": 1355.35,
+        "duration": 4.26,
+        "text": "Academy YouTube channel or find our"
+      },
+      {
+        "start": 1357.75,
+        "duration": 4.32,
+        "text": "podcast on iTunes Google Play or"
+      },
+      {
+        "start": 1359.61,
+        "duration": 4.44,
+        "text": "wherever you get great podcast while"
+      },
+      {
+        "start": 1362.07,
+        "duration": 4.85,
+        "text": "you're there make sure and subscribe so"
+      },
+      {
+        "start": 1364.05,
+        "duration": 5.979,
+        "text": "you don't miss a single episode"
+      },
+      {
+        "start": 1366.92,
+        "duration": 3.109,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T06:34:22.020257+00:00"
+}

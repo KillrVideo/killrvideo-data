@@ -1,0 +1,2169 @@
+{
+  "video_id": "TDBJoMpmI3Q",
+  "title": "How to Deploy Enterprise Cassandra on Amazon EKS with DataStax Mission Control",
+  "description": "In this video, Aaron Ploetz walks you through the process of building an Amazon EKS (Elastic Kubernetes Service) cluster and deploying Cassandra using DataStax Mission Control. You'll learn how to set up your cluster with eksctl, configure nodes and storage, set up S3 buckets, and install Mission Control to manage and observe your Cassandra infrastructure.\n\nTopics covered include:\n\n• Prerequisites: AWS CLI, eksctl, kubectl setup\n• Creating an EKS cluster and node groups\n• Configuring IAM policies and node groups for optimal setup\n• Setting up S3 buckets for metrics and logs\n•A dding storage classes and persistent volume setup\n• Deploying and configuring DataStax Mission Control for Cassandra management\n• Accessing Mission Control through a local port forward\n\n🔗 Learn more about DataStax Mission Control: https://www.datastax.com/products/mission-control\n\nWhether you're new to Amazon EKS or experienced with Kubernetes, this step-by-step guide will help you deploy Cassandra on Amazon EKS and manage it seamlessly using DataStax Mission Control.\n\nChapters:\n00:00:00 Introduction\n00:01:17 Creating an EKS cluster\n00:03:00 Create 2nd, managed node group\n00:04:44 Add EKSAdmin policy to IAM principal\n00:05:34 Install EKS Pod Identity add-on\n00:06:13 Enable the AWS OpenID Connect provider\n00:06:43 Label database nodes with \"database\" role\n00:08:09 Define S3 access policy\n00:09:25 Attach policy to EBS CSI Driver role \n00:09:53 Create S3 buckets \n00:11:25 Install EBS CSI driver add-on\n00:13:29 Define additional storage type(s)\n00:14:25 Install Mission Control with KOTS\n00:15:42 Upload Mission Control license file \n00:16:16 Mission Control configuration \n00:19:22 Install Cert Manager\n00:21:01 Rerun pre-flight check & deploy\n_________\n\nAdditional Resources:\n- DataStax Developer Hub: https://datastax.com/devs\n- DataStax Blog: https://www.datastax.com/blog/technical-how-tos\n- Langflow: https://langflow.datastax.com\n- Astra DB: https://astra.datastax.com\n____________________\n\nStay in ",
+  "published_at": "2024-10-25T18:32:50Z",
+  "thumbnail": "https://i.ytimg.com/vi/TDBJoMpmI3Q/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "astra",
+    "introduction",
+    "database"
+  ],
+  "url": "https://www.youtube.com/watch?v=TDBJoMpmI3Q",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "hello everyone I'm Aaron pletz and today I'm going to take you through building out an eks cluster on Amazon and using mission control on top of that to go ahead and deploy and support Cassandra infrastructure all right lots of fun today let's go as the topics in this video are fairly complicated I thought it was important to have a prerequisite slide in order to do a lot of the tasks that will be shown in this video you will need to have already installed and logged in and authenticated with each of these three um the AWS CLI the eks CTL tool and the cube control tool there are plenty of good resources out there on how to download and install all of these I will say though that the um e control website actually does a really good job of um taking you through how to use it and set up a a basic cluster um as well as um you know how to get started how to install so I highly recommend heading out to eksctl doio and that'll help you get started with eks control really easily all right so we're going to start out by creating our cluster with eks control you can just do eks control create cluster um DN and uh mine is going to be erand dk-3 uh while we're at it we're going to create a node group right away so the node group name is going to be database for the the database nodes um we're going to specify this in the US West 2 region that's where we're deploying everything the node type for this we're going to be using t3x larges uh that should get us a good um Cross of something that's you know cost effective and gets us what we need and we want to start with um in the database node group we want at least three nodes here so let's let's at least go with that oh and we should go back here and um also remember that we need to specify the um the volume size uh for each of the nodes which you know we're just we're going to be conservative just for a demo cluster here and set at 100 gabt oh I should have had a dash there between node and node type or sorry node and type so let's Arrow back to that put a dash in okay hey there you go cluster is creating now this is going to take you know I've seen this take anywhere from from 10 to 20 minutes before so um we're going to fast forward a little bit here but um on your side don't be surprised if this takes a little bit of time okay looks like it created now we're going to want to create our other node group uh we just created the database nodes along with the cluster um and in this case um let's go ahead and create the node group for the platform nodes so again we'll specify eks control create node group d-cluster erand eks3 um d region Us West 2 and we're going to name this platform nodes and then we're going to specify you know the the node type um we're going to go with T3 X larges again we'll go with two of them and we'll also set the the node volume size of 100 gigabytes as well that should be plenty for what we need and then we'll also add in our um SSH access key just in case we need that all right real quick here let's adjust our um I am uh principle to um make sure that it has access to um you know that it needs needs to for um you know elastic kubernetes admin so we'll give it that policy then we'll review and we'll create all right so we have that user um added on added on with access to our cluster oh we're also going to want to make sure that we install the um the ad on for the Amazon eks pod identity agent let's go ahead and click into that or tick the box and then we can scroll down and say and say next and yep that's what we want and perfect create okay looking through our add-ons we do have it so one thing that we're going to want to do here is associate and uh an oidc provider so we'll just go ahead and do eks control utils associate I am oidc provider specify our cluster name with um D- approv specify the region Us West 2 all right and that's good all right now what we're going to do is uh run a for Loop in bash to um or zsh to go through each node from a cube control get nodes um and we're actually going to specify our um our node group here uh we're going to start with the database nodes and what this is going to do is iterate through each node that comes back from that Cube control get nodes command and it's going to set the kubernetes label to Mission Control dat stacks.com roll equals database uh that's what we want and now that we've got those three nodes labeled appropriately now we also want to do the same for the platform nodes as well oh and unfortunately I ran that for the platform nodes but named them with the database roll so let's run that one more time and this time we'll set platform and that should do it okay so now all of our nodes have been labeled appropriately now if you have a look at our node groups you can see yep we uh we have our node groups out there um and they do in fact have their their minimum and desired sizes um everything here looks uh looks pretty much good to go now we need to go ahead and set up our S3 buckets and part of that is our S3 access policy um I have an S3 access policy Json file here that I've that I've used um couple of times before um and what I can do is uh to go ahead and like run that in VI and I'm just going to update the resource there to point to um my eks3 cluster oh yep VI caught me there a little bit and uh yeah we'll just change ek2 to eks3 and then that should be pointing at the right cluster now we'll go ahead and use the uh AWS CLI to um you know go ahead and uh and create the policy and we're going to specify um our file there that Json file um as our policy document oh so that policy already exists okay um but you know for you if you're you're going to go ahead and start from scratch um you will need to go ahead and do that so the next step here is we're going to attach that policy to a role um specifically I want to add this to the um Amazon eks EBS CSI driver rooll which also corresponds to an add-on um so there there we've gone ahead and um attached that S3 AIS policy all right now we're going to go ahead and create our S3 buckets so again use the AWS CLI use that S3 API command create bucket we'll name the bucket you know um exactly what we've named them up above under the the resource list there um so that we have um you know DS eks erands eks3 metrics and we'll tie it to our region of a US West 2 and then we'll also specify um a location constraint for our bucket config and we'll just specify Us West here to oh looks like I mistyped something up there oh I need an extra Dash in there for create bucket config okay and then I spelled constraint wrong outstanding okay this time at work all right we need to create one more bucket and that's going to be um for our logs cuz we have one bucket for a metrics and then you know we need one more for one more for logs as well all right oh looks like I created that with an extra s on there but that's okay I can worry about that later now let's go ahead and um get another add-on in there so we'll do eksctl create add-on and this is is going to be that AWS EBS CSI driver um and we want to make sure that we're adding it to our eks3 cluster Aon eks3 um and specify the region of us West [Music] 2 and we're going to specify a specific service account roll Arn and we're going to do here is kind of run a sub command to um get the caller identity of our account output it as text and uh make sure then we pipe that to roll with Amazon eks EBS CSI driver roll and of course we want to force that as well okay so what this just did was to give um our account inside of eks so we're going to run our nodes as you know the ability to provision storage for them um we also oh yep have to have to run that command that um you know just the the eara I guess has been deprecated so let's just run that command quick to um you know get things over as far far as pot identity Association is concerned there all right and let's rerun that with a dash dash approve on there and we're done all right outstanding um in Cube control I've done some work to um set gp2 as my default storage class um I also have this yaml file called gp3 storage class yaml so if I do a cat gp3 um you can see what this is basically um creates like an ext4 type of a stor storage option there um and once I applied that file I can do a pube control get storage class and you can see that we have both of them there gp2 as a default and then GB3 additionally okay so with that complete we should be ready to install data Stacks Mission Control let's go ahead and run that install through cots so we're going to do a say DN CS for the for the cots names space that's kind of important we don't want our pods uh created from this command showing up in the default namespace so let's try this all right um with that complete I can now enter a new password for the admin console there we go go so that means the cot admin console is on its way up okay so that process has completed um and it looks like we have a access available to CS through Local Host um 8800 so let's copy that so if we go new tab and we paste that all right here we go so now I can enter the same password I put in before all right so the first thing cot is going to ask is for our mission control license file um you can get this from your um you know solution architect or um you know sales associate that you're working with um but for me I actually have this stored locally here mission control license yaml there we go and I'll say open all right and upload okay so now we're going to walk through setting up mission control um so I'm going to say that this is a control plane so let's head into to observability um obviously since we are on um Amazon eks and we just created our S3 buckets we're going to go with S3 and compatible for our storage for a region it's going to be us West [Music] 2 um then we have to paste in our um access key IDs and secret key to uh to do that all right um next is our npoint URL um and when using Amazon S3 this field should be set to s3. region so uswest 2. Amazon aws.com all right yeah we'll allow insecure access on that that's that's fine um we don't really need a whole lot more for um you know observability metrics um access additional configur no no no no no uh let's see persistent volumes sure that way it'll use the default storage Class A gp2 yeah see a lot of this observability stuff where um you know you can you you can and should definitely research more in terms of production but just to show you as an example we don't need we don't need a whole lot here static credentials are fine um so I'm just going to say um plat at datas stacks.com uh let's go ahead and um use this to create a um hashed password from bcrypt all right let me paste that in and then username now we can just say here how about that all right and we don't need to worry about open shift so we should just be able to say continue oh okay okay so we don't have C manager installed um that is something that I will need to do quick so C manager is going to be necessary to allow mission control the ability to manage um node to node as SSL so we're going to we're going to go ahead and install that uh remotely with Helm so let's use Helm repo add jet stack charts. stack. iio force update all right we have the repo let's just make sure that um you know we get the latest and greatest all right so now let's uh install with a specific Helm chart here so we can say Helm installer manager jet stacker Dash manager namespace seert manager um and if it doesn't exist we'll do a create namespace we'll use version um v1.32 and we'll say set um install crds we want that to be true okay um so it looks like that completed successfully let's go ahead and uh rerun our pre-flight checks here and if we did this right the uh cert manager related failur should turn green oh look at that there we go outstanding all right and then let's just say deploy so you can see mission control is actually deploying out here um into our kubernetes cluster all right currently deployed um we have our community license enabled so we should be okay here all right Mission Control has a status of ready all right so with that running um um we can actually have a look at what's running out there say poop control um get pods namespace and we'll say mission-control because Mission Control has its own namespace in our eks cluster and you can see yep we uh we absolutely do have our mission control pods all running out here so um let's have a look at uh let's do the same thing but we'll say get service okay so these are all of our kubernetes services that are running um you'll notice that we have the mission control UI service here um that's available on um you know this IP um port 8080 but it's exposed externally on 3880 uh so let's work on getting to that so one way that we can access this is to um is to do a port forward on that service uh so let's just go ahead and say C control we'll say Port Das forward and we want to say Service uh and we're going to grab this Mission Control UI and uh we'll also provide our name space mission uh control I better spell it right you know we'll expose it on um 8080 so let's do that so now if I go and open up a new tab say Local Host 8080 there we go and you know I can say yes proceed to Local Host I don't care that I don't have an assl certificate okay so email address um I can say a inpl stacks.com and then I can say all right that works and we can say accept okay and just like that we have data Stacks Mission Control running on eks for more information on data Stacks Mission Control just head on out to data.com products Mission Control there you can find all the information you need including downloads and documentation thank you and have a great day",
+    "segments": [
+      {
+        "start": 3.32,
+        "duration": 4.36,
+        "text": "hello everyone I'm Aaron pletz and today"
+      },
+      {
+        "start": 6.08,
+        "duration": 6.32,
+        "text": "I'm going to take you through building"
+      },
+      {
+        "start": 7.68,
+        "duration": 7.48,
+        "text": "out an eks cluster on Amazon and using"
+      },
+      {
+        "start": 12.4,
+        "duration": 6.08,
+        "text": "mission control on top of that to go"
+      },
+      {
+        "start": 15.16,
+        "duration": 5.24,
+        "text": "ahead and deploy and support Cassandra"
+      },
+      {
+        "start": 18.48,
+        "duration": 5.08,
+        "text": "infrastructure all right lots of fun"
+      },
+      {
+        "start": 20.4,
+        "duration": 5.68,
+        "text": "today let's go as the topics in this"
+      },
+      {
+        "start": 23.56,
+        "duration": 4.4,
+        "text": "video are fairly complicated I thought"
+      },
+      {
+        "start": 26.08,
+        "duration": 4.92,
+        "text": "it was important to have a prerequisite"
+      },
+      {
+        "start": 27.96,
+        "duration": 5.2,
+        "text": "slide in order to do a lot of the tasks"
+      },
+      {
+        "start": 31.0,
+        "duration": 5.2,
+        "text": "that will be shown in this video you"
+      },
+      {
+        "start": 33.16,
+        "duration": 5.079,
+        "text": "will need to have already installed and"
+      },
+      {
+        "start": 36.2,
+        "duration": 7.28,
+        "text": "logged in and authenticated with each of"
+      },
+      {
+        "start": 38.239,
+        "duration": 8.561,
+        "text": "these three um the AWS CLI the eks CTL"
+      },
+      {
+        "start": 43.48,
+        "duration": 5.399,
+        "text": "tool and the cube control tool there are"
+      },
+      {
+        "start": 46.8,
+        "duration": 4.72,
+        "text": "plenty of good resources out there on"
+      },
+      {
+        "start": 48.879,
+        "duration": 6.32,
+        "text": "how to download and install all of these"
+      },
+      {
+        "start": 51.52,
+        "duration": 6.519,
+        "text": "I will say though that the um e control"
+      },
+      {
+        "start": 55.199,
+        "duration": 4.84,
+        "text": "website actually does a really good job"
+      },
+      {
+        "start": 58.039,
+        "duration": 5.32,
+        "text": "of um taking you through how to use it"
+      },
+      {
+        "start": 60.039,
+        "duration": 5.521,
+        "text": "and set up a a basic cluster um as well"
+      },
+      {
+        "start": 63.359,
+        "duration": 5.001,
+        "text": "as um you know how to get started how to"
+      },
+      {
+        "start": 65.56,
+        "duration": 3.919,
+        "text": "install so I highly recommend heading"
+      },
+      {
+        "start": 68.36,
+        "duration": 3.92,
+        "text": "out to"
+      },
+      {
+        "start": 69.479,
+        "duration": 5.601,
+        "text": "eksctl doio and that'll help you get"
+      },
+      {
+        "start": 72.28,
+        "duration": 4.92,
+        "text": "started with eks control really"
+      },
+      {
+        "start": 75.08,
+        "duration": 4.44,
+        "text": "easily all right so we're going to start"
+      },
+      {
+        "start": 77.2,
+        "duration": 5.2,
+        "text": "out by creating our cluster with eks"
+      },
+      {
+        "start": 79.52,
+        "duration": 5.639,
+        "text": "control you can just do eks control"
+      },
+      {
+        "start": 82.4,
+        "duration": 8.039,
+        "text": "create cluster um"
+      },
+      {
+        "start": 85.159,
+        "duration": 6.201,
+        "text": "DN and uh mine is going to be erand dk-3"
+      },
+      {
+        "start": 90.439,
+        "duration": 3.0,
+        "text": "uh while we're at it we're going to"
+      },
+      {
+        "start": 91.36,
+        "duration": 5.36,
+        "text": "create a node group right away so the"
+      },
+      {
+        "start": 93.439,
+        "duration": 6.32,
+        "text": "node group name is going to be database"
+      },
+      {
+        "start": 96.72,
+        "duration": 6.12,
+        "text": "for the the database"
+      },
+      {
+        "start": 99.759,
+        "duration": 6.32,
+        "text": "nodes um we're going to specify this in"
+      },
+      {
+        "start": 102.84,
+        "duration": 6.599,
+        "text": "the US West 2 region that's where we're"
+      },
+      {
+        "start": 106.079,
+        "duration": 6.161,
+        "text": "deploying everything the node type for"
+      },
+      {
+        "start": 109.439,
+        "duration": 5.72,
+        "text": "this we're going to be using t3x"
+      },
+      {
+        "start": 112.24,
+        "duration": 4.839,
+        "text": "larges uh that should get us a good um"
+      },
+      {
+        "start": 115.159,
+        "duration": 5.88,
+        "text": "Cross of something that's you know cost"
+      },
+      {
+        "start": 117.079,
+        "duration": 5.841,
+        "text": "effective and gets us what we need"
+      },
+      {
+        "start": 121.039,
+        "duration": 4.521,
+        "text": "and we want to start with um in the"
+      },
+      {
+        "start": 122.92,
+        "duration": 5.399,
+        "text": "database node group we want at least"
+      },
+      {
+        "start": 125.56,
+        "duration": 5.16,
+        "text": "three nodes here so let's let's at least"
+      },
+      {
+        "start": 128.319,
+        "duration": 2.401,
+        "text": "go with"
+      },
+      {
+        "start": 131.92,
+        "duration": 7.84,
+        "text": "that oh and we should go back here and"
+      },
+      {
+        "start": 135.239,
+        "duration": 7.161,
+        "text": "um also remember that we need to specify"
+      },
+      {
+        "start": 139.76,
+        "duration": 4.88,
+        "text": "the um the volume size uh for each of"
+      },
+      {
+        "start": 142.4,
+        "duration": 3.88,
+        "text": "the nodes which you know we're just"
+      },
+      {
+        "start": 144.64,
+        "duration": 5.599,
+        "text": "we're going to be conservative just for"
+      },
+      {
+        "start": 146.28,
+        "duration": 6.52,
+        "text": "a demo cluster here and set at 100 gabt"
+      },
+      {
+        "start": 150.239,
+        "duration": 5.64,
+        "text": "oh I should have had a dash there"
+      },
+      {
+        "start": 152.8,
+        "duration": 6.32,
+        "text": "between node and node type or sorry node"
+      },
+      {
+        "start": 155.879,
+        "duration": 4.28,
+        "text": "and type so let's Arrow back to that put"
+      },
+      {
+        "start": 159.12,
+        "duration": 6.56,
+        "text": "a dash"
+      },
+      {
+        "start": 160.159,
+        "duration": 5.521,
+        "text": "in okay hey there you go cluster is"
+      },
+      {
+        "start": 166.72,
+        "duration": 5.68,
+        "text": "creating now this is going to take you"
+      },
+      {
+        "start": 170.56,
+        "duration": 5.12,
+        "text": "know I've seen this take anywhere from"
+      },
+      {
+        "start": 172.4,
+        "duration": 6.16,
+        "text": "from 10 to 20 minutes before so um we're"
+      },
+      {
+        "start": 175.68,
+        "duration": 4.96,
+        "text": "going to fast forward a little bit here"
+      },
+      {
+        "start": 178.56,
+        "duration": 4.959,
+        "text": "but um on your side don't be surprised"
+      },
+      {
+        "start": 180.64,
+        "duration": 6.4,
+        "text": "if this takes a little bit of"
+      },
+      {
+        "start": 183.519,
+        "duration": 5.72,
+        "text": "time okay looks like it"
+      },
+      {
+        "start": 187.04,
+        "duration": 4.24,
+        "text": "created now we're going to want to"
+      },
+      {
+        "start": 189.239,
+        "duration": 4.72,
+        "text": "create our other node"
+      },
+      {
+        "start": 191.28,
+        "duration": 5.599,
+        "text": "group uh we just created the database"
+      },
+      {
+        "start": 193.959,
+        "duration": 6.28,
+        "text": "nodes along with the cluster um and in"
+      },
+      {
+        "start": 196.879,
+        "duration": 5.681,
+        "text": "this case um let's go ahead and create"
+      },
+      {
+        "start": 200.239,
+        "duration": 4.761,
+        "text": "the node group for the platform nodes so"
+      },
+      {
+        "start": 202.56,
+        "duration": 5.679,
+        "text": "again we'll specify eks control create"
+      },
+      {
+        "start": 205.0,
+        "duration": 7.879,
+        "text": "node group d-cluster erand"
+      },
+      {
+        "start": 208.239,
+        "duration": 7.881,
+        "text": "eks3 um d region Us West 2 and we're"
+      },
+      {
+        "start": 212.879,
+        "duration": 3.241,
+        "text": "going to name this platform"
+      },
+      {
+        "start": 216.92,
+        "duration": 4.36,
+        "text": "nodes and then we're going to specify"
+      },
+      {
+        "start": 219.2,
+        "duration": 6.48,
+        "text": "you know the the node type um we're"
+      },
+      {
+        "start": 221.28,
+        "duration": 4.4,
+        "text": "going to go with T3 X larges"
+      },
+      {
+        "start": 228.239,
+        "duration": 4.2,
+        "text": "again we'll go with two of"
+      },
+      {
+        "start": 233.079,
+        "duration": 5.961,
+        "text": "them and we'll also set the the node"
+      },
+      {
+        "start": 235.959,
+        "duration": 6.64,
+        "text": "volume size of 100 gigabytes as well"
+      },
+      {
+        "start": 239.04,
+        "duration": 3.559,
+        "text": "that should be plenty for what we"
+      },
+      {
+        "start": 242.64,
+        "duration": 9.0,
+        "text": "need and then we'll also add in our um"
+      },
+      {
+        "start": 246.04,
+        "duration": 5.6,
+        "text": "SSH access key just in case we need that"
+      },
+      {
+        "start": 279.0,
+        "duration": 4.24,
+        "text": "all right real quick here let's adjust"
+      },
+      {
+        "start": 281.56,
+        "duration": 5.76,
+        "text": "our um I"
+      },
+      {
+        "start": 283.24,
+        "duration": 7.48,
+        "text": "am uh principle to"
+      },
+      {
+        "start": 287.32,
+        "duration": 5.599,
+        "text": "um make sure that it has access to um"
+      },
+      {
+        "start": 290.72,
+        "duration": 5.4,
+        "text": "you know that it needs needs to for um"
+      },
+      {
+        "start": 292.919,
+        "duration": 6.921,
+        "text": "you know elastic kubernetes admin so"
+      },
+      {
+        "start": 296.12,
+        "duration": 3.72,
+        "text": "we'll give it that policy"
+      },
+      {
+        "start": 304.24,
+        "duration": 3.36,
+        "text": "then we'll review and we'll"
+      },
+      {
+        "start": 316.72,
+        "duration": 8.599,
+        "text": "create all right so we have that user um"
+      },
+      {
+        "start": 321.12,
+        "duration": 4.199,
+        "text": "added on added on with access to our"
+      },
+      {
+        "start": 327.36,
+        "duration": 4.2,
+        "text": "cluster oh we're also going to want to"
+      },
+      {
+        "start": 329.28,
+        "duration": 6.759,
+        "text": "make sure that we install the um the ad"
+      },
+      {
+        "start": 331.56,
+        "duration": 7.96,
+        "text": "on for the Amazon eks pod identity"
+      },
+      {
+        "start": 336.039,
+        "duration": 4.841,
+        "text": "agent let's go ahead and click into that"
+      },
+      {
+        "start": 339.52,
+        "duration": 5.04,
+        "text": "or tick the"
+      },
+      {
+        "start": 340.88,
+        "duration": 8.52,
+        "text": "box and then we can scroll down and say"
+      },
+      {
+        "start": 344.56,
+        "duration": 9.72,
+        "text": "and say next and yep that's what we"
+      },
+      {
+        "start": 349.4,
+        "duration": 4.88,
+        "text": "want and perfect create"
+      },
+      {
+        "start": 360.12,
+        "duration": 4.28,
+        "text": "okay looking through our add-ons we do"
+      },
+      {
+        "start": 362.68,
+        "duration": 4.079,
+        "text": "have"
+      },
+      {
+        "start": 364.4,
+        "duration": 10.0,
+        "text": "it so one thing that we're going to want"
+      },
+      {
+        "start": 366.759,
+        "duration": 7.641,
+        "text": "to do here is associate and uh an oidc"
+      },
+      {
+        "start": 375.759,
+        "duration": 6.081,
+        "text": "provider so we'll just go ahead and do"
+      },
+      {
+        "start": 378.039,
+        "duration": 8.88,
+        "text": "eks control utils associate I am oidc"
+      },
+      {
+        "start": 381.84,
+        "duration": 5.079,
+        "text": "provider specify our cluster name"
+      },
+      {
+        "start": 390.639,
+        "duration": 5.481,
+        "text": "with um D- approv specify the region Us"
+      },
+      {
+        "start": 393.88,
+        "duration": 2.24,
+        "text": "West"
+      },
+      {
+        "start": 397.52,
+        "duration": 5.2,
+        "text": "2 all right and that's good all right"
+      },
+      {
+        "start": 400.96,
+        "duration": 5.959,
+        "text": "now what we're going to do is uh run a"
+      },
+      {
+        "start": 402.72,
+        "duration": 6.84,
+        "text": "for Loop in bash to um or zsh to go"
+      },
+      {
+        "start": 406.919,
+        "duration": 6.081,
+        "text": "through each node from a cube control"
+      },
+      {
+        "start": 409.56,
+        "duration": 7.16,
+        "text": "get nodes um and we're actually going to"
+      },
+      {
+        "start": 413.0,
+        "duration": 5.84,
+        "text": "specify our um our node group here uh"
+      },
+      {
+        "start": 416.72,
+        "duration": 4.56,
+        "text": "we're going to start with the database"
+      },
+      {
+        "start": 418.84,
+        "duration": 3.96,
+        "text": "nodes and what this is going to do is"
+      },
+      {
+        "start": 421.28,
+        "duration": 3.319,
+        "text": "iterate through each node that comes"
+      },
+      {
+        "start": 422.8,
+        "duration": 3.76,
+        "text": "back from that Cube control get nodes"
+      },
+      {
+        "start": 424.599,
+        "duration": 5.04,
+        "text": "command and it's going to set the"
+      },
+      {
+        "start": 426.56,
+        "duration": 6.359,
+        "text": "kubernetes label to Mission Control dat"
+      },
+      {
+        "start": 429.639,
+        "duration": 5.761,
+        "text": "stacks.com roll equals database uh"
+      },
+      {
+        "start": 432.919,
+        "duration": 3.96,
+        "text": "that's what we want and now that we've"
+      },
+      {
+        "start": 435.4,
+        "duration": 3.519,
+        "text": "got those three nodes labeled"
+      },
+      {
+        "start": 436.879,
+        "duration": 6.201,
+        "text": "appropriately now we also want to do the"
+      },
+      {
+        "start": 438.919,
+        "duration": 4.161,
+        "text": "same for the platform nodes as"
+      },
+      {
+        "start": 445.879,
+        "duration": 5.72,
+        "text": "well oh and unfortunately I ran that for"
+      },
+      {
+        "start": 450.039,
+        "duration": 3.6,
+        "text": "the platform nodes but named them with"
+      },
+      {
+        "start": 451.599,
+        "duration": 4.081,
+        "text": "the database roll so let's run that one"
+      },
+      {
+        "start": 453.639,
+        "duration": 4.96,
+        "text": "more time and this time we'll set"
+      },
+      {
+        "start": 455.68,
+        "duration": 7.16,
+        "text": "platform and that should do it okay so"
+      },
+      {
+        "start": 458.599,
+        "duration": 4.241,
+        "text": "now all of our nodes have been labeled"
+      },
+      {
+        "start": 463.24,
+        "duration": 5.28,
+        "text": "appropriately now if you have a look at"
+      },
+      {
+        "start": 465.12,
+        "duration": 5.96,
+        "text": "our node groups you can see yep we uh we"
+      },
+      {
+        "start": 468.52,
+        "duration": 4.84,
+        "text": "have our node groups out there um and"
+      },
+      {
+        "start": 471.08,
+        "duration": 4.959,
+        "text": "they do in fact have their their minimum"
+      },
+      {
+        "start": 473.36,
+        "duration": 7.2,
+        "text": "and desired sizes um everything here"
+      },
+      {
+        "start": 476.039,
+        "duration": 4.521,
+        "text": "looks uh looks pretty much good to go"
+      },
+      {
+        "start": 482.68,
+        "duration": 4.359,
+        "text": "now we need to go ahead and set up our"
+      },
+      {
+        "start": 484.159,
+        "duration": 5.72,
+        "text": "S3 buckets and part of that is our S3"
+      },
+      {
+        "start": 487.039,
+        "duration": 5.72,
+        "text": "access policy um I have an S3 access"
+      },
+      {
+        "start": 489.879,
+        "duration": 5.921,
+        "text": "policy Json file here that I've that"
+      },
+      {
+        "start": 492.759,
+        "duration": 6.12,
+        "text": "I've used um couple of times before um"
+      },
+      {
+        "start": 495.8,
+        "duration": 6.16,
+        "text": "and what I can do is uh to go ahead and"
+      },
+      {
+        "start": 498.879,
+        "duration": 6.521,
+        "text": "like run that in VI and I'm just going"
+      },
+      {
+        "start": 501.96,
+        "duration": 7.199,
+        "text": "to update the resource there to point to"
+      },
+      {
+        "start": 505.4,
+        "duration": 5.44,
+        "text": "um my eks3 cluster oh yep VI caught me"
+      },
+      {
+        "start": 509.159,
+        "duration": 5.161,
+        "text": "there a little"
+      },
+      {
+        "start": 510.84,
+        "duration": 5.559,
+        "text": "bit and uh yeah we'll just change ek2 to"
+      },
+      {
+        "start": 514.32,
+        "duration": 4.44,
+        "text": "eks3 and then that should be pointing at"
+      },
+      {
+        "start": 516.399,
+        "duration": 2.361,
+        "text": "the right"
+      },
+      {
+        "start": 520.24,
+        "duration": 6.84,
+        "text": "cluster now we'll go ahead and use the"
+      },
+      {
+        "start": 522.68,
+        "duration": 8.24,
+        "text": "uh AWS CLI to um you know go ahead and"
+      },
+      {
+        "start": 527.08,
+        "duration": 3.84,
+        "text": "uh and create the policy"
+      },
+      {
+        "start": 541.519,
+        "duration": 7.88,
+        "text": "and we're going to specify um our file"
+      },
+      {
+        "start": 544.079,
+        "duration": 5.32,
+        "text": "there that Json file um as our policy"
+      },
+      {
+        "start": 551.36,
+        "duration": 5.88,
+        "text": "document oh so that policy already"
+      },
+      {
+        "start": 553.76,
+        "duration": 4.48,
+        "text": "exists okay um but you know for you if"
+      },
+      {
+        "start": 557.24,
+        "duration": 2.839,
+        "text": "you're you're going to go ahead and"
+      },
+      {
+        "start": 558.24,
+        "duration": 4.279,
+        "text": "start from scratch um you will need to"
+      },
+      {
+        "start": 560.079,
+        "duration": 4.561,
+        "text": "go ahead and do"
+      },
+      {
+        "start": 562.519,
+        "duration": 5.281,
+        "text": "that so the next step here is we're"
+      },
+      {
+        "start": 564.64,
+        "duration": 5.12,
+        "text": "going to attach that policy to a role um"
+      },
+      {
+        "start": 567.8,
+        "duration": 6.32,
+        "text": "specifically I want to add this to the"
+      },
+      {
+        "start": 569.76,
+        "duration": 7.84,
+        "text": "um Amazon eks EBS CSI driver rooll which"
+      },
+      {
+        "start": 574.12,
+        "duration": 6.52,
+        "text": "also corresponds to an add-on um so"
+      },
+      {
+        "start": 577.6,
+        "duration": 6.12,
+        "text": "there there we've gone ahead and um"
+      },
+      {
+        "start": 580.64,
+        "duration": 5.6,
+        "text": "attached that S3 AIS"
+      },
+      {
+        "start": 583.72,
+        "duration": 6.04,
+        "text": "policy all right now we're going to go"
+      },
+      {
+        "start": 586.24,
+        "duration": 7.68,
+        "text": "ahead and create our S3 buckets so again"
+      },
+      {
+        "start": 589.76,
+        "duration": 6.48,
+        "text": "use the AWS CLI use that S3 API command"
+      },
+      {
+        "start": 593.92,
+        "duration": 5.52,
+        "text": "create bucket we'll name the bucket you"
+      },
+      {
+        "start": 596.24,
+        "duration": 6.039,
+        "text": "know um exactly what we've named them up"
+      },
+      {
+        "start": 599.44,
+        "duration": 5.88,
+        "text": "above under the the resource list there"
+      },
+      {
+        "start": 602.279,
+        "duration": 4.841,
+        "text": "um so that we have um you know DS eks"
+      },
+      {
+        "start": 605.32,
+        "duration": 4.72,
+        "text": "erands eks3"
+      },
+      {
+        "start": 607.12,
+        "duration": 6.0,
+        "text": "metrics and we'll tie it to our region"
+      },
+      {
+        "start": 610.04,
+        "duration": 3.08,
+        "text": "of a US West"
+      },
+      {
+        "start": 619.48,
+        "duration": 6.88,
+        "text": "2 and then we'll also specify um a"
+      },
+      {
+        "start": 623.92,
+        "duration": 5.2,
+        "text": "location constraint for our bucket"
+      },
+      {
+        "start": 626.36,
+        "duration": 4.28,
+        "text": "config and we'll just specify Us West"
+      },
+      {
+        "start": 629.12,
+        "duration": 5.08,
+        "text": "here"
+      },
+      {
+        "start": 630.64,
+        "duration": 6.08,
+        "text": "to oh looks like I mistyped something up"
+      },
+      {
+        "start": 634.2,
+        "duration": 6.879,
+        "text": "there oh I need an extra Dash in there"
+      },
+      {
+        "start": 636.72,
+        "duration": 4.359,
+        "text": "for create bucket config"
+      },
+      {
+        "start": 641.839,
+        "duration": 4.601,
+        "text": "okay and then I spelled constraint wrong"
+      },
+      {
+        "start": 650.48,
+        "duration": 5.479,
+        "text": "outstanding okay this time at"
+      },
+      {
+        "start": 653.839,
+        "duration": 4.281,
+        "text": "work all right we need to create one"
+      },
+      {
+        "start": 655.959,
+        "duration": 4.361,
+        "text": "more bucket and that's going to be um"
+      },
+      {
+        "start": 658.12,
+        "duration": 4.56,
+        "text": "for our logs cuz we have one bucket for"
+      },
+      {
+        "start": 660.32,
+        "duration": 5.959,
+        "text": "a metrics and then you know we need one"
+      },
+      {
+        "start": 662.68,
+        "duration": 3.599,
+        "text": "more for one more for logs as"
+      },
+      {
+        "start": 672.0,
+        "duration": 4.959,
+        "text": "well all"
+      },
+      {
+        "start": 674.519,
+        "duration": 4.081,
+        "text": "right oh looks like I created that with"
+      },
+      {
+        "start": 676.959,
+        "duration": 5.401,
+        "text": "an extra s on there but that's okay I"
+      },
+      {
+        "start": 678.6,
+        "duration": 7.039,
+        "text": "can worry about that later now let's go"
+      },
+      {
+        "start": 682.36,
+        "duration": 6.599,
+        "text": "ahead and um get another add-on in there"
+      },
+      {
+        "start": 685.639,
+        "duration": 7.121,
+        "text": "so we'll do eksctl create add-on and"
+      },
+      {
+        "start": 688.959,
+        "duration": 6.0,
+        "text": "this is is going to be that AWS EBS CSI"
+      },
+      {
+        "start": 692.76,
+        "duration": 8.04,
+        "text": "driver um and we want to make sure that"
+      },
+      {
+        "start": 694.959,
+        "duration": 8.841,
+        "text": "we're adding it to our eks3 cluster Aon"
+      },
+      {
+        "start": 700.8,
+        "duration": 3.35,
+        "text": "eks3 um and specify the region of us"
+      },
+      {
+        "start": 703.8,
+        "duration": 3.12,
+        "text": "West"
+      },
+      {
+        "start": 704.15,
+        "duration": 5.65,
+        "text": "[Music]"
+      },
+      {
+        "start": 706.92,
+        "duration": 5.0,
+        "text": "2 and we're going to specify a specific"
+      },
+      {
+        "start": 709.8,
+        "duration": 5.12,
+        "text": "service account roll"
+      },
+      {
+        "start": 711.92,
+        "duration": 3.0,
+        "text": "Arn"
+      },
+      {
+        "start": 717.8,
+        "duration": 6.08,
+        "text": "and we're going to do here is kind of"
+      },
+      {
+        "start": 720.56,
+        "duration": 6.2,
+        "text": "run a sub command to um get the caller"
+      },
+      {
+        "start": 723.88,
+        "duration": 2.88,
+        "text": "identity of our"
+      },
+      {
+        "start": 730.279,
+        "duration": 6.401,
+        "text": "account output it as text and uh make"
+      },
+      {
+        "start": 734.44,
+        "duration": 4.88,
+        "text": "sure then we pipe that to roll with"
+      },
+      {
+        "start": 736.68,
+        "duration": 6.399,
+        "text": "Amazon eks EBS"
+      },
+      {
+        "start": 739.32,
+        "duration": 3.759,
+        "text": "CSI driver"
+      },
+      {
+        "start": 745.839,
+        "duration": 5.321,
+        "text": "roll and of course we want to force that"
+      },
+      {
+        "start": 748.199,
+        "duration": 2.961,
+        "text": "as well"
+      },
+      {
+        "start": 754.519,
+        "duration": 5.32,
+        "text": "okay so what this just did was to give"
+      },
+      {
+        "start": 757.44,
+        "duration": 4.399,
+        "text": "um our account inside of eks so we're"
+      },
+      {
+        "start": 759.839,
+        "duration": 6.281,
+        "text": "going to run our nodes as you know the"
+      },
+      {
+        "start": 761.839,
+        "duration": 4.281,
+        "text": "ability to provision storage for"
+      },
+      {
+        "start": 766.279,
+        "duration": 6.24,
+        "text": "them um we also oh yep have to have to"
+      },
+      {
+        "start": 769.6,
+        "duration": 5.359,
+        "text": "run that command that um you know just"
+      },
+      {
+        "start": 772.519,
+        "duration": 4.481,
+        "text": "the the eara I guess has been deprecated"
+      },
+      {
+        "start": 774.959,
+        "duration": 4.361,
+        "text": "so let's just run that command quick to"
+      },
+      {
+        "start": 777.0,
+        "duration": 6.76,
+        "text": "um you know get things over as far far"
+      },
+      {
+        "start": 779.32,
+        "duration": 4.44,
+        "text": "as pot identity Association is concerned"
+      },
+      {
+        "start": 784.36,
+        "duration": 6.2,
+        "text": "there all right and let's rerun that"
+      },
+      {
+        "start": 786.959,
+        "duration": 3.601,
+        "text": "with a dash dash approve on"
+      },
+      {
+        "start": 798.44,
+        "duration": 4.36,
+        "text": "there and we're done all right"
+      },
+      {
+        "start": 802.839,
+        "duration": 8.281,
+        "text": "outstanding um in Cube control I've done"
+      },
+      {
+        "start": 805.279,
+        "duration": 7.161,
+        "text": "some work to um set gp2 as my default"
+      },
+      {
+        "start": 811.12,
+        "duration": 5.079,
+        "text": "storage"
+      },
+      {
+        "start": 812.44,
+        "duration": 7.0,
+        "text": "class um I also have this yaml file"
+      },
+      {
+        "start": 816.199,
+        "duration": 4.241,
+        "text": "called gp3 storage class yaml so if I do"
+      },
+      {
+        "start": 819.44,
+        "duration": 3.92,
+        "text": "a"
+      },
+      {
+        "start": 820.44,
+        "duration": 5.639,
+        "text": "cat"
+      },
+      {
+        "start": 823.36,
+        "duration": 6.039,
+        "text": "gp3 um you can see what this is"
+      },
+      {
+        "start": 826.079,
+        "duration": 5.841,
+        "text": "basically um creates like an ext4 type"
+      },
+      {
+        "start": 829.399,
+        "duration": 4.641,
+        "text": "of a stor storage option"
+      },
+      {
+        "start": 831.92,
+        "duration": 8.08,
+        "text": "there"
+      },
+      {
+        "start": 834.04,
+        "duration": 9.719,
+        "text": "um and once I applied that file I can do"
+      },
+      {
+        "start": 840.0,
+        "duration": 6.16,
+        "text": "a pube control get storage"
+      },
+      {
+        "start": 843.759,
+        "duration": 4.76,
+        "text": "class and you can see that we have both"
+      },
+      {
+        "start": 846.16,
+        "duration": 5.359,
+        "text": "of them there gp2 as a default and then"
+      },
+      {
+        "start": 848.519,
+        "duration": 3.0,
+        "text": "GB3"
+      },
+      {
+        "start": 852.88,
+        "duration": 5.28,
+        "text": "additionally okay so with that complete"
+      },
+      {
+        "start": 856.12,
+        "duration": 4.279,
+        "text": "we should be ready to install data"
+      },
+      {
+        "start": 858.16,
+        "duration": 6.0,
+        "text": "Stacks Mission"
+      },
+      {
+        "start": 860.399,
+        "duration": 6.12,
+        "text": "Control let's go ahead and run that"
+      },
+      {
+        "start": 864.16,
+        "duration": 5.16,
+        "text": "install through cots so we're going to"
+      },
+      {
+        "start": 866.519,
+        "duration": 6.961,
+        "text": "do a"
+      },
+      {
+        "start": 869.32,
+        "duration": 5.6,
+        "text": "say DN CS for the for the cots names"
+      },
+      {
+        "start": 873.48,
+        "duration": 4.279,
+        "text": "space that's kind of important we don't"
+      },
+      {
+        "start": 874.92,
+        "duration": 4.52,
+        "text": "want our pods uh created from this"
+      },
+      {
+        "start": 877.759,
+        "duration": 5.32,
+        "text": "command showing up in the default"
+      },
+      {
+        "start": 879.44,
+        "duration": 3.639,
+        "text": "namespace so let's try"
+      },
+      {
+        "start": 885.959,
+        "duration": 5.921,
+        "text": "this all right um with that complete I"
+      },
+      {
+        "start": 889.88,
+        "duration": 4.519,
+        "text": "can now enter a new password for the"
+      },
+      {
+        "start": 891.88,
+        "duration": 2.519,
+        "text": "admin"
+      },
+      {
+        "start": 897.68,
+        "duration": 6.599,
+        "text": "console there we go"
+      },
+      {
+        "start": 900.68,
+        "duration": 5.88,
+        "text": "go so that means the cot admin console"
+      },
+      {
+        "start": 904.279,
+        "duration": 6.721,
+        "text": "is on its way"
+      },
+      {
+        "start": 906.56,
+        "duration": 8.639,
+        "text": "up okay so that process has completed um"
+      },
+      {
+        "start": 911.0,
+        "duration": 7.6,
+        "text": "and it looks like we have a access"
+      },
+      {
+        "start": 915.199,
+        "duration": 7.401,
+        "text": "available to CS through Local Host um"
+      },
+      {
+        "start": 918.6,
+        "duration": 8.159,
+        "text": "8800 so let's copy that so if we go new"
+      },
+      {
+        "start": 922.6,
+        "duration": 4.159,
+        "text": "tab and we paste that"
+      },
+      {
+        "start": 932.16,
+        "duration": 5.599,
+        "text": "all right here we go so now I can enter"
+      },
+      {
+        "start": 934.519,
+        "duration": 3.24,
+        "text": "the same password I put in"
+      },
+      {
+        "start": 939.839,
+        "duration": 4.36,
+        "text": "before all right so the first thing cot"
+      },
+      {
+        "start": 942.639,
+        "duration": 6.401,
+        "text": "is going to ask is for our mission"
+      },
+      {
+        "start": 944.199,
+        "duration": 7.681,
+        "text": "control license file um you can get this"
+      },
+      {
+        "start": 949.04,
+        "duration": 4.68,
+        "text": "from your um you know solution architect"
+      },
+      {
+        "start": 951.88,
+        "duration": 5.24,
+        "text": "or um you know sales associate that"
+      },
+      {
+        "start": 953.72,
+        "duration": 5.96,
+        "text": "you're working with um but for me I"
+      },
+      {
+        "start": 957.12,
+        "duration": 4.719,
+        "text": "actually have this stored locally here"
+      },
+      {
+        "start": 959.68,
+        "duration": 7.36,
+        "text": "mission control license yaml there we go"
+      },
+      {
+        "start": 961.839,
+        "duration": 5.201,
+        "text": "and I'll say open all right and"
+      },
+      {
+        "start": 973.12,
+        "duration": 6.36,
+        "text": "upload okay so now we're going to walk"
+      },
+      {
+        "start": 976.839,
+        "duration": 4.92,
+        "text": "through setting up mission"
+      },
+      {
+        "start": 979.48,
+        "duration": 5.2,
+        "text": "control um so I'm going to say that this"
+      },
+      {
+        "start": 981.759,
+        "duration": 2.921,
+        "text": "is a control"
+      },
+      {
+        "start": 987.0,
+        "duration": 5.24,
+        "text": "plane so let's head into to"
+      },
+      {
+        "start": 989.72,
+        "duration": 6.119,
+        "text": "observability um obviously since we are"
+      },
+      {
+        "start": 992.24,
+        "duration": 5.839,
+        "text": "on um Amazon eks and we just created our"
+      },
+      {
+        "start": 995.839,
+        "duration": 4.36,
+        "text": "S3 buckets we're going to go with S3 and"
+      },
+      {
+        "start": 998.079,
+        "duration": 5.041,
+        "text": "compatible for our"
+      },
+      {
+        "start": 1000.199,
+        "duration": 5.081,
+        "text": "storage for a region it's going to be"
+      },
+      {
+        "start": 1003.12,
+        "duration": 3.88,
+        "text": "us West"
+      },
+      {
+        "start": 1005.28,
+        "duration": 5.799,
+        "text": "[Music]"
+      },
+      {
+        "start": 1007.0,
+        "duration": 7.56,
+        "text": "2 um then we have to paste in our um"
+      },
+      {
+        "start": 1011.079,
+        "duration": 6.801,
+        "text": "access key IDs and secret key to uh to"
+      },
+      {
+        "start": 1014.56,
+        "duration": 3.32,
+        "text": "do that"
+      },
+      {
+        "start": 1032.559,
+        "duration": 7.24,
+        "text": "all right um next is our npoint URL um"
+      },
+      {
+        "start": 1037.24,
+        "duration": 6.719,
+        "text": "and when using Amazon S3 this field"
+      },
+      {
+        "start": 1039.799,
+        "duration": 10.321,
+        "text": "should be set to s3. region so"
+      },
+      {
+        "start": 1043.959,
+        "duration": 6.161,
+        "text": "uswest 2. Amazon aws.com"
+      },
+      {
+        "start": 1051.48,
+        "duration": 5.4,
+        "text": "all right yeah we'll allow insecure"
+      },
+      {
+        "start": 1053.44,
+        "duration": 6.4,
+        "text": "access on that that's that's fine um we"
+      },
+      {
+        "start": 1056.88,
+        "duration": 5.799,
+        "text": "don't really need a whole lot more for"
+      },
+      {
+        "start": 1059.84,
+        "duration": 7.0,
+        "text": "um you know observability"
+      },
+      {
+        "start": 1062.679,
+        "duration": 5.401,
+        "text": "metrics um access additional configur no"
+      },
+      {
+        "start": 1066.84,
+        "duration": 3.4,
+        "text": "no no no"
+      },
+      {
+        "start": 1068.08,
+        "duration": 5.8,
+        "text": "no uh let's"
+      },
+      {
+        "start": 1070.24,
+        "duration": 6.28,
+        "text": "see persistent volumes sure that way"
+      },
+      {
+        "start": 1073.88,
+        "duration": 5.88,
+        "text": "it'll use the default storage Class A"
+      },
+      {
+        "start": 1076.52,
+        "duration": 5.92,
+        "text": "gp2 yeah see a lot of this observability"
+      },
+      {
+        "start": 1079.76,
+        "duration": 4.44,
+        "text": "stuff where um you know you can you you"
+      },
+      {
+        "start": 1082.44,
+        "duration": 3.84,
+        "text": "can and should definitely research more"
+      },
+      {
+        "start": 1084.2,
+        "duration": 3.76,
+        "text": "in terms of production but just to show"
+      },
+      {
+        "start": 1086.28,
+        "duration": 4.08,
+        "text": "you as an example we don't need we don't"
+      },
+      {
+        "start": 1087.96,
+        "duration": 3.4,
+        "text": "need a whole lot here static credentials"
+      },
+      {
+        "start": 1090.36,
+        "duration": 2.679,
+        "text": "are"
+      },
+      {
+        "start": 1091.36,
+        "duration": 7.36,
+        "text": "fine"
+      },
+      {
+        "start": 1093.039,
+        "duration": 9.201,
+        "text": "um so I'm just going to say um plat"
+      },
+      {
+        "start": 1098.72,
+        "duration": 8.56,
+        "text": "at datas stacks.com"
+      },
+      {
+        "start": 1102.24,
+        "duration": 7.439,
+        "text": "uh let's go ahead and um use this to"
+      },
+      {
+        "start": 1107.28,
+        "duration": 6.24,
+        "text": "create a um"
+      },
+      {
+        "start": 1109.679,
+        "duration": 3.841,
+        "text": "hashed password from"
+      },
+      {
+        "start": 1124.2,
+        "duration": 5.839,
+        "text": "bcrypt all right let me paste that in"
+      },
+      {
+        "start": 1128.4,
+        "duration": 5.24,
+        "text": "and then"
+      },
+      {
+        "start": 1130.039,
+        "duration": 4.441,
+        "text": "username now we can just say here how"
+      },
+      {
+        "start": 1133.64,
+        "duration": 3.919,
+        "text": "about"
+      },
+      {
+        "start": 1134.48,
+        "duration": 5.24,
+        "text": "that all right and we don't need to"
+      },
+      {
+        "start": 1137.559,
+        "duration": 5.801,
+        "text": "worry about open shift so we should just"
+      },
+      {
+        "start": 1139.72,
+        "duration": 3.64,
+        "text": "be able to say"
+      },
+      {
+        "start": 1148.32,
+        "duration": 5.68,
+        "text": "continue oh okay okay so we don't have C"
+      },
+      {
+        "start": 1152.52,
+        "duration": 4.32,
+        "text": "manager"
+      },
+      {
+        "start": 1154.0,
+        "duration": 5.039,
+        "text": "installed um that is something that I"
+      },
+      {
+        "start": 1156.84,
+        "duration": 5.24,
+        "text": "will need to do"
+      },
+      {
+        "start": 1159.039,
+        "duration": 5.681,
+        "text": "quick so C manager is going to be"
+      },
+      {
+        "start": 1162.08,
+        "duration": 7.16,
+        "text": "necessary to allow mission control the"
+      },
+      {
+        "start": 1164.72,
+        "duration": 7.28,
+        "text": "ability to manage um node to node as"
+      },
+      {
+        "start": 1169.24,
+        "duration": 4.919,
+        "text": "SSL so we're going to we're going to go"
+      },
+      {
+        "start": 1172.0,
+        "duration": 6.64,
+        "text": "ahead and install that uh remotely with"
+      },
+      {
+        "start": 1174.159,
+        "duration": 7.88,
+        "text": "Helm so let's use Helm repo"
+      },
+      {
+        "start": 1178.64,
+        "duration": 3.399,
+        "text": "add jet"
+      },
+      {
+        "start": 1182.6,
+        "duration": 7.84,
+        "text": "stack"
+      },
+      {
+        "start": 1184.44,
+        "duration": 6.0,
+        "text": "charts. stack. iio force"
+      },
+      {
+        "start": 1190.679,
+        "duration": 6.441,
+        "text": "update all right we have the"
+      },
+      {
+        "start": 1194.48,
+        "duration": 6.16,
+        "text": "repo let's just make sure that um you"
+      },
+      {
+        "start": 1197.12,
+        "duration": 3.52,
+        "text": "know we get the latest and greatest"
+      },
+      {
+        "start": 1200.76,
+        "duration": 5.56,
+        "text": "all right so now let's uh install with a"
+      },
+      {
+        "start": 1204.159,
+        "duration": 5.121,
+        "text": "specific Helm chart here so we can say"
+      },
+      {
+        "start": 1206.32,
+        "duration": 5.359,
+        "text": "Helm"
+      },
+      {
+        "start": 1209.28,
+        "duration": 4.8,
+        "text": "installer"
+      },
+      {
+        "start": 1211.679,
+        "duration": 5.921,
+        "text": "manager jet"
+      },
+      {
+        "start": 1214.08,
+        "duration": 6.4,
+        "text": "stacker Dash"
+      },
+      {
+        "start": 1217.6,
+        "duration": 4.76,
+        "text": "manager namespace"
+      },
+      {
+        "start": 1220.48,
+        "duration": 4.6,
+        "text": "seert"
+      },
+      {
+        "start": 1222.36,
+        "duration": 4.6,
+        "text": "manager um and if it doesn't exist we'll"
+      },
+      {
+        "start": 1225.08,
+        "duration": 4.4,
+        "text": "do a"
+      },
+      {
+        "start": 1226.96,
+        "duration": 7.0,
+        "text": "create namespace"
+      },
+      {
+        "start": 1229.48,
+        "duration": 4.48,
+        "text": "we'll use version um"
+      },
+      {
+        "start": 1235.0,
+        "duration": 9.76,
+        "text": "v1.32 and we'll say set um install"
+      },
+      {
+        "start": 1240.799,
+        "duration": 3.961,
+        "text": "crds we want that to be"
+      },
+      {
+        "start": 1247.88,
+        "duration": 6.159,
+        "text": "true okay um so it looks like that"
+      },
+      {
+        "start": 1251.84,
+        "duration": 4.719,
+        "text": "completed"
+      },
+      {
+        "start": 1254.039,
+        "duration": 5.321,
+        "text": "successfully let's go"
+      },
+      {
+        "start": 1256.559,
+        "duration": 6.841,
+        "text": "ahead and uh"
+      },
+      {
+        "start": 1259.36,
+        "duration": 7.52,
+        "text": "rerun our pre-flight checks here and if"
+      },
+      {
+        "start": 1263.4,
+        "duration": 7.08,
+        "text": "we did this right the uh cert manager"
+      },
+      {
+        "start": 1266.88,
+        "duration": 3.6,
+        "text": "related failur should turn"
+      },
+      {
+        "start": 1271.96,
+        "duration": 5.44,
+        "text": "green oh look at that there we go"
+      },
+      {
+        "start": 1275.32,
+        "duration": 4.52,
+        "text": "outstanding all right and then let's"
+      },
+      {
+        "start": 1277.4,
+        "duration": 2.44,
+        "text": "just say"
+      },
+      {
+        "start": 1283.24,
+        "duration": 6.52,
+        "text": "deploy so you can see mission control is"
+      },
+      {
+        "start": 1286.279,
+        "duration": 6.481,
+        "text": "actually deploying out here um into our"
+      },
+      {
+        "start": 1289.76,
+        "duration": 3.0,
+        "text": "kubernetes"
+      },
+      {
+        "start": 1295.159,
+        "duration": 6.241,
+        "text": "cluster all right currently deployed um"
+      },
+      {
+        "start": 1299.32,
+        "duration": 8.76,
+        "text": "we have our community"
+      },
+      {
+        "start": 1301.4,
+        "duration": 6.68,
+        "text": "license enabled so we should be okay"
+      },
+      {
+        "start": 1308.559,
+        "duration": 5.201,
+        "text": "here all right Mission Control has a"
+      },
+      {
+        "start": 1311.12,
+        "duration": 2.64,
+        "text": "status of"
+      },
+      {
+        "start": 1315.24,
+        "duration": 6.96,
+        "text": "ready all right so with that running um"
+      },
+      {
+        "start": 1318.799,
+        "duration": 6.401,
+        "text": "um we can actually have a look at what's"
+      },
+      {
+        "start": 1322.2,
+        "duration": 6.52,
+        "text": "running out there say poop"
+      },
+      {
+        "start": 1325.2,
+        "duration": 6.359,
+        "text": "control um get"
+      },
+      {
+        "start": 1328.72,
+        "duration": 5.199,
+        "text": "pods namespace and we'll say"
+      },
+      {
+        "start": 1331.559,
+        "duration": 6.561,
+        "text": "mission-control because Mission Control"
+      },
+      {
+        "start": 1333.919,
+        "duration": 8.76,
+        "text": "has its own namespace in our eks"
+      },
+      {
+        "start": 1338.12,
+        "duration": 7.52,
+        "text": "cluster and you can see yep we uh we"
+      },
+      {
+        "start": 1342.679,
+        "duration": 7.201,
+        "text": "absolutely do have our mission control"
+      },
+      {
+        "start": 1345.64,
+        "duration": 8.08,
+        "text": "pods all running out here so"
+      },
+      {
+        "start": 1349.88,
+        "duration": 7.56,
+        "text": "um let's have a look at uh let's do the"
+      },
+      {
+        "start": 1353.72,
+        "duration": 3.72,
+        "text": "same thing but we'll"
+      },
+      {
+        "start": 1357.64,
+        "duration": 3.279,
+        "text": "say get"
+      },
+      {
+        "start": 1363.12,
+        "duration": 7.96,
+        "text": "service okay so these are all of our"
+      },
+      {
+        "start": 1366.6,
+        "duration": 6.48,
+        "text": "kubernetes services that are running um"
+      },
+      {
+        "start": 1371.08,
+        "duration": 5.839,
+        "text": "you'll notice that we have the mission"
+      },
+      {
+        "start": 1373.08,
+        "duration": 5.479,
+        "text": "control UI service here um that's"
+      },
+      {
+        "start": 1376.919,
+        "duration": 5.12,
+        "text": "available"
+      },
+      {
+        "start": 1378.559,
+        "duration": 7.041,
+        "text": "on um you know this"
+      },
+      {
+        "start": 1382.039,
+        "duration": 6.041,
+        "text": "IP um port 8080 but it's exposed"
+      },
+      {
+        "start": 1385.6,
+        "duration": 6.76,
+        "text": "externally on"
+      },
+      {
+        "start": 1388.08,
+        "duration": 7.199,
+        "text": "3880 uh so let's work on getting to that"
+      },
+      {
+        "start": 1392.36,
+        "duration": 6.04,
+        "text": "so one way that we can access this is to"
+      },
+      {
+        "start": 1395.279,
+        "duration": 5.361,
+        "text": "um is to do a port forward on that"
+      },
+      {
+        "start": 1398.4,
+        "duration": 7.56,
+        "text": "service uh so let's just go ahead and"
+      },
+      {
+        "start": 1400.64,
+        "duration": 8.44,
+        "text": "say C control we'll say Port Das forward"
+      },
+      {
+        "start": 1405.96,
+        "duration": 7.12,
+        "text": "and we want to say Service uh and we're"
+      },
+      {
+        "start": 1409.08,
+        "duration": 8.0,
+        "text": "going to grab this Mission Control"
+      },
+      {
+        "start": 1413.08,
+        "duration": 6.36,
+        "text": "UI and uh we'll also provide"
+      },
+      {
+        "start": 1417.08,
+        "duration": 6.52,
+        "text": "our name"
+      },
+      {
+        "start": 1419.44,
+        "duration": 7.2,
+        "text": "space mission uh"
+      },
+      {
+        "start": 1423.6,
+        "duration": 5.52,
+        "text": "control I better spell it right you know"
+      },
+      {
+        "start": 1426.64,
+        "duration": 4.2,
+        "text": "we'll expose it on"
+      },
+      {
+        "start": 1429.12,
+        "duration": 5.4,
+        "text": "um"
+      },
+      {
+        "start": 1430.84,
+        "duration": 7.28,
+        "text": "8080 so let's do"
+      },
+      {
+        "start": 1434.52,
+        "duration": 5.12,
+        "text": "that so now if I go and open up a new"
+      },
+      {
+        "start": 1438.12,
+        "duration": 4.4,
+        "text": "tab"
+      },
+      {
+        "start": 1439.64,
+        "duration": 2.88,
+        "text": "say Local Host"
+      },
+      {
+        "start": 1443.76,
+        "duration": 5.799,
+        "text": "8080 there we go and you know I can say"
+      },
+      {
+        "start": 1447.64,
+        "duration": 4.36,
+        "text": "yes proceed to Local Host I don't care"
+      },
+      {
+        "start": 1449.559,
+        "duration": 5.641,
+        "text": "that I don't have an assl certificate"
+      },
+      {
+        "start": 1452.0,
+        "duration": 8.88,
+        "text": "okay so email address um I can"
+      },
+      {
+        "start": 1455.2,
+        "duration": 5.68,
+        "text": "say a inpl stacks.com and then I can"
+      },
+      {
+        "start": 1461.799,
+        "duration": 7.641,
+        "text": "say all right that works and we can say"
+      },
+      {
+        "start": 1466.039,
+        "duration": 6.801,
+        "text": "accept okay and just like that we have"
+      },
+      {
+        "start": 1469.44,
+        "duration": 6.719,
+        "text": "data Stacks Mission Control running on"
+      },
+      {
+        "start": 1472.84,
+        "duration": 6.8,
+        "text": "eks for more information on data Stacks"
+      },
+      {
+        "start": 1476.159,
+        "duration": 7.161,
+        "text": "Mission Control just head on out to"
+      },
+      {
+        "start": 1479.64,
+        "duration": 5.399,
+        "text": "data.com products Mission Control there"
+      },
+      {
+        "start": 1483.32,
+        "duration": 4.239,
+        "text": "you can find all the information you"
+      },
+      {
+        "start": 1485.039,
+        "duration": 4.64,
+        "text": "need including downloads and"
+      },
+      {
+        "start": 1487.559,
+        "duration": 5.12,
+        "text": "documentation thank you and have a great"
+      },
+      {
+        "start": 1489.679,
+        "duration": 3.0,
+        "text": "day"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-10T23:49:58.296895+00:00"
+}

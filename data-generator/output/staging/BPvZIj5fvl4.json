@@ -1,0 +1,2031 @@
+{
+  "video_id": "BPvZIj5fvl4",
+  "title": "Distributed Data Show Episode 15: Indexing Techniques with DuyHai Doan",
+  "description": "DuyHai Doan talks about secondary indexes in Apache Cassandra, including how they work, how they are different than indexes in relational databases, the various implementations available, and when to use them.\n\nABOUT DATASTAX ENTERPRISE 5\nDataStax Enterprise 5.0, the database platform for cloud applications, includes Apache Cassandra 3.x with materialized views, tiered storage and advanced replication. Introduced in 5.0 is DataStax Enterprise Graph, the first graph database fast enough to power customer-facing applications, scale to massive datasets and integrate advanced tools to power deep analytical queries.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://academy.datastax.com/resources/whats-new-datastax-enterprise-50\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax \nLinkedin: https://www.linkedin.com/company/datastax\nhttp://feeds.feedburner.com/datastax \nhttps://github.com/datastax \n\nABOUT DATASTAX ACADEMY\nOn the DataStax Academy YouTube channel, you can find tutorials, webinars and much more to help you learn and stay updated with the latest information on DataStax Enterprise©.  Create an account on https://academy.datastax.com to watch our free online courses, tutorials, and more.",
+  "published_at": "2017-10-03T15:00:02Z",
+  "thumbnail": "https://i.ytimg.com/vi/BPvZIj5fvl4/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "tutorial",
+    "talk",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=BPvZIj5fvl4",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems hello and welcome to another episode of the distributed data show you know I know everyone so do we - enough just got off a plane and I was like surely you want to go to the hotel and maybe relax you know take a nap something like that but he was like no I want to talk about secondary indexes yeah Cassandra my topic he's a crazy man there's no stopping him so do we hi is here and we're gonna talk today like I just said about secondary indexes so do we just real quick give us like a sentence or two just for anybody who hasn't seen the show before tell us just kind of a little bit about yourself than what did you do at data stacks okay so yeah I'm a technical advocate I'm based in Europe my main location is Paris and basically what I'm doing is to help people implementing this ethics enterprise and also helping developers with there are questions about Apache Cassano yeah so you're a very your regular on the like on the speaking circuit over there the tons of conferences over in Europe yeah okay so let's let's talk about secondary indexes so maybe set the stage by you know somebody that's listening to this if just start by explaining maybe what is the secondary index and why do we why do we need secondary indexes when we're talking about Cassandra or or DLC so if you are a newcomer to Apache Cassandra you already know that we used to tell people use the primary key to access your data right this is a good way to model your data the problem with primary key is it's not very flexible and sometimes you want to quit you want to be able to query your data I don't know for example you have a user table you want to query your user by their age of idea country or whatever so secondary index is here for convenience and I want to warn people that are coming from the relational database world secondary index in kisana is not for performance they are more for convenience of query okay so I you know I agree with you hundred percent one thing that people like especially if they come from the relational database world like secondary index has a certain connotation like it means a certain thing to them and we're very used to being able to just kind of put a put a secondary index on anything in a relational database and because it's a single machine you know we a lot of times have actually performed we get performance improvements when we do queries but that's not how it works in Cassandra so why don't we talk about how it actually does work in Cassandra and maybe start with what's going on at the cluster level with secondary indexes how are they kind of distributed around around the cluster when we're talking about multiple machines so to start with the basics you know that on a normal table your data are distributed across the cluster using the partitioner so we apply a hash function on your partition key right with second row index it is totally different what is different is the index data is staying on the same machine as your base data so we are not using the partitioner to distribute the index data right so how does it work for example let's say we have a table user again and we want to index the country of each user so of course if we talk about us user you have us user are distributed on every node because the hash is applying the user ID and it means that on each node you have some index pointing to the American user so now if I want to query say give me a like all user from America from the US I need to hit all machines and imagine you have a cluster of 99 machines for example you have to so of course you don't have to hit all of them because of the replication factor usually let's say you have replication factor of 3 normally you only need to hit 33 knots right 99 divided by 3 but still it's a lot for machines to query and in fact this is the very very basic way to work waves ok I can fire 33 queries in parallel to hit 33 knots but in fact we have a more involved algorithm to avoid querying so many knots at the same time so the idea is you you issue a select with a secure index with some limits or let's say limits 100 the algorithm will start with okay we will stop going I don't know three or four nodes fetch get the data back do we have enough data do we have 100 American user no ok we will start sending a second round of query to hit I don't know 9 extra nodes and so on so every time a new round of query is started we increase the number of machines because of course the idea is to to limit the number of rounds of query to the minimum right but that's the basic idea of the algorithm okay so you're saying is basically the as far as where the secondary indexes are stored around the cluster like each node basically has has a copy of the secondary index and that secondary index only contains the data that's already that's on that know exactly based on how it was basically based on the partitioner based on how it was partitioning around the and then we have to go do these sort of scatter gathering exact type queries if we do a query that's only on enough secondary index ok so I'm with you so far so let's maybe drill down a little bit a little bit more into what does that actually look like when we look at a single node of a BSc or cassandra what are the implementations sort of like almost like storage kind of implementation details of of secondary indexes on disk and on each individual node okay so you we are now going one level down we are talking about storage and Jin level so what you should know is in Cassandra every time you have a mutation like an update on insert delete this hook to the secondary index okay so the idea is to keep the update of the base data and the index as I would say consistent as possible I will not say atomic why because we are writing to two different files right base data are written into a stable secondary index depending on the implementation can be written on different data structure so to guarantee atomicity of write is pretty hard but at least the fact that the updates are done a batch together in a single note it reduced the chance of inconsistency so this is the reason why why cassandra using this is the reason why we call okay yeah secondary index with the actual data that's yeah the decision is not like we know that we Colo Kate we are we cannot scare a lot but the game is in considered the consistency we get right right now in terms of implementation there are many possible implementation for secure index so we have first the native implementation which is basically a reverse index so we create a table in the background the partition key of the table is the value of the index for example in my in my scenario it is the the country of a user US UK or whatever and each cluster in column will contain the whole primary key of the user being the index so it just stores the primary key value next to the next to the index sort of the key of the index exactly and with this kind of design the only thing you can do is to query by equality so give me all user from us or give me all user who's who are like a ten years on or 20 years old but you cannot have range query give me all user between 20 and 30 years of nope it's not possible because you cannot have range query on partition key recently we have another implementation of secondary index called sassy SS table attached secondary index now the new idea is to stick together the lifecycle of the base data and the index data structure so every time you flush your data in an SS table Sassie we've also flush it's only too short on disk okay and so the data structure is just an optimized between right and the new idea here is because we have a close relationship between the SS table and sassy index file we can and because as a stable are by nature immutable we can store the exact offset of the role of the matching row in the SAS index to get back to the original as a stable to be able to read price okay and we have also order implementation based on Apache Solr all using so we have DAC search which is using solar and using index underneath and of course again we are only storing primary keys of matching rows inducing we don't store the whole data so if all these implementations that you've mentioned like the three the three you sort of just discussed made of secondary indexes sassy secondary indexes and then search type secondary indexes with leucine none of them are actually they're all storing basically pointers back to the original SS table file so is that sort of like is that sort of the reason why you said at the beginning that that secondary indexes in cassandra they're not really for performance they're more for convenience because how is performance actually going to be impacted by sort of this decision - yeah so on the ground of performance as I said before the fact that you need to scatter gutter on the cluster layer so it's already slower than to have her to contact just a single node for query and on the storage and engine layer when you are querying by secondary index you need to passes on disk one pass to read the indexed data structure itself to get the primary key or the offset and another pass to read the original data right out of SS table and that's the reason that which explained that access by primary key will always always be faster than accessed by secure index because you don't need the two passes you don't need two reads essentially off your desk so why don't we if if what we're storing in these secondary index structures is pointers back to the original SS table files like sort of offsets why don't we actually just duplicate data in these in these index data structures I know relational databases have done this in certain types of indexes for a while where they sort of just duplicate the data why don't we why don't we do that in the secondary index so that we can avoid the whole second pass yeah I'm performance penalty so I get your point so I was thinking about this idea a while back ago and the main difficulty is if you stop duplicating data what are we talking about you duplicate your data okay but then you need to duplicate also the time stuff okay and then you need to duplicate also tombstone okay because if you don't go back to the to read the data from the SS table you need a way to resolve conflicts right because we all know that in Cassandra we are a masterless architecture so we are we have an eventually consistent system and all the inconsistency at right I are sold at three time right using x time so it means that now that you when you duplicate data into your index structure you need also to apply the same conflict resolution algorithm last penguin it means that you need to reemployment the last ravine logic for each index implementation so imagine you have the main last I win logic further the base data of Cassandra you have Las praline logic for the native secondary index for one for sassy one for DC search it means that you are taking a huge risk of progression because you are duplicating the same logic everywhere sure it is very risky in terms of programming sure and then also as far as like Hadi you have to figure out then how do you store things like a tombstone when you're talking about how would you store a tombstone in a sense the index or an idea you seem like I don't know it just another field just on extra bytes but still a lot of work to do because then we are not just talking about resolving conflict every time think about compaction right sure yep because compaction also need to use this last right win to merge data together yep so you need to also to accommodate with compaction how do you contact your index data structure and so on and so on yep okay so now that we've kind of gone over like why this is more a convenience thing than a than a performance sort of the performance thing that it is in a relational database is there a way you can get around having to pay that sort of performance penalty of the of the to two passes on disk that you get with a secondary index yeah it's the we have introduced matter eyes view for that so the idea of my trophy view is to have a way of indexing your data without the performance hit right okay and the idea is very basic you have a reversing tag like the primary key of your matters view we contain the column to be indexed and of course you can only query by equality but now the advantage of matter is view is every time you query the view you only hit one machine and because we are using the normal partition or to distribute it's the data now the problem with matters view is consistency why because whenever because when you you've right data in into your base table the matter eyes view data may not stay on the same machine because of the partition shirt the petitioner may have different teas exactly we distribute it's gonna end up the student in your data differently than exactly in the base table and you know that whenever you introduce the network into your equation you are opening a can of worms never trust the network right yeah what happened in case of fader how can we detect fader how can we solve fader and that's the main reason why today the matress view is not stable yet and we are dedicating like two full-time engineers to stabilize them and to bug fix yeah so materialized views are a feature that has been out since one of Cassandra 3.0 but for a lot of people out in production you you've heard they kind of treat it as an experimental yeah it's not stable yet yeah yeah yeah okay well hopefully that's something that's going to get fixed yeah yeah there's it's definitely been it's definitely been prioritized in in open source Cassandra so hopefully for everybody watching and listening out there maybe you understand a little bit more about how secondary indexes in Cassandra work not only at the cluster level but also sort of some of the different storage implementations that are available and if somebody wanted to learn more like do you have any suggestions on where somebody might go to learn more I know you blog on some of this yes so yeah I have written a really detailed blog post about secondary index architecture cluster level storage engine level I also give the the complex algorithm you know to query by multiple rounds so they can go on my post on block so 3w don't we hide comm slash blog cool and they can find the progress there awesome okay well thank you to Dewey high for being here all the way from Paris and thank you for watching and or listening to another episode of the distributed data show we will see you next time thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data Stax Academy and tell us what you think you can also find us on the data Stax Academy YouTube channel or find our podcast on iTunes Google Play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.31,
+        "duration": 4.17,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.48,
+        "duration": 4.17,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 7.98,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 8.61,
+        "text": "large-scale distributed systems hello"
+      },
+      {
+        "start": 16.44,
+        "duration": 12.929,
+        "text": "and welcome to another episode of the"
+      },
+      {
+        "start": 19.26,
+        "duration": 13.59,
+        "text": "distributed data show you know I know"
+      },
+      {
+        "start": 29.369,
+        "duration": 6.271,
+        "text": "everyone so do we - enough just got off"
+      },
+      {
+        "start": 32.85,
+        "duration": 5.34,
+        "text": "a plane and I was like surely you want"
+      },
+      {
+        "start": 35.64,
+        "duration": 3.96,
+        "text": "to go to the hotel and maybe relax you"
+      },
+      {
+        "start": 38.19,
+        "duration": 4.38,
+        "text": "know take a nap something like that but"
+      },
+      {
+        "start": 39.6,
+        "duration": 6.209,
+        "text": "he was like no I want to talk about"
+      },
+      {
+        "start": 42.57,
+        "duration": 6.6,
+        "text": "secondary indexes yeah Cassandra my"
+      },
+      {
+        "start": 45.809,
+        "duration": 5.881,
+        "text": "topic he's a crazy man there's no"
+      },
+      {
+        "start": 49.17,
+        "duration": 4.56,
+        "text": "stopping him so do we hi is here and"
+      },
+      {
+        "start": 51.69,
+        "duration": 4.2,
+        "text": "we're gonna talk today like I just said"
+      },
+      {
+        "start": 53.73,
+        "duration": 4.32,
+        "text": "about secondary indexes so do we just"
+      },
+      {
+        "start": 55.89,
+        "duration": 4.829,
+        "text": "real quick give us like a sentence or"
+      },
+      {
+        "start": 58.05,
+        "duration": 4.86,
+        "text": "two just for anybody who hasn't seen the"
+      },
+      {
+        "start": 60.719,
+        "duration": 3.66,
+        "text": "show before tell us just kind of a"
+      },
+      {
+        "start": 62.91,
+        "duration": 3.81,
+        "text": "little bit about yourself than what did"
+      },
+      {
+        "start": 64.379,
+        "duration": 4.53,
+        "text": "you do at data stacks okay so yeah I'm a"
+      },
+      {
+        "start": 66.72,
+        "duration": 5.73,
+        "text": "technical advocate I'm based in Europe"
+      },
+      {
+        "start": 68.909,
+        "duration": 5.101,
+        "text": "my main location is Paris and basically"
+      },
+      {
+        "start": 72.45,
+        "duration": 4.32,
+        "text": "what I'm doing is to help people"
+      },
+      {
+        "start": 74.01,
+        "duration": 6.149,
+        "text": "implementing this ethics enterprise and"
+      },
+      {
+        "start": 76.77,
+        "duration": 5.91,
+        "text": "also helping developers with there are"
+      },
+      {
+        "start": 80.159,
+        "duration": 4.561,
+        "text": "questions about Apache Cassano yeah so"
+      },
+      {
+        "start": 82.68,
+        "duration": 3.509,
+        "text": "you're a very your regular on the like"
+      },
+      {
+        "start": 84.72,
+        "duration": 3.259,
+        "text": "on the speaking circuit over there the"
+      },
+      {
+        "start": 86.189,
+        "duration": 4.381,
+        "text": "tons of conferences over in Europe yeah"
+      },
+      {
+        "start": 87.979,
+        "duration": 5.441,
+        "text": "okay so let's let's talk about secondary"
+      },
+      {
+        "start": 90.57,
+        "duration": 3.75,
+        "text": "indexes so maybe set the stage by you"
+      },
+      {
+        "start": 93.42,
+        "duration": 3.269,
+        "text": "know somebody that's listening to this"
+      },
+      {
+        "start": 94.32,
+        "duration": 4.229,
+        "text": "if just start by explaining maybe what"
+      },
+      {
+        "start": 96.689,
+        "duration": 3.211,
+        "text": "is the secondary index and why do we why"
+      },
+      {
+        "start": 98.549,
+        "duration": 5.46,
+        "text": "do we need secondary indexes when we're"
+      },
+      {
+        "start": 99.9,
+        "duration": 7.07,
+        "text": "talking about Cassandra or or DLC so if"
+      },
+      {
+        "start": 104.009,
+        "duration": 6.511,
+        "text": "you are a newcomer to Apache Cassandra"
+      },
+      {
+        "start": 106.97,
+        "duration": 8.38,
+        "text": "you already know that we used to tell"
+      },
+      {
+        "start": 110.52,
+        "duration": 7.529,
+        "text": "people use the primary key to access"
+      },
+      {
+        "start": 115.35,
+        "duration": 4.14,
+        "text": "your data right this is a good way to"
+      },
+      {
+        "start": 118.049,
+        "duration": 4.591,
+        "text": "model your data"
+      },
+      {
+        "start": 119.49,
+        "duration": 6.6,
+        "text": "the problem with primary key is it's not"
+      },
+      {
+        "start": 122.64,
+        "duration": 5.429,
+        "text": "very flexible and sometimes you want to"
+      },
+      {
+        "start": 126.09,
+        "duration": 4.47,
+        "text": "quit you want to be able to query your"
+      },
+      {
+        "start": 128.069,
+        "duration": 4.271,
+        "text": "data I don't know for example you have a"
+      },
+      {
+        "start": 130.56,
+        "duration": 3.88,
+        "text": "user table"
+      },
+      {
+        "start": 132.34,
+        "duration": 5.58,
+        "text": "you want to query your user by their age"
+      },
+      {
+        "start": 134.44,
+        "duration": 7.2,
+        "text": "of idea country or whatever so secondary"
+      },
+      {
+        "start": 137.92,
+        "duration": 6.929,
+        "text": "index is here for convenience and I want"
+      },
+      {
+        "start": 141.64,
+        "duration": 6.33,
+        "text": "to warn people that are coming from the"
+      },
+      {
+        "start": 144.849,
+        "duration": 5.491,
+        "text": "relational database world secondary"
+      },
+      {
+        "start": 147.97,
+        "duration": 5.159,
+        "text": "index in kisana is not for performance"
+      },
+      {
+        "start": 150.34,
+        "duration": 6.69,
+        "text": "they are more for convenience of query"
+      },
+      {
+        "start": 153.129,
+        "duration": 5.61,
+        "text": "okay so I you know I agree with you"
+      },
+      {
+        "start": 157.03,
+        "duration": 3.42,
+        "text": "hundred percent one thing that people"
+      },
+      {
+        "start": 158.739,
+        "duration": 3.541,
+        "text": "like especially if they come from the"
+      },
+      {
+        "start": 160.45,
+        "duration": 3.569,
+        "text": "relational database world like secondary"
+      },
+      {
+        "start": 162.28,
+        "duration": 3.63,
+        "text": "index has a certain connotation like it"
+      },
+      {
+        "start": 164.019,
+        "duration": 3.361,
+        "text": "means a certain thing to them and we're"
+      },
+      {
+        "start": 165.91,
+        "duration": 3.51,
+        "text": "very used to being able to just kind of"
+      },
+      {
+        "start": 167.38,
+        "duration": 3.54,
+        "text": "put a put a secondary index on anything"
+      },
+      {
+        "start": 169.42,
+        "duration": 3.51,
+        "text": "in a relational database and because"
+      },
+      {
+        "start": 170.92,
+        "duration": 3.539,
+        "text": "it's a single machine you know we a lot"
+      },
+      {
+        "start": 172.93,
+        "duration": 2.79,
+        "text": "of times have actually performed we get"
+      },
+      {
+        "start": 174.459,
+        "duration": 3.09,
+        "text": "performance improvements when we do"
+      },
+      {
+        "start": 175.72,
+        "duration": 4.019,
+        "text": "queries but that's not how it works in"
+      },
+      {
+        "start": 177.549,
+        "duration": 3.75,
+        "text": "Cassandra so why don't we talk about how"
+      },
+      {
+        "start": 179.739,
+        "duration": 3.241,
+        "text": "it actually does work in Cassandra and"
+      },
+      {
+        "start": 181.299,
+        "duration": 3.871,
+        "text": "maybe start with what's going on at the"
+      },
+      {
+        "start": 182.98,
+        "duration": 3.47,
+        "text": "cluster level with secondary indexes how"
+      },
+      {
+        "start": 185.17,
+        "duration": 2.97,
+        "text": "are they kind of distributed around"
+      },
+      {
+        "start": 186.45,
+        "duration": 5.71,
+        "text": "around the cluster when we're talking"
+      },
+      {
+        "start": 188.14,
+        "duration": 7.02,
+        "text": "about multiple machines so to start with"
+      },
+      {
+        "start": 192.16,
+        "duration": 6.96,
+        "text": "the basics you know that on a normal"
+      },
+      {
+        "start": 195.16,
+        "duration": 6.69,
+        "text": "table your data are distributed across"
+      },
+      {
+        "start": 199.12,
+        "duration": 5.19,
+        "text": "the cluster using the partitioner so we"
+      },
+      {
+        "start": 201.85,
+        "duration": 6.749,
+        "text": "apply a hash function on your partition"
+      },
+      {
+        "start": 204.31,
+        "duration": 7.17,
+        "text": "key right with second row index it is"
+      },
+      {
+        "start": 208.599,
+        "duration": 6.151,
+        "text": "totally different what is different is"
+      },
+      {
+        "start": 211.48,
+        "duration": 6.06,
+        "text": "the index data is staying on the same"
+      },
+      {
+        "start": 214.75,
+        "duration": 5.639,
+        "text": "machine as your base data so we are not"
+      },
+      {
+        "start": 217.54,
+        "duration": 7.44,
+        "text": "using the partitioner to distribute the"
+      },
+      {
+        "start": 220.389,
+        "duration": 7.021,
+        "text": "index data right so how does it work for"
+      },
+      {
+        "start": 224.98,
+        "duration": 5.7,
+        "text": "example let's say we have a table user"
+      },
+      {
+        "start": 227.41,
+        "duration": 7.199,
+        "text": "again and we want to index the country"
+      },
+      {
+        "start": 230.68,
+        "duration": 6.959,
+        "text": "of each user so of course if we talk"
+      },
+      {
+        "start": 234.609,
+        "duration": 5.49,
+        "text": "about us user you have us user are"
+      },
+      {
+        "start": 237.639,
+        "duration": 5.611,
+        "text": "distributed on every node because the"
+      },
+      {
+        "start": 240.099,
+        "duration": 6.151,
+        "text": "hash is applying the user ID and it"
+      },
+      {
+        "start": 243.25,
+        "duration": 7.59,
+        "text": "means that on each node you have some"
+      },
+      {
+        "start": 246.25,
+        "duration": 6.299,
+        "text": "index pointing to the American user so"
+      },
+      {
+        "start": 250.84,
+        "duration": 6.72,
+        "text": "now if I want to query"
+      },
+      {
+        "start": 252.549,
+        "duration": 9.87,
+        "text": "say give me a like all user from America"
+      },
+      {
+        "start": 257.56,
+        "duration": 8.16,
+        "text": "from the US I need to hit all machines"
+      },
+      {
+        "start": 262.419,
+        "duration": 8.281,
+        "text": "and imagine you have a cluster of 99"
+      },
+      {
+        "start": 265.72,
+        "duration": 7.2,
+        "text": "machines for example you have to so of"
+      },
+      {
+        "start": 270.7,
+        "duration": 4.35,
+        "text": "course you don't have to hit all of them"
+      },
+      {
+        "start": 272.92,
+        "duration": 4.29,
+        "text": "because of the replication factor"
+      },
+      {
+        "start": 275.05,
+        "duration": 5.79,
+        "text": "usually let's say you have replication"
+      },
+      {
+        "start": 277.21,
+        "duration": 7.56,
+        "text": "factor of 3 normally you only need to"
+      },
+      {
+        "start": 280.84,
+        "duration": 7.83,
+        "text": "hit 33 knots right 99 divided by 3 but"
+      },
+      {
+        "start": 284.77,
+        "duration": 9.72,
+        "text": "still it's a lot for machines to query"
+      },
+      {
+        "start": 288.67,
+        "duration": 9.9,
+        "text": "and in fact this is the very very basic"
+      },
+      {
+        "start": 294.49,
+        "duration": 7.08,
+        "text": "way to work waves ok I can fire 33"
+      },
+      {
+        "start": 298.57,
+        "duration": 5.7,
+        "text": "queries in parallel to hit 33 knots but"
+      },
+      {
+        "start": 301.57,
+        "duration": 5.55,
+        "text": "in fact we have a more involved"
+      },
+      {
+        "start": 304.27,
+        "duration": 5.19,
+        "text": "algorithm to avoid querying so many"
+      },
+      {
+        "start": 307.12,
+        "duration": 4.71,
+        "text": "knots at the same time so the idea is"
+      },
+      {
+        "start": 309.46,
+        "duration": 4.41,
+        "text": "you you issue a select with a secure"
+      },
+      {
+        "start": 311.83,
+        "duration": 5.13,
+        "text": "index with some limits or let's say"
+      },
+      {
+        "start": 313.87,
+        "duration": 6.6,
+        "text": "limits 100 the algorithm will start with"
+      },
+      {
+        "start": 316.96,
+        "duration": 6.66,
+        "text": "okay we will stop going I don't know"
+      },
+      {
+        "start": 320.47,
+        "duration": 5.69,
+        "text": "three or four nodes fetch get the data"
+      },
+      {
+        "start": 323.62,
+        "duration": 6.56,
+        "text": "back do we have enough data do we have"
+      },
+      {
+        "start": 326.16,
+        "duration": 8.02,
+        "text": "100 American user no ok we will start"
+      },
+      {
+        "start": 330.18,
+        "duration": 7.6,
+        "text": "sending a second round of query to hit I"
+      },
+      {
+        "start": 334.18,
+        "duration": 5.67,
+        "text": "don't know 9 extra nodes and so on so"
+      },
+      {
+        "start": 337.78,
+        "duration": 4.59,
+        "text": "every time a new round of query is"
+      },
+      {
+        "start": 339.85,
+        "duration": 5.19,
+        "text": "started we increase the number of"
+      },
+      {
+        "start": 342.37,
+        "duration": 5.28,
+        "text": "machines because of course the idea is"
+      },
+      {
+        "start": 345.04,
+        "duration": 5.07,
+        "text": "to to limit the number of rounds of"
+      },
+      {
+        "start": 347.65,
+        "duration": 5.88,
+        "text": "query to the minimum right but that's"
+      },
+      {
+        "start": 350.11,
+        "duration": 5.7,
+        "text": "the basic idea of the algorithm okay so"
+      },
+      {
+        "start": 353.53,
+        "duration": 3.96,
+        "text": "you're saying is basically the as far as"
+      },
+      {
+        "start": 355.81,
+        "duration": 4.26,
+        "text": "where the secondary indexes are stored"
+      },
+      {
+        "start": 357.49,
+        "duration": 4.5,
+        "text": "around the cluster like each node"
+      },
+      {
+        "start": 360.07,
+        "duration": 3.57,
+        "text": "basically has has a copy of the"
+      },
+      {
+        "start": 361.99,
+        "duration": 3.27,
+        "text": "secondary index and that secondary index"
+      },
+      {
+        "start": 363.64,
+        "duration": 4.74,
+        "text": "only contains the data that's already"
+      },
+      {
+        "start": 365.26,
+        "duration": 4.29,
+        "text": "that's on that know exactly based on how"
+      },
+      {
+        "start": 368.38,
+        "duration": 2.37,
+        "text": "it was basically based on the"
+      },
+      {
+        "start": 369.55,
+        "duration": 2.88,
+        "text": "partitioner based on how it was"
+      },
+      {
+        "start": 370.75,
+        "duration": 3.39,
+        "text": "partitioning around the and then we have"
+      },
+      {
+        "start": 372.43,
+        "duration": 3.42,
+        "text": "to go do these sort of scatter gathering"
+      },
+      {
+        "start": 374.14,
+        "duration": 4.47,
+        "text": "exact type queries if we do a query"
+      },
+      {
+        "start": 375.85,
+        "duration": 5.76,
+        "text": "that's only on enough secondary index ok"
+      },
+      {
+        "start": 378.61,
+        "duration": 4.68,
+        "text": "so I'm with you so far so let's maybe"
+      },
+      {
+        "start": 381.61,
+        "duration": 4.29,
+        "text": "drill down a little bit a little bit"
+      },
+      {
+        "start": 383.29,
+        "duration": 5.34,
+        "text": "more into what does that actually look"
+      },
+      {
+        "start": 385.9,
+        "duration": 6.03,
+        "text": "like when we look at a single node of a"
+      },
+      {
+        "start": 388.63,
+        "duration": 5.52,
+        "text": "BSc or cassandra what are the"
+      },
+      {
+        "start": 391.93,
+        "duration": 4.63,
+        "text": "implementations sort of like"
+      },
+      {
+        "start": 394.15,
+        "duration": 5.109,
+        "text": "almost like storage kind of"
+      },
+      {
+        "start": 396.56,
+        "duration": 5.069,
+        "text": "implementation details of of secondary"
+      },
+      {
+        "start": 399.259,
+        "duration": 5.91,
+        "text": "indexes on disk and on each individual"
+      },
+      {
+        "start": 401.629,
+        "duration": 5.581,
+        "text": "node okay so you we are now going one"
+      },
+      {
+        "start": 405.169,
+        "duration": 5.22,
+        "text": "level down we are talking about storage"
+      },
+      {
+        "start": 407.21,
+        "duration": 4.889,
+        "text": "and Jin level so what you should know is"
+      },
+      {
+        "start": 410.389,
+        "duration": 6.111,
+        "text": "in Cassandra every time you have a"
+      },
+      {
+        "start": 412.099,
+        "duration": 8.641,
+        "text": "mutation like an update on insert delete"
+      },
+      {
+        "start": 416.5,
+        "duration": 7.18,
+        "text": "this hook to the secondary index okay so"
+      },
+      {
+        "start": 420.74,
+        "duration": 7.94,
+        "text": "the idea is to keep the update of the"
+      },
+      {
+        "start": 423.68,
+        "duration": 8.1,
+        "text": "base data and the index as I would say"
+      },
+      {
+        "start": 428.68,
+        "duration": 6.88,
+        "text": "consistent as possible I will not say"
+      },
+      {
+        "start": 431.78,
+        "duration": 5.759,
+        "text": "atomic why because we are writing to two"
+      },
+      {
+        "start": 435.56,
+        "duration": 4.74,
+        "text": "different files right base data are"
+      },
+      {
+        "start": 437.539,
+        "duration": 4.861,
+        "text": "written into a stable secondary index"
+      },
+      {
+        "start": 440.3,
+        "duration": 5.64,
+        "text": "depending on the implementation can be"
+      },
+      {
+        "start": 442.4,
+        "duration": 5.759,
+        "text": "written on different data structure so"
+      },
+      {
+        "start": 445.94,
+        "duration": 5.33,
+        "text": "to guarantee atomicity of write is"
+      },
+      {
+        "start": 448.159,
+        "duration": 6.901,
+        "text": "pretty hard but at least the fact that"
+      },
+      {
+        "start": 451.27,
+        "duration": 6.76,
+        "text": "the updates are done a batch together in"
+      },
+      {
+        "start": 455.06,
+        "duration": 4.919,
+        "text": "a single note it reduced the chance of"
+      },
+      {
+        "start": 458.03,
+        "duration": 4.35,
+        "text": "inconsistency so this is the reason why"
+      },
+      {
+        "start": 459.979,
+        "duration": 4.711,
+        "text": "why cassandra using this is the reason"
+      },
+      {
+        "start": 462.38,
+        "duration": 4.92,
+        "text": "why we call okay yeah secondary index"
+      },
+      {
+        "start": 464.69,
+        "duration": 7.68,
+        "text": "with the actual data that's yeah the"
+      },
+      {
+        "start": 467.3,
+        "duration": 9.899,
+        "text": "decision is not like we know that we"
+      },
+      {
+        "start": 472.37,
+        "duration": 8.34,
+        "text": "Colo Kate we are we cannot scare a lot"
+      },
+      {
+        "start": 477.199,
+        "duration": 6.33,
+        "text": "but the game is in considered the"
+      },
+      {
+        "start": 480.71,
+        "duration": 6.72,
+        "text": "consistency we get right right now in"
+      },
+      {
+        "start": 483.529,
+        "duration": 5.88,
+        "text": "terms of implementation there are many"
+      },
+      {
+        "start": 487.43,
+        "duration": 4.459,
+        "text": "possible implementation for secure index"
+      },
+      {
+        "start": 489.409,
+        "duration": 5.16,
+        "text": "so we have first the native"
+      },
+      {
+        "start": 491.889,
+        "duration": 7.241,
+        "text": "implementation which is basically a"
+      },
+      {
+        "start": 494.569,
+        "duration": 6.9,
+        "text": "reverse index so we create a table in"
+      },
+      {
+        "start": 499.13,
+        "duration": 4.08,
+        "text": "the background the partition key of the"
+      },
+      {
+        "start": 501.469,
+        "duration": 4.531,
+        "text": "table is the value of the index for"
+      },
+      {
+        "start": 503.21,
+        "duration": 6.54,
+        "text": "example in my in my scenario it is the"
+      },
+      {
+        "start": 506.0,
+        "duration": 7.399,
+        "text": "the country of a user US UK or whatever"
+      },
+      {
+        "start": 509.75,
+        "duration": 7.829,
+        "text": "and each cluster in column will contain"
+      },
+      {
+        "start": 513.399,
+        "duration": 6.341,
+        "text": "the whole primary key of the user being"
+      },
+      {
+        "start": 517.579,
+        "duration": 4.71,
+        "text": "the index so it just stores the primary"
+      },
+      {
+        "start": 519.74,
+        "duration": 5.39,
+        "text": "key value next to the next to the index"
+      },
+      {
+        "start": 522.289,
+        "duration": 7.161,
+        "text": "sort of the key of the index exactly and"
+      },
+      {
+        "start": 525.13,
+        "duration": 7.71,
+        "text": "with this kind of design the only thing"
+      },
+      {
+        "start": 529.45,
+        "duration": 7.65,
+        "text": "you can do is to query by equality so"
+      },
+      {
+        "start": 532.84,
+        "duration": 8.43,
+        "text": "give me all user from us or give me all"
+      },
+      {
+        "start": 537.1,
+        "duration": 6.12,
+        "text": "user who's who are like a ten years on"
+      },
+      {
+        "start": 541.27,
+        "duration": 4.35,
+        "text": "or 20 years old but you cannot have"
+      },
+      {
+        "start": 543.22,
+        "duration": 4.68,
+        "text": "range query give me all user between 20"
+      },
+      {
+        "start": 545.62,
+        "duration": 4.26,
+        "text": "and 30 years of nope it's not possible"
+      },
+      {
+        "start": 547.9,
+        "duration": 6.63,
+        "text": "because you cannot have range query on"
+      },
+      {
+        "start": 549.88,
+        "duration": 6.69,
+        "text": "partition key recently we have another"
+      },
+      {
+        "start": 554.53,
+        "duration": 4.98,
+        "text": "implementation of secondary index called"
+      },
+      {
+        "start": 556.57,
+        "duration": 6.39,
+        "text": "sassy SS table attached secondary index"
+      },
+      {
+        "start": 559.51,
+        "duration": 6.99,
+        "text": "now the new idea is to stick together"
+      },
+      {
+        "start": 562.96,
+        "duration": 6.03,
+        "text": "the lifecycle of the base data and the"
+      },
+      {
+        "start": 566.5,
+        "duration": 5.22,
+        "text": "index data structure so every time you"
+      },
+      {
+        "start": 568.99,
+        "duration": 5.49,
+        "text": "flush your data in an SS table"
+      },
+      {
+        "start": 571.72,
+        "duration": 6.12,
+        "text": "Sassie we've also flush it's only too"
+      },
+      {
+        "start": 574.48,
+        "duration": 5.46,
+        "text": "short on disk okay and so the data"
+      },
+      {
+        "start": 577.84,
+        "duration": 5.85,
+        "text": "structure is just an optimized between"
+      },
+      {
+        "start": 579.94,
+        "duration": 6.75,
+        "text": "right and the new idea here is because"
+      },
+      {
+        "start": 583.69,
+        "duration": 6.75,
+        "text": "we have a close relationship between the"
+      },
+      {
+        "start": 586.69,
+        "duration": 5.87,
+        "text": "SS table and sassy index file we can and"
+      },
+      {
+        "start": 590.44,
+        "duration": 6.5,
+        "text": "because as a stable are by nature"
+      },
+      {
+        "start": 592.56,
+        "duration": 8.77,
+        "text": "immutable we can store the exact offset"
+      },
+      {
+        "start": 596.94,
+        "duration": 9.22,
+        "text": "of the role of the matching row in the"
+      },
+      {
+        "start": 601.33,
+        "duration": 7.02,
+        "text": "SAS index to get back to the original as"
+      },
+      {
+        "start": 606.16,
+        "duration": 5.73,
+        "text": "a stable to be able to read price okay"
+      },
+      {
+        "start": 608.35,
+        "duration": 6.51,
+        "text": "and we have also order implementation"
+      },
+      {
+        "start": 611.89,
+        "duration": 7.38,
+        "text": "based on Apache Solr all using so we"
+      },
+      {
+        "start": 614.86,
+        "duration": 7.05,
+        "text": "have DAC search which is using solar and"
+      },
+      {
+        "start": 619.27,
+        "duration": 5.49,
+        "text": "using index underneath and of course"
+      },
+      {
+        "start": 621.91,
+        "duration": 5.52,
+        "text": "again we are only storing primary keys"
+      },
+      {
+        "start": 624.76,
+        "duration": 5.19,
+        "text": "of matching rows inducing we don't store"
+      },
+      {
+        "start": 627.43,
+        "duration": 3.9,
+        "text": "the whole data so if all these"
+      },
+      {
+        "start": 629.95,
+        "duration": 3.48,
+        "text": "implementations that you've mentioned"
+      },
+      {
+        "start": 631.33,
+        "duration": 4.56,
+        "text": "like the three the three you sort of"
+      },
+      {
+        "start": 633.43,
+        "duration": 4.17,
+        "text": "just discussed made of secondary indexes"
+      },
+      {
+        "start": 635.89,
+        "duration": 4.44,
+        "text": "sassy secondary indexes and then search"
+      },
+      {
+        "start": 637.6,
+        "duration": 5.52,
+        "text": "type secondary indexes with leucine none"
+      },
+      {
+        "start": 640.33,
+        "duration": 4.95,
+        "text": "of them are actually they're all storing"
+      },
+      {
+        "start": 643.12,
+        "duration": 6.03,
+        "text": "basically pointers back to the original"
+      },
+      {
+        "start": 645.28,
+        "duration": 5.4,
+        "text": "SS table file so is that sort of like is"
+      },
+      {
+        "start": 649.15,
+        "duration": 3.46,
+        "text": "that sort of the reason why you said at"
+      },
+      {
+        "start": 650.68,
+        "duration": 3.909,
+        "text": "the beginning that"
+      },
+      {
+        "start": 652.61,
+        "duration": 3.12,
+        "text": "that secondary indexes in cassandra"
+      },
+      {
+        "start": 654.589,
+        "duration": 3.18,
+        "text": "they're not really for performance"
+      },
+      {
+        "start": 655.73,
+        "duration": 3.96,
+        "text": "they're more for convenience because how"
+      },
+      {
+        "start": 657.769,
+        "duration": 4.32,
+        "text": "is performance actually going to be"
+      },
+      {
+        "start": 659.69,
+        "duration": 5.13,
+        "text": "impacted by sort of this decision - yeah"
+      },
+      {
+        "start": 662.089,
+        "duration": 4.891,
+        "text": "so on the ground of performance as I"
+      },
+      {
+        "start": 664.82,
+        "duration": 5.16,
+        "text": "said before the fact that you need to"
+      },
+      {
+        "start": 666.98,
+        "duration": 5.609,
+        "text": "scatter gutter on the cluster layer so"
+      },
+      {
+        "start": 669.98,
+        "duration": 4.62,
+        "text": "it's already slower than to have her to"
+      },
+      {
+        "start": 672.589,
+        "duration": 5.761,
+        "text": "contact just a single node for query and"
+      },
+      {
+        "start": 674.6,
+        "duration": 6.39,
+        "text": "on the storage and engine layer when you"
+      },
+      {
+        "start": 678.35,
+        "duration": 5.52,
+        "text": "are querying by secondary index you need"
+      },
+      {
+        "start": 680.99,
+        "duration": 6.18,
+        "text": "to passes on disk one pass to read the"
+      },
+      {
+        "start": 683.87,
+        "duration": 6.18,
+        "text": "indexed data structure itself to get the"
+      },
+      {
+        "start": 687.17,
+        "duration": 6.27,
+        "text": "primary key or the offset and another"
+      },
+      {
+        "start": 690.05,
+        "duration": 8.159,
+        "text": "pass to read the original data right out"
+      },
+      {
+        "start": 693.44,
+        "duration": 8.04,
+        "text": "of SS table and that's the reason that"
+      },
+      {
+        "start": 698.209,
+        "duration": 6.361,
+        "text": "which explained that access by primary"
+      },
+      {
+        "start": 701.48,
+        "duration": 5.07,
+        "text": "key will always always be faster than"
+      },
+      {
+        "start": 704.57,
+        "duration": 3.509,
+        "text": "accessed by secure index because you"
+      },
+      {
+        "start": 706.55,
+        "duration": 3.659,
+        "text": "don't need the two passes you don't need"
+      },
+      {
+        "start": 708.079,
+        "duration": 4.32,
+        "text": "two reads essentially off your desk so"
+      },
+      {
+        "start": 710.209,
+        "duration": 3.801,
+        "text": "why don't we if if what we're storing in"
+      },
+      {
+        "start": 712.399,
+        "duration": 4.111,
+        "text": "these secondary index structures is"
+      },
+      {
+        "start": 714.01,
+        "duration": 5.71,
+        "text": "pointers back to the original SS table"
+      },
+      {
+        "start": 716.51,
+        "duration": 5.88,
+        "text": "files like sort of offsets why don't we"
+      },
+      {
+        "start": 719.72,
+        "duration": 4.38,
+        "text": "actually just duplicate data in these in"
+      },
+      {
+        "start": 722.39,
+        "duration": 3.18,
+        "text": "these index data structures I know"
+      },
+      {
+        "start": 724.1,
+        "duration": 2.76,
+        "text": "relational databases have done this in"
+      },
+      {
+        "start": 725.57,
+        "duration": 2.519,
+        "text": "certain types of indexes for a while"
+      },
+      {
+        "start": 726.86,
+        "duration": 2.849,
+        "text": "where they sort of just duplicate the"
+      },
+      {
+        "start": 728.089,
+        "duration": 3.0,
+        "text": "data why don't we why don't we do that"
+      },
+      {
+        "start": 729.709,
+        "duration": 3.451,
+        "text": "in the secondary index so that we can"
+      },
+      {
+        "start": 731.089,
+        "duration": 4.141,
+        "text": "avoid the whole second pass yeah I'm"
+      },
+      {
+        "start": 733.16,
+        "duration": 4.739,
+        "text": "performance penalty so I get your point"
+      },
+      {
+        "start": 735.23,
+        "duration": 6.63,
+        "text": "so I was thinking about this idea a"
+      },
+      {
+        "start": 737.899,
+        "duration": 8.101,
+        "text": "while back ago and the main difficulty"
+      },
+      {
+        "start": 741.86,
+        "duration": 6.03,
+        "text": "is if you stop duplicating data what are"
+      },
+      {
+        "start": 746.0,
+        "duration": 6.269,
+        "text": "we talking about you duplicate your data"
+      },
+      {
+        "start": 747.89,
+        "duration": 7.41,
+        "text": "okay but then you need to duplicate also"
+      },
+      {
+        "start": 752.269,
+        "duration": 6.481,
+        "text": "the time stuff okay and then you need to"
+      },
+      {
+        "start": 755.3,
+        "duration": 6.659,
+        "text": "duplicate also tombstone okay because if"
+      },
+      {
+        "start": 758.75,
+        "duration": 5.94,
+        "text": "you don't go back to the to read the"
+      },
+      {
+        "start": 761.959,
+        "duration": 5.82,
+        "text": "data from the SS table you need a way to"
+      },
+      {
+        "start": 764.69,
+        "duration": 5.519,
+        "text": "resolve conflicts right because we all"
+      },
+      {
+        "start": 767.779,
+        "duration": 4.711,
+        "text": "know that in Cassandra we are a"
+      },
+      {
+        "start": 770.209,
+        "duration": 4.62,
+        "text": "masterless architecture so we are we"
+      },
+      {
+        "start": 772.49,
+        "duration": 4.77,
+        "text": "have an eventually consistent system and"
+      },
+      {
+        "start": 774.829,
+        "duration": 5.491,
+        "text": "all the inconsistency at right I are"
+      },
+      {
+        "start": 777.26,
+        "duration": 5.069,
+        "text": "sold at three time right using x time so"
+      },
+      {
+        "start": 780.32,
+        "duration": 5.459,
+        "text": "it means that now that you when you"
+      },
+      {
+        "start": 782.329,
+        "duration": 6.331,
+        "text": "duplicate data into your index structure"
+      },
+      {
+        "start": 785.779,
+        "duration": 5.401,
+        "text": "you need also to apply the same conflict"
+      },
+      {
+        "start": 788.66,
+        "duration": 5.4,
+        "text": "resolution algorithm last penguin it"
+      },
+      {
+        "start": 791.18,
+        "duration": 6.089,
+        "text": "means that you need to reemployment the"
+      },
+      {
+        "start": 794.06,
+        "duration": 6.509,
+        "text": "last ravine logic for each index"
+      },
+      {
+        "start": 797.269,
+        "duration": 6.42,
+        "text": "implementation so imagine you have the"
+      },
+      {
+        "start": 800.569,
+        "duration": 5.341,
+        "text": "main last I win logic further the base"
+      },
+      {
+        "start": 803.689,
+        "duration": 4.32,
+        "text": "data of Cassandra you have Las praline"
+      },
+      {
+        "start": 805.91,
+        "duration": 5.07,
+        "text": "logic for the native secondary index for"
+      },
+      {
+        "start": 808.009,
+        "duration": 5.24,
+        "text": "one for sassy one for DC search it means"
+      },
+      {
+        "start": 810.98,
+        "duration": 4.799,
+        "text": "that you are taking a huge risk of"
+      },
+      {
+        "start": 813.249,
+        "duration": 4.721,
+        "text": "progression because you are duplicating"
+      },
+      {
+        "start": 815.779,
+        "duration": 4.41,
+        "text": "the same logic everywhere sure it is"
+      },
+      {
+        "start": 817.97,
+        "duration": 4.26,
+        "text": "very risky in terms of programming sure"
+      },
+      {
+        "start": 820.189,
+        "duration": 3.421,
+        "text": "and then also as far as like Hadi you"
+      },
+      {
+        "start": 822.23,
+        "duration": 3.0,
+        "text": "have to figure out then how do you store"
+      },
+      {
+        "start": 823.61,
+        "duration": 2.88,
+        "text": "things like a tombstone when you're"
+      },
+      {
+        "start": 825.23,
+        "duration": 2.76,
+        "text": "talking about how would you store a"
+      },
+      {
+        "start": 826.49,
+        "duration": 4.86,
+        "text": "tombstone in a sense the index or an"
+      },
+      {
+        "start": 827.99,
+        "duration": 7.589,
+        "text": "idea you seem like I don't know it just"
+      },
+      {
+        "start": 831.35,
+        "duration": 7.14,
+        "text": "another field just on extra bytes but"
+      },
+      {
+        "start": 835.579,
+        "duration": 6.151,
+        "text": "still a lot of work to do because then"
+      },
+      {
+        "start": 838.49,
+        "duration": 5.37,
+        "text": "we are not just talking about resolving"
+      },
+      {
+        "start": 841.73,
+        "duration": 4.44,
+        "text": "conflict every time think about"
+      },
+      {
+        "start": 843.86,
+        "duration": 4.469,
+        "text": "compaction right sure yep because"
+      },
+      {
+        "start": 846.17,
+        "duration": 5.609,
+        "text": "compaction also need to use this last"
+      },
+      {
+        "start": 848.329,
+        "duration": 5.971,
+        "text": "right win to merge data together yep so"
+      },
+      {
+        "start": 851.779,
+        "duration": 4.951,
+        "text": "you need to also to accommodate with"
+      },
+      {
+        "start": 854.3,
+        "duration": 3.93,
+        "text": "compaction how do you contact your index"
+      },
+      {
+        "start": 856.73,
+        "duration": 4.77,
+        "text": "data structure and so on and so on"
+      },
+      {
+        "start": 858.23,
+        "duration": 6.12,
+        "text": "yep okay so now that we've kind of gone"
+      },
+      {
+        "start": 861.5,
+        "duration": 5.309,
+        "text": "over like why this is more a convenience"
+      },
+      {
+        "start": 864.35,
+        "duration": 3.51,
+        "text": "thing than a than a performance sort of"
+      },
+      {
+        "start": 866.809,
+        "duration": 2.7,
+        "text": "the performance thing that it is in a"
+      },
+      {
+        "start": 867.86,
+        "duration": 3.599,
+        "text": "relational database is there a way you"
+      },
+      {
+        "start": 869.509,
+        "duration": 4.14,
+        "text": "can get around having to pay that sort"
+      },
+      {
+        "start": 871.459,
+        "duration": 4.021,
+        "text": "of performance penalty of the of the to"
+      },
+      {
+        "start": 873.649,
+        "duration": 5.49,
+        "text": "two passes on disk that you get with a"
+      },
+      {
+        "start": 875.48,
+        "duration": 8.19,
+        "text": "secondary index yeah it's the we have"
+      },
+      {
+        "start": 879.139,
+        "duration": 7.021,
+        "text": "introduced matter eyes view for that so"
+      },
+      {
+        "start": 883.67,
+        "duration": 6.08,
+        "text": "the idea of my trophy view is to have a"
+      },
+      {
+        "start": 886.16,
+        "duration": 7.89,
+        "text": "way of indexing your data without the"
+      },
+      {
+        "start": 889.75,
+        "duration": 7.089,
+        "text": "performance hit right okay and the idea"
+      },
+      {
+        "start": 894.05,
+        "duration": 6.42,
+        "text": "is very basic you have a reversing tag"
+      },
+      {
+        "start": 896.839,
+        "duration": 7.711,
+        "text": "like the primary key of your matters"
+      },
+      {
+        "start": 900.47,
+        "duration": 6.179,
+        "text": "view we contain the column to be indexed"
+      },
+      {
+        "start": 904.55,
+        "duration": 5.279,
+        "text": "and of course you can only query by"
+      },
+      {
+        "start": 906.649,
+        "duration": 5.43,
+        "text": "equality but now the advantage of matter"
+      },
+      {
+        "start": 909.829,
+        "duration": 5.13,
+        "text": "is view is every time you query the view"
+      },
+      {
+        "start": 912.079,
+        "duration": 5.1,
+        "text": "you only hit one machine and because we"
+      },
+      {
+        "start": 914.959,
+        "duration": 2.731,
+        "text": "are using the normal partition or to"
+      },
+      {
+        "start": 917.179,
+        "duration": 3.931,
+        "text": "distribute"
+      },
+      {
+        "start": 917.69,
+        "duration": 6.48,
+        "text": "it's the data now the problem with"
+      },
+      {
+        "start": 921.11,
+        "duration": 6.36,
+        "text": "matters view is consistency"
+      },
+      {
+        "start": 924.17,
+        "duration": 5.91,
+        "text": "why because whenever because when you"
+      },
+      {
+        "start": 927.47,
+        "duration": 6.63,
+        "text": "you've right data in into your base"
+      },
+      {
+        "start": 930.08,
+        "duration": 6.06,
+        "text": "table the matter eyes view data may not"
+      },
+      {
+        "start": 934.1,
+        "duration": 4.29,
+        "text": "stay on the same machine because of the"
+      },
+      {
+        "start": 936.14,
+        "duration": 4.08,
+        "text": "partition shirt the petitioner may have"
+      },
+      {
+        "start": 938.39,
+        "duration": 2.88,
+        "text": "different teas exactly we distribute"
+      },
+      {
+        "start": 940.22,
+        "duration": 2.82,
+        "text": "it's gonna end up the student in your"
+      },
+      {
+        "start": 941.27,
+        "duration": 3.96,
+        "text": "data differently than exactly in the"
+      },
+      {
+        "start": 943.04,
+        "duration": 4.71,
+        "text": "base table and you know that whenever"
+      },
+      {
+        "start": 945.23,
+        "duration": 5.52,
+        "text": "you introduce the network into your"
+      },
+      {
+        "start": 947.75,
+        "duration": 5.91,
+        "text": "equation you are opening a can of worms"
+      },
+      {
+        "start": 950.75,
+        "duration": 6.15,
+        "text": "never trust the network right yeah what"
+      },
+      {
+        "start": 953.66,
+        "duration": 5.75,
+        "text": "happened in case of fader how can we"
+      },
+      {
+        "start": 956.9,
+        "duration": 7.53,
+        "text": "detect fader how can we solve fader and"
+      },
+      {
+        "start": 959.41,
+        "duration": 7.39,
+        "text": "that's the main reason why today the"
+      },
+      {
+        "start": 964.43,
+        "duration": 4.32,
+        "text": "matress view is not stable yet and we"
+      },
+      {
+        "start": 966.8,
+        "duration": 4.26,
+        "text": "are dedicating like two full-time"
+      },
+      {
+        "start": 968.75,
+        "duration": 5.52,
+        "text": "engineers to stabilize them and to bug"
+      },
+      {
+        "start": 971.06,
+        "duration": 4.71,
+        "text": "fix yeah so materialized views are a"
+      },
+      {
+        "start": 974.27,
+        "duration": 7.23,
+        "text": "feature that has been out since one of"
+      },
+      {
+        "start": 975.77,
+        "duration": 7.26,
+        "text": "Cassandra 3.0 but for a lot of people"
+      },
+      {
+        "start": 981.5,
+        "duration": 3.89,
+        "text": "out in production you you've heard they"
+      },
+      {
+        "start": 983.03,
+        "duration": 5.91,
+        "text": "kind of treat it as an experimental yeah"
+      },
+      {
+        "start": 985.39,
+        "duration": 4.9,
+        "text": "it's not stable yet yeah yeah yeah okay"
+      },
+      {
+        "start": 988.94,
+        "duration": 4.02,
+        "text": "well hopefully that's something that's"
+      },
+      {
+        "start": 990.29,
+        "duration": 4.59,
+        "text": "going to get fixed yeah yeah there's"
+      },
+      {
+        "start": 992.96,
+        "duration": 4.02,
+        "text": "it's definitely been it's definitely"
+      },
+      {
+        "start": 994.88,
+        "duration": 5.19,
+        "text": "been prioritized in in open source"
+      },
+      {
+        "start": 996.98,
+        "duration": 5.52,
+        "text": "Cassandra so hopefully for everybody"
+      },
+      {
+        "start": 1000.07,
+        "duration": 4.77,
+        "text": "watching and listening out there maybe"
+      },
+      {
+        "start": 1002.5,
+        "duration": 5.34,
+        "text": "you understand a little bit more about"
+      },
+      {
+        "start": 1004.84,
+        "duration": 4.53,
+        "text": "how secondary indexes in Cassandra work"
+      },
+      {
+        "start": 1007.84,
+        "duration": 2.79,
+        "text": "not only at the cluster level but also"
+      },
+      {
+        "start": 1009.37,
+        "duration": 4.2,
+        "text": "sort of some of the different storage"
+      },
+      {
+        "start": 1010.63,
+        "duration": 5.25,
+        "text": "implementations that are available and"
+      },
+      {
+        "start": 1013.57,
+        "duration": 3.84,
+        "text": "if somebody wanted to learn more like do"
+      },
+      {
+        "start": 1015.88,
+        "duration": 3.33,
+        "text": "you have any suggestions on where"
+      },
+      {
+        "start": 1017.41,
+        "duration": 4.17,
+        "text": "somebody might go to learn more I know"
+      },
+      {
+        "start": 1019.21,
+        "duration": 6.119,
+        "text": "you blog on some of this yes so yeah I"
+      },
+      {
+        "start": 1021.58,
+        "duration": 5.82,
+        "text": "have written a really detailed blog post"
+      },
+      {
+        "start": 1025.329,
+        "duration": 5.041,
+        "text": "about secondary index architecture"
+      },
+      {
+        "start": 1027.4,
+        "duration": 5.91,
+        "text": "cluster level storage engine level I"
+      },
+      {
+        "start": 1030.37,
+        "duration": 7.68,
+        "text": "also give the the complex algorithm you"
+      },
+      {
+        "start": 1033.31,
+        "duration": 8.79,
+        "text": "know to query by multiple rounds so they"
+      },
+      {
+        "start": 1038.05,
+        "duration": 6.93,
+        "text": "can go on my post on block so 3w don't"
+      },
+      {
+        "start": 1042.1,
+        "duration": 5.94,
+        "text": "we hide comm slash blog cool and they"
+      },
+      {
+        "start": 1044.98,
+        "duration": 5.04,
+        "text": "can find the progress there awesome okay"
+      },
+      {
+        "start": 1048.04,
+        "duration": 3.42,
+        "text": "well thank you to Dewey high for being"
+      },
+      {
+        "start": 1050.02,
+        "duration": 3.84,
+        "text": "here all the way from Paris"
+      },
+      {
+        "start": 1051.46,
+        "duration": 4.14,
+        "text": "and thank you for watching and or"
+      },
+      {
+        "start": 1053.86,
+        "duration": 3.72,
+        "text": "listening to another episode of the"
+      },
+      {
+        "start": 1055.6,
+        "duration": 4.8,
+        "text": "distributed data show we will see you"
+      },
+      {
+        "start": 1057.58,
+        "duration": 5.01,
+        "text": "next time thank you for joining us again"
+      },
+      {
+        "start": 1060.4,
+        "duration": 3.93,
+        "text": "for the distributed data show we love"
+      },
+      {
+        "start": 1062.59,
+        "duration": 3.75,
+        "text": "your feedback so go to the distributed"
+      },
+      {
+        "start": 1064.33,
+        "duration": 3.84,
+        "text": "data show page on data Stax Academy and"
+      },
+      {
+        "start": 1066.34,
+        "duration": 3.51,
+        "text": "tell us what you think you can also find"
+      },
+      {
+        "start": 1068.17,
+        "duration": 4.38,
+        "text": "us on the data Stax Academy YouTube"
+      },
+      {
+        "start": 1069.85,
+        "duration": 4.709,
+        "text": "channel or find our podcast on iTunes"
+      },
+      {
+        "start": 1072.55,
+        "duration": 4.5,
+        "text": "Google Play or wherever you get great"
+      },
+      {
+        "start": 1074.559,
+        "duration": 4.171,
+        "text": "podcast while you're there make sure and"
+      },
+      {
+        "start": 1077.05,
+        "duration": 3.56,
+        "text": "subscribe so you don't miss a single"
+      },
+      {
+        "start": 1078.73,
+        "duration": 4.99,
+        "text": "episode"
+      },
+      {
+        "start": 1080.61,
+        "duration": 3.11,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T07:13:38.756816+00:00"
+}

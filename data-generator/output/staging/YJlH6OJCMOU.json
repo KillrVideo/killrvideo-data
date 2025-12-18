@@ -1,0 +1,2915 @@
+{
+  "video_id": "YJlH6OJCMOU",
+  "title": "Distributed Data Show Episode 32: Search with Nick Panahi",
+  "description": "We talk with Nick Panahi, Product Manager for DSE Search, about the distinction between secondary indexes and search indexes, the challenges of distributed search engines, and future directions for DSE Search.\n\nHighlights!\n0:15 - Introducing Nick Panahi, Product Manager for DSE search and “best hair” on the Distributed Data Show\n1:00 - Benefits and limitations of Secondary indexes in Apache Cassandra\n3:01 - Elements of a distributed search solution and how we do scoring in a distributed fashion\n7:14 - Techniques for improving the performance of scatter/gather searches\n8:27 - DSE Search as an integration of Cassandra and Apache SOLR\n12:13 - Choosing between various search implementations - CQL, Cassandra’s Native 2i, SASI, DSE Search\n13:47 - Future options - sliding bar between latency and native CQL search\n15:26 - On the history of how SOLR was chosen, the emergence of ElasticSearch, and the focus on Lucene\n18:35 - future directions for DSE Search - native CQL search, less SOLR syntax, introduction of the LIKE command\n21:13 - availability of CQL commands to create search indexes in DSE 5.1\n22:01 - As time runs short, Nick teases other new DSE Search features in areas like aggregation and geospatial so that Jeff invites him back for a future episode\n\n\nABOUT DATASTAX ENTERPRISE 5.1\nDataStax Enterprise 5.1, the database platform for cloud applications, includes Apache Cassandra 3.x with materialized views, tiered storage and advanced replication. Introduced in 5.1 is DataStax Enterprise Graph, the first graph database fast enough to power customer-facing applications, scale to massive datasets and integrate advanced tools to power deep analytical queries.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://academy.datastax.com/resources/whats-new-datastax-enterprise-50\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://tw",
+  "published_at": "2018-01-23T16:00:03Z",
+  "thumbnail": "https://i.ytimg.com/vi/YJlH6OJCMOU/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cql",
+    "cassandra",
+    "search",
+    "database",
+    "apache_cassandra",
+    "performance",
+    "talk",
+    "introduction",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=YJlH6OJCMOU",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems hello welcome to another episode of the distributed data show i'm jeff carpenter and i'm live here in the studio and with me via the interwebs is nick panna he how are you doing Nick hello everybody hello Jeff thank you for having me yeah excited to be here Nick is the product manager for DSC search our data sacks enterprise search so he is the master of all things search and probably the best hair we've ever had on the distributed data show it might not even be a contest at this point but we'll have to work on that so I just digest we want to talk with you about all things search Nick so we had a previous episode in which we really drove into secondary indexes the good the bad the ugly and I know that you're familiar with what we talked about there but let's go a pick up where that last conversation left off what what are some of the limitations of secondary indexes that's a great segue Jeff thank you for that and let me explain why that's a great segue is for DSC search and other search technologies that integrate with Cassandra in general the secondary index path is a very common hook as we call it to integrate and there's a lot of details there as to why that is I won't get into the depths but let's just say the inverted index is a common thing between Cassandra secondary index and text search so that's why the greats are as I'm starting there and getting back to the original question of the limitations well of course we can imagine that actual searching is one of the limitations of a secondary index and really the reason why sassy in general was created well not the reason I would say actually there are other was created but sassy secondary index does offer some levels of tech search versus over the the traditional one so that's one of the big obvious limitations of a secondary index now I will mention that sassy is still in somewhat development it's it's not widely used so while there's text search capabilities and secondary indexes probably not ready for primetime quite yet but that is one of the one of the limitations from a functionality standpoint now this gets us into a little bit of a conversation about what is text search now there are different flavors of that and we'll get into we'll get into some of those details but let's say that searching is a limitation of a secondary nested a good okay so secondary index is not equal to search we need something that's a little bit more than just a basic secondary secondary index or inverted index so we need a distributed search solution let's talk about what that means like what are the elements of distributed search or what are the things that you have to consider in a distributed search solution yeah that's great the one of the first things that we can touch again on sassy on is the need to tokenize data in general right you've got your raw data stored in your data store which is gonna be data stacks DB for us and then you've got search indexes that the the functionality is able to perform on to do things that like if a word starts with letters or pens with letters you've got to tokenize these things and create things that you can actually match them against but that's a very clear functionality need that you would have to have on you're on the right path of a system so as Dave is coming in you're able to break it up and assign it some some metadata so that you can search on it there's a there's an aspect of text search that I wanted to get into which is scoring so the world that we come in from from DSC search we have a score associated with documents or queries or rows as we call them this basically gives you relevancy how close is my result set to what I have searched for that is something that has to be a taken account not just generating the score but if you have a distributed system there's gonna be a positioning and a score associated with a document on the node and then across the entire index all of your data so if I ask for the top 10 best results you can easily get that for each node but how do you really get that for the entire data set that you have that's a that's a great problem a very standard problem thing about for distributed search engines or systems or if you're going to provide full-text search in general right because the it might be that the top 10 results are all on one node but it's more likely that they're distributed across the various nodes and then you have to I don't know what sort and they like talk to me about how that works yeah that's right exactly it's a great great point a lot of users don't realize that there's some implicit sorting that happens now we haven't touched on the technology we use to provide text search but there is some implicitly that happens so what what has to happen right you've got to go first on to your search indexes to do the lookups that get the candidates right so you've got a distributed system you've got data that's replicated one of the improvements we've made with our pass on this the scatter gather if you will the secondary index is today will actually hit every year every node to be able to fulfill its query we've taken the opportunity to to utilize the replicas that we have in a cluster and reduce that scatter gather so first of all you've got to be able to look at the entire tables worth of data so that means looking at all the partitions right yes as I just said that doesn't mean looking at all the nodes so if you've got replicas and I think do you hire mention this as well 33% of the nodes will be taken or needed to look at the entire range of tables okay that's great and that's assuming that you can get a response from all of those and that there's not a node that's down but right that sure is actually that mean often times we were built on such a great distributed data store that we forget often a lot of times about the troubles of a distributed engine other systems would have to deal with but you're absolutely right since we do have the system we do underneath the hood with replicas and availability functionality we typically don't run into those problems but absolutely all of your replicas have to be up for you to be able to look at your index to say who are my candidates that's a very fundamental problem that I probably take for granted a little bit because of the again the the fantastic data store that we've integrated with for our search indexes okay but once you've looked at those assertion X's and you've got what we call a candidate list this is basically all the the documents that match the query you've actually got to go and retrieve them from the data store because the way we've set things up is we don't store redundant data in your search indexes your data held in your your data store our database and then the search indexes are just the functionality to perform the scoring and the phrase stuff so we do our search there and then we'd have to go back to our data store to pull the actual raw data out now this is the the - pass - pass yeah about that's right now that could be seen as a problem for performance but again knowing what we know and doing what we do we have integrated things in the driver to actually tell DSU to say hey I'm not so worried about the true relevancy score I actually just want to get the data back though go ahead and skip that second pass and retrieve the data while you're there and don't worry about this mergesort process nice okay I was I was gonna say um you have you've told us a little bit about some of the problems of distributed search in general and then some little clues here about how we've kind of solved them in our product and DSC search boat let's take a step back and talk about kind of big picture like what what are the the big design elements that go into data sacks enterprise search and how do we choose those it's a great point as well for so first let me say that data sacks in price search what it is you know some folks may not already view as main no it is an integration of Apache Cassandra and Apache Solr that's the genesis of the product now of course today we were making doing a lot to make that more of a seamless integration really more of a native functionality but so we do talk about solar and we've seen a good bit and in our search conversations and that's that's ultimately what it is now there's a lot of benefits from that as we just talked about some functionality that comes with it there's also a few drawbacks as well such as there is another set of processes that are contending for some resources the fact that we want to index data that comes in will add a little bit of work for our rights and of course if we are searching on search indexes to find data we expect that data to exist in our datastore as well so while we manage a lot of that consistency between the index and the store there is still these windows of where data is being indexed and inserted into one or the other that have to be compensated for we talked a lot about the query functionality so we talked about scoring as well these two pieces often we see these pieces a lot in different use cases right going from as we started the conversation from this indexes to kind of where we just talked about solar being more of a full-text search engine what we've also seen from a use case perspective and our users is a wide array of requirements for search and what I mean by that is a company that's selling products online will be a lot more in line with what solar does out of the box and it will more than likely utilize the scoring algorithm to to rank things and they probably even want to know what the real top 10 results are of product queries for let's say a fraud detection use case where we're looking for some conditions if this and that or this really don't care so much what order of these results fall in we just want to be able to find them or get them back in the results set though a lot of those use cases can be call search as they can be prefix or postfix kind of matching but underneath the hood there really is a big difference in what we're talking about so when you hear full-text search it's gonna be very important to understand what your use cases and what functionality is being offered if we look at sassy again it does offer full-text search but it does not offer the scoring mechanism and and sorting yeah you know I talked about there's a lot of complicit sorting that goes on this typically is done with the scores but the same mechanism that allows you to sort on score actually also allows you to sort on arbitrary columns that are not part of your primary key potentially the way Cassander will enforce so you can sort on these seals sassy does not have that right now and we're not saying that's a problem well we're just going back to the again different use cases will need different levels of effort from search or different functionalities of search and of course the more you get from the functionality the more you kind of pay for at least with the resources or some latency but there is some cost associated with with you know the more you get that's really good I really like how you put that it's basically you know understand the tools understand the capabilities of each of the options that you have so that you can really select and apply the right solution for the right problem thank you that's awesome that's actually also something we're trying to make more seamless and automatic for our users actually one of the questions you will often field as a former field solution architects you often get questions of what should I use a secondary index so which I use a see what should I use in materialized view when should I just index it by solar which are you spark the list can go on and these are all I have that question yeah yeah there you go so you know one of the things I like to do is I draw out this graph of query flexibility to query performance and all these items get listed on the spectrum and as you move away from pure stick ul and move towards spark you get query flexibility which you also impose latency there so one of the things we hope to do at least for the search use cases initially is to kind of do that due diligence for you if it can be satisfied with this mechanism for the best price we're gonna do that if you truly need to go down this route and it's gonna cost a little more we're gonna do that for you as well so a little bit hinting at a query planner and some query optimization to go into our RC school or native protocol here that's amazing this so that would be awesome them the less that we as developers maybe have to think about choosing between various options the more that we can get some guidance or assistance on you know if all we have to really think about is a sliding bar I guess in terms of query flexibility versus latency that's the trade-off that we're making that's an that's gonna be an awesome solution I'm very glad to hear that and that um that also kind of recognizes the the usage and value of customers who have who have not just invested in DC search for the functionality but invested in DC search as again a basic query engine there was a lot of usage of this when I first joined the company and we probably tried to fight this behavior a little bit because of let's say the product wasn't just where it needs to be to support this usage today of course it's it's it's far easier to embrace and support this usage as well as there's a lot of validity to it then to try to fight this behavior so right that's the other reason for why we are not only integrating secure search enabled secure well but also this this optimization we just talked about is is to reduce that complexity of using it as well as kind of recognizing that there are different levels of search required for our use cases and offering the best flavor for that and not just making everybody go these search engine route for some basic things right as we've seen I want to come back to one of the design choices that you made that we kind of skipped over pretty quickly but you mentioned that we picked solar as a key component of the search solution so obviously that's not the only search engine that's out there that's available how did you how did you arrive at that over say like elastic search or something like that that's right it's not only not the only one available but it's also not the most popular today anymore because of elastic search who's done a fantastic job with some of their choices they made with their product so the answer is actually very simple the last search was not much of a product if if any bit of a product at the time where we were building this is for our product it was we'd have to go back to see what was available it was a definitely a point version of something and it just wasn't what it is today there's been a very clear explosion of popularity with es over the last few years and it just wasn't there what I am happy to say though is one of the other questions I get is well are you going to switch and to that I say well no what we're gonna do is actually continue to tailor the product for our users in our use cases what's gonna end up looking like is going to be less of a solar integration and more of our Lucene implementation so subtle words there but it is a big difference as far as a lot of things go the complexity how the system behaves the resources that get utilized consistency problems api's let's talk there for a second we've got how that's what it comes down to yeah that's what it comes down to you a lot of times you've got this HTTP API and you got cql and everybody would rather be on cql if their functionality was supported there's really not a lot of argument there so at the very least that's that's that's a big aspect of it and es is HTTP base as well and while they're query specific language is very popular it's just not going to cut it for us when it comes to actually the things you mentioned earlier the cluster value the cluster awareness value that you get with with cql what note is up what note is down what's DCM I in the health scores we actually have input in indexing health scores for your search so you can you know to ignore a replica if it's indexing and go torta torta freshly in next one so there's just so many benefits of that and even if we did have you elastic search today we would be going down the same path of off you skating that from users and collapsing functionality back into the the platform the native functionality of it nice okay so that that's a really good explanation of what are those design challenges and I like how you talked about some of the solutions under the hood to kind of read do some recovery knowing when I search index is out of date and maybe that you want a router request a little bit around that while you're waiting to get that updated this is good stuff you've also told me a little bit about the future of DSC search but I want to hear more like what can you tell us about where this is headed oh that's exciting that obviously is very near dear to my heart as it's my job for the most part and a lot of it is exactly what we talked about it's it's in one statement it's less of an integration and more of native functionality so the API is a big one for for all of us here at data stacks we want all of the functionality that our users are using to be inside of cql and for everybody to be as you can see ql for for the workload oh that's a big deal query is so like right now it's a solar syntax it seems to come through and those cql queries are you saying that that might go away or what does that look like no exactly right we our first attempt and thank you for bringing that up it can get a little history there so our first attempt at this integration was again an integration where we have a a pass through column that basically will take raw solar syntax and and do your search for you and it sounds great and it is great but the realization is that hey solar syntax is actually not all that commonly known you know one of my favorite examples is showing how to do a range query with it and it's just it's it's very different I dare I say a little silly so that's yet another API or language or the very least syntax to deal with so in DSC 600 you will actually see search enabled cql which is going to be pure cql that can be executed on top of your search indexes where we will support the like operator which is you know today there's not really much that gives you that functionality other than the Sassi and we talked about how that's kind of not ready for primetime so dc-6 so users will actually be able to use the light command and that's just the beginning of where we're going if you look at the iterations of examples none of them look like solar syntax they all look like pure cql or even SQL ish queries and we've been told and I didn't sure that that is gonna be a lot more comfortable for our users than the solar aspect of things awesome yeah I think API improvements is a great thing to make that developer experience just that much better and I'm excited about the like keyword maybe maybe once that drops we can have you back on to kind of talk us through some how that works what do you say oh that would be great I'd love to love to talk that off and show that often and even today we've we've already migrated all of the index operations the admin to secure L so you can script creating your tables and creating your text analysis chains and your search indexes all that stuff can be done in CQ all today already and you can do everything you need to do there and then I will bring up for the the solar power users who we certainly have a few of them in house you know we're not gonna we're not going to forget you guys so your solo syntax will certainly find a way to be passed through CQL even even with some of this these new changes so it'll just be a cleaner way of doing it not as much transposing but the syntax and things like that so very excited about that enhancement coming out for six oh and that's like I said actually just the beginning of the functionality we we've chosen to tackle the low-hanging fruit for some of the more database indexing use cases but be on the lookout for geospatial filtering and of course the aggregation API as well and in score queries well you know we haven't tackled the scores yet for cql so the next revision guaranteed to be even more exciting oh my goodness by you so you just dropped a bunch of stuff there on me that is super exciting and you know as a developer and architect I'm like oh yes I can think of those times where I really needed a geospatial query and you know I couldn't figure out how to do that on top of Cassandra because a range queries and you know all these sorts of things so lots of exciting stuff for us to talk about and not enough time I want to thank you so much nature coming on the distributed data show and sharing with us my pleasure thank you so much for having me all right well this is just a promise of future episodes on search and thanks for listening we'll see you next time thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data Stax Academy and tell us what you think you can also find us on the data stacks Academy YouTube channel or find our podcast on itunes google play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.31,
+        "duration": 4.29,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.6,
+        "duration": 4.05,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 7.919,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 7.92,
+        "text": "large-scale distributed systems hello"
+      },
+      {
+        "start": 16.379,
+        "duration": 4.951,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 18.57,
+        "duration": 5.28,
+        "text": "distributed data show i'm jeff carpenter"
+      },
+      {
+        "start": 21.33,
+        "duration": 6.209,
+        "text": "and i'm live here in the studio and with"
+      },
+      {
+        "start": 23.85,
+        "duration": 5.13,
+        "text": "me via the interwebs is nick panna he"
+      },
+      {
+        "start": 27.539,
+        "duration": 3.601,
+        "text": "how are you doing Nick"
+      },
+      {
+        "start": 28.98,
+        "duration": 4.23,
+        "text": "hello everybody hello Jeff thank you for"
+      },
+      {
+        "start": 31.14,
+        "duration": 7.65,
+        "text": "having me yeah excited to be here Nick"
+      },
+      {
+        "start": 33.21,
+        "duration": 8.009,
+        "text": "is the product manager for DSC search"
+      },
+      {
+        "start": 38.79,
+        "duration": 4.289,
+        "text": "our data sacks enterprise search so he"
+      },
+      {
+        "start": 41.219,
+        "duration": 4.381,
+        "text": "is the master of all things search and"
+      },
+      {
+        "start": 43.079,
+        "duration": 6.3,
+        "text": "probably the best hair we've ever had on"
+      },
+      {
+        "start": 45.6,
+        "duration": 5.459,
+        "text": "the distributed data show it might not"
+      },
+      {
+        "start": 49.379,
+        "duration": 5.401,
+        "text": "even be a contest at this point but"
+      },
+      {
+        "start": 51.059,
+        "duration": 6.511,
+        "text": "we'll have to work on that so I just"
+      },
+      {
+        "start": 54.78,
+        "duration": 6.54,
+        "text": "digest we want to talk with you about"
+      },
+      {
+        "start": 57.57,
+        "duration": 5.52,
+        "text": "all things search Nick so we had a"
+      },
+      {
+        "start": 61.32,
+        "duration": 6.45,
+        "text": "previous episode in which we really"
+      },
+      {
+        "start": 63.09,
+        "duration": 7.08,
+        "text": "drove into secondary indexes the good"
+      },
+      {
+        "start": 67.77,
+        "duration": 3.9,
+        "text": "the bad the ugly and I know that you're"
+      },
+      {
+        "start": 70.17,
+        "duration": 4.199,
+        "text": "familiar with what we talked about there"
+      },
+      {
+        "start": 71.67,
+        "duration": 4.89,
+        "text": "but let's go a pick up where that last"
+      },
+      {
+        "start": 74.369,
+        "duration": 5.481,
+        "text": "conversation left off what what are some"
+      },
+      {
+        "start": 76.56,
+        "duration": 6.33,
+        "text": "of the limitations of secondary indexes"
+      },
+      {
+        "start": 79.85,
+        "duration": 5.019,
+        "text": "that's a great segue Jeff thank you for"
+      },
+      {
+        "start": 82.89,
+        "duration": 5.67,
+        "text": "that and let me explain why that's a"
+      },
+      {
+        "start": 84.869,
+        "duration": 5.64,
+        "text": "great segue is for DSC search and other"
+      },
+      {
+        "start": 88.56,
+        "duration": 4.47,
+        "text": "search technologies that integrate with"
+      },
+      {
+        "start": 90.509,
+        "duration": 6.091,
+        "text": "Cassandra in general the secondary index"
+      },
+      {
+        "start": 93.03,
+        "duration": 5.64,
+        "text": "path is a very common hook as we call it"
+      },
+      {
+        "start": 96.6,
+        "duration": 4.65,
+        "text": "to integrate and there's a lot of"
+      },
+      {
+        "start": 98.67,
+        "duration": 5.04,
+        "text": "details there as to why that is I won't"
+      },
+      {
+        "start": 101.25,
+        "duration": 4.86,
+        "text": "get into the depths but let's just say"
+      },
+      {
+        "start": 103.71,
+        "duration": 4.68,
+        "text": "the inverted index is a common thing"
+      },
+      {
+        "start": 106.11,
+        "duration": 7.619,
+        "text": "between Cassandra secondary index and"
+      },
+      {
+        "start": 108.39,
+        "duration": 8.579,
+        "text": "text search so that's why the greats are"
+      },
+      {
+        "start": 113.729,
+        "duration": 4.231,
+        "text": "as I'm starting there and getting back"
+      },
+      {
+        "start": 116.969,
+        "duration": 2.25,
+        "text": "to the original question of the"
+      },
+      {
+        "start": 117.96,
+        "duration": 4.5,
+        "text": "limitations well of course we can"
+      },
+      {
+        "start": 119.219,
+        "duration": 5.631,
+        "text": "imagine that actual searching is one of"
+      },
+      {
+        "start": 122.46,
+        "duration": 5.339,
+        "text": "the limitations of a secondary index and"
+      },
+      {
+        "start": 124.85,
+        "duration": 5.26,
+        "text": "really the reason why sassy in general"
+      },
+      {
+        "start": 127.799,
+        "duration": 3.741,
+        "text": "was created well not the reason I would"
+      },
+      {
+        "start": 130.11,
+        "duration": 5.299,
+        "text": "say actually there are other"
+      },
+      {
+        "start": 131.54,
+        "duration": 6.529,
+        "text": "was created but sassy secondary index"
+      },
+      {
+        "start": 135.409,
+        "duration": 5.91,
+        "text": "does offer some levels of tech search"
+      },
+      {
+        "start": 138.069,
+        "duration": 5.051,
+        "text": "versus over the the traditional one so"
+      },
+      {
+        "start": 141.319,
+        "duration": 4.23,
+        "text": "that's one of the big obvious"
+      },
+      {
+        "start": 143.12,
+        "duration": 4.77,
+        "text": "limitations of a secondary index now I"
+      },
+      {
+        "start": 145.549,
+        "duration": 4.77,
+        "text": "will mention that sassy is still in"
+      },
+      {
+        "start": 147.89,
+        "duration": 4.769,
+        "text": "somewhat development it's it's not"
+      },
+      {
+        "start": 150.319,
+        "duration": 5.09,
+        "text": "widely used so while there's text search"
+      },
+      {
+        "start": 152.659,
+        "duration": 4.95,
+        "text": "capabilities and secondary indexes"
+      },
+      {
+        "start": 155.409,
+        "duration": 5.11,
+        "text": "probably not ready for primetime quite"
+      },
+      {
+        "start": 157.609,
+        "duration": 4.171,
+        "text": "yet but that is one of the one of the"
+      },
+      {
+        "start": 160.519,
+        "duration": 5.19,
+        "text": "limitations from a functionality"
+      },
+      {
+        "start": 161.78,
+        "duration": 5.37,
+        "text": "standpoint now this gets us into a"
+      },
+      {
+        "start": 165.709,
+        "duration": 3.241,
+        "text": "little bit of a conversation about what"
+      },
+      {
+        "start": 167.15,
+        "duration": 6.69,
+        "text": "is text search now there are different"
+      },
+      {
+        "start": 168.95,
+        "duration": 6.39,
+        "text": "flavors of that and we'll get into we'll"
+      },
+      {
+        "start": 173.84,
+        "duration": 5.31,
+        "text": "get into some of those details but let's"
+      },
+      {
+        "start": 175.34,
+        "duration": 6.09,
+        "text": "say that searching is a limitation of a"
+      },
+      {
+        "start": 179.15,
+        "duration": 5.64,
+        "text": "secondary nested a good okay so"
+      },
+      {
+        "start": 181.43,
+        "duration": 5.19,
+        "text": "secondary index is not equal to search"
+      },
+      {
+        "start": 184.79,
+        "duration": 4.08,
+        "text": "we need something that's a little bit"
+      },
+      {
+        "start": 186.62,
+        "duration": 4.709,
+        "text": "more than just a basic secondary"
+      },
+      {
+        "start": 188.87,
+        "duration": 6.239,
+        "text": "secondary index or inverted index so we"
+      },
+      {
+        "start": 191.329,
+        "duration": 5.19,
+        "text": "need a distributed search solution let's"
+      },
+      {
+        "start": 195.109,
+        "duration": 3.391,
+        "text": "talk about what that means like what are"
+      },
+      {
+        "start": 196.519,
+        "duration": 2.97,
+        "text": "the elements of distributed search or"
+      },
+      {
+        "start": 198.5,
+        "duration": 2.79,
+        "text": "what are the things that you have to"
+      },
+      {
+        "start": 199.489,
+        "duration": 5.34,
+        "text": "consider in a distributed search"
+      },
+      {
+        "start": 201.29,
+        "duration": 5.129,
+        "text": "solution yeah that's great the one of"
+      },
+      {
+        "start": 204.829,
+        "duration": 4.8,
+        "text": "the first things that we can touch again"
+      },
+      {
+        "start": 206.419,
+        "duration": 6.481,
+        "text": "on sassy on is the need to tokenize data"
+      },
+      {
+        "start": 209.629,
+        "duration": 5.311,
+        "text": "in general right you've got your raw"
+      },
+      {
+        "start": 212.9,
+        "duration": 4.949,
+        "text": "data stored in your data store which is"
+      },
+      {
+        "start": 214.94,
+        "duration": 5.46,
+        "text": "gonna be data stacks DB for us and then"
+      },
+      {
+        "start": 217.849,
+        "duration": 5.67,
+        "text": "you've got search indexes that the the"
+      },
+      {
+        "start": 220.4,
+        "duration": 5.82,
+        "text": "functionality is able to perform on to"
+      },
+      {
+        "start": 223.519,
+        "duration": 4.231,
+        "text": "do things that like if a word starts"
+      },
+      {
+        "start": 226.22,
+        "duration": 3.71,
+        "text": "with letters or pens with letters you've"
+      },
+      {
+        "start": 227.75,
+        "duration": 4.349,
+        "text": "got to tokenize these things and create"
+      },
+      {
+        "start": 229.93,
+        "duration": 5.399,
+        "text": "things that you can actually match them"
+      },
+      {
+        "start": 232.099,
+        "duration": 5.76,
+        "text": "against but that's a very clear"
+      },
+      {
+        "start": 235.329,
+        "duration": 4.3,
+        "text": "functionality need that you would have"
+      },
+      {
+        "start": 237.859,
+        "duration": 3.78,
+        "text": "to have on you're on the right path of a"
+      },
+      {
+        "start": 239.629,
+        "duration": 4.98,
+        "text": "system so as Dave is coming in you're"
+      },
+      {
+        "start": 241.639,
+        "duration": 4.56,
+        "text": "able to break it up and assign it some"
+      },
+      {
+        "start": 244.609,
+        "duration": 5.671,
+        "text": "some metadata so that you can search on"
+      },
+      {
+        "start": 246.199,
+        "duration": 5.43,
+        "text": "it there's a there's an aspect of text"
+      },
+      {
+        "start": 250.28,
+        "duration": 4.409,
+        "text": "search that I wanted to get into which"
+      },
+      {
+        "start": 251.629,
+        "duration": 7.17,
+        "text": "is scoring so the world that we come in"
+      },
+      {
+        "start": 254.689,
+        "duration": 7.23,
+        "text": "from from DSC search we have a score"
+      },
+      {
+        "start": 258.799,
+        "duration": 6.061,
+        "text": "associated with documents or queries or"
+      },
+      {
+        "start": 261.919,
+        "duration": 3.421,
+        "text": "rows as we call them this basically"
+      },
+      {
+        "start": 264.86,
+        "duration": 3.45,
+        "text": "gives you"
+      },
+      {
+        "start": 265.34,
+        "duration": 5.88,
+        "text": "relevancy how close is my result set to"
+      },
+      {
+        "start": 268.31,
+        "duration": 4.29,
+        "text": "what I have searched for that is"
+      },
+      {
+        "start": 271.22,
+        "duration": 3.09,
+        "text": "something that has to be a taken account"
+      },
+      {
+        "start": 272.6,
+        "duration": 3.27,
+        "text": "not just generating the score but if you"
+      },
+      {
+        "start": 274.31,
+        "duration": 4.02,
+        "text": "have a distributed system"
+      },
+      {
+        "start": 275.87,
+        "duration": 5.43,
+        "text": "there's gonna be a positioning and a"
+      },
+      {
+        "start": 278.33,
+        "duration": 5.61,
+        "text": "score associated with a document on the"
+      },
+      {
+        "start": 281.3,
+        "duration": 5.07,
+        "text": "node and then across the entire index"
+      },
+      {
+        "start": 283.94,
+        "duration": 5.759,
+        "text": "all of your data so if I ask for the top"
+      },
+      {
+        "start": 286.37,
+        "duration": 4.92,
+        "text": "10 best results you can easily get that"
+      },
+      {
+        "start": 289.699,
+        "duration": 3.421,
+        "text": "for each node but how do you really get"
+      },
+      {
+        "start": 291.29,
+        "duration": 4.439,
+        "text": "that for the entire data set that you"
+      },
+      {
+        "start": 293.12,
+        "duration": 4.68,
+        "text": "have that's a that's a great problem a"
+      },
+      {
+        "start": 295.729,
+        "duration": 5.731,
+        "text": "very standard problem thing about for"
+      },
+      {
+        "start": 297.8,
+        "duration": 5.4,
+        "text": "distributed search engines or systems or"
+      },
+      {
+        "start": 301.46,
+        "duration": 3.78,
+        "text": "if you're going to provide full-text"
+      },
+      {
+        "start": 303.2,
+        "duration": 4.5,
+        "text": "search in general right because the it"
+      },
+      {
+        "start": 305.24,
+        "duration": 5.07,
+        "text": "might be that the top 10 results are all"
+      },
+      {
+        "start": 307.7,
+        "duration": 4.32,
+        "text": "on one node but it's more likely that"
+      },
+      {
+        "start": 310.31,
+        "duration": 4.02,
+        "text": "they're distributed across the various"
+      },
+      {
+        "start": 312.02,
+        "duration": 4.769,
+        "text": "nodes and then you have to I don't know"
+      },
+      {
+        "start": 314.33,
+        "duration": 4.89,
+        "text": "what sort and they like talk to me about"
+      },
+      {
+        "start": 316.789,
+        "duration": 5.611,
+        "text": "how that works yeah that's right exactly"
+      },
+      {
+        "start": 319.22,
+        "duration": 4.44,
+        "text": "it's a great great point a lot of users"
+      },
+      {
+        "start": 322.4,
+        "duration": 3.42,
+        "text": "don't realize that there's some implicit"
+      },
+      {
+        "start": 323.66,
+        "duration": 3.81,
+        "text": "sorting that happens now we haven't"
+      },
+      {
+        "start": 325.82,
+        "duration": 4.319,
+        "text": "touched on the technology we use to"
+      },
+      {
+        "start": 327.47,
+        "duration": 5.64,
+        "text": "provide text search but there is some"
+      },
+      {
+        "start": 330.139,
+        "duration": 4.411,
+        "text": "implicitly that happens so what what has"
+      },
+      {
+        "start": 333.11,
+        "duration": 5.67,
+        "text": "to happen right you've got to go first"
+      },
+      {
+        "start": 334.55,
+        "duration": 5.94,
+        "text": "on to your search indexes to do the"
+      },
+      {
+        "start": 338.78,
+        "duration": 3.48,
+        "text": "lookups that get the candidates right so"
+      },
+      {
+        "start": 340.49,
+        "duration": 5.78,
+        "text": "you've got a distributed system you've"
+      },
+      {
+        "start": 342.26,
+        "duration": 7.589,
+        "text": "got data that's replicated one of the"
+      },
+      {
+        "start": 346.27,
+        "duration": 6.55,
+        "text": "improvements we've made with our pass on"
+      },
+      {
+        "start": 349.849,
+        "duration": 4.891,
+        "text": "this the scatter gather if you will the"
+      },
+      {
+        "start": 352.82,
+        "duration": 3.96,
+        "text": "secondary index is today will actually"
+      },
+      {
+        "start": 354.74,
+        "duration": 4.049,
+        "text": "hit every year every node to be able to"
+      },
+      {
+        "start": 356.78,
+        "duration": 4.05,
+        "text": "fulfill its query we've taken the"
+      },
+      {
+        "start": 358.789,
+        "duration": 5.25,
+        "text": "opportunity to to utilize the replicas"
+      },
+      {
+        "start": 360.83,
+        "duration": 5.25,
+        "text": "that we have in a cluster and reduce"
+      },
+      {
+        "start": 364.039,
+        "duration": 3.721,
+        "text": "that scatter gather so first of all"
+      },
+      {
+        "start": 366.08,
+        "duration": 3.75,
+        "text": "you've got to be able to look at the"
+      },
+      {
+        "start": 367.76,
+        "duration": 3.21,
+        "text": "entire tables worth of data so that"
+      },
+      {
+        "start": 369.83,
+        "duration": 3.839,
+        "text": "means looking at all the partitions"
+      },
+      {
+        "start": 370.97,
+        "duration": 5.669,
+        "text": "right yes as I just said that doesn't"
+      },
+      {
+        "start": 373.669,
+        "duration": 4.981,
+        "text": "mean looking at all the nodes so if"
+      },
+      {
+        "start": 376.639,
+        "duration": 3.301,
+        "text": "you've got replicas and I think do you"
+      },
+      {
+        "start": 378.65,
+        "duration": 4.079,
+        "text": "hire mention this as well"
+      },
+      {
+        "start": 379.94,
+        "duration": 4.349,
+        "text": "33% of the nodes will be taken or needed"
+      },
+      {
+        "start": 382.729,
+        "duration": 3.451,
+        "text": "to look at the entire range of tables"
+      },
+      {
+        "start": 384.289,
+        "duration": 3.931,
+        "text": "okay that's great and that's assuming"
+      },
+      {
+        "start": 386.18,
+        "duration": 4.56,
+        "text": "that you can get a response from all of"
+      },
+      {
+        "start": 388.22,
+        "duration": 4.14,
+        "text": "those and that there's not a node that's"
+      },
+      {
+        "start": 390.74,
+        "duration": 3.71,
+        "text": "down but right"
+      },
+      {
+        "start": 392.36,
+        "duration": 4.76,
+        "text": "that sure is actually that mean"
+      },
+      {
+        "start": 394.45,
+        "duration": 5.31,
+        "text": "often times we were built on such a"
+      },
+      {
+        "start": 397.12,
+        "duration": 4.44,
+        "text": "great distributed data store that we"
+      },
+      {
+        "start": 399.76,
+        "duration": 4.05,
+        "text": "forget often a lot of times about the"
+      },
+      {
+        "start": 401.56,
+        "duration": 3.9,
+        "text": "troubles of a distributed engine other"
+      },
+      {
+        "start": 403.81,
+        "duration": 3.66,
+        "text": "systems would have to deal with but"
+      },
+      {
+        "start": 405.46,
+        "duration": 3.39,
+        "text": "you're absolutely right since we do have"
+      },
+      {
+        "start": 407.47,
+        "duration": 4.13,
+        "text": "the system we do underneath the hood"
+      },
+      {
+        "start": 408.85,
+        "duration": 5.43,
+        "text": "with replicas and availability"
+      },
+      {
+        "start": 411.6,
+        "duration": 4.69,
+        "text": "functionality we typically don't run"
+      },
+      {
+        "start": 414.28,
+        "duration": 3.93,
+        "text": "into those problems but absolutely all"
+      },
+      {
+        "start": 416.29,
+        "duration": 4.26,
+        "text": "of your replicas have to be up for you"
+      },
+      {
+        "start": 418.21,
+        "duration": 5.19,
+        "text": "to be able to look at your index to say"
+      },
+      {
+        "start": 420.55,
+        "duration": 4.38,
+        "text": "who are my candidates that's a very"
+      },
+      {
+        "start": 423.4,
+        "duration": 2.79,
+        "text": "fundamental problem that I probably take"
+      },
+      {
+        "start": 424.93,
+        "duration": 3.72,
+        "text": "for granted a little bit because of the"
+      },
+      {
+        "start": 426.19,
+        "duration": 4.2,
+        "text": "again the the fantastic data store that"
+      },
+      {
+        "start": 428.65,
+        "duration": 4.74,
+        "text": "we've integrated with for our search"
+      },
+      {
+        "start": 430.39,
+        "duration": 4.71,
+        "text": "indexes okay but once you've looked at"
+      },
+      {
+        "start": 433.39,
+        "duration": 2.91,
+        "text": "those assertion X's and you've got what"
+      },
+      {
+        "start": 435.1,
+        "duration": 3.84,
+        "text": "we call a candidate list this is"
+      },
+      {
+        "start": 436.3,
+        "duration": 5.37,
+        "text": "basically all the the documents that"
+      },
+      {
+        "start": 438.94,
+        "duration": 4.53,
+        "text": "match the query you've actually got to"
+      },
+      {
+        "start": 441.67,
+        "duration": 4.17,
+        "text": "go and retrieve them from the data store"
+      },
+      {
+        "start": 443.47,
+        "duration": 6.06,
+        "text": "because the way we've set things up is"
+      },
+      {
+        "start": 445.84,
+        "duration": 6.12,
+        "text": "we don't store redundant data in your"
+      },
+      {
+        "start": 449.53,
+        "duration": 5.01,
+        "text": "search indexes your data held in your"
+      },
+      {
+        "start": 451.96,
+        "duration": 4.35,
+        "text": "your data store our database and then"
+      },
+      {
+        "start": 454.54,
+        "duration": 3.87,
+        "text": "the search indexes are just the"
+      },
+      {
+        "start": 456.31,
+        "duration": 4.02,
+        "text": "functionality to perform the scoring and"
+      },
+      {
+        "start": 458.41,
+        "duration": 4.08,
+        "text": "the phrase stuff so we do our search"
+      },
+      {
+        "start": 460.33,
+        "duration": 4.17,
+        "text": "there and then we'd have to go back to"
+      },
+      {
+        "start": 462.49,
+        "duration": 4.26,
+        "text": "our data store to pull the actual raw"
+      },
+      {
+        "start": 464.5,
+        "duration": 5.43,
+        "text": "data out now this is the the - pass -"
+      },
+      {
+        "start": 466.75,
+        "duration": 5.25,
+        "text": "pass yeah about that's right"
+      },
+      {
+        "start": 469.93,
+        "duration": 5.58,
+        "text": "now that could be seen as a problem for"
+      },
+      {
+        "start": 472.0,
+        "duration": 5.58,
+        "text": "performance but again knowing what we"
+      },
+      {
+        "start": 475.51,
+        "duration": 3.6,
+        "text": "know and doing what we do we have"
+      },
+      {
+        "start": 477.58,
+        "duration": 4.35,
+        "text": "integrated things in the driver to"
+      },
+      {
+        "start": 479.11,
+        "duration": 5.34,
+        "text": "actually tell DSU to say hey I'm not so"
+      },
+      {
+        "start": 481.93,
+        "duration": 4.14,
+        "text": "worried about the true relevancy score I"
+      },
+      {
+        "start": 484.45,
+        "duration": 4.2,
+        "text": "actually just want to get the data back"
+      },
+      {
+        "start": 486.07,
+        "duration": 4.86,
+        "text": "though go ahead and skip that second"
+      },
+      {
+        "start": 488.65,
+        "duration": 3.9,
+        "text": "pass and retrieve the data while you're"
+      },
+      {
+        "start": 490.93,
+        "duration": 4.98,
+        "text": "there and don't worry about this"
+      },
+      {
+        "start": 492.55,
+        "duration": 5.88,
+        "text": "mergesort process nice okay I was I was"
+      },
+      {
+        "start": 495.91,
+        "duration": 5.01,
+        "text": "gonna say um you have you've told us a"
+      },
+      {
+        "start": 498.43,
+        "duration": 4.71,
+        "text": "little bit about some of the problems of"
+      },
+      {
+        "start": 500.92,
+        "duration": 4.47,
+        "text": "distributed search in general and then"
+      },
+      {
+        "start": 503.14,
+        "duration": 4.77,
+        "text": "some little clues here about how we've"
+      },
+      {
+        "start": 505.39,
+        "duration": 4.47,
+        "text": "kind of solved them in our product and"
+      },
+      {
+        "start": 507.91,
+        "duration": 3.99,
+        "text": "DSC search boat let's take a step back"
+      },
+      {
+        "start": 509.86,
+        "duration": 4.47,
+        "text": "and talk about kind of big picture like"
+      },
+      {
+        "start": 511.9,
+        "duration": 4.77,
+        "text": "what what are the the big design"
+      },
+      {
+        "start": 514.33,
+        "duration": 4.23,
+        "text": "elements that go into data sacks"
+      },
+      {
+        "start": 516.67,
+        "duration": 4.86,
+        "text": "enterprise search and how do we choose"
+      },
+      {
+        "start": 518.56,
+        "duration": 4.95,
+        "text": "those it's a great point as well for so"
+      },
+      {
+        "start": 521.53,
+        "duration": 4.32,
+        "text": "first let me say that data sacks in"
+      },
+      {
+        "start": 523.51,
+        "duration": 3.59,
+        "text": "price search what it is you know some"
+      },
+      {
+        "start": 525.85,
+        "duration": 3.77,
+        "text": "folks may not already view as main"
+      },
+      {
+        "start": 527.1,
+        "duration": 5.58,
+        "text": "no it is an integration of Apache"
+      },
+      {
+        "start": 529.62,
+        "duration": 4.529,
+        "text": "Cassandra and Apache Solr that's the"
+      },
+      {
+        "start": 532.68,
+        "duration": 4.17,
+        "text": "genesis of the product now of course"
+      },
+      {
+        "start": 534.149,
+        "duration": 4.17,
+        "text": "today we were making doing a lot to make"
+      },
+      {
+        "start": 536.85,
+        "duration": 3.479,
+        "text": "that more of a seamless integration"
+      },
+      {
+        "start": 538.319,
+        "duration": 5.791,
+        "text": "really more of a native functionality"
+      },
+      {
+        "start": 540.329,
+        "duration": 5.041,
+        "text": "but so we do talk about solar and we've"
+      },
+      {
+        "start": 544.11,
+        "duration": 4.77,
+        "text": "seen a good bit and in our search"
+      },
+      {
+        "start": 545.37,
+        "duration": 6.029,
+        "text": "conversations and that's that's"
+      },
+      {
+        "start": 548.88,
+        "duration": 4.68,
+        "text": "ultimately what it is now there's a lot"
+      },
+      {
+        "start": 551.399,
+        "duration": 3.391,
+        "text": "of benefits from that as we just talked"
+      },
+      {
+        "start": 553.56,
+        "duration": 3.389,
+        "text": "about some functionality that comes with"
+      },
+      {
+        "start": 554.79,
+        "duration": 6.12,
+        "text": "it there's also a few drawbacks as well"
+      },
+      {
+        "start": 556.949,
+        "duration": 5.731,
+        "text": "such as there is another set of"
+      },
+      {
+        "start": 560.91,
+        "duration": 4.739,
+        "text": "processes that are contending for some"
+      },
+      {
+        "start": 562.68,
+        "duration": 5.19,
+        "text": "resources the fact that we want to index"
+      },
+      {
+        "start": 565.649,
+        "duration": 5.67,
+        "text": "data that comes in will add a little bit"
+      },
+      {
+        "start": 567.87,
+        "duration": 6.3,
+        "text": "of work for our rights and of course if"
+      },
+      {
+        "start": 571.319,
+        "duration": 5.731,
+        "text": "we are searching on search indexes to"
+      },
+      {
+        "start": 574.17,
+        "duration": 5.55,
+        "text": "find data we expect that data to exist"
+      },
+      {
+        "start": 577.05,
+        "duration": 5.64,
+        "text": "in our datastore as well so while we"
+      },
+      {
+        "start": 579.72,
+        "duration": 5.7,
+        "text": "manage a lot of that consistency between"
+      },
+      {
+        "start": 582.69,
+        "duration": 5.28,
+        "text": "the index and the store there is still"
+      },
+      {
+        "start": 585.42,
+        "duration": 4.08,
+        "text": "these windows of where data is being"
+      },
+      {
+        "start": 587.97,
+        "duration": 4.14,
+        "text": "indexed and inserted into one or the"
+      },
+      {
+        "start": 589.5,
+        "duration": 3.48,
+        "text": "other that have to be compensated for we"
+      },
+      {
+        "start": 592.11,
+        "duration": 3.12,
+        "text": "talked a lot about the query"
+      },
+      {
+        "start": 592.98,
+        "duration": 7.83,
+        "text": "functionality so we talked about scoring"
+      },
+      {
+        "start": 595.23,
+        "duration": 7.109,
+        "text": "as well these two pieces often we see"
+      },
+      {
+        "start": 600.81,
+        "duration": 6.269,
+        "text": "these pieces a lot in different use"
+      },
+      {
+        "start": 602.339,
+        "duration": 8.281,
+        "text": "cases right going from as we started the"
+      },
+      {
+        "start": 607.079,
+        "duration": 4.86,
+        "text": "conversation from this indexes to kind"
+      },
+      {
+        "start": 610.62,
+        "duration": 3.6,
+        "text": "of where we just talked about solar"
+      },
+      {
+        "start": 611.939,
+        "duration": 5.041,
+        "text": "being more of a full-text search engine"
+      },
+      {
+        "start": 614.22,
+        "duration": 4.53,
+        "text": "what we've also seen from a use case"
+      },
+      {
+        "start": 616.98,
+        "duration": 4.529,
+        "text": "perspective and our users is a wide"
+      },
+      {
+        "start": 618.75,
+        "duration": 5.43,
+        "text": "array of requirements for search and"
+      },
+      {
+        "start": 621.509,
+        "duration": 5.58,
+        "text": "what I mean by that is a company that's"
+      },
+      {
+        "start": 624.18,
+        "duration": 4.68,
+        "text": "selling products online will be a lot"
+      },
+      {
+        "start": 627.089,
+        "duration": 3.771,
+        "text": "more in line with what solar does out of"
+      },
+      {
+        "start": 628.86,
+        "duration": 6.24,
+        "text": "the box and it will more than likely"
+      },
+      {
+        "start": 630.86,
+        "duration": 6.37,
+        "text": "utilize the scoring algorithm to to rank"
+      },
+      {
+        "start": 635.1,
+        "duration": 4.88,
+        "text": "things and they probably even want to"
+      },
+      {
+        "start": 637.23,
+        "duration": 5.82,
+        "text": "know what the real top 10 results are of"
+      },
+      {
+        "start": 639.98,
+        "duration": 5.74,
+        "text": "product queries for let's say a fraud"
+      },
+      {
+        "start": 643.05,
+        "duration": 5.729,
+        "text": "detection use case where we're looking"
+      },
+      {
+        "start": 645.72,
+        "duration": 5.82,
+        "text": "for some conditions if this and that or"
+      },
+      {
+        "start": 648.779,
+        "duration": 5.04,
+        "text": "this really don't care so much what"
+      },
+      {
+        "start": 651.54,
+        "duration": 4.71,
+        "text": "order of these results fall in we just"
+      },
+      {
+        "start": 653.819,
+        "duration": 5.791,
+        "text": "want to be able to find them or get them"
+      },
+      {
+        "start": 656.25,
+        "duration": 4.47,
+        "text": "back in the results set though a lot of"
+      },
+      {
+        "start": 659.61,
+        "duration": 3.99,
+        "text": "those use cases can be"
+      },
+      {
+        "start": 660.72,
+        "duration": 6.0,
+        "text": "call search as they can be prefix or"
+      },
+      {
+        "start": 663.6,
+        "duration": 4.409,
+        "text": "postfix kind of matching but underneath"
+      },
+      {
+        "start": 666.72,
+        "duration": 3.0,
+        "text": "the hood there really is a big"
+      },
+      {
+        "start": 668.009,
+        "duration": 4.651,
+        "text": "difference in what we're talking about"
+      },
+      {
+        "start": 669.72,
+        "duration": 4.32,
+        "text": "so when you hear full-text search it's"
+      },
+      {
+        "start": 672.66,
+        "duration": 2.609,
+        "text": "gonna be very important to understand"
+      },
+      {
+        "start": 674.04,
+        "duration": 3.12,
+        "text": "what your use cases and what"
+      },
+      {
+        "start": 675.269,
+        "duration": 4.141,
+        "text": "functionality is being offered if we"
+      },
+      {
+        "start": 677.16,
+        "duration": 4.859,
+        "text": "look at sassy again it does offer"
+      },
+      {
+        "start": 679.41,
+        "duration": 4.65,
+        "text": "full-text search but it does not offer"
+      },
+      {
+        "start": 682.019,
+        "duration": 4.291,
+        "text": "the scoring mechanism and and sorting"
+      },
+      {
+        "start": 684.06,
+        "duration": 3.719,
+        "text": "yeah you know I talked about there's a"
+      },
+      {
+        "start": 686.31,
+        "duration": 4.05,
+        "text": "lot of complicit sorting that goes on"
+      },
+      {
+        "start": 687.779,
+        "duration": 4.5,
+        "text": "this typically is done with the scores"
+      },
+      {
+        "start": 690.36,
+        "duration": 5.37,
+        "text": "but the same mechanism that allows you"
+      },
+      {
+        "start": 692.279,
+        "duration": 5.821,
+        "text": "to sort on score actually also allows"
+      },
+      {
+        "start": 695.73,
+        "duration": 3.839,
+        "text": "you to sort on arbitrary columns that"
+      },
+      {
+        "start": 698.1,
+        "duration": 3.69,
+        "text": "are not part of your primary key"
+      },
+      {
+        "start": 699.569,
+        "duration": 4.5,
+        "text": "potentially the way Cassander will"
+      },
+      {
+        "start": 701.79,
+        "duration": 5.339,
+        "text": "enforce so you can sort on these seals"
+      },
+      {
+        "start": 704.069,
+        "duration": 4.71,
+        "text": "sassy does not have that right now and"
+      },
+      {
+        "start": 707.129,
+        "duration": 3.481,
+        "text": "we're not saying that's a problem well"
+      },
+      {
+        "start": 708.779,
+        "duration": 4.62,
+        "text": "we're just going back to the again"
+      },
+      {
+        "start": 710.61,
+        "duration": 5.37,
+        "text": "different use cases will need different"
+      },
+      {
+        "start": 713.399,
+        "duration": 4.411,
+        "text": "levels of effort from search or"
+      },
+      {
+        "start": 715.98,
+        "duration": 4.709,
+        "text": "different functionalities of search and"
+      },
+      {
+        "start": 717.81,
+        "duration": 4.74,
+        "text": "of course the more you get from the"
+      },
+      {
+        "start": 720.689,
+        "duration": 4.231,
+        "text": "functionality the more you kind of pay"
+      },
+      {
+        "start": 722.55,
+        "duration": 4.289,
+        "text": "for at least with the resources or some"
+      },
+      {
+        "start": 724.92,
+        "duration": 3.959,
+        "text": "latency but there is some cost"
+      },
+      {
+        "start": 726.839,
+        "duration": 5.071,
+        "text": "associated with with you know the more"
+      },
+      {
+        "start": 728.879,
+        "duration": 4.65,
+        "text": "you get that's really good I really like"
+      },
+      {
+        "start": 731.91,
+        "duration": 3.239,
+        "text": "how you put that it's basically you know"
+      },
+      {
+        "start": 733.529,
+        "duration": 3.66,
+        "text": "understand the tools understand the"
+      },
+      {
+        "start": 735.149,
+        "duration": 4.261,
+        "text": "capabilities of each of the options that"
+      },
+      {
+        "start": 737.189,
+        "duration": 5.07,
+        "text": "you have so that you can really select"
+      },
+      {
+        "start": 739.41,
+        "duration": 5.19,
+        "text": "and apply the right solution for the"
+      },
+      {
+        "start": 742.259,
+        "duration": 4.921,
+        "text": "right problem thank you that's awesome"
+      },
+      {
+        "start": 744.6,
+        "duration": 4.56,
+        "text": "that's actually also something we're"
+      },
+      {
+        "start": 747.18,
+        "duration": 5.099,
+        "text": "trying to make more seamless and"
+      },
+      {
+        "start": 749.16,
+        "duration": 5.549,
+        "text": "automatic for our users actually one of"
+      },
+      {
+        "start": 752.279,
+        "duration": 5.61,
+        "text": "the questions you will often field as a"
+      },
+      {
+        "start": 754.709,
+        "duration": 5.521,
+        "text": "former field solution architects you"
+      },
+      {
+        "start": 757.889,
+        "duration": 4.291,
+        "text": "often get questions of what should I use"
+      },
+      {
+        "start": 760.23,
+        "duration": 3.27,
+        "text": "a secondary index so which I use a see"
+      },
+      {
+        "start": 762.18,
+        "duration": 3.089,
+        "text": "what should I use in materialized view"
+      },
+      {
+        "start": 763.5,
+        "duration": 4.1,
+        "text": "when should I just index it by solar"
+      },
+      {
+        "start": 765.269,
+        "duration": 5.091,
+        "text": "which are you spark the list can go on"
+      },
+      {
+        "start": 767.6,
+        "duration": 6.37,
+        "text": "and these are all I have that question"
+      },
+      {
+        "start": 770.36,
+        "duration": 6.88,
+        "text": "yeah yeah"
+      },
+      {
+        "start": 773.97,
+        "duration": 5.01,
+        "text": "there you go so you know one of the"
+      },
+      {
+        "start": 777.24,
+        "duration": 6.36,
+        "text": "things I like to do is I draw out this"
+      },
+      {
+        "start": 778.98,
+        "duration": 7.289,
+        "text": "graph of query flexibility to query"
+      },
+      {
+        "start": 783.6,
+        "duration": 5.28,
+        "text": "performance and all these items get"
+      },
+      {
+        "start": 786.269,
+        "duration": 4.92,
+        "text": "listed on the spectrum and as you move"
+      },
+      {
+        "start": 788.88,
+        "duration": 5.1,
+        "text": "away from pure stick ul and move towards"
+      },
+      {
+        "start": 791.189,
+        "duration": 3.061,
+        "text": "spark you get query flexibility which"
+      },
+      {
+        "start": 793.98,
+        "duration": 4.2,
+        "text": "you"
+      },
+      {
+        "start": 794.25,
+        "duration": 6.42,
+        "text": "also impose latency there so one of the"
+      },
+      {
+        "start": 798.18,
+        "duration": 5.19,
+        "text": "things we hope to do at least for the"
+      },
+      {
+        "start": 800.67,
+        "duration": 5.25,
+        "text": "search use cases initially is to kind of"
+      },
+      {
+        "start": 803.37,
+        "duration": 4.59,
+        "text": "do that due diligence for you if it can"
+      },
+      {
+        "start": 805.92,
+        "duration": 4.08,
+        "text": "be satisfied with this mechanism for the"
+      },
+      {
+        "start": 807.96,
+        "duration": 3.66,
+        "text": "best price we're gonna do that"
+      },
+      {
+        "start": 810.0,
+        "duration": 3.42,
+        "text": "if you truly need to go down this route"
+      },
+      {
+        "start": 811.62,
+        "duration": 3.51,
+        "text": "and it's gonna cost a little more we're"
+      },
+      {
+        "start": 813.42,
+        "duration": 3.84,
+        "text": "gonna do that for you as well so a"
+      },
+      {
+        "start": 815.13,
+        "duration": 6.3,
+        "text": "little bit hinting at a query planner"
+      },
+      {
+        "start": 817.26,
+        "duration": 7.55,
+        "text": "and some query optimization to go into"
+      },
+      {
+        "start": 821.43,
+        "duration": 5.04,
+        "text": "our RC school or native protocol here"
+      },
+      {
+        "start": 824.81,
+        "duration": 3.1,
+        "text": "that's amazing"
+      },
+      {
+        "start": 826.47,
+        "duration": 4.5,
+        "text": "this so that would be awesome them the"
+      },
+      {
+        "start": 827.91,
+        "duration": 5.82,
+        "text": "less that we as developers maybe have to"
+      },
+      {
+        "start": 830.97,
+        "duration": 4.44,
+        "text": "think about choosing between various"
+      },
+      {
+        "start": 833.73,
+        "duration": 5.34,
+        "text": "options the more that we can get some"
+      },
+      {
+        "start": 835.41,
+        "duration": 5.07,
+        "text": "guidance or assistance on you know if"
+      },
+      {
+        "start": 839.07,
+        "duration": 4.53,
+        "text": "all we have to really think about is a"
+      },
+      {
+        "start": 840.48,
+        "duration": 5.01,
+        "text": "sliding bar I guess in terms of query"
+      },
+      {
+        "start": 843.6,
+        "duration": 3.66,
+        "text": "flexibility versus latency that's the"
+      },
+      {
+        "start": 845.49,
+        "duration": 5.31,
+        "text": "trade-off that we're making that's an"
+      },
+      {
+        "start": 847.26,
+        "duration": 7.23,
+        "text": "that's gonna be an awesome solution I'm"
+      },
+      {
+        "start": 850.8,
+        "duration": 9.42,
+        "text": "very glad to hear that and that um that"
+      },
+      {
+        "start": 854.49,
+        "duration": 8.67,
+        "text": "also kind of recognizes the the usage"
+      },
+      {
+        "start": 860.22,
+        "duration": 5.4,
+        "text": "and value of customers who have who have"
+      },
+      {
+        "start": 863.16,
+        "duration": 4.35,
+        "text": "not just invested in DC search for the"
+      },
+      {
+        "start": 865.62,
+        "duration": 5.22,
+        "text": "functionality but invested in DC search"
+      },
+      {
+        "start": 867.51,
+        "duration": 5.64,
+        "text": "as again a basic query engine there was"
+      },
+      {
+        "start": 870.84,
+        "duration": 5.16,
+        "text": "a lot of usage of this when I first"
+      },
+      {
+        "start": 873.15,
+        "duration": 4.23,
+        "text": "joined the company and we probably tried"
+      },
+      {
+        "start": 876.0,
+        "duration": 4.44,
+        "text": "to fight this behavior a little bit"
+      },
+      {
+        "start": 877.38,
+        "duration": 4.44,
+        "text": "because of let's say the product wasn't"
+      },
+      {
+        "start": 880.44,
+        "duration": 5.43,
+        "text": "just where it needs to be to support"
+      },
+      {
+        "start": 881.82,
+        "duration": 6.42,
+        "text": "this usage today of course it's it's"
+      },
+      {
+        "start": 885.87,
+        "duration": 4.89,
+        "text": "it's far easier to embrace and support"
+      },
+      {
+        "start": 888.24,
+        "duration": 5.46,
+        "text": "this usage as well as there's a lot of"
+      },
+      {
+        "start": 890.76,
+        "duration": 4.68,
+        "text": "validity to it then to try to fight this"
+      },
+      {
+        "start": 893.7,
+        "duration": 3.9,
+        "text": "behavior so right that's the other"
+      },
+      {
+        "start": 895.44,
+        "duration": 6.6,
+        "text": "reason for why we are not only"
+      },
+      {
+        "start": 897.6,
+        "duration": 7.83,
+        "text": "integrating secure search enabled secure"
+      },
+      {
+        "start": 902.04,
+        "duration": 5.19,
+        "text": "well but also this this optimization we"
+      },
+      {
+        "start": 905.43,
+        "duration": 4.86,
+        "text": "just talked about is is to reduce that"
+      },
+      {
+        "start": 907.23,
+        "duration": 5.67,
+        "text": "complexity of using it as well as kind"
+      },
+      {
+        "start": 910.29,
+        "duration": 3.99,
+        "text": "of recognizing that there are different"
+      },
+      {
+        "start": 912.9,
+        "duration": 4.11,
+        "text": "levels of search required for our use"
+      },
+      {
+        "start": 914.28,
+        "duration": 5.49,
+        "text": "cases and offering the best flavor for"
+      },
+      {
+        "start": 917.01,
+        "duration": 5.13,
+        "text": "that and not just making everybody go"
+      },
+      {
+        "start": 919.77,
+        "duration": 5.67,
+        "text": "these search engine route for some basic"
+      },
+      {
+        "start": 922.14,
+        "duration": 5.28,
+        "text": "things right as we've seen I want to"
+      },
+      {
+        "start": 925.44,
+        "duration": 3.66,
+        "text": "come back to one of the design"
+      },
+      {
+        "start": 927.42,
+        "duration": 3.39,
+        "text": "choices that you made that we kind of"
+      },
+      {
+        "start": 929.1,
+        "duration": 4.95,
+        "text": "skipped over pretty quickly but you"
+      },
+      {
+        "start": 930.81,
+        "duration": 5.43,
+        "text": "mentioned that we picked solar as a key"
+      },
+      {
+        "start": 934.05,
+        "duration": 4.59,
+        "text": "component of the search solution so"
+      },
+      {
+        "start": 936.24,
+        "duration": 3.84,
+        "text": "obviously that's not the only search"
+      },
+      {
+        "start": 938.64,
+        "duration": 3.51,
+        "text": "engine that's out there that's available"
+      },
+      {
+        "start": 940.08,
+        "duration": 3.96,
+        "text": "how did you how did you arrive at that"
+      },
+      {
+        "start": 942.15,
+        "duration": 4.35,
+        "text": "over say like elastic search or"
+      },
+      {
+        "start": 944.04,
+        "duration": 5.76,
+        "text": "something like that that's right it's"
+      },
+      {
+        "start": 946.5,
+        "duration": 5.7,
+        "text": "not only not the only one available but"
+      },
+      {
+        "start": 949.8,
+        "duration": 4.5,
+        "text": "it's also not the most popular today"
+      },
+      {
+        "start": 952.2,
+        "duration": 4.88,
+        "text": "anymore because of elastic search who's"
+      },
+      {
+        "start": 954.3,
+        "duration": 5.01,
+        "text": "done a fantastic job with some of their"
+      },
+      {
+        "start": 957.08,
+        "duration": 5.17,
+        "text": "choices they made with their product so"
+      },
+      {
+        "start": 959.31,
+        "duration": 5.01,
+        "text": "the answer is actually very simple the"
+      },
+      {
+        "start": 962.25,
+        "duration": 4.14,
+        "text": "last search was not much of a product if"
+      },
+      {
+        "start": 964.32,
+        "duration": 3.9,
+        "text": "if any bit of a product at the time"
+      },
+      {
+        "start": 966.39,
+        "duration": 4.5,
+        "text": "where we were building this is for our"
+      },
+      {
+        "start": 968.22,
+        "duration": 3.93,
+        "text": "product it was we'd have to go back to"
+      },
+      {
+        "start": 970.89,
+        "duration": 2.58,
+        "text": "see what was available it was a"
+      },
+      {
+        "start": 972.15,
+        "duration": 5.36,
+        "text": "definitely a point version of something"
+      },
+      {
+        "start": 973.47,
+        "duration": 7.47,
+        "text": "and it just wasn't what it is today"
+      },
+      {
+        "start": 977.51,
+        "duration": 5.35,
+        "text": "there's been a very clear explosion of"
+      },
+      {
+        "start": 980.94,
+        "duration": 6.45,
+        "text": "popularity with es over the last few"
+      },
+      {
+        "start": 982.86,
+        "duration": 6.81,
+        "text": "years and it just wasn't there what I am"
+      },
+      {
+        "start": 987.39,
+        "duration": 4.41,
+        "text": "happy to say though is one of the other"
+      },
+      {
+        "start": 989.67,
+        "duration": 5.61,
+        "text": "questions I get is well are you going to"
+      },
+      {
+        "start": 991.8,
+        "duration": 8.04,
+        "text": "switch and to that I say well no what"
+      },
+      {
+        "start": 995.28,
+        "duration": 6.57,
+        "text": "we're gonna do is actually continue to"
+      },
+      {
+        "start": 999.84,
+        "duration": 4.92,
+        "text": "tailor the product for our users in our"
+      },
+      {
+        "start": 1001.85,
+        "duration": 4.71,
+        "text": "use cases what's gonna end up looking"
+      },
+      {
+        "start": 1004.76,
+        "duration": 4.89,
+        "text": "like is going to be less of a solar"
+      },
+      {
+        "start": 1006.56,
+        "duration": 6.06,
+        "text": "integration and more of our Lucene"
+      },
+      {
+        "start": 1009.65,
+        "duration": 6.39,
+        "text": "implementation so subtle words there but"
+      },
+      {
+        "start": 1012.62,
+        "duration": 5.46,
+        "text": "it is a big difference as far as a lot"
+      },
+      {
+        "start": 1016.04,
+        "duration": 4.47,
+        "text": "of things go the complexity how the"
+      },
+      {
+        "start": 1018.08,
+        "duration": 5.79,
+        "text": "system behaves the resources that get"
+      },
+      {
+        "start": 1020.51,
+        "duration": 5.76,
+        "text": "utilized consistency problems api's"
+      },
+      {
+        "start": 1023.87,
+        "duration": 4.14,
+        "text": "let's talk there for a second we've got"
+      },
+      {
+        "start": 1026.27,
+        "duration": 3.63,
+        "text": "how that's what it comes down to yeah"
+      },
+      {
+        "start": 1028.01,
+        "duration": 4.26,
+        "text": "that's what it comes down to you a lot"
+      },
+      {
+        "start": 1029.9,
+        "duration": 5.73,
+        "text": "of times you've got this HTTP API and"
+      },
+      {
+        "start": 1032.27,
+        "duration": 5.52,
+        "text": "you got cql and everybody would rather"
+      },
+      {
+        "start": 1035.63,
+        "duration": 4.14,
+        "text": "be on cql if their functionality was"
+      },
+      {
+        "start": 1037.79,
+        "duration": 3.71,
+        "text": "supported there's really not a lot of"
+      },
+      {
+        "start": 1039.77,
+        "duration": 4.74,
+        "text": "argument there so at the very least"
+      },
+      {
+        "start": 1041.5,
+        "duration": 6.4,
+        "text": "that's that's that's a big aspect of it"
+      },
+      {
+        "start": 1044.51,
+        "duration": 5.58,
+        "text": "and es is HTTP base as well and while"
+      },
+      {
+        "start": 1047.9,
+        "duration": 4.8,
+        "text": "they're query specific language is very"
+      },
+      {
+        "start": 1050.09,
+        "duration": 5.43,
+        "text": "popular it's just not going to cut it"
+      },
+      {
+        "start": 1052.7,
+        "duration": 5.2,
+        "text": "for us when it comes to actually the"
+      },
+      {
+        "start": 1055.52,
+        "duration": 4.6,
+        "text": "things you mentioned earlier the cluster"
+      },
+      {
+        "start": 1057.9,
+        "duration": 5.1,
+        "text": "value the cluster awareness value that"
+      },
+      {
+        "start": 1060.12,
+        "duration": 5.73,
+        "text": "you get with with cql what note is up"
+      },
+      {
+        "start": 1063.0,
+        "duration": 5.6,
+        "text": "what note is down what's DCM I in the"
+      },
+      {
+        "start": 1065.85,
+        "duration": 5.58,
+        "text": "health scores we actually have input in"
+      },
+      {
+        "start": 1068.6,
+        "duration": 5.35,
+        "text": "indexing health scores for your search"
+      },
+      {
+        "start": 1071.43,
+        "duration": 4.74,
+        "text": "so you can you know to ignore a replica"
+      },
+      {
+        "start": 1073.95,
+        "duration": 4.86,
+        "text": "if it's indexing and go torta torta"
+      },
+      {
+        "start": 1076.17,
+        "duration": 4.98,
+        "text": "freshly in next one so there's just so"
+      },
+      {
+        "start": 1078.81,
+        "duration": 5.31,
+        "text": "many benefits of that and even if we did"
+      },
+      {
+        "start": 1081.15,
+        "duration": 6.72,
+        "text": "have you elastic search today we would"
+      },
+      {
+        "start": 1084.12,
+        "duration": 6.06,
+        "text": "be going down the same path of off you"
+      },
+      {
+        "start": 1087.87,
+        "duration": 4.32,
+        "text": "skating that from users and collapsing"
+      },
+      {
+        "start": 1090.18,
+        "duration": 5.46,
+        "text": "functionality back into the the platform"
+      },
+      {
+        "start": 1092.19,
+        "duration": 4.8,
+        "text": "the native functionality of it nice okay"
+      },
+      {
+        "start": 1095.64,
+        "duration": 4.59,
+        "text": "so that that's a really good explanation"
+      },
+      {
+        "start": 1096.99,
+        "duration": 4.38,
+        "text": "of what are those design challenges and"
+      },
+      {
+        "start": 1100.23,
+        "duration": 2.97,
+        "text": "I like how you talked about some of the"
+      },
+      {
+        "start": 1101.37,
+        "duration": 4.71,
+        "text": "solutions under the hood to kind of read"
+      },
+      {
+        "start": 1103.2,
+        "duration": 4.44,
+        "text": "do some recovery knowing when I search"
+      },
+      {
+        "start": 1106.08,
+        "duration": 3.54,
+        "text": "index is out of date and maybe that you"
+      },
+      {
+        "start": 1107.64,
+        "duration": 3.75,
+        "text": "want a router request a little bit"
+      },
+      {
+        "start": 1109.62,
+        "duration": 4.86,
+        "text": "around that while you're waiting to get"
+      },
+      {
+        "start": 1111.39,
+        "duration": 5.7,
+        "text": "that updated this is good stuff you've"
+      },
+      {
+        "start": 1114.48,
+        "duration": 4.65,
+        "text": "also told me a little bit about the"
+      },
+      {
+        "start": 1117.09,
+        "duration": 3.39,
+        "text": "future of DSC search but I want to hear"
+      },
+      {
+        "start": 1119.13,
+        "duration": 4.53,
+        "text": "more like what can you tell us about"
+      },
+      {
+        "start": 1120.48,
+        "duration": 5.46,
+        "text": "where this is headed oh that's exciting"
+      },
+      {
+        "start": 1123.66,
+        "duration": 4.97,
+        "text": "that obviously is very near dear to my"
+      },
+      {
+        "start": 1125.94,
+        "duration": 4.86,
+        "text": "heart as it's my job for the most part"
+      },
+      {
+        "start": 1128.63,
+        "duration": 4.69,
+        "text": "and a lot of it is exactly what we"
+      },
+      {
+        "start": 1130.8,
+        "duration": 6.0,
+        "text": "talked about it's it's in one statement"
+      },
+      {
+        "start": 1133.32,
+        "duration": 7.95,
+        "text": "it's less of an integration and more of"
+      },
+      {
+        "start": 1136.8,
+        "duration": 6.51,
+        "text": "native functionality so the API is a big"
+      },
+      {
+        "start": 1141.27,
+        "duration": 5.01,
+        "text": "one for for all of us here at data"
+      },
+      {
+        "start": 1143.31,
+        "duration": 5.67,
+        "text": "stacks we want all of the functionality"
+      },
+      {
+        "start": 1146.28,
+        "duration": 5.19,
+        "text": "that our users are using to be inside of"
+      },
+      {
+        "start": 1148.98,
+        "duration": 5.07,
+        "text": "cql and for everybody to be as you can"
+      },
+      {
+        "start": 1151.47,
+        "duration": 5.07,
+        "text": "see ql for for the workload oh that's a"
+      },
+      {
+        "start": 1154.05,
+        "duration": 5.46,
+        "text": "big deal query is so like right now it's"
+      },
+      {
+        "start": 1156.54,
+        "duration": 4.59,
+        "text": "a solar syntax it seems to come through"
+      },
+      {
+        "start": 1159.51,
+        "duration": 4.23,
+        "text": "and those cql queries are you saying"
+      },
+      {
+        "start": 1161.13,
+        "duration": 5.31,
+        "text": "that that might go away or what does"
+      },
+      {
+        "start": 1163.74,
+        "duration": 5.01,
+        "text": "that look like no exactly right"
+      },
+      {
+        "start": 1166.44,
+        "duration": 3.42,
+        "text": "we our first attempt and thank you for"
+      },
+      {
+        "start": 1168.75,
+        "duration": 2.88,
+        "text": "bringing that up it can get a little"
+      },
+      {
+        "start": 1169.86,
+        "duration": 4.41,
+        "text": "history there so our first attempt at"
+      },
+      {
+        "start": 1171.63,
+        "duration": 5.76,
+        "text": "this integration was again an"
+      },
+      {
+        "start": 1174.27,
+        "duration": 5.28,
+        "text": "integration where we have a a pass"
+      },
+      {
+        "start": 1177.39,
+        "duration": 5.58,
+        "text": "through column that basically will take"
+      },
+      {
+        "start": 1179.55,
+        "duration": 5.37,
+        "text": "raw solar syntax and and do your search"
+      },
+      {
+        "start": 1182.97,
+        "duration": 4.14,
+        "text": "for you and it sounds great and it is"
+      },
+      {
+        "start": 1184.92,
+        "duration": 4.74,
+        "text": "great but the realization is that hey"
+      },
+      {
+        "start": 1187.11,
+        "duration": 4.069,
+        "text": "solar syntax is actually not all that"
+      },
+      {
+        "start": 1189.66,
+        "duration": 3.35,
+        "text": "commonly known"
+      },
+      {
+        "start": 1191.179,
+        "duration": 3.421,
+        "text": "you know one of my favorite examples is"
+      },
+      {
+        "start": 1193.01,
+        "duration": 3.45,
+        "text": "showing how to do a range query with it"
+      },
+      {
+        "start": 1194.6,
+        "duration": 5.49,
+        "text": "and it's just it's it's very different I"
+      },
+      {
+        "start": 1196.46,
+        "duration": 6.99,
+        "text": "dare I say a little silly so that's yet"
+      },
+      {
+        "start": 1200.09,
+        "duration": 5.01,
+        "text": "another API or language or the very"
+      },
+      {
+        "start": 1203.45,
+        "duration": 5.43,
+        "text": "least syntax to deal with"
+      },
+      {
+        "start": 1205.1,
+        "duration": 7.8,
+        "text": "so in DSC 600 you will actually see"
+      },
+      {
+        "start": 1208.88,
+        "duration": 8.22,
+        "text": "search enabled cql which is going to be"
+      },
+      {
+        "start": 1212.9,
+        "duration": 6.54,
+        "text": "pure cql that can be executed on top of"
+      },
+      {
+        "start": 1217.1,
+        "duration": 5.01,
+        "text": "your search indexes where we will"
+      },
+      {
+        "start": 1219.44,
+        "duration": 4.68,
+        "text": "support the like operator which is you"
+      },
+      {
+        "start": 1222.11,
+        "duration": 3.72,
+        "text": "know today there's not really much that"
+      },
+      {
+        "start": 1224.12,
+        "duration": 3.45,
+        "text": "gives you that functionality other than"
+      },
+      {
+        "start": 1225.83,
+        "duration": 4.47,
+        "text": "the Sassi and we talked about how that's"
+      },
+      {
+        "start": 1227.57,
+        "duration": 4.05,
+        "text": "kind of not ready for primetime so dc-6"
+      },
+      {
+        "start": 1230.3,
+        "duration": 2.91,
+        "text": "so users will actually be able to use"
+      },
+      {
+        "start": 1231.62,
+        "duration": 3.48,
+        "text": "the light command and that's just the"
+      },
+      {
+        "start": 1233.21,
+        "duration": 4.89,
+        "text": "beginning of where we're going if you"
+      },
+      {
+        "start": 1235.1,
+        "duration": 5.61,
+        "text": "look at the iterations of examples none"
+      },
+      {
+        "start": 1238.1,
+        "duration": 5.12,
+        "text": "of them look like solar syntax they all"
+      },
+      {
+        "start": 1240.71,
+        "duration": 5.94,
+        "text": "look like pure cql or even SQL ish"
+      },
+      {
+        "start": 1243.22,
+        "duration": 5.44,
+        "text": "queries and we've been told and I didn't"
+      },
+      {
+        "start": 1246.65,
+        "duration": 4.86,
+        "text": "sure that that is gonna be a lot more"
+      },
+      {
+        "start": 1248.66,
+        "duration": 5.79,
+        "text": "comfortable for our users than the solar"
+      },
+      {
+        "start": 1251.51,
+        "duration": 5.37,
+        "text": "aspect of things awesome yeah I think"
+      },
+      {
+        "start": 1254.45,
+        "duration": 4.59,
+        "text": "API improvements is a great thing to"
+      },
+      {
+        "start": 1256.88,
+        "duration": 4.14,
+        "text": "make that developer experience just that"
+      },
+      {
+        "start": 1259.04,
+        "duration": 4.92,
+        "text": "much better and I'm excited about the"
+      },
+      {
+        "start": 1261.02,
+        "duration": 5.34,
+        "text": "like keyword maybe maybe once that drops"
+      },
+      {
+        "start": 1263.96,
+        "duration": 4.17,
+        "text": "we can have you back on to kind of talk"
+      },
+      {
+        "start": 1266.36,
+        "duration": 3.84,
+        "text": "us through some how that works what do"
+      },
+      {
+        "start": 1268.13,
+        "duration": 3.6,
+        "text": "you say oh that would be great I'd love"
+      },
+      {
+        "start": 1270.2,
+        "duration": 4.109,
+        "text": "to love to talk that off and show that"
+      },
+      {
+        "start": 1271.73,
+        "duration": 5.4,
+        "text": "often and even today we've we've already"
+      },
+      {
+        "start": 1274.309,
+        "duration": 5.011,
+        "text": "migrated all of the index operations the"
+      },
+      {
+        "start": 1277.13,
+        "duration": 4.74,
+        "text": "admin to secure L so you can script"
+      },
+      {
+        "start": 1279.32,
+        "duration": 4.859,
+        "text": "creating your tables and creating your"
+      },
+      {
+        "start": 1281.87,
+        "duration": 4.38,
+        "text": "text analysis chains and your search"
+      },
+      {
+        "start": 1284.179,
+        "duration": 3.571,
+        "text": "indexes all that stuff can be done in CQ"
+      },
+      {
+        "start": 1286.25,
+        "duration": 3.69,
+        "text": "all today already and you can do"
+      },
+      {
+        "start": 1287.75,
+        "duration": 4.35,
+        "text": "everything you need to do there and then"
+      },
+      {
+        "start": 1289.94,
+        "duration": 4.83,
+        "text": "I will bring up for the the solar power"
+      },
+      {
+        "start": 1292.1,
+        "duration": 5.22,
+        "text": "users who we certainly have a few of"
+      },
+      {
+        "start": 1294.77,
+        "duration": 5.21,
+        "text": "them in house you know we're not gonna"
+      },
+      {
+        "start": 1297.32,
+        "duration": 5.22,
+        "text": "we're not going to forget you guys so"
+      },
+      {
+        "start": 1299.98,
+        "duration": 6.91,
+        "text": "your solo syntax will certainly find a"
+      },
+      {
+        "start": 1302.54,
+        "duration": 6.05,
+        "text": "way to be passed through CQL even even"
+      },
+      {
+        "start": 1306.89,
+        "duration": 4.65,
+        "text": "with some of this these new changes so"
+      },
+      {
+        "start": 1308.59,
+        "duration": 4.93,
+        "text": "it'll just be a cleaner way of doing it"
+      },
+      {
+        "start": 1311.54,
+        "duration": 4.5,
+        "text": "not as much transposing but the syntax"
+      },
+      {
+        "start": 1313.52,
+        "duration": 4.159,
+        "text": "and things like that so very excited"
+      },
+      {
+        "start": 1316.04,
+        "duration": 3.75,
+        "text": "about that"
+      },
+      {
+        "start": 1317.679,
+        "duration": 3.791,
+        "text": "enhancement coming out for six oh and"
+      },
+      {
+        "start": 1319.79,
+        "duration": 4.019,
+        "text": "that's like I said actually just the"
+      },
+      {
+        "start": 1321.47,
+        "duration": 4.499,
+        "text": "beginning of the functionality we"
+      },
+      {
+        "start": 1323.809,
+        "duration": 4.47,
+        "text": "we've chosen to tackle the low-hanging"
+      },
+      {
+        "start": 1325.969,
+        "duration": 4.56,
+        "text": "fruit for some of the more database"
+      },
+      {
+        "start": 1328.279,
+        "duration": 4.38,
+        "text": "indexing use cases but be on the lookout"
+      },
+      {
+        "start": 1330.529,
+        "duration": 5.64,
+        "text": "for geospatial filtering and of course"
+      },
+      {
+        "start": 1332.659,
+        "duration": 5.25,
+        "text": "the aggregation API as well and in score"
+      },
+      {
+        "start": 1336.169,
+        "duration": 4.74,
+        "text": "queries well you know we haven't tackled"
+      },
+      {
+        "start": 1337.909,
+        "duration": 5.791,
+        "text": "the scores yet for cql so the next"
+      },
+      {
+        "start": 1340.909,
+        "duration": 4.2,
+        "text": "revision guaranteed to be even more"
+      },
+      {
+        "start": 1343.7,
+        "duration": 2.969,
+        "text": "exciting oh my goodness by you so you"
+      },
+      {
+        "start": 1345.109,
+        "duration": 4.41,
+        "text": "just dropped a bunch of stuff there on"
+      },
+      {
+        "start": 1346.669,
+        "duration": 5.76,
+        "text": "me that is super exciting and you know"
+      },
+      {
+        "start": 1349.519,
+        "duration": 4.53,
+        "text": "as a developer and architect I'm like oh"
+      },
+      {
+        "start": 1352.429,
+        "duration": 4.11,
+        "text": "yes I can think of those times where I"
+      },
+      {
+        "start": 1354.049,
+        "duration": 3.6,
+        "text": "really needed a geospatial query and you"
+      },
+      {
+        "start": 1356.539,
+        "duration": 3.06,
+        "text": "know I couldn't figure out how to do"
+      },
+      {
+        "start": 1357.649,
+        "duration": 3.99,
+        "text": "that on top of Cassandra because a range"
+      },
+      {
+        "start": 1359.599,
+        "duration": 3.841,
+        "text": "queries and you know all these sorts of"
+      },
+      {
+        "start": 1361.639,
+        "duration": 4.65,
+        "text": "things so lots of exciting stuff for us"
+      },
+      {
+        "start": 1363.44,
+        "duration": 4.529,
+        "text": "to talk about and not enough time I want"
+      },
+      {
+        "start": 1366.289,
+        "duration": 3.3,
+        "text": "to thank you so much nature coming on"
+      },
+      {
+        "start": 1367.969,
+        "duration": 4.08,
+        "text": "the distributed data show and sharing"
+      },
+      {
+        "start": 1369.589,
+        "duration": 4.95,
+        "text": "with us my pleasure thank you so much"
+      },
+      {
+        "start": 1372.049,
+        "duration": 4.56,
+        "text": "for having me all right well this is"
+      },
+      {
+        "start": 1374.539,
+        "duration": 4.68,
+        "text": "just a promise of future episodes on"
+      },
+      {
+        "start": 1376.609,
+        "duration": 5.88,
+        "text": "search and thanks for listening we'll"
+      },
+      {
+        "start": 1379.219,
+        "duration": 4.95,
+        "text": "see you next time thank you for joining"
+      },
+      {
+        "start": 1382.489,
+        "duration": 3.721,
+        "text": "us again for the distributed data show"
+      },
+      {
+        "start": 1384.169,
+        "duration": 3.96,
+        "text": "we love your feedback so go to the"
+      },
+      {
+        "start": 1386.21,
+        "duration": 3.75,
+        "text": "distributed data show page on data Stax"
+      },
+      {
+        "start": 1388.129,
+        "duration": 3.3,
+        "text": "Academy and tell us what you think you"
+      },
+      {
+        "start": 1389.96,
+        "duration": 3.87,
+        "text": "can also find us on the data stacks"
+      },
+      {
+        "start": 1391.429,
+        "duration": 4.261,
+        "text": "Academy YouTube channel or find our"
+      },
+      {
+        "start": 1393.83,
+        "duration": 4.349,
+        "text": "podcast on itunes google play or"
+      },
+      {
+        "start": 1395.69,
+        "duration": 4.439,
+        "text": "wherever you get great podcast while"
+      },
+      {
+        "start": 1398.179,
+        "duration": 4.821,
+        "text": "you're there make sure and subscribe so"
+      },
+      {
+        "start": 1400.129,
+        "duration": 5.98,
+        "text": "you don't miss a single episode"
+      },
+      {
+        "start": 1403.0,
+        "duration": 3.109,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T06:55:31.138070+00:00"
+}

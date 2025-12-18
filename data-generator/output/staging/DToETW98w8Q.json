@@ -1,0 +1,4506 @@
+{
+  "video_id": "DToETW98w8Q",
+  "title": "Distributed Data Show Episode 46: DSE 6 Analytics with Brian Hess",
+  "description": "Brian Hess joins the show to talk about what’s new with Analytics in DSE 6, especially Always-on SQL and Spark Streaming.\n\nHighlights\n0:15 - Introducing Brian Hess and his sweater vest\n0:30 - The top things you should know about Analytics in DSE 6 are: 1) Update to Spark 2.2, 2) enhanced Spark DSE connector, and 3) Always-on SQL\n2:07 - DSE Analytics demonstrates enhanced performance due to factors like: 1) leveraging the continuous paging capability (introduced in DSE 5.1) - great for scans, f 3x improvement.\n2:58 - 2) A new kind of direct join, used automatically under the hood. or batch and streaming. \n4:25 - 3) Leveraging DSE Search indices when available. \n6:29 - Analytics will not use search indices for queries that scan more than a few percent of a table\n8:30 - Why Spark SQL is cool: 1) familiarity for SQL users\n10:53 - 2) usability - Spark SQL Is great for analytic queries like COUNT BY, GROUP BY\n12:08 - 3) Spark SQL is helpful for use cases like working around a poor choice of partition key in Cassandra tables\n13:48 - The Always on SQL feature is new in DSE 6 - we’re trying to achieve the same level of availability for Spark SQL that Cassandra provides. A few interesting points: \n14:53 - 1) Always on SQL is an improvement over the Spark SQL Thrift Server, which has to be restarted manually if it fails and executes all queries as a single user (more on this later)\n16:47 - 2) Always on SQL leverages DSEFS under the hood to store snapshots of cached data, which enables quick recovery of the cache if the server is restarted on another node.\n19:22 - 3) Always on SQL leverages DSE Analytics workpools to allow dedicated resources to be allocated to the on restart. Running separate workpools as a way of managing resources - Always on SQL workpool.\n21:08 - 4) Always on SQL is off by default in DSE 6. To configure it you simply specify the resources that should be allocated. \n24:08 - 5) Always on SQL supports “proxy execution” - a security feature to execute queries a",
+  "published_at": "2018-05-08T15:00:03Z",
+  "thumbnail": "https://i.ytimg.com/vi/DToETW98w8Q/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "search",
+    "performance",
+    "talk",
+    "demo",
+    "dse"
+  ],
+  "url": "https://www.youtube.com/watch?v=DToETW98w8Q",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems hello and welcome to this episode of the distributed data show I'm a Technical Evangelist Dave Gilardi and this is brian sweater-vest that's right I get it all right and so today we're gonna dig into dc-6 analytics analytics analytics and all the new fun things they're they're going on with analytics yeah there's a lot to talk about let's go all right so tell me all right I kind of break it down into three pieces the first one is DCs we made an investment for our analytics stuff to be the very heavy on a Apache spark that does the lion share of our stuff every release we put out we update the the version of spark we have so there's not a lot to be said we're bringing in spark 2.2 and so there's a bunch of things that we just kind of get from improvements on the engine itself and performance etc and some connector pieces so that one is there's de ik right so that's sort of table stakes then there's sort of two big things that I think are worth talking about we'll probably talk about both one is just improvements we've made about how DSC how we've modified spark or enhanced spark in the connector to leverage DSC as a whole and be better faster stronger and then another thing that we've introduced called always-on sequel which is a ODBC JDBC service so that we can for those people who just don't want to write Scala right I mean there's a lot of people who just you know we say hey I'm trying to do this stuff with Cassandra how do you do a group by account it's like ah well we got spark that's how we do that in datasets enterprise and they're like I don't want to learn Scala it's like well you don't need to learn Scala like you can do things with SQL you know rescue L so we really sort of said well if that's a use case we want we want to make that also bigger stronger faster easier to use production ready and so there's a whole thread on always-on sequel okay so something something you just mentioned right there and we just went we went right by it right yes the the enhancements dc-6 analytics to performance yes right so can you just real quick sure let's go down there so there's a couple things that we hit on performance there's one of the big ones I'll make a shout out from DSC 5-1 was this thing called continuous paging was a thing we did in both the server and in our connector right to really just grab data quite a bit faster so focusing on just the scan right a lot of analytics starts with scan a bunch of data from from the database and do things to it that improvement actually was 3-4 times faster and on what you're doing you know you know your mileage may vary buddy we were seeing 3 a lot we saw for a good number of times as well so that's just straight up performance raw reading from Cassandra and that that's huge right that changes a lot of what you're gonna do a couple other improvements in the on the performance side there's a new kind of join we did there's a really common join that exists in databases where you do a lookup you'll get your table your scanning and you're just gonna go look do lookups against the database to like at you know to join the data together if you think about it Cassandra is awesome about doing these little lookups right so we just made that super fast there are certain use cases that we've seen where this is really a lot really good performance on a scan kind of you know in a batch query kind of thing but we also see it often in a streaming so we kind of got we got a benefit on both where you have a stream coming in and you want to enhance what that stream has based on looking on data in Cassandra another common use case we see and so this new door I think we're calling it the direct join okay and it's also enhanced you know is Julie direct join and a lot of these things that we're trying to do we're really around the user doesn't have to explicitly say it like we're gonna be smart enough to be like ok you probably want to use this and you can kind of tweak the knobs behind the scenes kind of yeah okay there's ways to invoke it explicitly I would like the direct join okay but I think most of the people are gonna be like when was I supposed to use it I seen our developers who were like well this is when you're supposed to use it so what you have to do for it ok so there's like some intelligence baked in here that yeah they'll kind of figure that out for you in certain cases that's right that's right I mean it's relatively heuristic where they can't run some knobs but it's cool yeah and we can get smarter over time because we've out there the other one is actually leveraging leveraging the rest of the platform so DSC search is really good at at certain things most people think about DSC search they think about like free text query let the like clause in sequel it's actually really also very good at boolean queries where but you know height is taller than 60 yeah is also a perfect search question okay so we enhanced it to say if there's a search query index on the underlying data set we'll just transform your little predicate in sequel or in scholar whatever it is and we're just gonna use the search alright right yet so let's let's break this down a little bit so are you saying in a case where let's say I had a sequel like a sequel like query yep and I'm using a like operator or contained operator or something like that that potentially could be associated with a search with with search right that if I'm doing that from the spark context or spark SQL context within dc-6 analytics right that if I have an index there it will automatically go and use that that's right so the the old way prior to this was you either had to be explicit and I feel a bit weird okay or spark can do all of those operators like that where clause of like where the name is Brian star it can do it but the database underlying doesn't do that and so it'll scan all of the data send it to spark and then spark will throw out everything but the Brian but it'll be correct correct okay we'd like fast and correct okay um search what we're getting at is we're capturing that and saying ah or we're you know name like Brian well there's a search index I'll turn this into a DSC search query and then the index says well here's the Brian's and it's lightning fast but you also get like I was trying to get out to sort of the other ones on things like where height is taller than 6 feet okay if there's a search index so you just say we're you know height greater than you know 60 right um we're gonna turn that into the search query against that index - now are there cases where you use say you know a particular set of operators that could be associated with search that maybe it doesn't use search so there are times and this is you know kind of a place is being this is being figured out underneath the hood right this is yeah there are times where and this I think is true about like all indexed systems okay if you're gonna scan a lot of the index if I go back to Oracle days the rule of thumb was sort of like at around three or five percent in Dex was going to return three to five percent or more of the data the optimizer said don't use it just scan it because scanning through the index is actually slower than scanning through the table right right but if you're gonna get like you know a tenth of a percent of the data or smaller you've just got three or four records the index is totally the way to go our developers were super smart and they basically said it's a prep time we can actually query the index for search and just say what's the count right search is really good and leucine is really good at just returning a count okay and so it's very fast to say I'm gonna return this many rows if you ask me for and we can make another heuristic is it more than you know three percent huh if it's more than three we won't use search we'll get it back we'll scan it or so take the best path it'll figure out the best path and take the best path for you and all you had to do was essentially write in sql-like query that's right that's go yeah and it and and it's pretty awesome it is awesome and if you know again you can have again there's some knobs three percent was what we saw okay I think that's what the default is and if you go yeah but with my data you know I know that six percent is the right number okay you can put that in and say no I know what I'm doing okay now what happens if you don't have a search index so if you don't have a search index that goes back to spark can do all of it okay but the underlying database can't so it just does a full table scan and sends it to you okay you're kind of but it's managed from spark it's not like you're you're forcing an allow filtering down to Cassandra level and like scanning lines so nodes are I mean you're still doing the same way that the spark Cassandra connector of the DSC spark connector reads so it's breaking up the token ranges and graduating pieces and okay and then applying the filtering since things there so that's cool but I mean I don't want it okay so I don't wanna gloss over how cool it is if I have search indexes that are set up on my tables right you know if I'm using spark SQL that in DSC six I can write and sql-like query using the same syntax like four four four this is a plug for the relational folks right if you've been in relational databases you know for the last twenty thirty whatever years right as many of us have been and you're used to writing sequel and then you come in to you know something like do you see and it's got these different workloads and there's been different languages but now I can actually write this stuff in sequel right and as long as I have my search index there for in that particular case yeah then it would automatically leverage those capabilities right yeah the best path fastest capabilities and allow me to just write sequel yeah I think there's two things on that you're totally right there's two pieces on that that I sort of highlight one of them is sequel right yep right well it was no sequel right it's like no actually to be honest I since I've been here have largely been like the sequel guy at the no sequel company it's not it's not a dirty word analytics involves sequel a lot this is a good thing that's not a problem but it's also not the right way to do anything right so it's a way yeah so I let's make it a way that's been entrenched for a long long time right so this is a new person coming over and they know sequel and we can provide them a good version of it then we should do that enable it so I like this idea of if you like sequel and you know sequel use it and if you don't then don't use it that's okay or if you only want to do part of it I also do a lot of things where sometimes I'll just say well give me the data frame in sequel and then I'll go do other things that are not sequel like from there oh yeah it kind of makes a man extend it you can actually get even David to match the second thing I think was was the the other one that I kind of wanted to highlight was again me and also a lot of the engineers sort of saw this opportunity of you know we can be clever and leverage the system in a way like the users weren't knowing they could do like we're being smart for you okay so it was the idea of there's a search index can we use the search index like for them because it's sitting right there yeah the administrators set it up we should use it right and do we have to make it explicit like there are times where you want to be explicit but there's a lot of times you're just like just do the smart thing yeah and so I think that that idea of you don't have to you don't have to know a lot to get all the benefits we're trying to do some of that have you thinking for you okay so that's sort of that those are probably the big performance things and and I we kind of drifted into usability which is which is totally important it's not it's not great if you if you need a you know do take out lots and lots of manuals to figure out how to use the system no no and you know okay so in anecdote in this I mean when when the dc-6 features were coming out and I was testing things and that kind of deal i sat down and you know and one of my studio notebooks and I I just was trying to use my prior sequel knowledge right to just write queries with joins and using the regular kind of operators I would I would you know expect right and it took me no time to punch out these analytic queries that I didn't have to know any other language I myself I'm okay with that yeah but if I'm coming in from a world where maybe my business or something you've got a whole set of DBAs they're used to using sequel not gonna deal there's a barrier there and I loved it because I was able in an hour I was able to punch out all these analytics queries and they were sequel they worked just like I would have expected and I was like yeah I mean III think about sort of like the count group by kind of operations those simple things where you go I can do this without ever having to learn maven or SBT or any of those things I just want to run it and so actually that kind of dovetails a little bit from the sequel world into the always-on sequel I was totally gonna go there's to do it so yeah so you mentioned studio so one of the things that we did in studio did probably for a different episode was the ability to run sequel from from studio into interest into DSC well the way that it's connecting to is is now in a something we're calling always-on sequel which is a ODBC JDBC service that we're running that is your entry point into spark so it's it's it the idea being that you can connect you know your regular tools or your own you know your own JDBC ODBC programs okay and you can connect in and issue sequel queries that get back results I do a lot of stuff there where it's almost like ETL inside where you'll do insert into this table select you know maybe this role a pretty common use case we see is people have a rollup table this is the hourly roll-up right and so though you could do that in a sequel statement I'll write insert into that table selecting stuff rolling it up and put okay so you just kind of it so it's not just a returning results to the end user sometimes it's just go to things one of the things that that came up in the solution day that we had the other day was was really around what if you mess up your primary key when you're doing your data modeling in Cassandra happens all the time I'm sorry happened to me all the time when I was learning it well you need to actually copy the data over really change the primary because you can't change that right there's another one of those well I'll just insert into there now yeah it's gonna it's a great beginner use case oh yeah because I did that a lot I still do it but it's a safe place right so anyway the the always-on sequel is this way of having this service be there as the name implies we want it to be always on there's some writings there's some things here that there were some stuff I'll talk for that to say there were some stuff that existed but we really wanted to say that always on sequel was ready for being in production right this was a way that you could Bank on this service being there Cassandra is you know continuously available it's always there to do what you need to do on that end but we looked at what DSC analytics had and the broader SPARC community had for for doing like sequel it was it didn't rise to the same level and that's sort of where we said well we got to make this better it's because the whole platform needs to be kind of the same level of expectation okay I'll say Cassandra puts out a pretty hard bar you know the brass ring is pretty hard to grab and we're always trying to improve that I would say that goes across I'll make a plug for all of the product we all sort of try especially on availability to get to the same level because it's such a good that's such a good value proposition so what existed before there was a thing in the SPARC community called the SPARC sequel thrift server okay so I always I was coming ya know thrift so thrift and this only this is like I'm so angry it's spark because the Cassandra community had just gotten rid of the word yeah that's been like a I know and I've talked to the SPARC developers who were like we never should have called it it's an underlying library and we didn't need the and inviting the sparks equal thrift server was this odbc jdbc idea okay it's been around at least since DSC for eight so SPARC one for might be a little earlier um and and the problem with it I mean there's a number of problems with it that that I look at as well it's neat it solves part of my problem but it leaves a lot to be desired the first part is ODBC JDBC I can issue a make a connection issue a query and do things well that sounds good you know that's pretty good start yeah yeah what do we do how do you start it well you start it by running a command line started and then if it fails if somebody kicks the plug out of it then it stops right now you need to like and so we actually have to be aware of that then you have to start out there are actually people who sit there and have written up scripting where like every second they'll go and see if the process is still running and if not restarted and like we've all been there you do what you have to do yeah but I think as a you know this is an area we could improve okay another one is security when the sparks equal thrift server is connecting to Cassandra it does it as a single user okay and so now you have this security problem of I don't want all my clients being me I want them to be who they are right so we want to make sure that we can do that as well okay so we've got this always-on problem we've got security I think those are probably well when you get into this always-on thing you also want to think about caching so one of the value props of SPARC is you can do some stuff and bring a data set into RAM yeah and then you can interrogate this data set in RAM well if the service is going to be restarted automatically right what do we do with the cat yeah okay so so let's talk about that we get about two how the restarting kind of thing comes but that's another area we were like well we don't wanna lose this really nice feature to sacrifice wait I actually know I wanna dig in a little bit yeah if I am interpreting this right what I think I just heard you say was that from the always-on perspective once you have that enabled and it's running right that if for some reason that goes down the spark service goes down on a per tick no that would come up on a new node right and the cache will also come along with it yeah so yes so what what we do when we say we want to cache the data because there's a couple things when you think about this a little bit you go hold on if we do this wrong then the user is gonna be totally confused yeah yeah when you take the cache you're taking kind of a snapshot of the data that they want and putting it into RAM okay so if the note if it goes down and you go well let's just rerun that query and bring it into RAM well what if the underlying data in Cassandra is moved right now I'm not getting the same data that's right so that's a problem so what we said was well if we're going to do this durable or wreak a shovel cache yeah okay yeah we take a snapshot and put it on the DCFS okay and then we read the cache from DCFS so we have this take a step back DCFS is our distributed file system comes with DSC it's also always on and scale out we needed a file system for some spark thing is DCFS required for always-on it is and so it comes with it it's yes it's it's necessary in there and because of this capability it's actually spark in general needs a place to have a file system and there are benefits of having it right there okay um it if you're not if you don't put any real data in it it doesn't actually occupy much resources at all okay but it is there as a resource for a number of things and that's a whole other primary so we take a snapshot because we have this nice file system there and now the cache is from the snapshot so when it restarts it wreak ashes from the snapshot so you know you're getting into Ram the exact same thing that's cool um we do decide to be lazy on the recache Inge because we don't want to stop the service from coming back up right um so the first time you hit it after the restart will be a little bit longer than right we felt like it was a totally so that's their the we talked about okay the thing restarts on its own okay a couple things you got to worry about on the restarting the first one is anybody who's done so I think that everybody's first experience with spark is probably about the same you get this thing running you run the DSE spark shell you know the the repple it's running and then you're like oh I'll run another repple to kind of do something and the second one is waiting because all the resources were taken right it's got to wait for the first one in your life Walt so if it's always on how do I make sure that like he gets to jump to the front of the line okay um we actually didn't make him jump to the front of the line we made a whole other line for him so India c-51 we introduced this thing called work pools they were relatively limited back then and the biggest use that we've got of them so far is that in sick so we made a always on sequel work pool and so we take a pool of the resources you say I'm gonna dedicate this much to spark in my when you do your configuration and of that we're gonna slice off a little bit and ring-fence that and only always-on so what happens if I want to perform say like a gremlin olap great what happens so so gremlin OLAP queries involve their own spark a process and service and they will start up and use this I'll call the default pool okay of everything that's not the same just straight-up spark shell yep and so it basically always on has its own pool so right was on SQL has its own pool and then the others had the this general work pool if you think about it like with with the way it compared it to like DSC five one everything right now in DSC five one goes against one pool right okay right and so what we're saying is that the default pool is now that same one pool okay the always-on sequel has its own and we're thinking about like are there other ways and we might make other pools that are worthwhile but for now we've kind of kept that was that automatically managed so if I start up I you know start up always on sequel not gonna deal as part of my workload along with analytics obviously do I have to do anything more to get the capability you're talking about or is that just there it's big yeah so in the configuration you you set up right there and so when you enable always-on you tell it how many resources you know this node when you set up the one node okay how many is it gonna donate to always-on sequel and every node does that okay so you'll say something like this node might have ten cores and 100 gigs of ram it can donate the spark okay and of that will take two cores and two gigs of ram or 20 gigs of ram or something so now you have these two separate sets and and that sort of allows so that if the process dies if somebody kicks the plug out of the machine it'll start up again on another machine that's the other thing we should talk about well start up on another machine but the resources will already have been ring-fenced nothing else is right okay that's cool okay starting up on another machine we do a you know quick little leader election we'll find a guy we like to do that you you have this problem from an odbc jdbc sense of how do I know where that is I need to make a connection so we actually have a service there's an internal Cassandra or DC driver call but we also have a little rest service where you can just ping and get back hey this is the IP address you should go ok so there's like a one location that you hit and then from there you'll get back where the thing is right although although it changes a it changes location from my standpoint from application developer standpoint or whatever if I'm using a connector to talk to the thing I don't have to keep tracking it all over the place that's right and we're working with the folks who build our driver ODBC JDBC drivers their partner of ours about making that automatic so you don't have to like chase anything that's cool that's coming I mean I thought it would already be here by now but it's coming it's ok so yeah so that you have this thing of now it could go down and come up automatically on its own ok it does you know do these recache inking and and so in in that sense we know that it'll always come back up and so that's sort of we want to make sure that that works so you deploy that in for real ok I trying to think of there was another thing that we had said yeah I want to get into it because we know one last question though on the always on them yeah so if I start in analytics workload yeah on my node yeah is always is that just automatic so it's a good question so we we we a data stack sometimes try to try to default things to all for the first release ok so that we don't surprise you so you know nodes sink another big feature that's in DSC 6 thank you for your cables your TV right it's a cable space yeah we have to enable it for a key space or a table of you it's there that's right we have to enable it so is it the same with this you it's there but you have to tell it hey go ahead you have to turn it on right and and I think in the future we'll probably just default it to on once we've had more time that's right and so but no there's that piece I know it is gonna say before also before we move off of Amazon sequel was around the security I said we need to have a security thing going there's a capability that came in DSC 5-1 called proxy execution this is a in in Cassandra or our enhancements to it where you can actually tell the system and grant it and say I will let David run queries as Brian that's a grant at Slayer age it is there is a use case I mean scary for me pretty own oh yeah I wouldn't maybe I'll I know just maybe I'll pick somebody else I was gonna say Patrick but I don't think that's a good idea either anyhow the the the the idea being the original idea was you have a web server and it's authenticated users to it that web server makes one connection to the database but once to execute is the authenticated user well if I just rearranged a lot of words there I could say that instead of a web server we should have a sequel service and it's the same deal okay so when you authenticate to always-on sequel using the ODBC JDBC mechanisms or or Kerberos but let's stick with the simple one yeah yeah we actually have always-on sequel will turn around to DSE and actually ask it to authenticate it is this a real person or not so it's one set of users manage one way and then when you issue a query we actually execute the query against the database as the authenticated user also we don't worry about you know you being able to run as you know everybody running is the same person visible the same things you are only able to see the tables you have access to that's the row level access control enabled it's still row little accident comes for free okay and so that was super important we're gonna go and talk to enterprises they're gonna be like I can't have everybody runs right so that's the security piece so now you got security you got it's always on and and robust and I think that was sort of for us that the first step towards a production level JDBC ODBC sir okay all right so then yeah let's move back into the structured stream yapping so what you got on that yeah so structured streaming is interesting it came out into 2.0 in spark okay um and it was a new way to do streaming and a new API really it's a little strange how they've talked about it because people are like oh is it a new thing and it's like what kind of it's a new way into the same you know some of the constructs that were there if you go way back to the beginning for spark there was four batch there were these things called rdd's resilient distributed data sets and for streaming there's these things called D streams think just dis critized streams so everybody always call them D streams it's a lot easier to say it is I'm impressed I got through it um so the data the RTD has moved on to data frames right they moved on to data sets they got a lot of love and it's actually become a really strong use they use catalyst now is this optimizer to do smart things for you okay meanwhile D streams got no love and was just limping along in its own way the idea was well let's take streaming and kind of make it a lot like batch again and so this structured streaming was this idea of now I have stream I have schema with schema I can start using optimizers to do smart things okay and so there became the idea of a structured streaming is basically a table that never ends is the way to things days far thinks of it that way oh cool but you do need to interact with it a little differently and you have to set up some API so this everybody who had a data store never-ending tables story that I did together right yeah and I'm sorry I failed I feel like there's some a trade so the this his name what's her name man it's like my whole childhood coming back so the you had any new connectors the API didn't really settle down and become real until spark - - which is when what we incorporated in this one right so you needed to make a new sink and then so in this one we made a structured streaming sink for the DSC database so for writing to it okay and and the community had already done structured streaming sources for a lot of things right Kafka is probably the you know the one people ask you about use cases like where does this come to play yeah so Kafka Kinesis these streams that come in you want to do enhancements you might want to join with data in Cassandra like we were talking about before that's the direct join kind of get to pick that up for free and then write into the into the database we see that often you know connect to a stream and as it comes in enhance it modify it maybe filter it right and then deposit what you need in into the day and now you're off to the races in the database we need to make that that connector by making that connector we tap now into the hole all the benefits of structured streaming that spark has been doing for this use case that is way better than just using D streams right so now we're coming up but you know we wanted to wait we don't let CD c-51 came out with spark - oh okay and I think it was well there's a really experimental API it might change a lot we're gonna be a little more cautious on this one and and now we're like oh it's ready it's graduated and we're ready to bring it in as well all right well I mean okay so with that yeah as we as we graduate we're graduating all of the analytics stuff it sounds like we've actually done a lot I mean yeah dc-6 stuff there's it there's a like a hella lot of stuff that has been added not only from like the performance standpoint but resiliency capability there I mean all this like it's exciting yeah I'm pretty excited about it there's a number of things that that just kind of all came together okay in this thing where you look at not only as the end user getting you know performance and ease of use and capability but there's also sort of like we're tying a lot of pieces together you get starts coming in we didn't talk a little bit but the grat DSE graph table or the the graphs that you haven't you see graphs sometimes you just want to query the the vertices like show me all the people you know I count how many people are from New Jersey or whatever I don't really necessarily do a graph query for that in DSC 5 when we introduced graph frames right and we actually have all the tables we have a vertex table is registered in the catalog for for sequel already so if you just want to type in and you can count is accessible to it yeah so we're sort of pulling all these pieces together and I unified yeah and right and make it similar I don't have to think about eight different things I can think about one okay get going and and I think that that's a theme we're really we're in the analytic side we're really proud of it but I think the SE at whole is sort of like let's go pull all these pieces together I mean it's it's it's not a collection of of you know Apache projects just distributed together right it's really the integral it's totally tightly integrated I defied yeah we I mean it's it's definitely pushed more and more in that direction and yeah this next this latest release that we just put out is a huge step in it yeah I'm I'm pretty psyched about it it's pretty fun very cool all right Manuel thank you you bet Brian as usual for all the wonderful discussion and talks and thank you all for listening to another episode of the distributed Dave show thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data Stax Academy and tell us what you think you can also find us on the data stacks Academy YouTube channel or find our podcast on itunes google play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.37,
+        "duration": 4.11,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.48,
+        "duration": 4.17,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 8.159,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 8.01,
+        "text": "large-scale distributed systems hello"
+      },
+      {
+        "start": 16.619,
+        "duration": 4.381,
+        "text": "and welcome to this episode of the"
+      },
+      {
+        "start": 18.66,
+        "duration": 4.199,
+        "text": "distributed data show I'm a Technical"
+      },
+      {
+        "start": 21.0,
+        "duration": 2.369,
+        "text": "Evangelist Dave Gilardi and this is"
+      },
+      {
+        "start": 22.859,
+        "duration": 5.43,
+        "text": "brian"
+      },
+      {
+        "start": 23.369,
+        "duration": 6.961,
+        "text": "sweater-vest that's right"
+      },
+      {
+        "start": 28.289,
+        "duration": 6.091,
+        "text": "I get it all right and so today we're"
+      },
+      {
+        "start": 30.33,
+        "duration": 6.06,
+        "text": "gonna dig into dc-6 analytics analytics"
+      },
+      {
+        "start": 34.38,
+        "duration": 3.6,
+        "text": "analytics and all the new fun things"
+      },
+      {
+        "start": 36.39,
+        "duration": 2.489,
+        "text": "they're they're going on with analytics"
+      },
+      {
+        "start": 37.98,
+        "duration": 4.59,
+        "text": "yeah there's a lot to talk about"
+      },
+      {
+        "start": 38.879,
+        "duration": 5.311,
+        "text": "let's go all right so tell me all right"
+      },
+      {
+        "start": 42.57,
+        "duration": 4.919,
+        "text": "I kind of break it down into three"
+      },
+      {
+        "start": 44.19,
+        "duration": 4.92,
+        "text": "pieces the first one is DCs we made an"
+      },
+      {
+        "start": 47.489,
+        "duration": 4.471,
+        "text": "investment for our analytics stuff to be"
+      },
+      {
+        "start": 49.11,
+        "duration": 4.859,
+        "text": "the very heavy on a Apache spark that"
+      },
+      {
+        "start": 51.96,
+        "duration": 5.07,
+        "text": "does the lion share of our stuff every"
+      },
+      {
+        "start": 53.969,
+        "duration": 5.671,
+        "text": "release we put out we update the the"
+      },
+      {
+        "start": 57.03,
+        "duration": 4.11,
+        "text": "version of spark we have so there's not"
+      },
+      {
+        "start": 59.64,
+        "duration": 3.84,
+        "text": "a lot to be said we're bringing in spark"
+      },
+      {
+        "start": 61.14,
+        "duration": 3.449,
+        "text": "2.2 and so there's a bunch of things"
+      },
+      {
+        "start": 63.48,
+        "duration": 3.84,
+        "text": "that we just kind of get from"
+      },
+      {
+        "start": 64.589,
+        "duration": 4.561,
+        "text": "improvements on the engine itself and"
+      },
+      {
+        "start": 67.32,
+        "duration": 4.589,
+        "text": "performance etc and some connector"
+      },
+      {
+        "start": 69.15,
+        "duration": 3.95,
+        "text": "pieces so that one is there's de ik"
+      },
+      {
+        "start": 71.909,
+        "duration": 3.301,
+        "text": "right so that's sort of table stakes"
+      },
+      {
+        "start": 73.1,
+        "duration": 3.519,
+        "text": "then there's sort of two big things that"
+      },
+      {
+        "start": 75.21,
+        "duration": 3.39,
+        "text": "I think are worth talking about we'll"
+      },
+      {
+        "start": 76.619,
+        "duration": 4.68,
+        "text": "probably talk about both one is just"
+      },
+      {
+        "start": 78.6,
+        "duration": 4.65,
+        "text": "improvements we've made about how DSC"
+      },
+      {
+        "start": 81.299,
+        "duration": 4.441,
+        "text": "how we've modified spark or enhanced"
+      },
+      {
+        "start": 83.25,
+        "duration": 4.2,
+        "text": "spark in the connector to leverage DSC"
+      },
+      {
+        "start": 85.74,
+        "duration": 4.32,
+        "text": "as a whole and be better faster stronger"
+      },
+      {
+        "start": 87.45,
+        "duration": 4.349,
+        "text": "and then another thing that we've"
+      },
+      {
+        "start": 90.06,
+        "duration": 4.949,
+        "text": "introduced called always-on sequel which"
+      },
+      {
+        "start": 91.799,
+        "duration": 5.25,
+        "text": "is a ODBC JDBC service so that we can"
+      },
+      {
+        "start": 95.009,
+        "duration": 3.961,
+        "text": "for those people who just don't want to"
+      },
+      {
+        "start": 97.049,
+        "duration": 3.93,
+        "text": "write Scala right I mean there's a lot"
+      },
+      {
+        "start": 98.97,
+        "duration": 3.329,
+        "text": "of people who just you know we say hey"
+      },
+      {
+        "start": 100.979,
+        "duration": 3.21,
+        "text": "I'm trying to do this stuff with"
+      },
+      {
+        "start": 102.299,
+        "duration": 3.75,
+        "text": "Cassandra how do you do a group by"
+      },
+      {
+        "start": 104.189,
+        "duration": 3.481,
+        "text": "account it's like ah well we got spark"
+      },
+      {
+        "start": 106.049,
+        "duration": 3.21,
+        "text": "that's how we do that in datasets"
+      },
+      {
+        "start": 107.67,
+        "duration": 3.03,
+        "text": "enterprise and they're like I don't want"
+      },
+      {
+        "start": 109.259,
+        "duration": 3.781,
+        "text": "to learn Scala it's like well you don't"
+      },
+      {
+        "start": 110.7,
+        "duration": 5.94,
+        "text": "need to learn Scala like you can do"
+      },
+      {
+        "start": 113.04,
+        "duration": 5.28,
+        "text": "things with SQL you know rescue L so we"
+      },
+      {
+        "start": 116.64,
+        "duration": 3.57,
+        "text": "really sort of said well if that's a use"
+      },
+      {
+        "start": 118.32,
+        "duration": 4.31,
+        "text": "case we want we want to make that also"
+      },
+      {
+        "start": 120.21,
+        "duration": 4.68,
+        "text": "bigger stronger faster easier to use"
+      },
+      {
+        "start": 122.63,
+        "duration": 4.629,
+        "text": "production ready and so there's a whole"
+      },
+      {
+        "start": 124.89,
+        "duration": 3.69,
+        "text": "thread on always-on sequel okay so"
+      },
+      {
+        "start": 127.259,
+        "duration": 2.461,
+        "text": "something something you just mentioned"
+      },
+      {
+        "start": 128.58,
+        "duration": 3.29,
+        "text": "right there and we just went we went"
+      },
+      {
+        "start": 129.72,
+        "duration": 3.78,
+        "text": "right by it right yes the the"
+      },
+      {
+        "start": 131.87,
+        "duration": 4.45,
+        "text": "enhancements"
+      },
+      {
+        "start": 133.5,
+        "duration": 4.86,
+        "text": "dc-6 analytics to performance yes right"
+      },
+      {
+        "start": 136.32,
+        "duration": 3.24,
+        "text": "so can you just real quick sure let's go"
+      },
+      {
+        "start": 138.36,
+        "duration": 2.7,
+        "text": "down there so there's a couple things"
+      },
+      {
+        "start": 139.56,
+        "duration": 2.52,
+        "text": "that we hit on performance there's one"
+      },
+      {
+        "start": 141.06,
+        "duration": 3.63,
+        "text": "of the big ones I'll make a shout out"
+      },
+      {
+        "start": 142.08,
+        "duration": 5.04,
+        "text": "from DSC 5-1 was this thing called"
+      },
+      {
+        "start": 144.69,
+        "duration": 4.23,
+        "text": "continuous paging was a thing we did in"
+      },
+      {
+        "start": 147.12,
+        "duration": 4.08,
+        "text": "both the server and in our connector"
+      },
+      {
+        "start": 148.92,
+        "duration": 4.32,
+        "text": "right to really just grab data quite a"
+      },
+      {
+        "start": 151.2,
+        "duration": 3.69,
+        "text": "bit faster so focusing on just the scan"
+      },
+      {
+        "start": 153.24,
+        "duration": 3.57,
+        "text": "right a lot of analytics starts with"
+      },
+      {
+        "start": 154.89,
+        "duration": 5.58,
+        "text": "scan a bunch of data from from the"
+      },
+      {
+        "start": 156.81,
+        "duration": 6.42,
+        "text": "database and do things to it that"
+      },
+      {
+        "start": 160.47,
+        "duration": 4.5,
+        "text": "improvement actually was 3-4 times"
+      },
+      {
+        "start": 163.23,
+        "duration": 3.479,
+        "text": "faster and on what you're doing you know"
+      },
+      {
+        "start": 164.97,
+        "duration": 4.14,
+        "text": "you know your mileage may vary buddy we"
+      },
+      {
+        "start": 166.709,
+        "duration": 4.051,
+        "text": "were seeing 3 a lot we saw for a good"
+      },
+      {
+        "start": 169.11,
+        "duration": 4.29,
+        "text": "number of times as well so that's just"
+      },
+      {
+        "start": 170.76,
+        "duration": 5.16,
+        "text": "straight up performance raw reading from"
+      },
+      {
+        "start": 173.4,
+        "duration": 4.17,
+        "text": "Cassandra and that that's huge right"
+      },
+      {
+        "start": 175.92,
+        "duration": 5.19,
+        "text": "that changes a lot of what you're gonna"
+      },
+      {
+        "start": 177.57,
+        "duration": 5.37,
+        "text": "do a couple other improvements in the on"
+      },
+      {
+        "start": 181.11,
+        "duration": 3.81,
+        "text": "the performance side there's a new kind"
+      },
+      {
+        "start": 182.94,
+        "duration": 4.68,
+        "text": "of join we did there's a really common"
+      },
+      {
+        "start": 184.92,
+        "duration": 4.74,
+        "text": "join that exists in databases where you"
+      },
+      {
+        "start": 187.62,
+        "duration": 3.39,
+        "text": "do a lookup you'll get your table your"
+      },
+      {
+        "start": 189.66,
+        "duration": 3.66,
+        "text": "scanning and you're just gonna go look"
+      },
+      {
+        "start": 191.01,
+        "duration": 4.59,
+        "text": "do lookups against the database to like"
+      },
+      {
+        "start": 193.32,
+        "duration": 3.87,
+        "text": "at you know to join the data together if"
+      },
+      {
+        "start": 195.6,
+        "duration": 3.3,
+        "text": "you think about it Cassandra is awesome"
+      },
+      {
+        "start": 197.19,
+        "duration": 3.72,
+        "text": "about doing these little lookups right"
+      },
+      {
+        "start": 198.9,
+        "duration": 3.93,
+        "text": "so we just made that super fast there"
+      },
+      {
+        "start": 200.91,
+        "duration": 4.41,
+        "text": "are certain use cases that we've seen"
+      },
+      {
+        "start": 202.83,
+        "duration": 5.58,
+        "text": "where this is really a lot really good"
+      },
+      {
+        "start": 205.32,
+        "duration": 4.86,
+        "text": "performance on a scan kind of you know"
+      },
+      {
+        "start": 208.41,
+        "duration": 3.51,
+        "text": "in a batch query kind of thing but we"
+      },
+      {
+        "start": 210.18,
+        "duration": 3.119,
+        "text": "also see it often in a streaming so we"
+      },
+      {
+        "start": 211.92,
+        "duration": 3.45,
+        "text": "kind of got we got a benefit on both"
+      },
+      {
+        "start": 213.299,
+        "duration": 3.931,
+        "text": "where you have a stream coming in and"
+      },
+      {
+        "start": 215.37,
+        "duration": 3.69,
+        "text": "you want to enhance what that stream has"
+      },
+      {
+        "start": 217.23,
+        "duration": 5.24,
+        "text": "based on looking on data in Cassandra"
+      },
+      {
+        "start": 219.06,
+        "duration": 5.76,
+        "text": "another common use case we see and so"
+      },
+      {
+        "start": 222.47,
+        "duration": 4.69,
+        "text": "this new door I think we're calling it"
+      },
+      {
+        "start": 224.82,
+        "duration": 3.99,
+        "text": "the direct join okay and it's also"
+      },
+      {
+        "start": 227.16,
+        "duration": 3.21,
+        "text": "enhanced you know is Julie direct join"
+      },
+      {
+        "start": 228.81,
+        "duration": 4.29,
+        "text": "and a lot of these things that we're"
+      },
+      {
+        "start": 230.37,
+        "duration": 4.2,
+        "text": "trying to do we're really around the"
+      },
+      {
+        "start": 233.1,
+        "duration": 3.18,
+        "text": "user doesn't have to explicitly say it"
+      },
+      {
+        "start": 234.57,
+        "duration": 3.18,
+        "text": "like we're gonna be smart enough to be"
+      },
+      {
+        "start": 236.28,
+        "duration": 3.12,
+        "text": "like ok you probably want to use this"
+      },
+      {
+        "start": 237.75,
+        "duration": 3.959,
+        "text": "and you can kind of tweak the knobs"
+      },
+      {
+        "start": 239.4,
+        "duration": 4.5,
+        "text": "behind the scenes kind of yeah okay"
+      },
+      {
+        "start": 241.709,
+        "duration": 4.081,
+        "text": "there's ways to invoke it explicitly I"
+      },
+      {
+        "start": 243.9,
+        "duration": 3.33,
+        "text": "would like the direct join okay but I"
+      },
+      {
+        "start": 245.79,
+        "duration": 3.21,
+        "text": "think most of the people are gonna be"
+      },
+      {
+        "start": 247.23,
+        "duration": 3.569,
+        "text": "like when was I supposed to use it I"
+      },
+      {
+        "start": 249.0,
+        "duration": 2.76,
+        "text": "seen our developers who were like well"
+      },
+      {
+        "start": 250.799,
+        "duration": 2.011,
+        "text": "this is when you're supposed to use it"
+      },
+      {
+        "start": 251.76,
+        "duration": 2.61,
+        "text": "so what you have to do for it ok so"
+      },
+      {
+        "start": 252.81,
+        "duration": 2.79,
+        "text": "there's like some intelligence baked in"
+      },
+      {
+        "start": 254.37,
+        "duration": 3.089,
+        "text": "here that yeah they'll kind of figure"
+      },
+      {
+        "start": 255.6,
+        "duration": 2.669,
+        "text": "that out for you in certain cases that's"
+      },
+      {
+        "start": 257.459,
+        "duration": 2.37,
+        "text": "right that's right I mean it's"
+      },
+      {
+        "start": 258.269,
+        "duration": 4.231,
+        "text": "relatively heuristic where they can't"
+      },
+      {
+        "start": 259.829,
+        "duration": 4.291,
+        "text": "run some knobs but it's cool yeah and we"
+      },
+      {
+        "start": 262.5,
+        "duration": 3.3,
+        "text": "can get smarter over time because we've"
+      },
+      {
+        "start": 264.12,
+        "duration": 6.18,
+        "text": "out there the other one is actually"
+      },
+      {
+        "start": 265.8,
+        "duration": 7.11,
+        "text": "leveraging leveraging the rest of the"
+      },
+      {
+        "start": 270.3,
+        "duration": 3.99,
+        "text": "platform so DSC search is really good at"
+      },
+      {
+        "start": 272.91,
+        "duration": 3.36,
+        "text": "at certain things most people think"
+      },
+      {
+        "start": 274.29,
+        "duration": 4.14,
+        "text": "about DSC search they think about like"
+      },
+      {
+        "start": 276.27,
+        "duration": 4.53,
+        "text": "free text query let the like clause in"
+      },
+      {
+        "start": 278.43,
+        "duration": 4.53,
+        "text": "sequel it's actually really also very"
+      },
+      {
+        "start": 280.8,
+        "duration": 4.41,
+        "text": "good at boolean queries where but you"
+      },
+      {
+        "start": 282.96,
+        "duration": 5.55,
+        "text": "know height is taller than 60 yeah is"
+      },
+      {
+        "start": 285.21,
+        "duration": 5.13,
+        "text": "also a perfect search question okay so"
+      },
+      {
+        "start": 288.51,
+        "duration": 4.14,
+        "text": "we enhanced it to say if there's a"
+      },
+      {
+        "start": 290.34,
+        "duration": 3.03,
+        "text": "search query index on the underlying"
+      },
+      {
+        "start": 292.65,
+        "duration": 2.67,
+        "text": "data set"
+      },
+      {
+        "start": 293.37,
+        "duration": 4.019,
+        "text": "we'll just transform your little"
+      },
+      {
+        "start": 295.32,
+        "duration": 3.42,
+        "text": "predicate in sequel or in scholar"
+      },
+      {
+        "start": 297.389,
+        "duration": 4.701,
+        "text": "whatever it is and we're just gonna use"
+      },
+      {
+        "start": 298.74,
+        "duration": 3.35,
+        "text": "the search alright"
+      },
+      {
+        "start": 302.4,
+        "duration": 3.87,
+        "text": "right yet so let's let's break this down"
+      },
+      {
+        "start": 304.38,
+        "duration": 4.98,
+        "text": "a little bit so are you saying in a case"
+      },
+      {
+        "start": 306.27,
+        "duration": 4.74,
+        "text": "where let's say I had a sequel like a"
+      },
+      {
+        "start": 309.36,
+        "duration": 3.839,
+        "text": "sequel like query yep"
+      },
+      {
+        "start": 311.01,
+        "duration": 3.36,
+        "text": "and I'm using a like operator or"
+      },
+      {
+        "start": 313.199,
+        "duration": 2.881,
+        "text": "contained operator or something like"
+      },
+      {
+        "start": 314.37,
+        "duration": 4.14,
+        "text": "that that potentially could be"
+      },
+      {
+        "start": 316.08,
+        "duration": 4.95,
+        "text": "associated with a search with with"
+      },
+      {
+        "start": 318.51,
+        "duration": 5.969,
+        "text": "search right that if I'm doing that from"
+      },
+      {
+        "start": 321.03,
+        "duration": 6.57,
+        "text": "the spark context or spark SQL context"
+      },
+      {
+        "start": 324.479,
+        "duration": 4.56,
+        "text": "within dc-6 analytics right that if I"
+      },
+      {
+        "start": 327.6,
+        "duration": 3.42,
+        "text": "have an index there it will"
+      },
+      {
+        "start": 329.039,
+        "duration": 4.141,
+        "text": "automatically go and use that that's"
+      },
+      {
+        "start": 331.02,
+        "duration": 4.98,
+        "text": "right so the the old way prior to this"
+      },
+      {
+        "start": 333.18,
+        "duration": 5.25,
+        "text": "was you either had to be explicit and I"
+      },
+      {
+        "start": 336.0,
+        "duration": 4.38,
+        "text": "feel a bit weird okay or spark can do"
+      },
+      {
+        "start": 338.43,
+        "duration": 3.51,
+        "text": "all of those operators like that where"
+      },
+      {
+        "start": 340.38,
+        "duration": 5.46,
+        "text": "clause of like where the name is Brian"
+      },
+      {
+        "start": 341.94,
+        "duration": 6.69,
+        "text": "star it can do it but the database"
+      },
+      {
+        "start": 345.84,
+        "duration": 5.49,
+        "text": "underlying doesn't do that and so it'll"
+      },
+      {
+        "start": 348.63,
+        "duration": 4.68,
+        "text": "scan all of the data send it to spark"
+      },
+      {
+        "start": 351.33,
+        "duration": 5.55,
+        "text": "and then spark will throw out everything"
+      },
+      {
+        "start": 353.31,
+        "duration": 6.419,
+        "text": "but the Brian but it'll be correct"
+      },
+      {
+        "start": 356.88,
+        "duration": 3.63,
+        "text": "correct okay we'd like fast and correct"
+      },
+      {
+        "start": 359.729,
+        "duration": 2.701,
+        "text": "okay um"
+      },
+      {
+        "start": 360.51,
+        "duration": 4.05,
+        "text": "search what we're getting at is we're"
+      },
+      {
+        "start": 362.43,
+        "duration": 4.38,
+        "text": "capturing that and saying ah or we're"
+      },
+      {
+        "start": 364.56,
+        "duration": 4.32,
+        "text": "you know name like Brian well there's a"
+      },
+      {
+        "start": 366.81,
+        "duration": 4.5,
+        "text": "search index I'll turn this into a DSC"
+      },
+      {
+        "start": 368.88,
+        "duration": 3.9,
+        "text": "search query and then the index says"
+      },
+      {
+        "start": 371.31,
+        "duration": 4.8,
+        "text": "well here's the Brian's and it's"
+      },
+      {
+        "start": 372.78,
+        "duration": 4.35,
+        "text": "lightning fast but you also get like I"
+      },
+      {
+        "start": 376.11,
+        "duration": 2.58,
+        "text": "was trying to get out to sort of the"
+      },
+      {
+        "start": 377.13,
+        "duration": 3.42,
+        "text": "other ones on things like where height"
+      },
+      {
+        "start": 378.69,
+        "duration": 3.96,
+        "text": "is taller than 6 feet okay if there's a"
+      },
+      {
+        "start": 380.55,
+        "duration": 4.32,
+        "text": "search index so you just say we're you"
+      },
+      {
+        "start": 382.65,
+        "duration": 4.139,
+        "text": "know height greater than you know 60"
+      },
+      {
+        "start": 384.87,
+        "duration": 3.57,
+        "text": "right um we're gonna turn that into the"
+      },
+      {
+        "start": 386.789,
+        "duration": 5.25,
+        "text": "search query against that index - now"
+      },
+      {
+        "start": 388.44,
+        "duration": 5.43,
+        "text": "are there cases where you use say you"
+      },
+      {
+        "start": 392.039,
+        "duration": 3.481,
+        "text": "know a particular set of operators that"
+      },
+      {
+        "start": 393.87,
+        "duration": 3.689,
+        "text": "could be associated with search that"
+      },
+      {
+        "start": 395.52,
+        "duration": 4.049,
+        "text": "maybe it doesn't use search"
+      },
+      {
+        "start": 397.559,
+        "duration": 3.69,
+        "text": "so there are times and this is you know"
+      },
+      {
+        "start": 399.569,
+        "duration": 3.0,
+        "text": "kind of a place is being this is being"
+      },
+      {
+        "start": 401.249,
+        "duration": 3.15,
+        "text": "figured out underneath the hood right"
+      },
+      {
+        "start": 402.569,
+        "duration": 3.15,
+        "text": "this is yeah there are times where and"
+      },
+      {
+        "start": 404.399,
+        "duration": 2.97,
+        "text": "this I think is true about like all"
+      },
+      {
+        "start": 405.719,
+        "duration": 3.69,
+        "text": "indexed systems okay if you're gonna"
+      },
+      {
+        "start": 407.369,
+        "duration": 4.14,
+        "text": "scan a lot of the index if I go back to"
+      },
+      {
+        "start": 409.409,
+        "duration": 3.84,
+        "text": "Oracle days the rule of thumb was sort"
+      },
+      {
+        "start": 411.509,
+        "duration": 3.18,
+        "text": "of like at around three or five percent"
+      },
+      {
+        "start": 413.249,
+        "duration": 3.84,
+        "text": "in Dex was going to return three to five"
+      },
+      {
+        "start": 414.689,
+        "duration": 4.5,
+        "text": "percent or more of the data the"
+      },
+      {
+        "start": 417.089,
+        "duration": 3.39,
+        "text": "optimizer said don't use it just scan it"
+      },
+      {
+        "start": 419.189,
+        "duration": 2.52,
+        "text": "because scanning through the index is"
+      },
+      {
+        "start": 420.479,
+        "duration": 2.4,
+        "text": "actually slower than scanning through"
+      },
+      {
+        "start": 421.709,
+        "duration": 2.76,
+        "text": "the table right right but if you're"
+      },
+      {
+        "start": 422.879,
+        "duration": 2.94,
+        "text": "gonna get like you know a tenth of a"
+      },
+      {
+        "start": 424.469,
+        "duration": 3.0,
+        "text": "percent of the data or smaller you've"
+      },
+      {
+        "start": 425.819,
+        "duration": 4.56,
+        "text": "just got three or four records the index"
+      },
+      {
+        "start": 427.469,
+        "duration": 5.13,
+        "text": "is totally the way to go our developers"
+      },
+      {
+        "start": 430.379,
+        "duration": 5.1,
+        "text": "were super smart and they basically said"
+      },
+      {
+        "start": 432.599,
+        "duration": 6.0,
+        "text": "it's a prep time we can actually query"
+      },
+      {
+        "start": 435.479,
+        "duration": 4.98,
+        "text": "the index for search and just say what's"
+      },
+      {
+        "start": 438.599,
+        "duration": 3.24,
+        "text": "the count right search is really good"
+      },
+      {
+        "start": 440.459,
+        "duration": 2.58,
+        "text": "and leucine is really good at just"
+      },
+      {
+        "start": 441.839,
+        "duration": 3.27,
+        "text": "returning a count okay"
+      },
+      {
+        "start": 443.039,
+        "duration": 3.78,
+        "text": "and so it's very fast to say I'm gonna"
+      },
+      {
+        "start": 445.109,
+        "duration": 4.35,
+        "text": "return this many rows if you ask me for"
+      },
+      {
+        "start": 446.819,
+        "duration": 4.77,
+        "text": "and we can make another heuristic is it"
+      },
+      {
+        "start": 449.459,
+        "duration": 4.08,
+        "text": "more than you know three percent huh if"
+      },
+      {
+        "start": 451.589,
+        "duration": 3.54,
+        "text": "it's more than three we won't use search"
+      },
+      {
+        "start": 453.539,
+        "duration": 2.91,
+        "text": "we'll get it back we'll scan it or so"
+      },
+      {
+        "start": 455.129,
+        "duration": 2.91,
+        "text": "take the best path it'll figure out the"
+      },
+      {
+        "start": 456.449,
+        "duration": 3.87,
+        "text": "best path and take the best path for you"
+      },
+      {
+        "start": 458.039,
+        "duration": 4.26,
+        "text": "and all you had to do was essentially"
+      },
+      {
+        "start": 460.319,
+        "duration": 3.87,
+        "text": "write in sql-like query that's right"
+      },
+      {
+        "start": 462.299,
+        "duration": 3.36,
+        "text": "that's go yeah and it and and it's"
+      },
+      {
+        "start": 464.189,
+        "duration": 2.82,
+        "text": "pretty awesome it is awesome and if you"
+      },
+      {
+        "start": 465.659,
+        "duration": 2.82,
+        "text": "know again you can have again there's"
+      },
+      {
+        "start": 467.009,
+        "duration": 3.21,
+        "text": "some knobs three percent was what we saw"
+      },
+      {
+        "start": 468.479,
+        "duration": 4.65,
+        "text": "okay I think that's what the default is"
+      },
+      {
+        "start": 470.219,
+        "duration": 4.47,
+        "text": "and if you go yeah but with my data you"
+      },
+      {
+        "start": 473.129,
+        "duration": 3.03,
+        "text": "know I know that six percent is the"
+      },
+      {
+        "start": 474.689,
+        "duration": 3.66,
+        "text": "right number okay you can put that in"
+      },
+      {
+        "start": 476.159,
+        "duration": 3.54,
+        "text": "and say no I know what I'm doing okay"
+      },
+      {
+        "start": 478.349,
+        "duration": 2.91,
+        "text": "now what happens if you don't have a"
+      },
+      {
+        "start": 479.699,
+        "duration": 3.51,
+        "text": "search index so if you don't have a"
+      },
+      {
+        "start": 481.259,
+        "duration": 4.53,
+        "text": "search index that goes back to spark can"
+      },
+      {
+        "start": 483.209,
+        "duration": 4.47,
+        "text": "do all of it okay but the underlying"
+      },
+      {
+        "start": 485.789,
+        "duration": 3.54,
+        "text": "database can't so it just does a full"
+      },
+      {
+        "start": 487.679,
+        "duration": 3.18,
+        "text": "table scan and sends it to you okay"
+      },
+      {
+        "start": 489.329,
+        "duration": 3.3,
+        "text": "you're kind of but it's managed from"
+      },
+      {
+        "start": 490.859,
+        "duration": 3.93,
+        "text": "spark it's not like you're you're"
+      },
+      {
+        "start": 492.629,
+        "duration": 4.32,
+        "text": "forcing an allow filtering down to"
+      },
+      {
+        "start": 494.789,
+        "duration": 4.02,
+        "text": "Cassandra level and like scanning lines"
+      },
+      {
+        "start": 496.949,
+        "duration": 4.2,
+        "text": "so nodes are I mean you're still doing"
+      },
+      {
+        "start": 498.809,
+        "duration": 3.69,
+        "text": "the same way that the spark Cassandra"
+      },
+      {
+        "start": 501.149,
+        "duration": 2.82,
+        "text": "connector of the DSC spark connector"
+      },
+      {
+        "start": 502.499,
+        "duration": 3.63,
+        "text": "reads so it's breaking up the token"
+      },
+      {
+        "start": 503.969,
+        "duration": 3.96,
+        "text": "ranges and graduating pieces and okay"
+      },
+      {
+        "start": 506.129,
+        "duration": 3.57,
+        "text": "and then applying the filtering since"
+      },
+      {
+        "start": 507.929,
+        "duration": 2.73,
+        "text": "things there so that's cool but I mean I"
+      },
+      {
+        "start": 509.699,
+        "duration": 5.791,
+        "text": "don't want it okay so I don't wanna"
+      },
+      {
+        "start": 510.659,
+        "duration": 7.32,
+        "text": "gloss over how cool it is if I have"
+      },
+      {
+        "start": 515.49,
+        "duration": 4.739,
+        "text": "search indexes that are set up on my"
+      },
+      {
+        "start": 517.979,
+        "duration": 5.61,
+        "text": "tables right you know if I'm using spark"
+      },
+      {
+        "start": 520.229,
+        "duration": 5.79,
+        "text": "SQL that in DSC six I can write and"
+      },
+      {
+        "start": 523.589,
+        "duration": 4.98,
+        "text": "sql-like query using the same syntax"
+      },
+      {
+        "start": 526.019,
+        "duration": 3.901,
+        "text": "like four four four this is a plug for"
+      },
+      {
+        "start": 528.569,
+        "duration": 2.88,
+        "text": "the relational folks right if you've"
+      },
+      {
+        "start": 529.92,
+        "duration": 2.43,
+        "text": "been in relational databases you know"
+      },
+      {
+        "start": 531.449,
+        "duration": 2.551,
+        "text": "for the last twenty thirty"
+      },
+      {
+        "start": 532.35,
+        "duration": 3.989,
+        "text": "whatever years right as many of us have"
+      },
+      {
+        "start": 534.0,
+        "duration": 4.86,
+        "text": "been and you're used to writing sequel"
+      },
+      {
+        "start": 536.339,
+        "duration": 3.781,
+        "text": "and then you come in to you know"
+      },
+      {
+        "start": 538.86,
+        "duration": 2.519,
+        "text": "something like do you see and it's got"
+      },
+      {
+        "start": 540.12,
+        "duration": 2.67,
+        "text": "these different workloads and there's"
+      },
+      {
+        "start": 541.379,
+        "duration": 2.731,
+        "text": "been different languages but now I can"
+      },
+      {
+        "start": 542.79,
+        "duration": 2.909,
+        "text": "actually write this stuff in sequel"
+      },
+      {
+        "start": 544.11,
+        "duration": 3.329,
+        "text": "right and as long as I have my search"
+      },
+      {
+        "start": 545.699,
+        "duration": 4.83,
+        "text": "index there for in that particular case"
+      },
+      {
+        "start": 547.439,
+        "duration": 6.421,
+        "text": "yeah then it would automatically"
+      },
+      {
+        "start": 550.529,
+        "duration": 5.191,
+        "text": "leverage those capabilities right yeah"
+      },
+      {
+        "start": 553.86,
+        "duration": 4.079,
+        "text": "the best path fastest capabilities and"
+      },
+      {
+        "start": 555.72,
+        "duration": 3.69,
+        "text": "allow me to just write sequel yeah I"
+      },
+      {
+        "start": 557.939,
+        "duration": 2.7,
+        "text": "think there's two things on that you're"
+      },
+      {
+        "start": 559.41,
+        "duration": 3.51,
+        "text": "totally right there's two pieces on that"
+      },
+      {
+        "start": 560.639,
+        "duration": 4.62,
+        "text": "that I sort of highlight one of them is"
+      },
+      {
+        "start": 562.92,
+        "duration": 3.899,
+        "text": "sequel right yep right well it was no"
+      },
+      {
+        "start": 565.259,
+        "duration": 3.51,
+        "text": "sequel right it's like no actually to be"
+      },
+      {
+        "start": 566.819,
+        "duration": 3.661,
+        "text": "honest I since I've been here have"
+      },
+      {
+        "start": 568.769,
+        "duration": 3.451,
+        "text": "largely been like the sequel guy at the"
+      },
+      {
+        "start": 570.48,
+        "duration": 4.409,
+        "text": "no sequel company it's not it's not a"
+      },
+      {
+        "start": 572.22,
+        "duration": 4.26,
+        "text": "dirty word analytics involves sequel a"
+      },
+      {
+        "start": 574.889,
+        "duration": 4.651,
+        "text": "lot this is a good thing that's not a"
+      },
+      {
+        "start": 576.48,
+        "duration": 5.609,
+        "text": "problem but it's also not the right way"
+      },
+      {
+        "start": 579.54,
+        "duration": 4.469,
+        "text": "to do anything right so it's a way yeah"
+      },
+      {
+        "start": 582.089,
+        "duration": 4.021,
+        "text": "so I let's make it a way that's been"
+      },
+      {
+        "start": 584.009,
+        "duration": 3.361,
+        "text": "entrenched for a long long time right so"
+      },
+      {
+        "start": 586.11,
+        "duration": 3.12,
+        "text": "this is a new person coming over and"
+      },
+      {
+        "start": 587.37,
+        "duration": 4.259,
+        "text": "they know sequel and we can provide them"
+      },
+      {
+        "start": 589.23,
+        "duration": 4.409,
+        "text": "a good version of it then we should do"
+      },
+      {
+        "start": 591.629,
+        "duration": 3.51,
+        "text": "that enable it so I like this idea of if"
+      },
+      {
+        "start": 593.639,
+        "duration": 3.781,
+        "text": "you like sequel and you know sequel use"
+      },
+      {
+        "start": 595.139,
+        "duration": 3.031,
+        "text": "it and if you don't then don't use it"
+      },
+      {
+        "start": 597.42,
+        "duration": 2.639,
+        "text": "that's okay"
+      },
+      {
+        "start": 598.17,
+        "duration": 3.659,
+        "text": "or if you only want to do part of it I"
+      },
+      {
+        "start": 600.059,
+        "duration": 3.15,
+        "text": "also do a lot of things where sometimes"
+      },
+      {
+        "start": 601.829,
+        "duration": 2.76,
+        "text": "I'll just say well give me the data"
+      },
+      {
+        "start": 603.209,
+        "duration": 3.69,
+        "text": "frame in sequel and then I'll go do"
+      },
+      {
+        "start": 604.589,
+        "duration": 3.84,
+        "text": "other things that are not sequel like"
+      },
+      {
+        "start": 606.899,
+        "duration": 3.3,
+        "text": "from there oh yeah it kind of makes a"
+      },
+      {
+        "start": 608.429,
+        "duration": 4.2,
+        "text": "man extend it you can actually get even"
+      },
+      {
+        "start": 610.199,
+        "duration": 4.5,
+        "text": "David to match the second thing I think"
+      },
+      {
+        "start": 612.629,
+        "duration": 4.71,
+        "text": "was was the the other one that I kind of"
+      },
+      {
+        "start": 614.699,
+        "duration": 4.591,
+        "text": "wanted to highlight was again me and"
+      },
+      {
+        "start": 617.339,
+        "duration": 3.511,
+        "text": "also a lot of the engineers sort of saw"
+      },
+      {
+        "start": 619.29,
+        "duration": 3.839,
+        "text": "this opportunity of you know we can be"
+      },
+      {
+        "start": 620.85,
+        "duration": 4.38,
+        "text": "clever and leverage the system in a way"
+      },
+      {
+        "start": 623.129,
+        "duration": 3.481,
+        "text": "like the users weren't knowing they"
+      },
+      {
+        "start": 625.23,
+        "duration": 3.419,
+        "text": "could do like we're being smart for you"
+      },
+      {
+        "start": 626.61,
+        "duration": 4.11,
+        "text": "okay so it was the idea of there's a"
+      },
+      {
+        "start": 628.649,
+        "duration": 4.471,
+        "text": "search index can we use the search index"
+      },
+      {
+        "start": 630.72,
+        "duration": 4.469,
+        "text": "like for them because it's sitting right"
+      },
+      {
+        "start": 633.12,
+        "duration": 4.709,
+        "text": "there yeah the administrators set it up"
+      },
+      {
+        "start": 635.189,
+        "duration": 4.08,
+        "text": "we should use it right and do we have to"
+      },
+      {
+        "start": 637.829,
+        "duration": 2.55,
+        "text": "make it explicit like there are times"
+      },
+      {
+        "start": 639.269,
+        "duration": 2.16,
+        "text": "where you want to be explicit but"
+      },
+      {
+        "start": 640.379,
+        "duration": 3.661,
+        "text": "there's a lot of times you're just like"
+      },
+      {
+        "start": 641.429,
+        "duration": 4.441,
+        "text": "just do the smart thing yeah and so I"
+      },
+      {
+        "start": 644.04,
+        "duration": 4.229,
+        "text": "think that that idea of you don't have"
+      },
+      {
+        "start": 645.87,
+        "duration": 4.679,
+        "text": "to you don't have to know a lot to get"
+      },
+      {
+        "start": 648.269,
+        "duration": 3.75,
+        "text": "all the benefits we're trying to do some"
+      },
+      {
+        "start": 650.549,
+        "duration": 4.35,
+        "text": "of that have you thinking for you okay"
+      },
+      {
+        "start": 652.019,
+        "duration": 4.26,
+        "text": "so that's sort of that those are"
+      },
+      {
+        "start": 654.899,
+        "duration": 3.15,
+        "text": "probably the big performance things and"
+      },
+      {
+        "start": 656.279,
+        "duration": 4.071,
+        "text": "and I we kind of drifted into usability"
+      },
+      {
+        "start": 658.049,
+        "duration": 4.731,
+        "text": "which is which is totally important"
+      },
+      {
+        "start": 660.35,
+        "duration": 4.23,
+        "text": "it's not it's not great if you if you"
+      },
+      {
+        "start": 662.78,
+        "duration": 3.09,
+        "text": "need a you know do take out lots and"
+      },
+      {
+        "start": 664.58,
+        "duration": 3.48,
+        "text": "lots of manuals to figure out how to use"
+      },
+      {
+        "start": 665.87,
+        "duration": 4.8,
+        "text": "the system no no and you know okay so in"
+      },
+      {
+        "start": 668.06,
+        "duration": 4.92,
+        "text": "anecdote in this I mean when when the"
+      },
+      {
+        "start": 670.67,
+        "duration": 3.6,
+        "text": "dc-6 features were coming out and I was"
+      },
+      {
+        "start": 672.98,
+        "duration": 2.82,
+        "text": "testing things and that kind of deal i"
+      },
+      {
+        "start": 674.27,
+        "duration": 5.46,
+        "text": "sat down and you know and one of my"
+      },
+      {
+        "start": 675.8,
+        "duration": 6.45,
+        "text": "studio notebooks and I I just was trying"
+      },
+      {
+        "start": 679.73,
+        "duration": 5.13,
+        "text": "to use my prior sequel knowledge right"
+      },
+      {
+        "start": 682.25,
+        "duration": 4.02,
+        "text": "to just write queries with joins and"
+      },
+      {
+        "start": 684.86,
+        "duration": 3.27,
+        "text": "using the regular kind of operators I"
+      },
+      {
+        "start": 686.27,
+        "duration": 5.31,
+        "text": "would I would you know expect right and"
+      },
+      {
+        "start": 688.13,
+        "duration": 6.72,
+        "text": "it took me no time to punch out these"
+      },
+      {
+        "start": 691.58,
+        "duration": 5.49,
+        "text": "analytic queries that I didn't have to"
+      },
+      {
+        "start": 694.85,
+        "duration": 2.91,
+        "text": "know any other language I myself I'm"
+      },
+      {
+        "start": 697.07,
+        "duration": 2.46,
+        "text": "okay with that"
+      },
+      {
+        "start": 697.76,
+        "duration": 3.36,
+        "text": "yeah but if I'm coming in from a world"
+      },
+      {
+        "start": 699.53,
+        "duration": 3.54,
+        "text": "where maybe my business or something"
+      },
+      {
+        "start": 701.12,
+        "duration": 3.84,
+        "text": "you've got a whole set of DBAs they're"
+      },
+      {
+        "start": 703.07,
+        "duration": 3.87,
+        "text": "used to using sequel not gonna deal"
+      },
+      {
+        "start": 704.96,
+        "duration": 3.48,
+        "text": "there's a barrier there and I loved it"
+      },
+      {
+        "start": 706.94,
+        "duration": 3.51,
+        "text": "because I was able in an hour I was able"
+      },
+      {
+        "start": 708.44,
+        "duration": 4.53,
+        "text": "to punch out all these analytics queries"
+      },
+      {
+        "start": 710.45,
+        "duration": 3.87,
+        "text": "and they were sequel they worked just"
+      },
+      {
+        "start": 712.97,
+        "duration": 3.96,
+        "text": "like I would have expected and I was"
+      },
+      {
+        "start": 714.32,
+        "duration": 4.05,
+        "text": "like yeah I mean III think about sort of"
+      },
+      {
+        "start": 716.93,
+        "duration": 3.12,
+        "text": "like the count group by kind of"
+      },
+      {
+        "start": 718.37,
+        "duration": 3.75,
+        "text": "operations those simple things where you"
+      },
+      {
+        "start": 720.05,
+        "duration": 4.65,
+        "text": "go I can do this without ever having to"
+      },
+      {
+        "start": 722.12,
+        "duration": 5.25,
+        "text": "learn maven or SBT or any of those"
+      },
+      {
+        "start": 724.7,
+        "duration": 4.44,
+        "text": "things I just want to run it and so"
+      },
+      {
+        "start": 727.37,
+        "duration": 4.74,
+        "text": "actually that kind of dovetails a little"
+      },
+      {
+        "start": 729.14,
+        "duration": 4.83,
+        "text": "bit from the sequel world into the"
+      },
+      {
+        "start": 732.11,
+        "duration": 3.69,
+        "text": "always-on sequel I was totally gonna go"
+      },
+      {
+        "start": 733.97,
+        "duration": 3.66,
+        "text": "there's to do it so yeah so you"
+      },
+      {
+        "start": 735.8,
+        "duration": 4.05,
+        "text": "mentioned studio so one of the things"
+      },
+      {
+        "start": 737.63,
+        "duration": 5.34,
+        "text": "that we did in studio did probably for a"
+      },
+      {
+        "start": 739.85,
+        "duration": 6.21,
+        "text": "different episode was the ability to run"
+      },
+      {
+        "start": 742.97,
+        "duration": 5.01,
+        "text": "sequel from from studio into interest"
+      },
+      {
+        "start": 746.06,
+        "duration": 4.32,
+        "text": "into DSC well the way that it's"
+      },
+      {
+        "start": 747.98,
+        "duration": 3.84,
+        "text": "connecting to is is now in a something"
+      },
+      {
+        "start": 750.38,
+        "duration": 5.19,
+        "text": "we're calling always-on sequel which is"
+      },
+      {
+        "start": 751.82,
+        "duration": 6.09,
+        "text": "a ODBC JDBC service that we're running"
+      },
+      {
+        "start": 755.57,
+        "duration": 5.52,
+        "text": "that is your entry point into spark so"
+      },
+      {
+        "start": 757.91,
+        "duration": 5.22,
+        "text": "it's it's it the idea being that you can"
+      },
+      {
+        "start": 761.09,
+        "duration": 4.98,
+        "text": "connect you know your regular tools or"
+      },
+      {
+        "start": 763.13,
+        "duration": 5.57,
+        "text": "your own you know your own JDBC ODBC"
+      },
+      {
+        "start": 766.07,
+        "duration": 4.77,
+        "text": "programs okay and you can connect in and"
+      },
+      {
+        "start": 768.7,
+        "duration": 4.75,
+        "text": "issue sequel queries that get back"
+      },
+      {
+        "start": 770.84,
+        "duration": 4.47,
+        "text": "results I do a lot of stuff there where"
+      },
+      {
+        "start": 773.45,
+        "duration": 4.26,
+        "text": "it's almost like ETL inside where you'll"
+      },
+      {
+        "start": 775.31,
+        "duration": 4.5,
+        "text": "do insert into this table select you"
+      },
+      {
+        "start": 777.71,
+        "duration": 3.54,
+        "text": "know maybe this role a pretty common use"
+      },
+      {
+        "start": 779.81,
+        "duration": 3.6,
+        "text": "case we see is people have a rollup"
+      },
+      {
+        "start": 781.25,
+        "duration": 3.78,
+        "text": "table this is the hourly roll-up right"
+      },
+      {
+        "start": 783.41,
+        "duration": 3.39,
+        "text": "and so though you could do that in a"
+      },
+      {
+        "start": 785.03,
+        "duration": 4.14,
+        "text": "sequel statement I'll write insert into"
+      },
+      {
+        "start": 786.8,
+        "duration": 4.29,
+        "text": "that table selecting stuff rolling it up"
+      },
+      {
+        "start": 789.17,
+        "duration": 3.84,
+        "text": "and put okay so you just kind of it so"
+      },
+      {
+        "start": 791.09,
+        "duration": 2.43,
+        "text": "it's not just a returning results to the"
+      },
+      {
+        "start": 793.01,
+        "duration": 3.57,
+        "text": "end user"
+      },
+      {
+        "start": 793.52,
+        "duration": 5.61,
+        "text": "sometimes it's just go to things one of"
+      },
+      {
+        "start": 796.58,
+        "duration": 3.66,
+        "text": "the things that that came up in the"
+      },
+      {
+        "start": 799.13,
+        "duration": 3.63,
+        "text": "solution day that we had the other day"
+      },
+      {
+        "start": 800.24,
+        "duration": 4.59,
+        "text": "was was really around what if you mess"
+      },
+      {
+        "start": 802.76,
+        "duration": 4.26,
+        "text": "up your primary key when you're doing"
+      },
+      {
+        "start": 804.83,
+        "duration": 3.569,
+        "text": "your data modeling in Cassandra happens"
+      },
+      {
+        "start": 807.02,
+        "duration": 3.99,
+        "text": "all the time I'm sorry happened to me"
+      },
+      {
+        "start": 808.399,
+        "duration": 3.991,
+        "text": "all the time when I was learning it well"
+      },
+      {
+        "start": 811.01,
+        "duration": 2.61,
+        "text": "you need to actually copy the data over"
+      },
+      {
+        "start": 812.39,
+        "duration": 2.819,
+        "text": "really change the primary because you"
+      },
+      {
+        "start": 813.62,
+        "duration": 3.06,
+        "text": "can't change that right there's another"
+      },
+      {
+        "start": 815.209,
+        "duration": 4.741,
+        "text": "one of those well I'll just insert into"
+      },
+      {
+        "start": 816.68,
+        "duration": 4.95,
+        "text": "there now yeah it's gonna it's a great"
+      },
+      {
+        "start": 819.95,
+        "duration": 4.62,
+        "text": "beginner use case oh yeah because I did"
+      },
+      {
+        "start": 821.63,
+        "duration": 7.11,
+        "text": "that a lot I still do it but it's a safe"
+      },
+      {
+        "start": 824.57,
+        "duration": 5.7,
+        "text": "place right so anyway the the always-on"
+      },
+      {
+        "start": 828.74,
+        "duration": 5.58,
+        "text": "sequel is this way of having this"
+      },
+      {
+        "start": 830.27,
+        "duration": 5.22,
+        "text": "service be there as the name implies we"
+      },
+      {
+        "start": 834.32,
+        "duration": 2.54,
+        "text": "want it to be always on there's some"
+      },
+      {
+        "start": 835.49,
+        "duration": 4.2,
+        "text": "writings there's some things here that"
+      },
+      {
+        "start": 836.86,
+        "duration": 3.7,
+        "text": "there were some stuff I'll talk for that"
+      },
+      {
+        "start": 839.69,
+        "duration": 3.24,
+        "text": "to say there were some stuff that"
+      },
+      {
+        "start": 840.56,
+        "duration": 4.74,
+        "text": "existed but we really wanted to say that"
+      },
+      {
+        "start": 842.93,
+        "duration": 4.44,
+        "text": "always on sequel was ready for being in"
+      },
+      {
+        "start": 845.3,
+        "duration": 4.61,
+        "text": "production right this was a way that you"
+      },
+      {
+        "start": 847.37,
+        "duration": 5.07,
+        "text": "could Bank on this service being there"
+      },
+      {
+        "start": 849.91,
+        "duration": 5.049,
+        "text": "Cassandra is you know continuously"
+      },
+      {
+        "start": 852.44,
+        "duration": 5.25,
+        "text": "available it's always there to do what"
+      },
+      {
+        "start": 854.959,
+        "duration": 4.921,
+        "text": "you need to do on that end but we looked"
+      },
+      {
+        "start": 857.69,
+        "duration": 4.92,
+        "text": "at what DSC analytics had and the"
+      },
+      {
+        "start": 859.88,
+        "duration": 6.36,
+        "text": "broader SPARC community had for for"
+      },
+      {
+        "start": 862.61,
+        "duration": 5.669,
+        "text": "doing like sequel it was it didn't rise"
+      },
+      {
+        "start": 866.24,
+        "duration": 2.969,
+        "text": "to the same level and that's sort of"
+      },
+      {
+        "start": 868.279,
+        "duration": 2.071,
+        "text": "where we said well we got to make this"
+      },
+      {
+        "start": 869.209,
+        "duration": 3.091,
+        "text": "better it's because the whole platform"
+      },
+      {
+        "start": 870.35,
+        "duration": 4.739,
+        "text": "needs to be kind of the same level of"
+      },
+      {
+        "start": 872.3,
+        "duration": 4.83,
+        "text": "expectation okay I'll say Cassandra puts"
+      },
+      {
+        "start": 875.089,
+        "duration": 4.321,
+        "text": "out a pretty hard bar you know the brass"
+      },
+      {
+        "start": 877.13,
+        "duration": 3.93,
+        "text": "ring is pretty hard to grab and we're"
+      },
+      {
+        "start": 879.41,
+        "duration": 3.39,
+        "text": "always trying to improve that I would"
+      },
+      {
+        "start": 881.06,
+        "duration": 3.87,
+        "text": "say that goes across I'll make a plug"
+      },
+      {
+        "start": 882.8,
+        "duration": 4.409,
+        "text": "for all of the product we all sort of"
+      },
+      {
+        "start": 884.93,
+        "duration": 3.96,
+        "text": "try especially on availability to get to"
+      },
+      {
+        "start": 887.209,
+        "duration": 5.461,
+        "text": "the same level because it's such a good"
+      },
+      {
+        "start": 888.89,
+        "duration": 5.819,
+        "text": "that's such a good value proposition so"
+      },
+      {
+        "start": 892.67,
+        "duration": 3.81,
+        "text": "what existed before there was a thing in"
+      },
+      {
+        "start": 894.709,
+        "duration": 4.711,
+        "text": "the SPARC community called the SPARC"
+      },
+      {
+        "start": 896.48,
+        "duration": 5.4,
+        "text": "sequel thrift server okay so I always I"
+      },
+      {
+        "start": 899.42,
+        "duration": 5.159,
+        "text": "was coming ya know thrift so thrift and"
+      },
+      {
+        "start": 901.88,
+        "duration": 4.47,
+        "text": "this only this is like I'm so angry it's"
+      },
+      {
+        "start": 904.579,
+        "duration": 3.391,
+        "text": "spark because the Cassandra community"
+      },
+      {
+        "start": 906.35,
+        "duration": 4.56,
+        "text": "had just gotten rid of the word yeah"
+      },
+      {
+        "start": 907.97,
+        "duration": 4.47,
+        "text": "that's been like a I know and I've"
+      },
+      {
+        "start": 910.91,
+        "duration": 3.78,
+        "text": "talked to the SPARC developers who were"
+      },
+      {
+        "start": 912.44,
+        "duration": 4.17,
+        "text": "like we never should have called it it's"
+      },
+      {
+        "start": 914.69,
+        "duration": 2.24,
+        "text": "an underlying library and we didn't need"
+      },
+      {
+        "start": 916.61,
+        "duration": 2.479,
+        "text": "the"
+      },
+      {
+        "start": 916.93,
+        "duration": 5.34,
+        "text": "and inviting the sparks equal thrift"
+      },
+      {
+        "start": 919.089,
+        "duration": 6.391,
+        "text": "server was this odbc jdbc idea okay it's"
+      },
+      {
+        "start": 922.27,
+        "duration": 5.069,
+        "text": "been around at least since DSC for eight"
+      },
+      {
+        "start": 925.48,
+        "duration": 5.16,
+        "text": "so SPARC one for might be a little"
+      },
+      {
+        "start": 927.339,
+        "duration": 4.261,
+        "text": "earlier um and and the problem with it I"
+      },
+      {
+        "start": 930.64,
+        "duration": 3.24,
+        "text": "mean there's a number of problems with"
+      },
+      {
+        "start": 931.6,
+        "duration": 3.84,
+        "text": "it that that I look at as well it's neat"
+      },
+      {
+        "start": 933.88,
+        "duration": 4.2,
+        "text": "it solves part of my problem but it"
+      },
+      {
+        "start": 935.44,
+        "duration": 4.8,
+        "text": "leaves a lot to be desired the first"
+      },
+      {
+        "start": 938.08,
+        "duration": 3.87,
+        "text": "part is ODBC JDBC I can issue a make a"
+      },
+      {
+        "start": 940.24,
+        "duration": 3.36,
+        "text": "connection issue a query and do things"
+      },
+      {
+        "start": 941.95,
+        "duration": 4.02,
+        "text": "well that sounds good you know that's"
+      },
+      {
+        "start": 943.6,
+        "duration": 5.01,
+        "text": "pretty good start yeah yeah what do we"
+      },
+      {
+        "start": 945.97,
+        "duration": 5.01,
+        "text": "do how do you start it well you start it"
+      },
+      {
+        "start": 948.61,
+        "duration": 5.91,
+        "text": "by running a command line started and"
+      },
+      {
+        "start": 950.98,
+        "duration": 7.29,
+        "text": "then if it fails if somebody kicks the"
+      },
+      {
+        "start": 954.52,
+        "duration": 5.16,
+        "text": "plug out of it then it stops right now"
+      },
+      {
+        "start": 958.27,
+        "duration": 2.49,
+        "text": "you need to like and so we actually have"
+      },
+      {
+        "start": 959.68,
+        "duration": 2.46,
+        "text": "to be aware of that then you have to"
+      },
+      {
+        "start": 960.76,
+        "duration": 3.75,
+        "text": "start out there are actually people who"
+      },
+      {
+        "start": 962.14,
+        "duration": 5.069,
+        "text": "sit there and have written up scripting"
+      },
+      {
+        "start": 964.51,
+        "duration": 4.65,
+        "text": "where like every second they'll go and"
+      },
+      {
+        "start": 967.209,
+        "duration": 10.411,
+        "text": "see if the process is still running and"
+      },
+      {
+        "start": 969.16,
+        "duration": 9.9,
+        "text": "if not restarted and like we've all been"
+      },
+      {
+        "start": 977.62,
+        "duration": 3.75,
+        "text": "there you do what you have to do yeah"
+      },
+      {
+        "start": 979.06,
+        "duration": 4.44,
+        "text": "but I think as a you know this is an"
+      },
+      {
+        "start": 981.37,
+        "duration": 4.56,
+        "text": "area we could improve okay another one"
+      },
+      {
+        "start": 983.5,
+        "duration": 4.68,
+        "text": "is security when the sparks equal thrift"
+      },
+      {
+        "start": 985.93,
+        "duration": 4.92,
+        "text": "server is connecting to Cassandra it"
+      },
+      {
+        "start": 988.18,
+        "duration": 4.59,
+        "text": "does it as a single user okay and so now"
+      },
+      {
+        "start": 990.85,
+        "duration": 4.92,
+        "text": "you have this security problem of I"
+      },
+      {
+        "start": 992.77,
+        "duration": 5.819,
+        "text": "don't want all my clients being me I"
+      },
+      {
+        "start": 995.77,
+        "duration": 4.17,
+        "text": "want them to be who they are right so we"
+      },
+      {
+        "start": 998.589,
+        "duration": 3.75,
+        "text": "want to make sure that we can do that as"
+      },
+      {
+        "start": 999.94,
+        "duration": 5.97,
+        "text": "well okay so we've got this always-on"
+      },
+      {
+        "start": 1002.339,
+        "duration": 5.761,
+        "text": "problem we've got security I think those"
+      },
+      {
+        "start": 1005.91,
+        "duration": 3.66,
+        "text": "are probably well when you get into this"
+      },
+      {
+        "start": 1008.1,
+        "duration": 3.48,
+        "text": "always-on thing you also want to think"
+      },
+      {
+        "start": 1009.57,
+        "duration": 4.41,
+        "text": "about caching so one of the value props"
+      },
+      {
+        "start": 1011.58,
+        "duration": 4.59,
+        "text": "of SPARC is you can do some stuff and"
+      },
+      {
+        "start": 1013.98,
+        "duration": 3.93,
+        "text": "bring a data set into RAM yeah and then"
+      },
+      {
+        "start": 1016.17,
+        "duration": 4.26,
+        "text": "you can interrogate this data set in RAM"
+      },
+      {
+        "start": 1017.91,
+        "duration": 4.799,
+        "text": "well if the service is going to be"
+      },
+      {
+        "start": 1020.43,
+        "duration": 6.24,
+        "text": "restarted automatically right what do we"
+      },
+      {
+        "start": 1022.709,
+        "duration": 5.22,
+        "text": "do with the cat yeah okay so so let's"
+      },
+      {
+        "start": 1026.67,
+        "duration": 2.669,
+        "text": "talk about that we get about two how the"
+      },
+      {
+        "start": 1027.929,
+        "duration": 2.64,
+        "text": "restarting kind of thing comes but"
+      },
+      {
+        "start": 1029.339,
+        "duration": 3.0,
+        "text": "that's another area we were like well we"
+      },
+      {
+        "start": 1030.569,
+        "duration": 4.831,
+        "text": "don't wanna lose this really nice"
+      },
+      {
+        "start": 1032.339,
+        "duration": 4.831,
+        "text": "feature to sacrifice wait I actually"
+      },
+      {
+        "start": 1035.4,
+        "duration": 3.6,
+        "text": "know I wanna dig in a little bit yeah if"
+      },
+      {
+        "start": 1037.17,
+        "duration": 3.84,
+        "text": "I am interpreting this right what I"
+      },
+      {
+        "start": 1039.0,
+        "duration": 3.929,
+        "text": "think I just heard you say was that from"
+      },
+      {
+        "start": 1041.01,
+        "duration": 4.53,
+        "text": "the always-on perspective once you have"
+      },
+      {
+        "start": 1042.929,
+        "duration": 5.701,
+        "text": "that enabled and it's running right that"
+      },
+      {
+        "start": 1045.54,
+        "duration": 5.07,
+        "text": "if for some reason that goes down the"
+      },
+      {
+        "start": 1048.63,
+        "duration": 3.78,
+        "text": "spark service goes down on a per tick"
+      },
+      {
+        "start": 1050.61,
+        "duration": 4.56,
+        "text": "no that would come up on a new node"
+      },
+      {
+        "start": 1052.41,
+        "duration": 3.33,
+        "text": "right and the cache will also come along"
+      },
+      {
+        "start": 1055.17,
+        "duration": 3.75,
+        "text": "with it"
+      },
+      {
+        "start": 1055.74,
+        "duration": 4.83,
+        "text": "yeah so yes so what what we do when we"
+      },
+      {
+        "start": 1058.92,
+        "duration": 2.73,
+        "text": "say we want to cache the data because"
+      },
+      {
+        "start": 1060.57,
+        "duration": 2.88,
+        "text": "there's a couple things when you think"
+      },
+      {
+        "start": 1061.65,
+        "duration": 3.42,
+        "text": "about this a little bit you go hold on"
+      },
+      {
+        "start": 1063.45,
+        "duration": 3.57,
+        "text": "if we do this wrong then the user is"
+      },
+      {
+        "start": 1065.07,
+        "duration": 3.6,
+        "text": "gonna be totally confused yeah yeah when"
+      },
+      {
+        "start": 1067.02,
+        "duration": 3.33,
+        "text": "you take the cache you're taking kind of"
+      },
+      {
+        "start": 1068.67,
+        "duration": 4.29,
+        "text": "a snapshot of the data that they want"
+      },
+      {
+        "start": 1070.35,
+        "duration": 4.62,
+        "text": "and putting it into RAM okay so if the"
+      },
+      {
+        "start": 1072.96,
+        "duration": 3.54,
+        "text": "note if it goes down and you go well"
+      },
+      {
+        "start": 1074.97,
+        "duration": 3.6,
+        "text": "let's just rerun that query and bring it"
+      },
+      {
+        "start": 1076.5,
+        "duration": 4.799,
+        "text": "into RAM well what if the underlying"
+      },
+      {
+        "start": 1078.57,
+        "duration": 4.109,
+        "text": "data in Cassandra is moved right now I'm"
+      },
+      {
+        "start": 1081.299,
+        "duration": 3.271,
+        "text": "not getting the same data that's right"
+      },
+      {
+        "start": 1082.679,
+        "duration": 5.37,
+        "text": "so that's a problem so what we said was"
+      },
+      {
+        "start": 1084.57,
+        "duration": 7.13,
+        "text": "well if we're going to do this durable"
+      },
+      {
+        "start": 1088.049,
+        "duration": 5.791,
+        "text": "or wreak a shovel cache yeah okay yeah"
+      },
+      {
+        "start": 1091.7,
+        "duration": 4.99,
+        "text": "we take a snapshot and put it on the"
+      },
+      {
+        "start": 1093.84,
+        "duration": 5.88,
+        "text": "DCFS okay and then we read the cache"
+      },
+      {
+        "start": 1096.69,
+        "duration": 5.4,
+        "text": "from DCFS so we have this take a step"
+      },
+      {
+        "start": 1099.72,
+        "duration": 4.89,
+        "text": "back DCFS is our distributed file system"
+      },
+      {
+        "start": 1102.09,
+        "duration": 5.459,
+        "text": "comes with DSC it's also always on and"
+      },
+      {
+        "start": 1104.61,
+        "duration": 5.699,
+        "text": "scale out we needed a file system for"
+      },
+      {
+        "start": 1107.549,
+        "duration": 5.821,
+        "text": "some spark thing is DCFS required for"
+      },
+      {
+        "start": 1110.309,
+        "duration": 5.101,
+        "text": "always-on it is and so it comes with it"
+      },
+      {
+        "start": 1113.37,
+        "duration": 4.38,
+        "text": "it's yes it's it's necessary in there"
+      },
+      {
+        "start": 1115.41,
+        "duration": 4.29,
+        "text": "and because of this capability it's"
+      },
+      {
+        "start": 1117.75,
+        "duration": 3.27,
+        "text": "actually spark in general needs a place"
+      },
+      {
+        "start": 1119.7,
+        "duration": 3.06,
+        "text": "to have a file system and there are"
+      },
+      {
+        "start": 1121.02,
+        "duration": 4.86,
+        "text": "benefits of having it right there okay"
+      },
+      {
+        "start": 1122.76,
+        "duration": 4.71,
+        "text": "um it if you're not if you don't put any"
+      },
+      {
+        "start": 1125.88,
+        "duration": 3.03,
+        "text": "real data in it it doesn't actually"
+      },
+      {
+        "start": 1127.47,
+        "duration": 3.42,
+        "text": "occupy much resources at all"
+      },
+      {
+        "start": 1128.91,
+        "duration": 3.33,
+        "text": "okay but it is there as a resource for a"
+      },
+      {
+        "start": 1130.89,
+        "duration": 3.779,
+        "text": "number of things and that's a whole"
+      },
+      {
+        "start": 1132.24,
+        "duration": 4.2,
+        "text": "other primary so we take a snapshot"
+      },
+      {
+        "start": 1134.669,
+        "duration": 3.601,
+        "text": "because we have this nice file system"
+      },
+      {
+        "start": 1136.44,
+        "duration": 4.44,
+        "text": "there and now the cache is from the"
+      },
+      {
+        "start": 1138.27,
+        "duration": 4.05,
+        "text": "snapshot so when it restarts it wreak"
+      },
+      {
+        "start": 1140.88,
+        "duration": 3.03,
+        "text": "ashes from the snapshot so you know"
+      },
+      {
+        "start": 1142.32,
+        "duration": 4.56,
+        "text": "you're getting into Ram the exact same"
+      },
+      {
+        "start": 1143.91,
+        "duration": 5.399,
+        "text": "thing that's cool um we do decide to be"
+      },
+      {
+        "start": 1146.88,
+        "duration": 3.84,
+        "text": "lazy on the recache Inge because we"
+      },
+      {
+        "start": 1149.309,
+        "duration": 3.331,
+        "text": "don't want to stop the service from"
+      },
+      {
+        "start": 1150.72,
+        "duration": 3.66,
+        "text": "coming back up right um so the first"
+      },
+      {
+        "start": 1152.64,
+        "duration": 4.08,
+        "text": "time you hit it after the restart will"
+      },
+      {
+        "start": 1154.38,
+        "duration": 6.12,
+        "text": "be a little bit longer than right we"
+      },
+      {
+        "start": 1156.72,
+        "duration": 5.61,
+        "text": "felt like it was a totally so that's"
+      },
+      {
+        "start": 1160.5,
+        "duration": 4.59,
+        "text": "their the we talked about okay the thing"
+      },
+      {
+        "start": 1162.33,
+        "duration": 4.41,
+        "text": "restarts on its own okay a couple things"
+      },
+      {
+        "start": 1165.09,
+        "duration": 4.05,
+        "text": "you got to worry about on the restarting"
+      },
+      {
+        "start": 1166.74,
+        "duration": 4.62,
+        "text": "the first one is anybody who's done so I"
+      },
+      {
+        "start": 1169.14,
+        "duration": 3.6,
+        "text": "think that everybody's first experience"
+      },
+      {
+        "start": 1171.36,
+        "duration": 2.43,
+        "text": "with spark is probably about the same"
+      },
+      {
+        "start": 1172.74,
+        "duration": 4.17,
+        "text": "you get this thing running"
+      },
+      {
+        "start": 1173.79,
+        "duration": 5.61,
+        "text": "you run the DSE spark shell you know the"
+      },
+      {
+        "start": 1176.91,
+        "duration": 4.2,
+        "text": "the repple it's running and then you're"
+      },
+      {
+        "start": 1179.4,
+        "duration": 3.39,
+        "text": "like oh I'll run another repple to kind"
+      },
+      {
+        "start": 1181.11,
+        "duration": 3.21,
+        "text": "of do something and the second one is"
+      },
+      {
+        "start": 1182.79,
+        "duration": 2.64,
+        "text": "waiting because all the resources were"
+      },
+      {
+        "start": 1184.32,
+        "duration": 3.27,
+        "text": "taken right it's got to wait for the"
+      },
+      {
+        "start": 1185.43,
+        "duration": 4.56,
+        "text": "first one in your life Walt so if it's"
+      },
+      {
+        "start": 1187.59,
+        "duration": 3.87,
+        "text": "always on how do I make sure that like"
+      },
+      {
+        "start": 1189.99,
+        "duration": 4.17,
+        "text": "he gets to jump to the front of the line"
+      },
+      {
+        "start": 1191.46,
+        "duration": 3.99,
+        "text": "okay um we actually didn't make him jump"
+      },
+      {
+        "start": 1194.16,
+        "duration": 4.2,
+        "text": "to the front of the line we made a whole"
+      },
+      {
+        "start": 1195.45,
+        "duration": 4.5,
+        "text": "other line for him so India c-51 we"
+      },
+      {
+        "start": 1198.36,
+        "duration": 3.86,
+        "text": "introduced this thing called work pools"
+      },
+      {
+        "start": 1199.95,
+        "duration": 5.31,
+        "text": "they were relatively limited back then"
+      },
+      {
+        "start": 1202.22,
+        "duration": 5.74,
+        "text": "and the biggest use that we've got of"
+      },
+      {
+        "start": 1205.26,
+        "duration": 5.34,
+        "text": "them so far is that in sick so we made a"
+      },
+      {
+        "start": 1207.96,
+        "duration": 4.8,
+        "text": "always on sequel work pool and so we"
+      },
+      {
+        "start": 1210.6,
+        "duration": 4.62,
+        "text": "take a pool of the resources you say I'm"
+      },
+      {
+        "start": 1212.76,
+        "duration": 4.92,
+        "text": "gonna dedicate this much to spark in my"
+      },
+      {
+        "start": 1215.22,
+        "duration": 4.11,
+        "text": "when you do your configuration and of"
+      },
+      {
+        "start": 1217.68,
+        "duration": 4.47,
+        "text": "that we're gonna slice off a little bit"
+      },
+      {
+        "start": 1219.33,
+        "duration": 5.31,
+        "text": "and ring-fence that and only always-on"
+      },
+      {
+        "start": 1222.15,
+        "duration": 4.86,
+        "text": "so what happens if I want to perform say"
+      },
+      {
+        "start": 1224.64,
+        "duration": 5.16,
+        "text": "like a gremlin olap great what happens"
+      },
+      {
+        "start": 1227.01,
+        "duration": 5.88,
+        "text": "so so gremlin OLAP queries involve their"
+      },
+      {
+        "start": 1229.8,
+        "duration": 4.86,
+        "text": "own spark a process and service and they"
+      },
+      {
+        "start": 1232.89,
+        "duration": 3.99,
+        "text": "will start up and use this I'll call the"
+      },
+      {
+        "start": 1234.66,
+        "duration": 3.84,
+        "text": "default pool okay of everything that's"
+      },
+      {
+        "start": 1236.88,
+        "duration": 4.05,
+        "text": "not the same just straight-up spark"
+      },
+      {
+        "start": 1238.5,
+        "duration": 4.68,
+        "text": "shell yep and so it basically always on"
+      },
+      {
+        "start": 1240.93,
+        "duration": 4.05,
+        "text": "has its own pool so right was on SQL has"
+      },
+      {
+        "start": 1243.18,
+        "duration": 3.45,
+        "text": "its own pool and then the others had the"
+      },
+      {
+        "start": 1244.98,
+        "duration": 5.04,
+        "text": "this general work pool if you think"
+      },
+      {
+        "start": 1246.63,
+        "duration": 5.07,
+        "text": "about it like with with the way it"
+      },
+      {
+        "start": 1250.02,
+        "duration": 4.02,
+        "text": "compared it to like DSC five one"
+      },
+      {
+        "start": 1251.7,
+        "duration": 5.34,
+        "text": "everything right now in DSC five one"
+      },
+      {
+        "start": 1254.04,
+        "duration": 4.86,
+        "text": "goes against one pool right okay right"
+      },
+      {
+        "start": 1257.04,
+        "duration": 4.38,
+        "text": "and so what we're saying is that the"
+      },
+      {
+        "start": 1258.9,
+        "duration": 4.44,
+        "text": "default pool is now that same one pool"
+      },
+      {
+        "start": 1261.42,
+        "duration": 3.36,
+        "text": "okay the always-on sequel has its own"
+      },
+      {
+        "start": 1263.34,
+        "duration": 2.85,
+        "text": "and we're thinking about like are there"
+      },
+      {
+        "start": 1264.78,
+        "duration": 3.06,
+        "text": "other ways and we might make other pools"
+      },
+      {
+        "start": 1266.19,
+        "duration": 3.33,
+        "text": "that are worthwhile but for now we've"
+      },
+      {
+        "start": 1267.84,
+        "duration": 3.96,
+        "text": "kind of kept that was that automatically"
+      },
+      {
+        "start": 1269.52,
+        "duration": 4.05,
+        "text": "managed so if I start up I you know"
+      },
+      {
+        "start": 1271.8,
+        "duration": 4.11,
+        "text": "start up always on sequel not gonna deal"
+      },
+      {
+        "start": 1273.57,
+        "duration": 4.77,
+        "text": "as part of my workload along with"
+      },
+      {
+        "start": 1275.91,
+        "duration": 5.61,
+        "text": "analytics obviously do I have to do"
+      },
+      {
+        "start": 1278.34,
+        "duration": 4.26,
+        "text": "anything more to get the capability"
+      },
+      {
+        "start": 1281.52,
+        "duration": 2.4,
+        "text": "you're talking about or is that just"
+      },
+      {
+        "start": 1282.6,
+        "duration": 3.51,
+        "text": "there it's big yeah so in the"
+      },
+      {
+        "start": 1283.92,
+        "duration": 4.2,
+        "text": "configuration you you set up right there"
+      },
+      {
+        "start": 1286.11,
+        "duration": 4.11,
+        "text": "and so when you enable always-on you"
+      },
+      {
+        "start": 1288.12,
+        "duration": 3.9,
+        "text": "tell it how many resources you know this"
+      },
+      {
+        "start": 1290.22,
+        "duration": 3.42,
+        "text": "node when you set up the one node okay"
+      },
+      {
+        "start": 1292.02,
+        "duration": 3.51,
+        "text": "how many is it gonna donate to always-on"
+      },
+      {
+        "start": 1293.64,
+        "duration": 3.63,
+        "text": "sequel and every node does that okay so"
+      },
+      {
+        "start": 1295.53,
+        "duration": 5.67,
+        "text": "you'll say something like this node"
+      },
+      {
+        "start": 1297.27,
+        "duration": 5.91,
+        "text": "might have ten cores and 100 gigs of ram"
+      },
+      {
+        "start": 1301.2,
+        "duration": 4.02,
+        "text": "it can donate the spark okay and of that"
+      },
+      {
+        "start": 1303.18,
+        "duration": 5.52,
+        "text": "will take two cores and two gigs of ram"
+      },
+      {
+        "start": 1305.22,
+        "duration": 6.12,
+        "text": "or 20 gigs of ram or something so now"
+      },
+      {
+        "start": 1308.7,
+        "duration": 4.71,
+        "text": "you have these two separate sets and and"
+      },
+      {
+        "start": 1311.34,
+        "duration": 4.02,
+        "text": "that sort of allows so that if the"
+      },
+      {
+        "start": 1313.41,
+        "duration": 2.82,
+        "text": "process dies if somebody kicks the plug"
+      },
+      {
+        "start": 1315.36,
+        "duration": 2.789,
+        "text": "out of the machine"
+      },
+      {
+        "start": 1316.23,
+        "duration": 3.24,
+        "text": "it'll start up again on another machine"
+      },
+      {
+        "start": 1318.149,
+        "duration": 2.811,
+        "text": "that's the other thing we should talk"
+      },
+      {
+        "start": 1319.47,
+        "duration": 4.169,
+        "text": "about well start up on another machine"
+      },
+      {
+        "start": 1320.96,
+        "duration": 4.899,
+        "text": "but the resources will already have been"
+      },
+      {
+        "start": 1323.639,
+        "duration": 2.941,
+        "text": "ring-fenced nothing else is right okay"
+      },
+      {
+        "start": 1325.859,
+        "duration": 2.341,
+        "text": "that's cool"
+      },
+      {
+        "start": 1326.58,
+        "duration": 2.969,
+        "text": "okay starting up on another machine we"
+      },
+      {
+        "start": 1328.2,
+        "duration": 2.88,
+        "text": "do a you know quick little leader"
+      },
+      {
+        "start": 1329.549,
+        "duration": 4.2,
+        "text": "election we'll find a guy we like to do"
+      },
+      {
+        "start": 1331.08,
+        "duration": 5.49,
+        "text": "that you you have this problem from an"
+      },
+      {
+        "start": 1333.749,
+        "duration": 4.65,
+        "text": "odbc jdbc sense of how do I know where"
+      },
+      {
+        "start": 1336.57,
+        "duration": 3.059,
+        "text": "that is I need to make a connection so"
+      },
+      {
+        "start": 1338.399,
+        "duration": 4.35,
+        "text": "we actually have a service there's an"
+      },
+      {
+        "start": 1339.629,
+        "duration": 4.831,
+        "text": "internal Cassandra or DC driver call but"
+      },
+      {
+        "start": 1342.749,
+        "duration": 3.571,
+        "text": "we also have a little rest service where"
+      },
+      {
+        "start": 1344.46,
+        "duration": 3.719,
+        "text": "you can just ping and get back hey this"
+      },
+      {
+        "start": 1346.32,
+        "duration": 3.78,
+        "text": "is the IP address you should go ok so"
+      },
+      {
+        "start": 1348.179,
+        "duration": 3.33,
+        "text": "there's like a one location that you hit"
+      },
+      {
+        "start": 1350.1,
+        "duration": 3.029,
+        "text": "and then from there you'll get back"
+      },
+      {
+        "start": 1351.509,
+        "duration": 3.841,
+        "text": "where the thing is right although"
+      },
+      {
+        "start": 1353.129,
+        "duration": 4.471,
+        "text": "although it changes a it changes"
+      },
+      {
+        "start": 1355.35,
+        "duration": 3.63,
+        "text": "location from my standpoint from"
+      },
+      {
+        "start": 1357.6,
+        "duration": 2.61,
+        "text": "application developer standpoint or"
+      },
+      {
+        "start": 1358.98,
+        "duration": 2.669,
+        "text": "whatever if I'm using a connector to"
+      },
+      {
+        "start": 1360.21,
+        "duration": 2.849,
+        "text": "talk to the thing I don't have to keep"
+      },
+      {
+        "start": 1361.649,
+        "duration": 3.331,
+        "text": "tracking it all over the place that's"
+      },
+      {
+        "start": 1363.059,
+        "duration": 4.83,
+        "text": "right and we're working with the folks"
+      },
+      {
+        "start": 1364.98,
+        "duration": 5.22,
+        "text": "who build our driver ODBC JDBC drivers"
+      },
+      {
+        "start": 1367.889,
+        "duration": 4.29,
+        "text": "their partner of ours about making that"
+      },
+      {
+        "start": 1370.2,
+        "duration": 4.049,
+        "text": "automatic so you don't have to like"
+      },
+      {
+        "start": 1372.179,
+        "duration": 3.271,
+        "text": "chase anything that's cool that's coming"
+      },
+      {
+        "start": 1374.249,
+        "duration": 3.87,
+        "text": "I mean I thought it would already be"
+      },
+      {
+        "start": 1375.45,
+        "duration": 4.319,
+        "text": "here by now but it's coming it's ok so"
+      },
+      {
+        "start": 1378.119,
+        "duration": 3.03,
+        "text": "yeah so that you have this thing of now"
+      },
+      {
+        "start": 1379.769,
+        "duration": 3.66,
+        "text": "it could go down and come up"
+      },
+      {
+        "start": 1381.149,
+        "duration": 5.701,
+        "text": "automatically on its own ok it does you"
+      },
+      {
+        "start": 1383.429,
+        "duration": 5.43,
+        "text": "know do these recache inking and and so"
+      },
+      {
+        "start": 1386.85,
+        "duration": 3.539,
+        "text": "in in that sense we know that it'll"
+      },
+      {
+        "start": 1388.859,
+        "duration": 3.27,
+        "text": "always come back up and so that's sort"
+      },
+      {
+        "start": 1390.389,
+        "duration": 6.441,
+        "text": "of we want to make sure that that works"
+      },
+      {
+        "start": 1392.129,
+        "duration": 6.54,
+        "text": "so you deploy that in for real ok I"
+      },
+      {
+        "start": 1396.83,
+        "duration": 4.75,
+        "text": "trying to think of there was another"
+      },
+      {
+        "start": 1398.669,
+        "duration": 5.19,
+        "text": "thing that we had said yeah I want to"
+      },
+      {
+        "start": 1401.58,
+        "duration": 3.449,
+        "text": "get into it because we know one last"
+      },
+      {
+        "start": 1403.859,
+        "duration": 4.26,
+        "text": "question though on the always on them"
+      },
+      {
+        "start": 1405.029,
+        "duration": 6.12,
+        "text": "yeah so if I start in analytics workload"
+      },
+      {
+        "start": 1408.119,
+        "duration": 5.37,
+        "text": "yeah on my node yeah is always is that"
+      },
+      {
+        "start": 1411.149,
+        "duration": 4.53,
+        "text": "just automatic so it's a good question"
+      },
+      {
+        "start": 1413.489,
+        "duration": 5.01,
+        "text": "so we we we a data stack sometimes try"
+      },
+      {
+        "start": 1415.679,
+        "duration": 3.99,
+        "text": "to try to default things to all for the"
+      },
+      {
+        "start": 1418.499,
+        "duration": 3.481,
+        "text": "first release ok so that we don't"
+      },
+      {
+        "start": 1419.669,
+        "duration": 3.931,
+        "text": "surprise you so you know nodes sink"
+      },
+      {
+        "start": 1421.98,
+        "duration": 4.98,
+        "text": "another big feature that's in DSC 6"
+      },
+      {
+        "start": 1423.6,
+        "duration": 8.639,
+        "text": "thank you for your cables your TV right"
+      },
+      {
+        "start": 1426.96,
+        "duration": 7.169,
+        "text": "it's a cable space yeah we have to"
+      },
+      {
+        "start": 1432.239,
+        "duration": 3.27,
+        "text": "enable it for a key space or a table of"
+      },
+      {
+        "start": 1434.129,
+        "duration": 2.61,
+        "text": "you it's there that's right we have to"
+      },
+      {
+        "start": 1435.509,
+        "duration": 2.64,
+        "text": "enable it so is it the same with this"
+      },
+      {
+        "start": 1436.739,
+        "duration": 2.79,
+        "text": "you it's there but you have to tell it"
+      },
+      {
+        "start": 1438.149,
+        "duration": 3.0,
+        "text": "hey go ahead you have to turn it on"
+      },
+      {
+        "start": 1439.529,
+        "duration": 3.24,
+        "text": "right and and I think in the future"
+      },
+      {
+        "start": 1441.149,
+        "duration": 3.27,
+        "text": "we'll probably just default it to on"
+      },
+      {
+        "start": 1442.769,
+        "duration": 4.261,
+        "text": "once we've had more time that's right"
+      },
+      {
+        "start": 1444.419,
+        "duration": 3.901,
+        "text": "and so but no"
+      },
+      {
+        "start": 1447.03,
+        "duration": 3.51,
+        "text": "there's that piece I know it is gonna"
+      },
+      {
+        "start": 1448.32,
+        "duration": 4.56,
+        "text": "say before also before we move off of"
+      },
+      {
+        "start": 1450.54,
+        "duration": 3.6,
+        "text": "Amazon sequel was around the security I"
+      },
+      {
+        "start": 1452.88,
+        "duration": 4.2,
+        "text": "said we need to have a security thing"
+      },
+      {
+        "start": 1454.14,
+        "duration": 6.54,
+        "text": "going there's a capability that came in"
+      },
+      {
+        "start": 1457.08,
+        "duration": 6.39,
+        "text": "DSC 5-1 called proxy execution this is a"
+      },
+      {
+        "start": 1460.68,
+        "duration": 4.71,
+        "text": "in in Cassandra or our enhancements to"
+      },
+      {
+        "start": 1463.47,
+        "duration": 3.81,
+        "text": "it where you can actually tell the"
+      },
+      {
+        "start": 1465.39,
+        "duration": 4.11,
+        "text": "system and grant it and say I will let"
+      },
+      {
+        "start": 1467.28,
+        "duration": 4.71,
+        "text": "David run queries as Brian that's a"
+      },
+      {
+        "start": 1469.5,
+        "duration": 4.17,
+        "text": "grant at Slayer age it is there is a use"
+      },
+      {
+        "start": 1471.99,
+        "duration": 3.12,
+        "text": "case I mean scary for me pretty own oh"
+      },
+      {
+        "start": 1473.67,
+        "duration": 2.76,
+        "text": "yeah I wouldn't maybe I'll I know just"
+      },
+      {
+        "start": 1475.11,
+        "duration": 2.34,
+        "text": "maybe I'll pick somebody else I was"
+      },
+      {
+        "start": 1476.43,
+        "duration": 3.81,
+        "text": "gonna say Patrick but I don't think"
+      },
+      {
+        "start": 1477.45,
+        "duration": 6.87,
+        "text": "that's a good idea either anyhow the the"
+      },
+      {
+        "start": 1480.24,
+        "duration": 6.03,
+        "text": "the the idea being the original idea was"
+      },
+      {
+        "start": 1484.32,
+        "duration": 4.14,
+        "text": "you have a web server and it's"
+      },
+      {
+        "start": 1486.27,
+        "duration": 4.14,
+        "text": "authenticated users to it that web"
+      },
+      {
+        "start": 1488.46,
+        "duration": 4.05,
+        "text": "server makes one connection to the"
+      },
+      {
+        "start": 1490.41,
+        "duration": 4.26,
+        "text": "database but once to execute is the"
+      },
+      {
+        "start": 1492.51,
+        "duration": 3.99,
+        "text": "authenticated user well if I just"
+      },
+      {
+        "start": 1494.67,
+        "duration": 3.39,
+        "text": "rearranged a lot of words there I could"
+      },
+      {
+        "start": 1496.5,
+        "duration": 3.87,
+        "text": "say that instead of a web server we"
+      },
+      {
+        "start": 1498.06,
+        "duration": 4.35,
+        "text": "should have a sequel service and it's"
+      },
+      {
+        "start": 1500.37,
+        "duration": 4.29,
+        "text": "the same deal okay so when you"
+      },
+      {
+        "start": 1502.41,
+        "duration": 5.16,
+        "text": "authenticate to always-on sequel using"
+      },
+      {
+        "start": 1504.66,
+        "duration": 4.26,
+        "text": "the ODBC JDBC mechanisms or or Kerberos"
+      },
+      {
+        "start": 1507.57,
+        "duration": 4.08,
+        "text": "but let's stick with the simple one yeah"
+      },
+      {
+        "start": 1508.92,
+        "duration": 4.92,
+        "text": "yeah we actually have always-on sequel"
+      },
+      {
+        "start": 1511.65,
+        "duration": 3.72,
+        "text": "will turn around to DSE and actually ask"
+      },
+      {
+        "start": 1513.84,
+        "duration": 3.3,
+        "text": "it to authenticate it is this a real"
+      },
+      {
+        "start": 1515.37,
+        "duration": 4.5,
+        "text": "person or not so it's one set of users"
+      },
+      {
+        "start": 1517.14,
+        "duration": 5.01,
+        "text": "manage one way and then when you issue a"
+      },
+      {
+        "start": 1519.87,
+        "duration": 3.66,
+        "text": "query we actually execute the query"
+      },
+      {
+        "start": 1522.15,
+        "duration": 3.63,
+        "text": "against the database as the"
+      },
+      {
+        "start": 1523.53,
+        "duration": 4.98,
+        "text": "authenticated user also we don't worry"
+      },
+      {
+        "start": 1525.78,
+        "duration": 4.14,
+        "text": "about you know you being able to run as"
+      },
+      {
+        "start": 1528.51,
+        "duration": 3.63,
+        "text": "you know everybody running is the same"
+      },
+      {
+        "start": 1529.92,
+        "duration": 3.39,
+        "text": "person visible the same things you are"
+      },
+      {
+        "start": 1532.14,
+        "duration": 3.54,
+        "text": "only able to see the tables you have"
+      },
+      {
+        "start": 1533.31,
+        "duration": 4.46,
+        "text": "access to that's the row level access"
+      },
+      {
+        "start": 1535.68,
+        "duration": 4.62,
+        "text": "control enabled it's still row little"
+      },
+      {
+        "start": 1537.77,
+        "duration": 4.45,
+        "text": "accident comes for free okay"
+      },
+      {
+        "start": 1540.3,
+        "duration": 3.24,
+        "text": "and so that was super important we're"
+      },
+      {
+        "start": 1542.22,
+        "duration": 2.55,
+        "text": "gonna go and talk to enterprises they're"
+      },
+      {
+        "start": 1543.54,
+        "duration": 5.19,
+        "text": "gonna be like I can't have everybody"
+      },
+      {
+        "start": 1544.77,
+        "duration": 5.4,
+        "text": "runs right so that's the security piece"
+      },
+      {
+        "start": 1548.73,
+        "duration": 4.47,
+        "text": "so now you got security you got it's"
+      },
+      {
+        "start": 1550.17,
+        "duration": 4.86,
+        "text": "always on and and robust and I think"
+      },
+      {
+        "start": 1553.2,
+        "duration": 4.56,
+        "text": "that was sort of for us that the first"
+      },
+      {
+        "start": 1555.03,
+        "duration": 4.56,
+        "text": "step towards a production level JDBC"
+      },
+      {
+        "start": 1557.76,
+        "duration": 2.82,
+        "text": "ODBC sir okay all right so then yeah"
+      },
+      {
+        "start": 1559.59,
+        "duration": 2.97,
+        "text": "let's move back into the structured"
+      },
+      {
+        "start": 1560.58,
+        "duration": 3.39,
+        "text": "stream yapping so what you got on that"
+      },
+      {
+        "start": 1562.56,
+        "duration": 4.26,
+        "text": "yeah so structured streaming is"
+      },
+      {
+        "start": 1563.97,
+        "duration": 5.19,
+        "text": "interesting it came out into 2.0 in"
+      },
+      {
+        "start": 1566.82,
+        "duration": 5.82,
+        "text": "spark okay um and it was a new way to do"
+      },
+      {
+        "start": 1569.16,
+        "duration": 4.83,
+        "text": "streaming and a new API really it's a"
+      },
+      {
+        "start": 1572.64,
+        "duration": 3.27,
+        "text": "little strange how they've talked about"
+      },
+      {
+        "start": 1573.99,
+        "duration": 3.12,
+        "text": "it because people are like oh is it a"
+      },
+      {
+        "start": 1575.91,
+        "duration": 3.15,
+        "text": "new thing and it's like what kind of"
+      },
+      {
+        "start": 1577.11,
+        "duration": 4.119,
+        "text": "it's a new way into the same you know"
+      },
+      {
+        "start": 1579.06,
+        "duration": 5.049,
+        "text": "some of the constructs that were there"
+      },
+      {
+        "start": 1581.229,
+        "duration": 4.62,
+        "text": "if you go way back to the beginning for"
+      },
+      {
+        "start": 1584.109,
+        "duration": 3.57,
+        "text": "spark there was four batch there were"
+      },
+      {
+        "start": 1585.849,
+        "duration": 3.75,
+        "text": "these things called rdd's resilient"
+      },
+      {
+        "start": 1587.679,
+        "duration": 3.78,
+        "text": "distributed data sets and for streaming"
+      },
+      {
+        "start": 1589.599,
+        "duration": 3.66,
+        "text": "there's these things called D streams"
+      },
+      {
+        "start": 1591.459,
+        "duration": 2.88,
+        "text": "think just dis critized streams so"
+      },
+      {
+        "start": 1593.259,
+        "duration": 3.33,
+        "text": "everybody always call them D streams"
+      },
+      {
+        "start": 1594.339,
+        "duration": 4.88,
+        "text": "it's a lot easier to say it is I'm"
+      },
+      {
+        "start": 1596.589,
+        "duration": 5.91,
+        "text": "impressed I got through it um so the"
+      },
+      {
+        "start": 1599.219,
+        "duration": 5.8,
+        "text": "data the RTD has moved on to data frames"
+      },
+      {
+        "start": 1602.499,
+        "duration": 4.2,
+        "text": "right they moved on to data sets they"
+      },
+      {
+        "start": 1605.019,
+        "duration": 3.81,
+        "text": "got a lot of love and it's actually"
+      },
+      {
+        "start": 1606.699,
+        "duration": 4.17,
+        "text": "become a really strong use they use"
+      },
+      {
+        "start": 1608.829,
+        "duration": 4.02,
+        "text": "catalyst now is this optimizer to do"
+      },
+      {
+        "start": 1610.869,
+        "duration": 4.53,
+        "text": "smart things for you okay meanwhile D"
+      },
+      {
+        "start": 1612.849,
+        "duration": 5.94,
+        "text": "streams got no love and was just limping"
+      },
+      {
+        "start": 1615.399,
+        "duration": 5.16,
+        "text": "along in its own way the idea was well"
+      },
+      {
+        "start": 1618.789,
+        "duration": 4.95,
+        "text": "let's take streaming and kind of make it"
+      },
+      {
+        "start": 1620.559,
+        "duration": 4.53,
+        "text": "a lot like batch again and so this"
+      },
+      {
+        "start": 1623.739,
+        "duration": 3.27,
+        "text": "structured streaming was this idea of"
+      },
+      {
+        "start": 1625.089,
+        "duration": 3.96,
+        "text": "now I have stream I have schema with"
+      },
+      {
+        "start": 1627.009,
+        "duration": 4.23,
+        "text": "schema I can start using optimizers to"
+      },
+      {
+        "start": 1629.049,
+        "duration": 4.17,
+        "text": "do smart things okay and so there became"
+      },
+      {
+        "start": 1631.239,
+        "duration": 6.03,
+        "text": "the idea of a structured streaming is"
+      },
+      {
+        "start": 1633.219,
+        "duration": 5.971,
+        "text": "basically a table that never ends is the"
+      },
+      {
+        "start": 1637.269,
+        "duration": 3.96,
+        "text": "way to things days far thinks of it that"
+      },
+      {
+        "start": 1639.19,
+        "duration": 3.539,
+        "text": "way oh cool but you do need to interact"
+      },
+      {
+        "start": 1641.229,
+        "duration": 3.09,
+        "text": "with it a little differently and you"
+      },
+      {
+        "start": 1642.729,
+        "duration": 3.0,
+        "text": "have to set up some API so this"
+      },
+      {
+        "start": 1644.319,
+        "duration": 3.63,
+        "text": "everybody who had a data store"
+      },
+      {
+        "start": 1645.729,
+        "duration": 4.2,
+        "text": "never-ending tables story that I did"
+      },
+      {
+        "start": 1647.949,
+        "duration": 7.7,
+        "text": "together right yeah and I'm sorry I"
+      },
+      {
+        "start": 1649.929,
+        "duration": 5.72,
+        "text": "failed I feel like there's some a trade"
+      },
+      {
+        "start": 1658.079,
+        "duration": 8.111,
+        "text": "so the this his name what's her name man"
+      },
+      {
+        "start": 1663.969,
+        "duration": 5.79,
+        "text": "it's like my whole childhood coming back"
+      },
+      {
+        "start": 1666.19,
+        "duration": 5.099,
+        "text": "so the you had any new connectors the"
+      },
+      {
+        "start": 1669.759,
+        "duration": 4.11,
+        "text": "API didn't really settle down and become"
+      },
+      {
+        "start": 1671.289,
+        "duration": 4.59,
+        "text": "real until spark - - which is when what"
+      },
+      {
+        "start": 1673.869,
+        "duration": 3.75,
+        "text": "we incorporated in this one right so you"
+      },
+      {
+        "start": 1675.879,
+        "duration": 3.15,
+        "text": "needed to make a new sink and then so in"
+      },
+      {
+        "start": 1677.619,
+        "duration": 3.93,
+        "text": "this one we made a structured streaming"
+      },
+      {
+        "start": 1679.029,
+        "duration": 5.01,
+        "text": "sink for the DSC database so for writing"
+      },
+      {
+        "start": 1681.549,
+        "duration": 3.72,
+        "text": "to it okay and and the community had"
+      },
+      {
+        "start": 1684.039,
+        "duration": 2.82,
+        "text": "already done structured streaming"
+      },
+      {
+        "start": 1685.269,
+        "duration": 2.75,
+        "text": "sources for a lot of things right Kafka"
+      },
+      {
+        "start": 1686.859,
+        "duration": 3.27,
+        "text": "is probably the you know the one people"
+      },
+      {
+        "start": 1688.019,
+        "duration": 4.27,
+        "text": "ask you about use cases like where does"
+      },
+      {
+        "start": 1690.129,
+        "duration": 3.9,
+        "text": "this come to play yeah so Kafka Kinesis"
+      },
+      {
+        "start": 1692.289,
+        "duration": 3.33,
+        "text": "these streams that come in you want to"
+      },
+      {
+        "start": 1694.029,
+        "duration": 3.36,
+        "text": "do enhancements you might want to join"
+      },
+      {
+        "start": 1695.619,
+        "duration": 3.66,
+        "text": "with data in Cassandra like we were"
+      },
+      {
+        "start": 1697.389,
+        "duration": 3.42,
+        "text": "talking about before that's the direct"
+      },
+      {
+        "start": 1699.279,
+        "duration": 5.34,
+        "text": "join kind of get to pick that up for"
+      },
+      {
+        "start": 1700.809,
+        "duration": 5.4,
+        "text": "free and then write into the into the"
+      },
+      {
+        "start": 1704.619,
+        "duration": 3.72,
+        "text": "database we see that often you know"
+      },
+      {
+        "start": 1706.209,
+        "duration": 4.11,
+        "text": "connect to a stream and as it comes in"
+      },
+      {
+        "start": 1708.339,
+        "duration": 4.64,
+        "text": "enhance it modify it maybe filter it"
+      },
+      {
+        "start": 1710.319,
+        "duration": 3.96,
+        "text": "right and then deposit what you need in"
+      },
+      {
+        "start": 1712.979,
+        "duration": 2.981,
+        "text": "into the day"
+      },
+      {
+        "start": 1714.279,
+        "duration": 4.62,
+        "text": "and now you're off to the races in the"
+      },
+      {
+        "start": 1715.96,
+        "duration": 4.529,
+        "text": "database we need to make that that"
+      },
+      {
+        "start": 1718.899,
+        "duration": 3.84,
+        "text": "connector by making that connector we"
+      },
+      {
+        "start": 1720.489,
+        "duration": 3.81,
+        "text": "tap now into the hole all the benefits"
+      },
+      {
+        "start": 1722.739,
+        "duration": 3.99,
+        "text": "of structured streaming that spark has"
+      },
+      {
+        "start": 1724.299,
+        "duration": 4.411,
+        "text": "been doing for this use case that is way"
+      },
+      {
+        "start": 1726.729,
+        "duration": 4.351,
+        "text": "better than just using D streams right"
+      },
+      {
+        "start": 1728.71,
+        "duration": 5.309,
+        "text": "so now we're coming up but you know we"
+      },
+      {
+        "start": 1731.08,
+        "duration": 4.889,
+        "text": "wanted to wait we don't let CD c-51 came"
+      },
+      {
+        "start": 1734.019,
+        "duration": 3.24,
+        "text": "out with spark - oh okay and I think it"
+      },
+      {
+        "start": 1735.969,
+        "duration": 3.84,
+        "text": "was well there's a really experimental"
+      },
+      {
+        "start": 1737.259,
+        "duration": 4.17,
+        "text": "API it might change a lot we're gonna be"
+      },
+      {
+        "start": 1739.809,
+        "duration": 2.97,
+        "text": "a little more cautious on this one and"
+      },
+      {
+        "start": 1741.429,
+        "duration": 3.271,
+        "text": "and now we're like oh it's ready it's"
+      },
+      {
+        "start": 1742.779,
+        "duration": 4.08,
+        "text": "graduated and we're ready to bring it in"
+      },
+      {
+        "start": 1744.7,
+        "duration": 4.439,
+        "text": "as well all right well I mean okay so"
+      },
+      {
+        "start": 1746.859,
+        "duration": 4.32,
+        "text": "with that yeah as we as we graduate"
+      },
+      {
+        "start": 1749.139,
+        "duration": 3.24,
+        "text": "we're graduating all of the analytics"
+      },
+      {
+        "start": 1751.179,
+        "duration": 3.09,
+        "text": "stuff it sounds like we've actually done"
+      },
+      {
+        "start": 1752.379,
+        "duration": 4.59,
+        "text": "a lot I mean yeah dc-6 stuff there's it"
+      },
+      {
+        "start": 1754.269,
+        "duration": 4.921,
+        "text": "there's a like a hella lot of stuff that"
+      },
+      {
+        "start": 1756.969,
+        "duration": 4.43,
+        "text": "has been added not only from like the"
+      },
+      {
+        "start": 1759.19,
+        "duration": 4.919,
+        "text": "performance standpoint but resiliency"
+      },
+      {
+        "start": 1761.399,
+        "duration": 4.24,
+        "text": "capability there I mean all this like"
+      },
+      {
+        "start": 1764.109,
+        "duration": 3.15,
+        "text": "it's exciting yeah I'm pretty excited"
+      },
+      {
+        "start": 1765.639,
+        "duration": 4.051,
+        "text": "about it there's a number of things that"
+      },
+      {
+        "start": 1767.259,
+        "duration": 4.41,
+        "text": "that just kind of all came together okay"
+      },
+      {
+        "start": 1769.69,
+        "duration": 3.599,
+        "text": "in this thing where you look at not only"
+      },
+      {
+        "start": 1771.669,
+        "duration": 3.48,
+        "text": "as the end user getting you know"
+      },
+      {
+        "start": 1773.289,
+        "duration": 4.56,
+        "text": "performance and ease of use and"
+      },
+      {
+        "start": 1775.149,
+        "duration": 4.62,
+        "text": "capability but there's also sort of like"
+      },
+      {
+        "start": 1777.849,
+        "duration": 3.21,
+        "text": "we're tying a lot of pieces together you"
+      },
+      {
+        "start": 1779.769,
+        "duration": 4.74,
+        "text": "get starts coming in we didn't talk a"
+      },
+      {
+        "start": 1781.059,
+        "duration": 5.37,
+        "text": "little bit but the grat DSE graph table"
+      },
+      {
+        "start": 1784.509,
+        "duration": 2.701,
+        "text": "or the the graphs that you haven't you"
+      },
+      {
+        "start": 1786.429,
+        "duration": 2.31,
+        "text": "see graphs"
+      },
+      {
+        "start": 1787.21,
+        "duration": 3.179,
+        "text": "sometimes you just want to query the the"
+      },
+      {
+        "start": 1788.739,
+        "duration": 2.67,
+        "text": "vertices like show me all the people you"
+      },
+      {
+        "start": 1790.389,
+        "duration": 3.45,
+        "text": "know I count how many people are from"
+      },
+      {
+        "start": 1791.409,
+        "duration": 4.171,
+        "text": "New Jersey or whatever I don't really"
+      },
+      {
+        "start": 1793.839,
+        "duration": 3.96,
+        "text": "necessarily do a graph query for that in"
+      },
+      {
+        "start": 1795.58,
+        "duration": 4.949,
+        "text": "DSC 5 when we introduced graph frames"
+      },
+      {
+        "start": 1797.799,
+        "duration": 5.1,
+        "text": "right and we actually have all the"
+      },
+      {
+        "start": 1800.529,
+        "duration": 4.82,
+        "text": "tables we have a vertex table is"
+      },
+      {
+        "start": 1802.899,
+        "duration": 4.65,
+        "text": "registered in the catalog for for sequel"
+      },
+      {
+        "start": 1805.349,
+        "duration": 4.03,
+        "text": "already so if you just want to type in"
+      },
+      {
+        "start": 1807.549,
+        "duration": 3.12,
+        "text": "and you can count is accessible to it"
+      },
+      {
+        "start": 1809.379,
+        "duration": 3.93,
+        "text": "yeah so we're sort of pulling all these"
+      },
+      {
+        "start": 1810.669,
+        "duration": 4.62,
+        "text": "pieces together and I unified yeah and"
+      },
+      {
+        "start": 1813.309,
+        "duration": 3.151,
+        "text": "right and make it similar I don't have"
+      },
+      {
+        "start": 1815.289,
+        "duration": 3.151,
+        "text": "to think about eight different things I"
+      },
+      {
+        "start": 1816.46,
+        "duration": 4.049,
+        "text": "can think about one okay get going and"
+      },
+      {
+        "start": 1818.44,
+        "duration": 4.289,
+        "text": "and I think that that's a theme we're"
+      },
+      {
+        "start": 1820.509,
+        "duration": 3.571,
+        "text": "really we're in the analytic side we're"
+      },
+      {
+        "start": 1822.729,
+        "duration": 2.731,
+        "text": "really proud of it but I think the SE at"
+      },
+      {
+        "start": 1824.08,
+        "duration": 3.179,
+        "text": "whole is sort of like let's go pull all"
+      },
+      {
+        "start": 1825.46,
+        "duration": 5.879,
+        "text": "these pieces together I mean it's it's"
+      },
+      {
+        "start": 1827.259,
+        "duration": 6.571,
+        "text": "it's not a collection of of you know"
+      },
+      {
+        "start": 1831.339,
+        "duration": 4.59,
+        "text": "Apache projects just distributed"
+      },
+      {
+        "start": 1833.83,
+        "duration": 3.959,
+        "text": "together right it's really the integral"
+      },
+      {
+        "start": 1835.929,
+        "duration": 3.66,
+        "text": "it's totally tightly integrated I defied"
+      },
+      {
+        "start": 1837.789,
+        "duration": 3.421,
+        "text": "yeah we I mean it's it's definitely"
+      },
+      {
+        "start": 1839.589,
+        "duration": 4.14,
+        "text": "pushed more and more in that direction"
+      },
+      {
+        "start": 1841.21,
+        "duration": 5.37,
+        "text": "and yeah this next this latest release"
+      },
+      {
+        "start": 1843.729,
+        "duration": 4.05,
+        "text": "that we just put out is a huge step in"
+      },
+      {
+        "start": 1846.58,
+        "duration": 2.519,
+        "text": "it yeah I'm"
+      },
+      {
+        "start": 1847.779,
+        "duration": 3.51,
+        "text": "I'm pretty psyched about it it's pretty"
+      },
+      {
+        "start": 1849.099,
+        "duration": 4.38,
+        "text": "fun very cool all right Manuel thank you"
+      },
+      {
+        "start": 1851.289,
+        "duration": 4.98,
+        "text": "you bet Brian as usual for all the"
+      },
+      {
+        "start": 1853.479,
+        "duration": 4.44,
+        "text": "wonderful discussion and talks and thank"
+      },
+      {
+        "start": 1856.269,
+        "duration": 4.01,
+        "text": "you all for listening to another episode"
+      },
+      {
+        "start": 1857.919,
+        "duration": 4.651,
+        "text": "of the distributed Dave show"
+      },
+      {
+        "start": 1860.279,
+        "duration": 4.27,
+        "text": "thank you for joining us again for the"
+      },
+      {
+        "start": 1862.57,
+        "duration": 3.689,
+        "text": "distributed data show we love your"
+      },
+      {
+        "start": 1864.549,
+        "duration": 3.72,
+        "text": "feedback so go to the distributed data"
+      },
+      {
+        "start": 1866.259,
+        "duration": 3.811,
+        "text": "show page on data Stax Academy and tell"
+      },
+      {
+        "start": 1868.269,
+        "duration": 3.301,
+        "text": "us what you think you can also find us"
+      },
+      {
+        "start": 1870.07,
+        "duration": 4.199,
+        "text": "on the data stacks Academy YouTube"
+      },
+      {
+        "start": 1871.57,
+        "duration": 4.739,
+        "text": "channel or find our podcast on itunes"
+      },
+      {
+        "start": 1874.269,
+        "duration": 4.5,
+        "text": "google play or wherever you get great"
+      },
+      {
+        "start": 1876.309,
+        "duration": 3.901,
+        "text": "podcast while you're there make sure and"
+      },
+      {
+        "start": 1878.769,
+        "duration": 2.501,
+        "text": "subscribe so you don't miss a single"
+      },
+      {
+        "start": 1880.21,
+        "duration": 5.24,
+        "text": "episode"
+      },
+      {
+        "start": 1881.27,
+        "duration": 4.18,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T06:38:23.629017+00:00"
+}

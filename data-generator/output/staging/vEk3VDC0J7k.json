@@ -1,0 +1,598 @@
+{
+  "video_id": "vEk3VDC0J7k",
+  "title": "DS201.10 Gossip | Foundations of Apache Cassandra",
+  "description": "#DataStaxAcademy #DS201\nDS201.10 GOSSIP\nIn this unit you'll learn about gossip, a broadcast protocol for disseminating data.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-06T04:02:58Z",
+  "thumbnail": "https://i.ytimg.com/vi/vEk3VDC0J7k/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "tutorial",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=vEk3VDC0J7k",
+  "transcript": {
+    "available": true,
+    "language": "Chinese",
+    "language_code": "zh",
+    "is_generated": false,
+    "text": "DS201: Gossip协议 不 这不是你公司同事之间随意传播的那种办公室八卦 不过人与人之间传输信息的方式 和集群在节点中传输信息的方式十分类似 Gossip（意为“闲聊”）协议是一个传播数据的广播协议(broadcast protocol) Cassandra没有一个集中式的服务器拥有整个集群的信息 不过节点们会互相传播这些信息 节点只会维护最新的信息并且是自动的 图中有一个节点想要分享些信息 这个节点选择了底部的节点并分享了这些信息 接着 处于底部的第二个节点和左边的节点分享了信息 第一个节点同时和右上方的节点分享了信息 接下来 所有含有信息的节点也和其他节点分享信息 现在集群中的所有节点都知道了这条信息 在这种情况下 信息的传播速度为多项式增长 在每一轮gossip 每一个节点都可以和任意数量的节点进行gossip 不过节点其实不需要用这么过时的方式进行gossip 但是 它会基于一些标准来选择进行gossip的节点 我们之后会讨论 每个节点每秒钟会开启一轮gossip\n并且每轮最多会随机选择3个节点进行信息交换 不过种子节点(seed node)被选择的可能性稍微更大一些 也就是说在别的节点获取这些信息之前\n种子节点更有可能先得到这些信息 你可以把种子节点想象成一个爱打听的烦人的邻居\n它好像总是知道所有的事情 甚至于在当事人知道之前 差不多就是这样 节点不会追踪记录自己之前gossip过的节点 这只是为了能快速向其他所有节点传播当前的集群状态 gossip的好处在于\n它能在集群节点中快速且可靠地传播信息 节点可以随意来去 因为并没有一个所有节点都需要依赖的主节点 让我们看看gossip在集群中传播什么样的信息 Gossip不会传播客户端数据\n而只传播节点元数据(node metadata) 因为所有节点都是类似的 所以我们现在只看一个节点即可 每个节点都有一个反映总体状态的数据结构\n叫做Endpoint State（端点状态） 它主要用来储存一个单独节点或端点的所有gossip状态信息 Endpoint State嵌套了另一个数据结构\n叫做Heartbeat State（心跳消息状态） Heartbeat State追踪两个值 第一个是generation（代） 这是一个标记该节点何时启动(bootstrap)的时间戳 另一个是Version（版本）它是一个简单的整数 每秒钟每个节点的Version值会递增 Heartbeat State的值递增后会在整个集群中传播 这可以让其他节点对当前节点是否在线进行判断 端点状态嵌套的第二个数据结构\n是Application State（应用程序状态） Application State储存了这个节点的元数据 Application State存储的关于当前节点的数据\n是通过Gossip协议在集群中被传递出去 这其中的一个元数据是STATUS STATUS的值有几种情况 BOOTSTRAP意味着节点即将上线 NORMAL意味着所有东西都正常运转 LEAVING或LEFT意味着节点已经停止工作 REMOVING或REMOVE意味着你移除了一个无法物理访问的节点 节点会自行声明它自己的状态 尽管每个节点的故障检测器(failure detector)\n会判断它的同伴是否在线 但节点不会gossip关于它对于同伴状态的判断\n（即节点的状态由自己声明） DC代表节点所处的数据中心(Data Center) RACK是节点所处的机架 随着时间流逝 当有任何数据模型改变 SCHEMA值会随之改变 LOAD是磁盘空间的使用情况 等等 Gossip是一个简单的消息传输协议(messaging protocol) 现在我们来研究两个节点间的一次gossip信息交换 我们会研究节点A和C之间的信息交换 这里我们可以看到每个节点储存了3条端点状态信息 每一条端点状态信息对应集群中的一个节点\n这其中也包括它自己 请注意 为了使案例更易于讨论 我们移除了第四个节点信息 EP是Endpoint（端点）的简写 EP的值是其所属的节点的IP地址 HB是心跳状态(Heartbeat State) 前面的数据是generation\n后面的数据是version或称为heartbeat number 尽管每一个端点在应用程序状态(Application State)中\n储存了多个不同数据 在这个演示中 我们只会展示其中之一 也就是LOAD 请注意 这里每一个端点状态都可能是当前节点的信息 但这对于gossip来说并不重要 左边的节点通过一个SYN信息\n和右边的节点开启了一轮gossip 这个SYN消息里含有一个简单的摘要信息\n用于接收节点的检验 每一个摘要信息中都包含了\n这个节点已有的所有节点的 端点地址、generation和version\n后两样即完整的heartbeat信息 第一个摘要信息是关于IP为127.0.0.1的节点的 SYN信息在摘要信息中储存了这个节点的端点和heartbeat信息 IP为127.0.0.2和127.0.0.3的节点也是同理 接着左边的节点会将这条SYN消息传给右边的节点 接收节点再比较SYN消息中的数据和它当前已有的节点信息 它发现heartbeat的generation是一样的\n但heartbeat的version不一样 这个节点所含有的关于IP为127.0.0.1的节点的\n信息已经过时了 因为它当前的heartbeat的version值是15 这比左边的发送节点发送过来的数据里\n包含的20要小 这个接收节点需要获取来自发送节点的最新的详细信息 所以接收节点创建了一个ACK消息来回应发送节点的SYN消息 和SYN消息类似 ACK消息也含有摘要信息 接收节点创建了ACK消息来回应发送节点的SYN消息 和SYN消息类似 ACK消息也含有摘要信息 接收节点在ACK消息中储存\n它拥有的关于127.0.0.1节点的信息 这样接收节点就告诉了发送节点 它所知道的所有关于127.0.0.1这个节点的信息\n直到第15个版本 但它需要从发送节点获取关于这个节点的最新信息 接着再对IP为127.0.0.2的节点的元数据进行比较 接收节点得知自己有比发送节点更新的信息 因为接收节点的heartbeat的值50\n大于发送节点的heartbeat的值40 接收节点会将这些最新数据在ACK中打包发送回去 而不是只发送一个简单的127.0.0.2节点的摘要 对于IP为127.0.0.3的节点\n接收节点看到它已有的数据过时了 因此它将一个关于127.0.0.3节点的摘要信息放进ACK消息 从而向发送节点请求最新的信息 然后右边的接收节点会将ACK消息发回左边的发送节点 左边的节点看到右边的节点需要最新的\n127.0.0.1节点和127.0.0.3节点的信息 左边的节点就创建了ACK2消息来回应右边的接收节点 左边的节点会在ACK2消息中放入最新数据 另外 左边节点也看到右边节点的回应中\n含有127.0.0.2节点的最新数据 左边节点便会对自己存有的127.0.0.2节点的数据进行更新 ACK这条消息的任务完成了 接着左边的发起节点便发送ACK2消息给右边的接收节点 接收节点在ACK2消息中看到它之前请求的更新消息\n也会更新相应的数据 本Gossip回合到此结束 两个节点的信息也完成了同步 Gossip本身并不会占用很多网络资源 Gossip的消息大小和频率\n与集群中实际的数据流量相比并不值一提 Gossip的流量可以被想成\n只是相当小的背景音一般的存在",
+    "segments": [
+      {
+        "start": 0.754,
+        "duration": 5.909,
+        "text": "DS201: Gossip协议"
+      },
+      {
+        "start": 6.663,
+        "duration": 4.379,
+        "text": "不 这不是你公司同事之间随意传播的那种办公室八卦"
+      },
+      {
+        "start": 11.042,
+        "duration": 3.827,
+        "text": "不过人与人之间传输信息的方式"
+      },
+      {
+        "start": 14.869,
+        "duration": 4.451,
+        "text": "和集群在节点中传输信息的方式十分类似"
+      },
+      {
+        "start": 19.32,
+        "duration": 3.722,
+        "text": "Gossip（意为“闲聊”）协议是一个传播数据的广播协议(broadcast protocol)"
+      },
+      {
+        "start": 23.042,
+        "duration": 3.488,
+        "text": "Cassandra没有一个集中式的服务器拥有整个集群的信息"
+      },
+      {
+        "start": 26.53,
+        "duration": 4.342,
+        "text": "不过节点们会互相传播这些信息"
+      },
+      {
+        "start": 30.872,
+        "duration": 4.128,
+        "text": "节点只会维护最新的信息并且是自动的"
+      },
+      {
+        "start": 35.0,
+        "duration": 4.246,
+        "text": "图中有一个节点想要分享些信息"
+      },
+      {
+        "start": 39.246,
+        "duration": 4.58,
+        "text": "这个节点选择了底部的节点并分享了这些信息"
+      },
+      {
+        "start": 43.826,
+        "duration": 5.056,
+        "text": "接着 处于底部的第二个节点和左边的节点分享了信息"
+      },
+      {
+        "start": 48.882,
+        "duration": 4.778,
+        "text": "第一个节点同时和右上方的节点分享了信息"
+      },
+      {
+        "start": 53.66,
+        "duration": 5.056,
+        "text": "接下来 所有含有信息的节点也和其他节点分享信息"
+      },
+      {
+        "start": 58.716,
+        "duration": 3.885,
+        "text": "现在集群中的所有节点都知道了这条信息"
+      },
+      {
+        "start": 62.601,
+        "duration": 4.846,
+        "text": "在这种情况下 信息的传播速度为多项式增长"
+      },
+      {
+        "start": 67.447,
+        "duration": 4.387,
+        "text": "在每一轮gossip 每一个节点都可以和任意数量的节点进行gossip"
+      },
+      {
+        "start": 71.834,
+        "duration": 3.607,
+        "text": "不过节点其实不需要用这么过时的方式进行gossip"
+      },
+      {
+        "start": 75.441,
+        "duration": 5.158,
+        "text": "但是 它会基于一些标准来选择进行gossip的节点 我们之后会讨论"
+      },
+      {
+        "start": 80.599,
+        "duration": 6.375,
+        "text": "每个节点每秒钟会开启一轮gossip\n并且每轮最多会随机选择3个节点进行信息交换"
+      },
+      {
+        "start": 86.974,
+        "duration": 5.003,
+        "text": "不过种子节点(seed node)被选择的可能性稍微更大一些"
+      },
+      {
+        "start": 91.977,
+        "duration": 2.642,
+        "text": "也就是说在别的节点获取这些信息之前\n种子节点更有可能先得到这些信息"
+      },
+      {
+        "start": 94.619,
+        "duration": 6.465,
+        "text": "你可以把种子节点想象成一个爱打听的烦人的邻居\n它好像总是知道所有的事情 甚至于在当事人知道之前"
+      },
+      {
+        "start": 101.084,
+        "duration": 1.715,
+        "text": "差不多就是这样"
+      },
+      {
+        "start": 102.799,
+        "duration": 4.296,
+        "text": "节点不会追踪记录自己之前gossip过的节点"
+      },
+      {
+        "start": 107.095,
+        "duration": 6.805,
+        "text": "这只是为了能快速向其他所有节点传播当前的集群状态"
+      },
+      {
+        "start": 113.9,
+        "duration": 6.594,
+        "text": "gossip的好处在于\n它能在集群节点中快速且可靠地传播信息"
+      },
+      {
+        "start": 120.494,
+        "duration": 2.267,
+        "text": "节点可以随意来去"
+      },
+      {
+        "start": 122.761,
+        "duration": 4.462,
+        "text": "因为并没有一个所有节点都需要依赖的主节点"
+      },
+      {
+        "start": 127.223,
+        "duration": 4.277,
+        "text": "让我们看看gossip在集群中传播什么样的信息"
+      },
+      {
+        "start": 131.5,
+        "duration": 4.183,
+        "text": "Gossip不会传播客户端数据\n而只传播节点元数据(node metadata)"
+      },
+      {
+        "start": 135.683,
+        "duration": 4.138,
+        "text": "因为所有节点都是类似的 所以我们现在只看一个节点即可"
+      },
+      {
+        "start": 139.821,
+        "duration": 4.624,
+        "text": "每个节点都有一个反映总体状态的数据结构\n叫做Endpoint State（端点状态）"
+      },
+      {
+        "start": 144.445,
+        "duration": 5.731,
+        "text": "它主要用来储存一个单独节点或端点的所有gossip状态信息"
+      },
+      {
+        "start": 150.176,
+        "duration": 4.977,
+        "text": "Endpoint State嵌套了另一个数据结构\n叫做Heartbeat State（心跳消息状态）"
+      },
+      {
+        "start": 155.153,
+        "duration": 2.957,
+        "text": "Heartbeat State追踪两个值"
+      },
+      {
+        "start": 158.11,
+        "duration": 2.236,
+        "text": "第一个是generation（代）"
+      },
+      {
+        "start": 160.346,
+        "duration": 3.092,
+        "text": "这是一个标记该节点何时启动(bootstrap)的时间戳"
+      },
+      {
+        "start": 163.438,
+        "duration": 2.408,
+        "text": "另一个是Version（版本）它是一个简单的整数"
+      },
+      {
+        "start": 165.846,
+        "duration": 3.271,
+        "text": "每秒钟每个节点的Version值会递增"
+      },
+      {
+        "start": 169.117,
+        "duration": 4.342,
+        "text": "Heartbeat State的值递增后会在整个集群中传播"
+      },
+      {
+        "start": 173.459,
+        "duration": 4.788,
+        "text": "这可以让其他节点对当前节点是否在线进行判断"
+      },
+      {
+        "start": 178.247,
+        "duration": 5.433,
+        "text": "端点状态嵌套的第二个数据结构\n是Application State（应用程序状态）"
+      },
+      {
+        "start": 183.68,
+        "duration": 3.918,
+        "text": "Application State储存了这个节点的元数据"
+      },
+      {
+        "start": 187.598,
+        "duration": 5.707,
+        "text": "Application State存储的关于当前节点的数据\n是通过Gossip协议在集群中被传递出去"
+      },
+      {
+        "start": 193.305,
+        "duration": 3.29,
+        "text": "这其中的一个元数据是STATUS"
+      },
+      {
+        "start": 196.595,
+        "duration": 2.851,
+        "text": "STATUS的值有几种情况"
+      },
+      {
+        "start": 199.446,
+        "duration": 3.363,
+        "text": "BOOTSTRAP意味着节点即将上线"
+      },
+      {
+        "start": 202.809,
+        "duration": 3.895,
+        "text": "NORMAL意味着所有东西都正常运转"
+      },
+      {
+        "start": 206.704,
+        "duration": 4.272,
+        "text": "LEAVING或LEFT意味着节点已经停止工作"
+      },
+      {
+        "start": 210.976,
+        "duration": 6.736,
+        "text": "REMOVING或REMOVE意味着你移除了一个无法物理访问的节点"
+      },
+      {
+        "start": 217.712,
+        "duration": 2.776,
+        "text": "节点会自行声明它自己的状态"
+      },
+      {
+        "start": 220.488,
+        "duration": 6.266,
+        "text": "尽管每个节点的故障检测器(failure detector)\n会判断它的同伴是否在线"
+      },
+      {
+        "start": 226.754,
+        "duration": 4.121,
+        "text": "但节点不会gossip关于它对于同伴状态的判断\n（即节点的状态由自己声明）"
+      },
+      {
+        "start": 230.875,
+        "duration": 2.92,
+        "text": "DC代表节点所处的数据中心(Data Center)"
+      },
+      {
+        "start": 233.795,
+        "duration": 2.612,
+        "text": "RACK是节点所处的机架"
+      },
+      {
+        "start": 236.407,
+        "duration": 4.202,
+        "text": "随着时间流逝 当有任何数据模型改变 SCHEMA值会随之改变"
+      },
+      {
+        "start": 240.609,
+        "duration": 4.209,
+        "text": "LOAD是磁盘空间的使用情况 等等"
+      },
+      {
+        "start": 244.818,
+        "duration": 3.117,
+        "text": "Gossip是一个简单的消息传输协议(messaging protocol)"
+      },
+      {
+        "start": 247.935,
+        "duration": 4.403,
+        "text": "现在我们来研究两个节点间的一次gossip信息交换"
+      },
+      {
+        "start": 252.338,
+        "duration": 3.588,
+        "text": "我们会研究节点A和C之间的信息交换"
+      },
+      {
+        "start": 255.926,
+        "duration": 4.356,
+        "text": "这里我们可以看到每个节点储存了3条端点状态信息"
+      },
+      {
+        "start": 260.282,
+        "duration": 3.131,
+        "text": "每一条端点状态信息对应集群中的一个节点\n这其中也包括它自己"
+      },
+      {
+        "start": 263.413,
+        "duration": 4.629,
+        "text": "请注意 为了使案例更易于讨论 我们移除了第四个节点信息"
+      },
+      {
+        "start": 268.042,
+        "duration": 2.685,
+        "text": "EP是Endpoint（端点）的简写"
+      },
+      {
+        "start": 270.727,
+        "duration": 4.989,
+        "text": "EP的值是其所属的节点的IP地址"
+      },
+      {
+        "start": 275.716,
+        "duration": 2.285,
+        "text": "HB是心跳状态(Heartbeat State)"
+      },
+      {
+        "start": 278.001,
+        "duration": 7.249,
+        "text": "前面的数据是generation\n后面的数据是version或称为heartbeat number"
+      },
+      {
+        "start": 285.25,
+        "duration": 5.39,
+        "text": "尽管每一个端点在应用程序状态(Application State)中\n储存了多个不同数据"
+      },
+      {
+        "start": 290.64,
+        "duration": 4.36,
+        "text": "在这个演示中 我们只会展示其中之一 也就是LOAD"
+      },
+      {
+        "start": 295.0,
+        "duration": 3.945,
+        "text": "请注意 这里每一个端点状态都可能是当前节点的信息"
+      },
+      {
+        "start": 298.945,
+        "duration": 2.0,
+        "text": "但这对于gossip来说并不重要"
+      },
+      {
+        "start": 300.945,
+        "duration": 5.105,
+        "text": "左边的节点通过一个SYN信息\n和右边的节点开启了一轮gossip"
+      },
+      {
+        "start": 306.05,
+        "duration": 5.88,
+        "text": "这个SYN消息里含有一个简单的摘要信息\n用于接收节点的检验"
+      },
+      {
+        "start": 311.93,
+        "duration": 6.639,
+        "text": "每一个摘要信息中都包含了\n这个节点已有的所有节点的"
+      },
+      {
+        "start": 318.569,
+        "duration": 3.354,
+        "text": "端点地址、generation和version\n后两样即完整的heartbeat信息"
+      },
+      {
+        "start": 321.923,
+        "duration": 5.494,
+        "text": "第一个摘要信息是关于IP为127.0.0.1的节点的"
+      },
+      {
+        "start": 327.417,
+        "duration": 6.649,
+        "text": "SYN信息在摘要信息中储存了这个节点的端点和heartbeat信息"
+      },
+      {
+        "start": 334.066,
+        "duration": 9.055,
+        "text": "IP为127.0.0.2和127.0.0.3的节点也是同理"
+      },
+      {
+        "start": 343.467,
+        "duration": 4.369,
+        "text": "接着左边的节点会将这条SYN消息传给右边的节点"
+      },
+      {
+        "start": 347.836,
+        "duration": 4.342,
+        "text": "接收节点再比较SYN消息中的数据和它当前已有的节点信息"
+      },
+      {
+        "start": 352.178,
+        "duration": 5.493,
+        "text": "它发现heartbeat的generation是一样的\n但heartbeat的version不一样"
+      },
+      {
+        "start": 357.671,
+        "duration": 5.731,
+        "text": "这个节点所含有的关于IP为127.0.0.1的节点的\n信息已经过时了"
+      },
+      {
+        "start": 363.402,
+        "duration": 2.733,
+        "text": "因为它当前的heartbeat的version值是15"
+      },
+      {
+        "start": 366.135,
+        "duration": 4.407,
+        "text": "这比左边的发送节点发送过来的数据里\n包含的20要小"
+      },
+      {
+        "start": 370.542,
+        "duration": 4.958,
+        "text": "这个接收节点需要获取来自发送节点的最新的详细信息"
+      },
+      {
+        "start": 375.5,
+        "duration": 5.37,
+        "text": "所以接收节点创建了一个ACK消息来回应发送节点的SYN消息"
+      },
+      {
+        "start": 380.87,
+        "duration": 3.789,
+        "text": "和SYN消息类似 ACK消息也含有摘要信息"
+      },
+      {
+        "start": 384.659,
+        "duration": 5.341,
+        "text": "接收节点创建了ACK消息来回应发送节点的SYN消息"
+      },
+      {
+        "start": 390.0,
+        "duration": 5.44,
+        "text": "和SYN消息类似 ACK消息也含有摘要信息"
+      },
+      {
+        "start": 395.44,
+        "duration": 7.231,
+        "text": "接收节点在ACK消息中储存\n它拥有的关于127.0.0.1节点的信息"
+      },
+      {
+        "start": 402.671,
+        "duration": 3.242,
+        "text": "这样接收节点就告诉了发送节点"
+      },
+      {
+        "start": 405.913,
+        "duration": 6.722,
+        "text": "它所知道的所有关于127.0.0.1这个节点的信息\n直到第15个版本"
+      },
+      {
+        "start": 412.635,
+        "duration": 4.729,
+        "text": "但它需要从发送节点获取关于这个节点的最新信息"
+      },
+      {
+        "start": 417.364,
+        "duration": 4.464,
+        "text": "接着再对IP为127.0.0.2的节点的元数据进行比较"
+      },
+      {
+        "start": 421.828,
+        "duration": 5.572,
+        "text": "接收节点得知自己有比发送节点更新的信息"
+      },
+      {
+        "start": 427.4,
+        "duration": 2.972,
+        "text": "因为接收节点的heartbeat的值50\n大于发送节点的heartbeat的值40"
+      },
+      {
+        "start": 430.372,
+        "duration": 4.139,
+        "text": "接收节点会将这些最新数据在ACK中打包发送回去"
+      },
+      {
+        "start": 434.511,
+        "duration": 4.419,
+        "text": "而不是只发送一个简单的127.0.0.2节点的摘要"
+      },
+      {
+        "start": 438.93,
+        "duration": 5.796,
+        "text": "对于IP为127.0.0.3的节点\n接收节点看到它已有的数据过时了"
+      },
+      {
+        "start": 444.726,
+        "duration": 6.375,
+        "text": "因此它将一个关于127.0.0.3节点的摘要信息放进ACK消息"
+      },
+      {
+        "start": 451.101,
+        "duration": 3.793,
+        "text": "从而向发送节点请求最新的信息"
+      },
+      {
+        "start": 454.894,
+        "duration": 3.487,
+        "text": "然后右边的接收节点会将ACK消息发回左边的发送节点"
+      },
+      {
+        "start": 458.381,
+        "duration": 8.672,
+        "text": "左边的节点看到右边的节点需要最新的\n127.0.0.1节点和127.0.0.3节点的信息"
+      },
+      {
+        "start": 467.053,
+        "duration": 3.979,
+        "text": "左边的节点就创建了ACK2消息来回应右边的接收节点"
+      },
+      {
+        "start": 471.032,
+        "duration": 4.223,
+        "text": "左边的节点会在ACK2消息中放入最新数据"
+      },
+      {
+        "start": 475.255,
+        "duration": 7.661,
+        "text": "另外 左边节点也看到右边节点的回应中\n含有127.0.0.2节点的最新数据"
+      },
+      {
+        "start": 482.916,
+        "duration": 5.203,
+        "text": "左边节点便会对自己存有的127.0.0.2节点的数据进行更新"
+      },
+      {
+        "start": 488.119,
+        "duration": 1.464,
+        "text": "ACK这条消息的任务完成了"
+      },
+      {
+        "start": 489.583,
+        "duration": 3.983,
+        "text": "接着左边的发起节点便发送ACK2消息给右边的接收节点"
+      },
+      {
+        "start": 493.566,
+        "duration": 8.93,
+        "text": "接收节点在ACK2消息中看到它之前请求的更新消息\n也会更新相应的数据"
+      },
+      {
+        "start": 502.496,
+        "duration": 4.06,
+        "text": "本Gossip回合到此结束 两个节点的信息也完成了同步"
+      },
+      {
+        "start": 506.556,
+        "duration": 4.182,
+        "text": "Gossip本身并不会占用很多网络资源"
+      },
+      {
+        "start": 510.738,
+        "duration": 6.436,
+        "text": "Gossip的消息大小和频率\n与集群中实际的数据流量相比并不值一提"
+      },
+      {
+        "start": 517.174,
+        "duration": 3.568,
+        "text": "Gossip的流量可以被想成\n只是相当小的背景音一般的存在"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T02:02:43.582689+00:00"
+}

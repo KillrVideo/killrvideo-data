@@ -1,0 +1,1489 @@
+{
+  "video_id": "CPDJPW06e3A",
+  "title": "DS320.19 Key/Value Pairs: Grouping and Sorting | DataStax Enterprise Analytics",
+  "description": "#DataStaxAcademy #DS320\nDS320.19 Key/Value Pairs: Grouping and Sorting\nIn this course, you will learn how to effectively and efficiently solve analytical problems with Apache Spark™, Apache Cassandra™, and DataStax Enterprise. You will learn about the Spark API, Spark-Cassandra Connector, Spark SQL, Spark Streaming, and crucial performance optimization techniques.  You will also learn the basics of the productive and robust Scala programming language for data analysis and processing in Apache Spark™.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-16T00:28:49Z",
+  "thumbnail": "https://i.ytimg.com/vi/CPDJPW06e3A/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "performance",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=CPDJPW06e3A",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] a spark gives us a lot of options for grouping and sorting on pair rdds and again we're not going to work through all of those it's always worth it to read the documentation for a comprehensive overview of every single api call but we are going to look at a few common things we might want to do with our movie data useful things that are going to rely on grouping and sorting transformations and in this section we have three challenges we're going to pursue let's take a look at those we're going to want to output movies featuring johnny depp grouped by genre we want to output movies featuring johnny depp and movies with tom hanks co-grouped by year that's going to take some explanation but we'll get there and we're going to look for movies from 2010 featuring johnny depp ordered by rating the group by key transformation is pretty intuitive some of the transformations in the last section were a little hairy this one is pretty easy to understand we're going to do is we're going to take the input rdd and get all of the unique key values you see there are two of them k1 and k2 in the source rdd and the output rdd is going to have an iterable or a collection of the values that we find with that key so in the source rdd for key k1 we have v1 v3 and v4 and if you actually look at the rdd on the left you'll see those for k2 we have v2 and v5 simple as that so it groups things up by key and gives us a collection of the values in the output rdd group by key gives us a fairly straightforward way of collecting up all of the johnny depp movies by genre now we're going to have to use a flat map in here to make this work so let's walk through the code to get us to the point where we can do this nice convenient group by key transformation the first three lines we're querying movies by actor getting title release here and genres and we're asking cassandra table to give us a tuple of those three things that's a string an int and a set of strings genre is a set in the cassandra schema and we're asking it for to be a set of strings in the tuple we get back as well next we flat map it okay we flat map it and we say every time flat map sees three things called t y and gs are really just three arguments we're going to call them t y and gs that's title year and genres then we'll map those genres that's just mapping the scala set that's not a spark mapping going on there but we have that set and we're going to map it to return a tuple containing the genre and the title comma the year all right then we'll take that and group it by key collect it and print it out and as you can see in the results down below sample for just a single genre the data would get a little out of hand if we tried to show it all but just a single genre there we see for the family genre we had alice through the looking glass alice in wonderland charlie and the chocolate factory and finding neverland those four films all with the family genre at the time of this recording through the looking glass is not even released yet so this is a little glimpse into the future co-group or its synonym group with is a transformation you use on two rdds if you want to group them by key and collect together the keys you find in one rdd with the keys you find in the other rdd let's take a look at some pictures of this and some code and see if we can make this make sense now we have those two rdds as input as you see on the bottom and when we co-group them we will for example take all of the unique values of k1 from the first rdd that top one that's v1 and v3 and we're going to put them together in an iterable then we're going to take all of the unique values of k2 from the second rdd and put them together in an integrable and you see for that first record the first row in the resulting pair rdd where the key is k1 we get a collection of v1 and v3 and then a collection of w1 likewise for k2 we get v2 and w2 and w3 now we've drawn lines for you on the slide here and i encourage you to pause the video follow those lines and make sure you understand the mapping that's happening here we're taking two pair rdds and grouping their values together and merging them together in one bigger record now what would we use that for suppose we wanted to see all of the movies that had johnny depp in them and all of the movies that had tom hanks in them grouped by year so i need to know what was hanks doing in 2011 and what was depp doing in 2011. i want to see that in one row let's look at the code first we make an rdd that we'll call johnny movies and that's all of the movies by actor that have johnny depp in them and on that third line we're going to key buy we've covered that previously but that's going to turn that cassandra row into a pair rdd according to the anonymous function we pass in we're going to pick out the release year and make that the key so this is now a pair rdd where the key is the release here and the value is the row that's returned from the query so we're turning that row into a pair rdd in a fairly intuitive way tom movies exactly the same thing except we're looking for where the actor is tom hanks and again key buy on release here so now we have two rdds johnny movies and tom movies so we can co-group them which we do simply by calling johnny movies co-group tom movies collect four each and away we go we're showing you limited output there since that would be potentially a large data set it would be a pain to look at on the slide but for 2010 we see we have two cassandra rows for johnny depp followed by one cassandra row for tom hanks and if you're wondering why a cassandra row look back up at the top line when we called cassandra table we did no type coercion into a tuple we're just letting that give us cassandra rose back the way it normally does if i wanted that to be say a list of all the movie titles that had either one i could then flat map that and convert those two collections into a single collection on the output that's something we've looked at how to do earlier now we've done all this rating stuff suppose we wanted to output a list of movies sorted by rating that might seem to be a good feature on killer video or even a list of any videos sorted by rating here are the top rated videos well we'd still want to use pair rdds but we'd want an ordered pair rdd sort by key is a transformation that makes one of those for us sort by key doesn't need to take any arguments we can simply call it on an rdd and that's going to do its thing we can also pass in that optional ascending parameter it's true by default so by default things are going to be ordered in ascending order but if we pass in a false there then they'll be descending now the key type has to implement the ordered trait in scala terms in other words it has to be a thing that the language knows how to compare in order to do the ordering that's fairly intuitive now putting this into practice let's look at how we would do this with our movies data we query movies by actor where actor is johnny depp and release here is 2010 or greater we're only interested in the most recent few years there we want title release year and rating and we're going to convert that into a tuple with that as line where the first element of the tuple is the rating or zero if the film is unrated the second element of the tuple is again a tuple of title and year that gives us a pair rdd that we're able to sort by key of course we would like the best movie first so we'll sort in descending order we'll pass in a false there and then we'll collect and iterate and print them out and we see the results we get there looks like a 7.3 is 6.7 a 6.5 and a 6.3 not too shabby now a few warnings for grouping and sorting both of them are potentially expensive they can require shuffling and they don't ever reduce the size of the data set so if you've got a large data set you're going to group or sort them be advised grouping also you might be thinking that there would be a way to use this for aggregating or joining we have aggregation and joint transformations for those purposes and they're more efficient for those purposes so don't hack grouping to do a join also when you do a grouping that can potentially create big values right the keys are going to be the same but you're grouping you're taking a bunch of values here that were individual rdd records and making them into one rdd record on the output side that can be a problem if those get large now rdds remember are distributed so the individual records of an rdd can be spread around as many servers as you want but if you do some really pathological kind of grouping that makes a big value that big value does have to fit in memory the value itself a single element in an rdd can't itself be partitioned so don't get too crazy with that you want to look for groupings that might result in that sort of pathological sizing and try to avoid those",
+    "segments": [
+      {
+        "start": 0.06,
+        "duration": 3.45,
+        "text": "[Music]"
+      },
+      {
+        "start": 6.399,
+        "duration": 3.28,
+        "text": "a spark gives us a lot of options for"
+      },
+      {
+        "start": 8.24,
+        "duration": 3.279,
+        "text": "grouping and sorting on pair"
+      },
+      {
+        "start": 9.679,
+        "duration": 3.281,
+        "text": "rdds and again we're not going to work"
+      },
+      {
+        "start": 11.519,
+        "duration": 3.12,
+        "text": "through all of those it's always worth"
+      },
+      {
+        "start": 12.96,
+        "duration": 3.6,
+        "text": "it to read the documentation for a"
+      },
+      {
+        "start": 14.639,
+        "duration": 3.761,
+        "text": "comprehensive overview of every single"
+      },
+      {
+        "start": 16.56,
+        "duration": 3.36,
+        "text": "api call but we are going to look at a"
+      },
+      {
+        "start": 18.4,
+        "duration": 3.36,
+        "text": "few common things we might want to do"
+      },
+      {
+        "start": 19.92,
+        "duration": 4.24,
+        "text": "with our movie data useful things"
+      },
+      {
+        "start": 21.76,
+        "duration": 4.08,
+        "text": "that are going to rely on grouping and"
+      },
+      {
+        "start": 24.16,
+        "duration": 2.72,
+        "text": "sorting transformations and in this"
+      },
+      {
+        "start": 25.84,
+        "duration": 3.199,
+        "text": "section we have"
+      },
+      {
+        "start": 26.88,
+        "duration": 3.28,
+        "text": "three challenges we're going to pursue"
+      },
+      {
+        "start": 29.039,
+        "duration": 2.56,
+        "text": "let's take a look at those we're going"
+      },
+      {
+        "start": 30.16,
+        "duration": 2.64,
+        "text": "to want to output movies featuring"
+      },
+      {
+        "start": 31.599,
+        "duration": 3.841,
+        "text": "johnny depp grouped by"
+      },
+      {
+        "start": 32.8,
+        "duration": 3.599,
+        "text": "genre we want to output movies featuring"
+      },
+      {
+        "start": 35.44,
+        "duration": 3.84,
+        "text": "johnny depp"
+      },
+      {
+        "start": 36.399,
+        "duration": 3.281,
+        "text": "and movies with tom hanks co-grouped by"
+      },
+      {
+        "start": 39.28,
+        "duration": 1.68,
+        "text": "year"
+      },
+      {
+        "start": 39.68,
+        "duration": 2.719,
+        "text": "that's going to take some explanation"
+      },
+      {
+        "start": 40.96,
+        "duration": 1.84,
+        "text": "but we'll get there and we're going to"
+      },
+      {
+        "start": 42.399,
+        "duration": 3.601,
+        "text": "look"
+      },
+      {
+        "start": 42.8,
+        "duration": 6.4,
+        "text": "for movies from 2010"
+      },
+      {
+        "start": 46.0,
+        "duration": 5.36,
+        "text": "featuring johnny depp ordered by rating"
+      },
+      {
+        "start": 49.2,
+        "duration": 3.76,
+        "text": "the group by key transformation is"
+      },
+      {
+        "start": 51.36,
+        "duration": 3.12,
+        "text": "pretty intuitive"
+      },
+      {
+        "start": 52.96,
+        "duration": 3.279,
+        "text": "some of the transformations in the last"
+      },
+      {
+        "start": 54.48,
+        "duration": 4.16,
+        "text": "section were a little hairy this one"
+      },
+      {
+        "start": 56.239,
+        "duration": 3.761,
+        "text": "is pretty easy to understand we're going"
+      },
+      {
+        "start": 58.64,
+        "duration": 2.399,
+        "text": "to do is we're going to take the input"
+      },
+      {
+        "start": 60.0,
+        "duration": 3.92,
+        "text": "rdd"
+      },
+      {
+        "start": 61.039,
+        "duration": 4.001,
+        "text": "and get all of the unique key values you"
+      },
+      {
+        "start": 63.92,
+        "duration": 3.76,
+        "text": "see there are two of them"
+      },
+      {
+        "start": 65.04,
+        "duration": 3.92,
+        "text": "k1 and k2 in the source rdd and the"
+      },
+      {
+        "start": 67.68,
+        "duration": 3.52,
+        "text": "output rdd"
+      },
+      {
+        "start": 68.96,
+        "duration": 3.36,
+        "text": "is going to have an iterable or a"
+      },
+      {
+        "start": 71.2,
+        "duration": 4.16,
+        "text": "collection"
+      },
+      {
+        "start": 72.32,
+        "duration": 3.439,
+        "text": "of the values that we find with that key"
+      },
+      {
+        "start": 75.36,
+        "duration": 3.28,
+        "text": "so"
+      },
+      {
+        "start": 75.759,
+        "duration": 4.241,
+        "text": "in the source rdd for key k1 we have v1"
+      },
+      {
+        "start": 78.64,
+        "duration": 3.04,
+        "text": "v3 and v4"
+      },
+      {
+        "start": 80.0,
+        "duration": 3.759,
+        "text": "and if you actually look at the rdd on"
+      },
+      {
+        "start": 81.68,
+        "duration": 5.84,
+        "text": "the left you'll see those for k2"
+      },
+      {
+        "start": 83.759,
+        "duration": 6.081,
+        "text": "we have v2 and v5 simple as that"
+      },
+      {
+        "start": 87.52,
+        "duration": 4.239,
+        "text": "so it groups things up by key and gives"
+      },
+      {
+        "start": 89.84,
+        "duration": 4.08,
+        "text": "us a collection of the values"
+      },
+      {
+        "start": 91.759,
+        "duration": 3.68,
+        "text": "in the output rdd group by key gives us"
+      },
+      {
+        "start": 93.92,
+        "duration": 3.839,
+        "text": "a fairly straightforward way"
+      },
+      {
+        "start": 95.439,
+        "duration": 3.761,
+        "text": "of collecting up all of the johnny depp"
+      },
+      {
+        "start": 97.759,
+        "duration": 2.72,
+        "text": "movies by genre"
+      },
+      {
+        "start": 99.2,
+        "duration": 2.8,
+        "text": "now we're going to have to use a flat"
+      },
+      {
+        "start": 100.479,
+        "duration": 2.64,
+        "text": "map in here to make this work so let's"
+      },
+      {
+        "start": 102.0,
+        "duration": 2.479,
+        "text": "walk through the code"
+      },
+      {
+        "start": 103.119,
+        "duration": 3.761,
+        "text": "to get us to the point where we can do"
+      },
+      {
+        "start": 104.479,
+        "duration": 4.161,
+        "text": "this nice convenient group by key"
+      },
+      {
+        "start": 106.88,
+        "duration": 3.76,
+        "text": "transformation the first three lines"
+      },
+      {
+        "start": 108.64,
+        "duration": 3.2,
+        "text": "we're querying movies by actor getting"
+      },
+      {
+        "start": 110.64,
+        "duration": 3.68,
+        "text": "title release here and"
+      },
+      {
+        "start": 111.84,
+        "duration": 3.68,
+        "text": "genres and we're asking cassandra table"
+      },
+      {
+        "start": 114.32,
+        "duration": 3.6,
+        "text": "to give us a tuple"
+      },
+      {
+        "start": 115.52,
+        "duration": 4.559,
+        "text": "of those three things that's a string an"
+      },
+      {
+        "start": 117.92,
+        "duration": 5.04,
+        "text": "int and a set of strings"
+      },
+      {
+        "start": 120.079,
+        "duration": 4.241,
+        "text": "genre is a set in the cassandra schema"
+      },
+      {
+        "start": 122.96,
+        "duration": 3.199,
+        "text": "and we're asking it for to be"
+      },
+      {
+        "start": 124.32,
+        "duration": 3.439,
+        "text": "a set of strings in the tuple we get"
+      },
+      {
+        "start": 126.159,
+        "duration": 4.16,
+        "text": "back as well next we"
+      },
+      {
+        "start": 127.759,
+        "duration": 3.681,
+        "text": "flat map it okay we flat map it and we"
+      },
+      {
+        "start": 130.319,
+        "duration": 4.401,
+        "text": "say every time"
+      },
+      {
+        "start": 131.44,
+        "duration": 6.159,
+        "text": "flat map sees three things called t"
+      },
+      {
+        "start": 134.72,
+        "duration": 4.08,
+        "text": "y and gs are really just three arguments"
+      },
+      {
+        "start": 137.599,
+        "duration": 4.481,
+        "text": "we're going to call them"
+      },
+      {
+        "start": 138.8,
+        "duration": 6.32,
+        "text": "t y and gs that's title year and genres"
+      },
+      {
+        "start": 142.08,
+        "duration": 4.159,
+        "text": "then we'll map those genres that's just"
+      },
+      {
+        "start": 145.12,
+        "duration": 3.839,
+        "text": "mapping the scala"
+      },
+      {
+        "start": 146.239,
+        "duration": 4.161,
+        "text": "set that's not a spark mapping going on"
+      },
+      {
+        "start": 148.959,
+        "duration": 3.841,
+        "text": "there but we have that set"
+      },
+      {
+        "start": 150.4,
+        "duration": 3.04,
+        "text": "and we're going to map it to return a"
+      },
+      {
+        "start": 152.8,
+        "duration": 3.68,
+        "text": "tuple"
+      },
+      {
+        "start": 153.44,
+        "duration": 6.079,
+        "text": "containing the genre and"
+      },
+      {
+        "start": 156.48,
+        "duration": 3.759,
+        "text": "the title comma the year all right then"
+      },
+      {
+        "start": 159.519,
+        "duration": 3.44,
+        "text": "we'll take"
+      },
+      {
+        "start": 160.239,
+        "duration": 3.601,
+        "text": "that and group it by key collect it and"
+      },
+      {
+        "start": 162.959,
+        "duration": 2.64,
+        "text": "print it out"
+      },
+      {
+        "start": 163.84,
+        "duration": 3.28,
+        "text": "and as you can see in the results down"
+      },
+      {
+        "start": 165.599,
+        "duration": 4.0,
+        "text": "below sample for"
+      },
+      {
+        "start": 167.12,
+        "duration": 3.6,
+        "text": "just a single genre the data would get a"
+      },
+      {
+        "start": 169.599,
+        "duration": 1.601,
+        "text": "little out of hand if we tried to show"
+      },
+      {
+        "start": 170.72,
+        "duration": 2.64,
+        "text": "it all"
+      },
+      {
+        "start": 171.2,
+        "duration": 3.28,
+        "text": "but just a single genre there we see for"
+      },
+      {
+        "start": 173.36,
+        "duration": 3.36,
+        "text": "the family"
+      },
+      {
+        "start": 174.48,
+        "duration": 3.92,
+        "text": "genre we had alice through the looking"
+      },
+      {
+        "start": 176.72,
+        "duration": 3.36,
+        "text": "glass alice in wonderland"
+      },
+      {
+        "start": 178.4,
+        "duration": 3.52,
+        "text": "charlie and the chocolate factory and"
+      },
+      {
+        "start": 180.08,
+        "duration": 3.6,
+        "text": "finding neverland"
+      },
+      {
+        "start": 181.92,
+        "duration": 3.36,
+        "text": "those four films all with the family"
+      },
+      {
+        "start": 183.68,
+        "duration": 3.04,
+        "text": "genre at the time of this recording"
+      },
+      {
+        "start": 185.28,
+        "duration": 3.28,
+        "text": "through the looking glass is"
+      },
+      {
+        "start": 186.72,
+        "duration": 3.68,
+        "text": "not even released yet so this is a"
+      },
+      {
+        "start": 188.56,
+        "duration": 2.16,
+        "text": "little glimpse into the future co-group"
+      },
+      {
+        "start": 190.4,
+        "duration": 2.32,
+        "text": "or"
+      },
+      {
+        "start": 190.72,
+        "duration": 4.159,
+        "text": "its synonym group with is a"
+      },
+      {
+        "start": 192.72,
+        "duration": 3.84,
+        "text": "transformation you use on two rdds if"
+      },
+      {
+        "start": 194.879,
+        "duration": 4.481,
+        "text": "you want to group them by key"
+      },
+      {
+        "start": 196.56,
+        "duration": 4.0,
+        "text": "and collect together the keys you find"
+      },
+      {
+        "start": 199.36,
+        "duration": 4.239,
+        "text": "in one rdd"
+      },
+      {
+        "start": 200.56,
+        "duration": 4.239,
+        "text": "with the keys you find in the other rdd"
+      },
+      {
+        "start": 203.599,
+        "duration": 2.64,
+        "text": "let's take a look at some pictures of"
+      },
+      {
+        "start": 204.799,
+        "duration": 2.401,
+        "text": "this and some code and see if we can"
+      },
+      {
+        "start": 206.239,
+        "duration": 3.681,
+        "text": "make this make sense"
+      },
+      {
+        "start": 207.2,
+        "duration": 3.2,
+        "text": "now we have those two rdds as input as"
+      },
+      {
+        "start": 209.92,
+        "duration": 2.8,
+        "text": "you see"
+      },
+      {
+        "start": 210.4,
+        "duration": 3.68,
+        "text": "on the bottom and when we co-group them"
+      },
+      {
+        "start": 212.72,
+        "duration": 4.239,
+        "text": "we will for example take"
+      },
+      {
+        "start": 214.08,
+        "duration": 3.6,
+        "text": "all of the unique values of k1 from the"
+      },
+      {
+        "start": 216.959,
+        "duration": 3.92,
+        "text": "first"
+      },
+      {
+        "start": 217.68,
+        "duration": 4.72,
+        "text": "rdd that top one that's v1 and v3"
+      },
+      {
+        "start": 220.879,
+        "duration": 3.681,
+        "text": "and we're going to put them together in"
+      },
+      {
+        "start": 222.4,
+        "duration": 4.96,
+        "text": "an iterable then we're going to take"
+      },
+      {
+        "start": 224.56,
+        "duration": 4.08,
+        "text": "all of the unique values of k2 from the"
+      },
+      {
+        "start": 227.36,
+        "duration": 3.76,
+        "text": "second rdd"
+      },
+      {
+        "start": 228.64,
+        "duration": 4.159,
+        "text": "and put them together in an integrable"
+      },
+      {
+        "start": 231.12,
+        "duration": 3.679,
+        "text": "and you see for that first"
+      },
+      {
+        "start": 232.799,
+        "duration": 4.16,
+        "text": "record the first row in the resulting"
+      },
+      {
+        "start": 234.799,
+        "duration": 5.041,
+        "text": "pair rdd where the key is k1"
+      },
+      {
+        "start": 236.959,
+        "duration": 4.161,
+        "text": "we get a collection of v1 and v3 and"
+      },
+      {
+        "start": 239.84,
+        "duration": 4.88,
+        "text": "then a collection of"
+      },
+      {
+        "start": 241.12,
+        "duration": 7.52,
+        "text": "w1 likewise for k2 we get"
+      },
+      {
+        "start": 244.72,
+        "duration": 5.28,
+        "text": "v2 and w2 and w3 now we've drawn lines"
+      },
+      {
+        "start": 248.64,
+        "duration": 3.04,
+        "text": "for you on the slide here and i"
+      },
+      {
+        "start": 250.0,
+        "duration": 4.159,
+        "text": "encourage you to pause the video"
+      },
+      {
+        "start": 251.68,
+        "duration": 4.08,
+        "text": "follow those lines and make sure you"
+      },
+      {
+        "start": 254.159,
+        "duration": 2.001,
+        "text": "understand the mapping that's happening"
+      },
+      {
+        "start": 255.76,
+        "duration": 3.439,
+        "text": "here"
+      },
+      {
+        "start": 256.16,
+        "duration": 5.68,
+        "text": "we're taking two pair rdds and"
+      },
+      {
+        "start": 259.199,
+        "duration": 4.161,
+        "text": "grouping their values together and"
+      },
+      {
+        "start": 261.84,
+        "duration": 4.24,
+        "text": "merging them together"
+      },
+      {
+        "start": 263.36,
+        "duration": 3.76,
+        "text": "in one bigger record now what would we"
+      },
+      {
+        "start": 266.08,
+        "duration": 2.8,
+        "text": "use that for"
+      },
+      {
+        "start": 267.12,
+        "duration": 3.28,
+        "text": "suppose we wanted to see all of the"
+      },
+      {
+        "start": 268.88,
+        "duration": 3.12,
+        "text": "movies that had"
+      },
+      {
+        "start": 270.4,
+        "duration": 3.519,
+        "text": "johnny depp in them and all of the"
+      },
+      {
+        "start": 272.0,
+        "duration": 4.08,
+        "text": "movies that had tom hanks in them"
+      },
+      {
+        "start": 273.919,
+        "duration": 4.72,
+        "text": "grouped by year so i need to know what"
+      },
+      {
+        "start": 276.08,
+        "duration": 4.64,
+        "text": "was hanks doing in 2011 and what was"
+      },
+      {
+        "start": 278.639,
+        "duration": 3.84,
+        "text": "depp doing in 2011. i want to see that"
+      },
+      {
+        "start": 280.72,
+        "duration": 3.52,
+        "text": "in one row let's look at the code"
+      },
+      {
+        "start": 282.479,
+        "duration": 3.361,
+        "text": "first we make an rdd that we'll call"
+      },
+      {
+        "start": 284.24,
+        "duration": 4.8,
+        "text": "johnny movies and that's"
+      },
+      {
+        "start": 285.84,
+        "duration": 5.28,
+        "text": "all of the movies by actor that have"
+      },
+      {
+        "start": 289.04,
+        "duration": 3.36,
+        "text": "johnny depp in them and on that third"
+      },
+      {
+        "start": 291.12,
+        "duration": 3.44,
+        "text": "line we're going to key"
+      },
+      {
+        "start": 292.4,
+        "duration": 3.28,
+        "text": "buy we've covered that previously but"
+      },
+      {
+        "start": 294.56,
+        "duration": 4.96,
+        "text": "that's going to turn"
+      },
+      {
+        "start": 295.68,
+        "duration": 5.44,
+        "text": "that cassandra row into a pair rdd"
+      },
+      {
+        "start": 299.52,
+        "duration": 3.519,
+        "text": "according to the anonymous function we"
+      },
+      {
+        "start": 301.12,
+        "duration": 2.799,
+        "text": "pass in we're going to pick out the"
+      },
+      {
+        "start": 303.039,
+        "duration": 3.201,
+        "text": "release year"
+      },
+      {
+        "start": 303.919,
+        "duration": 4.241,
+        "text": "and make that the key so this is now a"
+      },
+      {
+        "start": 306.24,
+        "duration": 2.32,
+        "text": "pair rdd where the key is the release"
+      },
+      {
+        "start": 308.16,
+        "duration": 3.44,
+        "text": "here"
+      },
+      {
+        "start": 308.56,
+        "duration": 5.52,
+        "text": "and the value is the row that's returned"
+      },
+      {
+        "start": 311.6,
+        "duration": 4.56,
+        "text": "from the query so we're turning that row"
+      },
+      {
+        "start": 314.08,
+        "duration": 2.48,
+        "text": "into a pair rdd in a fairly intuitive"
+      },
+      {
+        "start": 316.16,
+        "duration": 2.72,
+        "text": "way"
+      },
+      {
+        "start": 316.56,
+        "duration": 4.079,
+        "text": "tom movies exactly the same thing except"
+      },
+      {
+        "start": 318.88,
+        "duration": 2.319,
+        "text": "we're looking for where the actor is tom"
+      },
+      {
+        "start": 320.639,
+        "duration": 3.12,
+        "text": "hanks"
+      },
+      {
+        "start": 321.199,
+        "duration": 4.401,
+        "text": "and again key buy on release here so now"
+      },
+      {
+        "start": 323.759,
+        "duration": 3.921,
+        "text": "we have two rdds johnny movies"
+      },
+      {
+        "start": 325.6,
+        "duration": 3.76,
+        "text": "and tom movies so we can co-group them"
+      },
+      {
+        "start": 327.68,
+        "duration": 3.359,
+        "text": "which we do simply by calling johnny"
+      },
+      {
+        "start": 329.36,
+        "duration": 4.399,
+        "text": "movies co-group tom movies"
+      },
+      {
+        "start": 331.039,
+        "duration": 3.44,
+        "text": "collect four each and away we go we're"
+      },
+      {
+        "start": 333.759,
+        "duration": 2.561,
+        "text": "showing you"
+      },
+      {
+        "start": 334.479,
+        "duration": 3.601,
+        "text": "limited output there since that would be"
+      },
+      {
+        "start": 336.32,
+        "duration": 3.68,
+        "text": "potentially a large data set it would be"
+      },
+      {
+        "start": 338.08,
+        "duration": 3.119,
+        "text": "a pain to look at on the slide but for"
+      },
+      {
+        "start": 340.0,
+        "duration": 3.28,
+        "text": "2010"
+      },
+      {
+        "start": 341.199,
+        "duration": 4.241,
+        "text": "we see we have two cassandra rows for"
+      },
+      {
+        "start": 343.28,
+        "duration": 3.68,
+        "text": "johnny depp followed by one cassandra"
+      },
+      {
+        "start": 345.44,
+        "duration": 3.199,
+        "text": "row for tom hanks"
+      },
+      {
+        "start": 346.96,
+        "duration": 3.679,
+        "text": "and if you're wondering why a cassandra"
+      },
+      {
+        "start": 348.639,
+        "duration": 3.361,
+        "text": "row look back up at the top line when we"
+      },
+      {
+        "start": 350.639,
+        "duration": 3.761,
+        "text": "called cassandra table"
+      },
+      {
+        "start": 352.0,
+        "duration": 3.68,
+        "text": "we did no type coercion into a tuple"
+      },
+      {
+        "start": 354.4,
+        "duration": 2.48,
+        "text": "we're just letting that give us"
+      },
+      {
+        "start": 355.68,
+        "duration": 2.959,
+        "text": "cassandra rose back"
+      },
+      {
+        "start": 356.88,
+        "duration": 3.439,
+        "text": "the way it normally does if i wanted"
+      },
+      {
+        "start": 358.639,
+        "duration": 3.201,
+        "text": "that to be say a list of all the movie"
+      },
+      {
+        "start": 360.319,
+        "duration": 4.641,
+        "text": "titles that had either one"
+      },
+      {
+        "start": 361.84,
+        "duration": 4.72,
+        "text": "i could then flat map that and convert"
+      },
+      {
+        "start": 364.96,
+        "duration": 2.48,
+        "text": "those two collections into a single"
+      },
+      {
+        "start": 366.56,
+        "duration": 2.16,
+        "text": "collection"
+      },
+      {
+        "start": 367.44,
+        "duration": 3.12,
+        "text": "on the output that's something we've"
+      },
+      {
+        "start": 368.72,
+        "duration": 3.759,
+        "text": "looked at how to do earlier now we've"
+      },
+      {
+        "start": 370.56,
+        "duration": 3.199,
+        "text": "done all this rating stuff suppose we"
+      },
+      {
+        "start": 372.479,
+        "duration": 4.16,
+        "text": "wanted to output a list"
+      },
+      {
+        "start": 373.759,
+        "duration": 4.641,
+        "text": "of movies sorted by rating that might"
+      },
+      {
+        "start": 376.639,
+        "duration": 3.601,
+        "text": "seem to be a good feature on killer"
+      },
+      {
+        "start": 378.4,
+        "duration": 3.6,
+        "text": "video or even a list of any videos"
+      },
+      {
+        "start": 380.24,
+        "duration": 2.56,
+        "text": "sorted by rating here are the top rated"
+      },
+      {
+        "start": 382.0,
+        "duration": 2.8,
+        "text": "videos"
+      },
+      {
+        "start": 382.8,
+        "duration": 3.2,
+        "text": "well we'd still want to use pair rdds"
+      },
+      {
+        "start": 384.8,
+        "duration": 4.0,
+        "text": "but we'd want an"
+      },
+      {
+        "start": 386.0,
+        "duration": 4.0,
+        "text": "ordered pair rdd sort by key is a"
+      },
+      {
+        "start": 388.8,
+        "duration": 1.6,
+        "text": "transformation that makes one of those"
+      },
+      {
+        "start": 390.0,
+        "duration": 1.84,
+        "text": "for us"
+      },
+      {
+        "start": 390.4,
+        "duration": 3.12,
+        "text": "sort by key doesn't need to take any"
+      },
+      {
+        "start": 391.84,
+        "duration": 2.32,
+        "text": "arguments we can simply call it on an"
+      },
+      {
+        "start": 393.52,
+        "duration": 2.799,
+        "text": "rdd"
+      },
+      {
+        "start": 394.16,
+        "duration": 4.24,
+        "text": "and that's going to do its thing we can"
+      },
+      {
+        "start": 396.319,
+        "duration": 2.801,
+        "text": "also pass in that optional ascending"
+      },
+      {
+        "start": 398.4,
+        "duration": 2.88,
+        "text": "parameter"
+      },
+      {
+        "start": 399.12,
+        "duration": 3.28,
+        "text": "it's true by default so by default"
+      },
+      {
+        "start": 401.28,
+        "duration": 2.0,
+        "text": "things are going to be ordered in"
+      },
+      {
+        "start": 402.4,
+        "duration": 2.799,
+        "text": "ascending order"
+      },
+      {
+        "start": 403.28,
+        "duration": 3.199,
+        "text": "but if we pass in a false there then"
+      },
+      {
+        "start": 405.199,
+        "duration": 3.44,
+        "text": "they'll be descending"
+      },
+      {
+        "start": 406.479,
+        "duration": 3.601,
+        "text": "now the key type has to implement the"
+      },
+      {
+        "start": 408.639,
+        "duration": 3.12,
+        "text": "ordered trait"
+      },
+      {
+        "start": 410.08,
+        "duration": 2.88,
+        "text": "in scala terms in other words it has to"
+      },
+      {
+        "start": 411.759,
+        "duration": 1.84,
+        "text": "be a thing that the language knows how"
+      },
+      {
+        "start": 412.96,
+        "duration": 2.079,
+        "text": "to compare"
+      },
+      {
+        "start": 413.599,
+        "duration": 3.121,
+        "text": "in order to do the ordering that's"
+      },
+      {
+        "start": 415.039,
+        "duration": 2.241,
+        "text": "fairly intuitive now putting this into"
+      },
+      {
+        "start": 416.72,
+        "duration": 1.84,
+        "text": "practice"
+      },
+      {
+        "start": 417.28,
+        "duration": 3.919,
+        "text": "let's look at how we would do this with"
+      },
+      {
+        "start": 418.56,
+        "duration": 4.479,
+        "text": "our movies data we query movies by actor"
+      },
+      {
+        "start": 421.199,
+        "duration": 4.081,
+        "text": "where actor is johnny depp and release"
+      },
+      {
+        "start": 423.039,
+        "duration": 2.801,
+        "text": "here is 2010 or greater we're only"
+      },
+      {
+        "start": 425.28,
+        "duration": 3.039,
+        "text": "interested"
+      },
+      {
+        "start": 425.84,
+        "duration": 3.28,
+        "text": "in the most recent few years there we"
+      },
+      {
+        "start": 428.319,
+        "duration": 3.521,
+        "text": "want title"
+      },
+      {
+        "start": 429.12,
+        "duration": 3.519,
+        "text": "release year and rating and we're going"
+      },
+      {
+        "start": 431.84,
+        "duration": 4.32,
+        "text": "to convert that"
+      },
+      {
+        "start": 432.639,
+        "duration": 5.921,
+        "text": "into a tuple with that as line"
+      },
+      {
+        "start": 436.16,
+        "duration": 3.36,
+        "text": "where the first element of the tuple is"
+      },
+      {
+        "start": 438.56,
+        "duration": 3.52,
+        "text": "the rating or"
+      },
+      {
+        "start": 439.52,
+        "duration": 3.679,
+        "text": "zero if the film is unrated the second"
+      },
+      {
+        "start": 442.08,
+        "duration": 4.399,
+        "text": "element of the tuple"
+      },
+      {
+        "start": 443.199,
+        "duration": 5.681,
+        "text": "is again a tuple of title and year"
+      },
+      {
+        "start": 446.479,
+        "duration": 3.84,
+        "text": "that gives us a pair rdd that we're able"
+      },
+      {
+        "start": 448.88,
+        "duration": 3.12,
+        "text": "to sort by key"
+      },
+      {
+        "start": 450.319,
+        "duration": 4.0,
+        "text": "of course we would like the best movie"
+      },
+      {
+        "start": 452.0,
+        "duration": 4.479,
+        "text": "first so we'll sort in descending"
+      },
+      {
+        "start": 454.319,
+        "duration": 3.761,
+        "text": "order we'll pass in a false there and"
+      },
+      {
+        "start": 456.479,
+        "duration": 2.321,
+        "text": "then we'll collect and iterate and print"
+      },
+      {
+        "start": 458.08,
+        "duration": 3.679,
+        "text": "them out"
+      },
+      {
+        "start": 458.8,
+        "duration": 6.079,
+        "text": "and we see the results we get there"
+      },
+      {
+        "start": 461.759,
+        "duration": 5.84,
+        "text": "looks like a 7.3 is 6.7 a 6.5"
+      },
+      {
+        "start": 464.879,
+        "duration": 3.6,
+        "text": "and a 6.3 not too shabby now a few"
+      },
+      {
+        "start": 467.599,
+        "duration": 2.88,
+        "text": "warnings"
+      },
+      {
+        "start": 468.479,
+        "duration": 4.081,
+        "text": "for grouping and sorting both of them"
+      },
+      {
+        "start": 470.479,
+        "duration": 4.241,
+        "text": "are potentially expensive they can"
+      },
+      {
+        "start": 472.56,
+        "duration": 3.759,
+        "text": "require shuffling and they don't ever"
+      },
+      {
+        "start": 474.72,
+        "duration": 2.96,
+        "text": "reduce the size of the data set so if"
+      },
+      {
+        "start": 476.319,
+        "duration": 2.961,
+        "text": "you've got a large data set you're going"
+      },
+      {
+        "start": 477.68,
+        "duration": 4.0,
+        "text": "to group or sort them"
+      },
+      {
+        "start": 479.28,
+        "duration": 3.52,
+        "text": "be advised grouping also you might be"
+      },
+      {
+        "start": 481.68,
+        "duration": 3.28,
+        "text": "thinking that there would be a way to"
+      },
+      {
+        "start": 482.8,
+        "duration": 3.679,
+        "text": "use this for aggregating or joining"
+      },
+      {
+        "start": 484.96,
+        "duration": 3.76,
+        "text": "we have aggregation and joint"
+      },
+      {
+        "start": 486.479,
+        "duration": 3.44,
+        "text": "transformations for those purposes"
+      },
+      {
+        "start": 488.72,
+        "duration": 3.52,
+        "text": "and they're more efficient for those"
+      },
+      {
+        "start": 489.919,
+        "duration": 2.72,
+        "text": "purposes so don't hack grouping to do a"
+      },
+      {
+        "start": 492.24,
+        "duration": 2.239,
+        "text": "join"
+      },
+      {
+        "start": 492.639,
+        "duration": 4.0,
+        "text": "also when you do a grouping that can"
+      },
+      {
+        "start": 494.479,
+        "duration": 3.601,
+        "text": "potentially create big values"
+      },
+      {
+        "start": 496.639,
+        "duration": 3.041,
+        "text": "right the keys are going to be the same"
+      },
+      {
+        "start": 498.08,
+        "duration": 3.04,
+        "text": "but you're grouping you're taking a"
+      },
+      {
+        "start": 499.68,
+        "duration": 3.199,
+        "text": "bunch of values here that were"
+      },
+      {
+        "start": 501.12,
+        "duration": 5.28,
+        "text": "individual rdd records"
+      },
+      {
+        "start": 502.879,
+        "duration": 6.16,
+        "text": "and making them into one rdd record"
+      },
+      {
+        "start": 506.4,
+        "duration": 4.16,
+        "text": "on the output side that can be a problem"
+      },
+      {
+        "start": 509.039,
+        "duration": 4.56,
+        "text": "if those get large"
+      },
+      {
+        "start": 510.56,
+        "duration": 4.959,
+        "text": "now rdds remember are distributed so the"
+      },
+      {
+        "start": 513.599,
+        "duration": 3.601,
+        "text": "individual records of an rdd"
+      },
+      {
+        "start": 515.519,
+        "duration": 3.2,
+        "text": "can be spread around as many servers as"
+      },
+      {
+        "start": 517.2,
+        "duration": 3.279,
+        "text": "you want but if you do some really"
+      },
+      {
+        "start": 518.719,
+        "duration": 2.0,
+        "text": "pathological kind of grouping that makes"
+      },
+      {
+        "start": 520.479,
+        "duration": 3.201,
+        "text": "a"
+      },
+      {
+        "start": 520.719,
+        "duration": 3.841,
+        "text": "big value that big value does have to"
+      },
+      {
+        "start": 523.68,
+        "duration": 3.68,
+        "text": "fit in memory"
+      },
+      {
+        "start": 524.56,
+        "duration": 5.36,
+        "text": "the value itself a single element in an"
+      },
+      {
+        "start": 527.36,
+        "duration": 4.0,
+        "text": "rdd can't itself be partitioned"
+      },
+      {
+        "start": 529.92,
+        "duration": 3.2,
+        "text": "so don't get too crazy with that you"
+      },
+      {
+        "start": 531.36,
+        "duration": 4.32,
+        "text": "want to look for groupings that"
+      },
+      {
+        "start": 533.12,
+        "duration": 3.76,
+        "text": "might result in that sort of"
+      },
+      {
+        "start": 535.68,
+        "duration": 10.64,
+        "text": "pathological sizing"
+      },
+      {
+        "start": 536.88,
+        "duration": 9.44,
+        "text": "and try to avoid those"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T23:39:33.068534+00:00"
+}

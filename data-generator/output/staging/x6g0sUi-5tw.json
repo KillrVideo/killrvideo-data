@@ -1,0 +1,638 @@
+{
+  "video_id": "x6g0sUi-5tw",
+  "title": "DS201.18 Read Path | Foundations of Apache Cassandra",
+  "description": "#DataStaxAcademy #DS201\nDS201.18 READ PATH\nLet's have a look at how Apache Cassandra reads data; this unit is about the Apache Cassandra read path.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-11T02:07:52Z",
+  "thumbnail": "https://i.ytimg.com/vi/x6g0sUi-5tw/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "tutorial",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=x6g0sUi-5tw",
+  "transcript": {
+    "available": true,
+    "language": "Chinese",
+    "language_code": "zh",
+    "is_generated": false,
+    "text": "DS201.9: 读取路径(Read Path) 之前我们已经学习了\nApache Cassandra是如何写入数据的 现在让我们来看看\nApache Cassandra是如何读取数据的 这会比我们之前看的视频会更加复杂一些 对了 我们把之前的视频称为写入路径(Write Path)\n这集视频就是读取路径(Read Path) 在上一节中我们提到Apache Cassandra\n将数据写入MemTable 并最终将数据flush到磁盘 形成SSTable 因此数据是分布在多个SSTable和现有的MemTable中的 当Apache Cassasndra在执行读取命令时 它必须要将SSTable和MemTable中\n所有的相关数据合并 这倒并不是很难 让我们先看看Apache Cassandra\n是如何从MemTable中读取数据的 这个图示是一个MemTable 它有三个分区(partition) 最上面的分区是德克萨斯(TX)\n接着是纽约(NY) 最后是加州分区(CA) 左边是分区键的值（即分区令牌）\n他们分别是24、58和83 从MemTable中读取数据是很简单直接的 Cassandra只需要通过\n分区令牌(partition token)来查找分区 现在让我们来看看分区58的例子 这是对内存进行的一个二分法检索(binary search) 当找到分区键为58的分区时\n就返回其中的数值 这很简单 从MemTable中读取数据是超级快的 SSTable的情况与MemTable不太一样 它们是储存在磁盘上的\n并且是有文件偏移值(file offset) 分区都储存在文件中\n但是它们的长度并不一样 在图中我们可以看到有分区7、13、18等等 上图中展示的是分区数据在SSTable中\n实际上的文件偏移地址(file offset) 比如位于开头位置的分区7\n它的字节偏移地址(byte offset)是0 而分区13的字节偏移地址为1120 以此类推 如果你查看过硬盘中的SSTable\n你会发现还有几个其他的文件 其中的一个文件是分区索引(Partition Index) 它的作用和任何一本书背面的索引\n真的非常相似 在图中表格左边的是分区令牌 而右边记录的是各个分区\n在SSTable中的字节偏移地址 让我们来做一次读取操作 我想要分区58的数据\n所以我找到对应的索引 找到后可知分区58所在的字节偏移地址是7192 接着在SSTable文件中找到这个位置\n并将这个位置的数据直接导出文件 最后将数据结果返回 以便和从其他SSTable或MemTable\n提取出来的数据进行合并 这非常棒 不过—— 取决于你的数据模型\nSSTable可能储存了多个分区的数据 其中的一些分区索引会变得太大 以至于它们实际上被储存在磁盘中的\n而不是内存里 这种情况下Apache Cassandra实际做的则是 在分区索引之上再构建一个索引 这个新索引被称为分区概要(Partition Summary) 分区概要存在于RAM内存中  分区概要的左列是分区索引\n右列则是分区索引内部的实际字节偏移位置 假设每条数据占据一个字节的容量 令牌为7的分区从0处开始 一个读取请求需要查询令牌为36的分区 36落在了左图中21-55的令牌范围内 因此Apache Cassandra便根据这个令牌范围\n查出了对应的字节偏移地址 即32 接着它开始在存储于磁盘的\n分区索引的令牌区间中寻找这个偏移地址 Apache Cassandra 打开分区索引\n寻找32这个字节偏移地址 并根据32这个字节偏移地址\n所对应的信息再进行搜索 我们要找的分区令牌并不是21 所以我们接着往下看 啊！ 我们找到了36  它在SSTable文件中字节偏移地址为6224 接着Apache Cassandra会打开SSTable文件进行寻址 然后将数据导出磁盘\n并返回以便和其他查询结果整合 这时也许你还没有启用Apache Cassandra中的一个数据结构 这个在内存中的数据结构叫键缓存(Key Cache) 在完成上述一系列的复杂操作并找到我们需要的数据后 即这个例子中的令牌36\n以及其所对应的字节偏移地址6224 用户很有可能之后还会读取这份数据\n或进行类似的读取 这也是常规的针对缓存的算法 如果你启用键缓存的话 Apache Cassandra\n会将之前计算的结果储存在其中 当收到下一个读取指令时 ”嘿！我需要令牌为36的分区数据“ Apache Cassandra会说：\n”哦！ 我们之前已经见过它了。我知道它的具体位置！“ 我们会跳过分区概要和分区索引\n直接找到相应的sstable文件 将数据串流出来并返回 此外 在这一系列读取过程之上\n还有一层优化机制 这就是布隆过滤器(Bloom Filter) 你可以网上搜索下这个算法\n事实上它超厉害 它会告诉用户数据在这儿或不在这儿\n或它不知道在与不在 让我们来大概看看布隆过滤器 假如我们想要分区为36的数据 我们已知分区36的数据在我们的数据库中 布隆过滤器会报告说：\n“嘿！你要的数据可能在这里。”  之后的读取过程就像我们之前看到的流程\n通过分区概要和分区索引查找数据 但现在有另一个读取请求——“我想要分区为48的数据” 布隆过滤器会说：“呃……它并不在这” 如果数据并没存在这儿\n布隆过滤器并不负责提供数据的存储位置 它只会说：“哟~我知道数据在那里”或“它不在那里” 现在又有了一个新的读取请求——请求分区74的数据 有时候布隆过滤器并不能告诉我们\n数据存储在这里或不在这里 这时布隆过滤器则会说：\n“呃……这我也不知道欸，可能在这儿吧。” 接着我们就会查看分区概要和分区索引 如果这些过程都发生了 但是那个令牌没有被找到 这被称为假阳性的读取(False read) 理想情况下 我们不应该为了一个不存在的数据\n找了分区概要又找分区索引 但有时候你确实会遇到\n这种假阳性(false positive)的情况 你可以调整它出现的概率\n如果你愿意用一些内存空间来交换的话 这样你就会得到一个更准确的布隆过滤器 这都是可以配置的 这都不算事儿 如果你用的是开源版的Apache Cassandra 所有我刚才讲的都成立 不过如果你是用的是DataStax的Cassandra发行版本 我们还有一些超级棒的优化\n让读取过程变得更更更快 首先 我们弃用了存储在内存的分区概要 我们还用分区索引\n不过我们将它的数据结构改为了字典树(trie-based) 如果你搜索字典树这种数据结构 会找到很多相关信息 这也是一个很棒的算法 需要知道的是 这个数据结构是树状的 是的 有些人说树结构和字典树是非常相似的数据结构 因为这个数据结构是树状的或者说是字典树状的\n它查询数据的速度极为的快 如果你的SSTable很大——其实这很有可能发生 使用DataStax的Apache Cassandra发行版本\n会让你看到性能上的大幅提升 如果你从Apache Cassandra开源版本\n迁移到DataStax的Apache Cassandra发行版本 这超级容易 DataStax的Apache Cassandra发行版本 会读取你在Apache Cassandra开源版本中的所有SSTable 之后会在压实(compaction)操作时\n将这些数据全部转移到新的Cassandra版本中 我们会在别的视频中讲压实操作 好了 读取路径比写入路径要复杂那么一些\n但还不至于使人感到畏惧 让我们通过练习获取一些动手经验吧",
+    "segments": [
+      {
+        "start": 1.043,
+        "duration": 5.651,
+        "text": "DS201.9: 读取路径(Read Path)"
+      },
+      {
+        "start": 6.694,
+        "duration": 2.577,
+        "text": "之前我们已经学习了\nApache Cassandra是如何写入数据的"
+      },
+      {
+        "start": 9.271,
+        "duration": 3.099,
+        "text": "现在让我们来看看\nApache Cassandra是如何读取数据的"
+      },
+      {
+        "start": 12.37,
+        "duration": 2.857,
+        "text": "这会比我们之前看的视频会更加复杂一些"
+      },
+      {
+        "start": 15.227,
+        "duration": 4.607,
+        "text": "对了 我们把之前的视频称为写入路径(Write Path)\n这集视频就是读取路径(Read Path)"
+      },
+      {
+        "start": 19.834,
+        "duration": 4.166,
+        "text": "在上一节中我们提到Apache Cassandra\n将数据写入MemTable"
+      },
+      {
+        "start": 24.0,
+        "duration": 3.229,
+        "text": "并最终将数据flush到磁盘 形成SSTable"
+      },
+      {
+        "start": 27.229,
+        "duration": 5.798,
+        "text": "因此数据是分布在多个SSTable和现有的MemTable中的"
+      },
+      {
+        "start": 33.027,
+        "duration": 1.986,
+        "text": "当Apache Cassasndra在执行读取命令时"
+      },
+      {
+        "start": 35.013,
+        "duration": 4.556,
+        "text": "它必须要将SSTable和MemTable中\n所有的相关数据合并"
+      },
+      {
+        "start": 39.569,
+        "duration": 1.389,
+        "text": "这倒并不是很难"
+      },
+      {
+        "start": 40.958,
+        "duration": 3.62,
+        "text": "让我们先看看Apache Cassandra\n是如何从MemTable中读取数据的"
+      },
+      {
+        "start": 44.578,
+        "duration": 1.938,
+        "text": "这个图示是一个MemTable"
+      },
+      {
+        "start": 46.516,
+        "duration": 2.0,
+        "text": "它有三个分区(partition)"
+      },
+      {
+        "start": 48.516,
+        "duration": 4.804,
+        "text": "最上面的分区是德克萨斯(TX)\n接着是纽约(NY) 最后是加州分区(CA)"
+      },
+      {
+        "start": 53.32,
+        "duration": 5.597,
+        "text": "左边是分区键的值（即分区令牌）\n他们分别是24、58和83"
+      },
+      {
+        "start": 58.917,
+        "duration": 2.931,
+        "text": "从MemTable中读取数据是很简单直接的"
+      },
+      {
+        "start": 61.848,
+        "duration": 4.925,
+        "text": "Cassandra只需要通过\n分区令牌(partition token)来查找分区"
+      },
+      {
+        "start": 66.773,
+        "duration": 2.227,
+        "text": "现在让我们来看看分区58的例子"
+      },
+      {
+        "start": 69.0,
+        "duration": 2.667,
+        "text": "这是对内存进行的一个二分法检索(binary search)"
+      },
+      {
+        "start": 71.667,
+        "duration": 3.333,
+        "text": "当找到分区键为58的分区时\n就返回其中的数值"
+      },
+      {
+        "start": 75.0,
+        "duration": 1.497,
+        "text": "这很简单"
+      },
+      {
+        "start": 76.497,
+        "duration": 2.503,
+        "text": "从MemTable中读取数据是超级快的"
+      },
+      {
+        "start": 80.5,
+        "duration": 2.745,
+        "text": "SSTable的情况与MemTable不太一样"
+      },
+      {
+        "start": 83.245,
+        "duration": 3.379,
+        "text": "它们是储存在磁盘上的\n并且是有文件偏移值(file offset)"
+      },
+      {
+        "start": 86.624,
+        "duration": 4.321,
+        "text": "分区都储存在文件中\n但是它们的长度并不一样"
+      },
+      {
+        "start": 90.945,
+        "duration": 4.478,
+        "text": "在图中我们可以看到有分区7、13、18等等"
+      },
+      {
+        "start": 95.423,
+        "duration": 5.837,
+        "text": "上图中展示的是分区数据在SSTable中\n实际上的文件偏移地址(file offset)"
+      },
+      {
+        "start": 101.26,
+        "duration": 4.291,
+        "text": "比如位于开头位置的分区7\n它的字节偏移地址(byte offset)是0"
+      },
+      {
+        "start": 105.551,
+        "duration": 3.732,
+        "text": "而分区13的字节偏移地址为1120"
+      },
+      {
+        "start": 109.283,
+        "duration": 2.0,
+        "text": "以此类推"
+      },
+      {
+        "start": 111.283,
+        "duration": 4.776,
+        "text": "如果你查看过硬盘中的SSTable\n你会发现还有几个其他的文件"
+      },
+      {
+        "start": 116.059,
+        "duration": 3.136,
+        "text": "其中的一个文件是分区索引(Partition Index)"
+      },
+      {
+        "start": 119.195,
+        "duration": 5.819,
+        "text": "它的作用和任何一本书背面的索引\n真的非常相似"
+      },
+      {
+        "start": 125.014,
+        "duration": 2.64,
+        "text": "在图中表格左边的是分区令牌"
+      },
+      {
+        "start": 127.654,
+        "duration": 6.232,
+        "text": "而右边记录的是各个分区\n在SSTable中的字节偏移地址"
+      },
+      {
+        "start": 133.886,
+        "duration": 1.552,
+        "text": "让我们来做一次读取操作"
+      },
+      {
+        "start": 135.438,
+        "duration": 3.108,
+        "text": "我想要分区58的数据\n所以我找到对应的索引"
+      },
+      {
+        "start": 138.546,
+        "duration": 4.341,
+        "text": "找到后可知分区58所在的字节偏移地址是7192"
+      },
+      {
+        "start": 142.887,
+        "duration": 5.783,
+        "text": "接着在SSTable文件中找到这个位置\n并将这个位置的数据直接导出文件"
+      },
+      {
+        "start": 148.67,
+        "duration": 1.33,
+        "text": "最后将数据结果返回"
+      },
+      {
+        "start": 150.0,
+        "duration": 4.73,
+        "text": "以便和从其他SSTable或MemTable\n提取出来的数据进行合并"
+      },
+      {
+        "start": 154.73,
+        "duration": 2.504,
+        "text": "这非常棒 不过——"
+      },
+      {
+        "start": 157.234,
+        "duration": 4.766,
+        "text": "取决于你的数据模型\nSSTable可能储存了多个分区的数据"
+      },
+      {
+        "start": 162.0,
+        "duration": 3.108,
+        "text": "其中的一些分区索引会变得太大"
+      },
+      {
+        "start": 165.108,
+        "duration": 4.266,
+        "text": "以至于它们实际上被储存在磁盘中的\n而不是内存里"
+      },
+      {
+        "start": 169.374,
+        "duration": 2.334,
+        "text": "这种情况下Apache Cassandra实际做的则是"
+      },
+      {
+        "start": 171.708,
+        "duration": 3.882,
+        "text": "在分区索引之上再构建一个索引"
+      },
+      {
+        "start": 175.59,
+        "duration": 2.708,
+        "text": "这个新索引被称为分区概要(Partition Summary)"
+      },
+      {
+        "start": 178.298,
+        "duration": 2.895,
+        "text": "分区概要存在于RAM内存中 "
+      },
+      {
+        "start": 181.193,
+        "duration": 6.563,
+        "text": "分区概要的左列是分区索引\n右列则是分区索引内部的实际字节偏移位置"
+      },
+      {
+        "start": 187.756,
+        "duration": 2.875,
+        "text": "假设每条数据占据一个字节的容量"
+      },
+      {
+        "start": 190.631,
+        "duration": 3.093,
+        "text": "令牌为7的分区从0处开始"
+      },
+      {
+        "start": 193.724,
+        "duration": 4.021,
+        "text": "一个读取请求需要查询令牌为36的分区"
+      },
+      {
+        "start": 197.745,
+        "duration": 4.265,
+        "text": "36落在了左图中21-55的令牌范围内"
+      },
+      {
+        "start": 202.01,
+        "duration": 4.464,
+        "text": "因此Apache Cassandra便根据这个令牌范围\n查出了对应的字节偏移地址 即32"
+      },
+      {
+        "start": 206.474,
+        "duration": 4.462,
+        "text": "接着它开始在存储于磁盘的\n分区索引的令牌区间中寻找这个偏移地址"
+      },
+      {
+        "start": 210.936,
+        "duration": 4.99,
+        "text": "Apache Cassandra 打开分区索引\n寻找32这个字节偏移地址"
+      },
+      {
+        "start": 215.926,
+        "duration": 2.363,
+        "text": "并根据32这个字节偏移地址\n所对应的信息再进行搜索"
+      },
+      {
+        "start": 218.289,
+        "duration": 2.946,
+        "text": "我们要找的分区令牌并不是21"
+      },
+      {
+        "start": 221.235,
+        "duration": 1.539,
+        "text": "所以我们接着往下看"
+      },
+      {
+        "start": 222.774,
+        "duration": 2.0,
+        "text": "啊！ 我们找到了36 "
+      },
+      {
+        "start": 224.774,
+        "duration": 6.02,
+        "text": "它在SSTable文件中字节偏移地址为6224"
+      },
+      {
+        "start": 230.794,
+        "duration": 4.105,
+        "text": "接着Apache Cassandra会打开SSTable文件进行寻址"
+      },
+      {
+        "start": 234.899,
+        "duration": 4.906,
+        "text": "然后将数据导出磁盘\n并返回以便和其他查询结果整合"
+      },
+      {
+        "start": 239.805,
+        "duration": 2.947,
+        "text": "这时也许你还没有启用Apache Cassandra中的一个数据结构"
+      },
+      {
+        "start": 242.752,
+        "duration": 5.283,
+        "text": "这个在内存中的数据结构叫键缓存(Key Cache)"
+      },
+      {
+        "start": 248.035,
+        "duration": 3.853,
+        "text": "在完成上述一系列的复杂操作并找到我们需要的数据后"
+      },
+      {
+        "start": 251.888,
+        "duration": 4.929,
+        "text": "即这个例子中的令牌36\n以及其所对应的字节偏移地址6224"
+      },
+      {
+        "start": 256.817,
+        "duration": 5.429,
+        "text": "用户很有可能之后还会读取这份数据\n或进行类似的读取"
+      },
+      {
+        "start": 262.246,
+        "duration": 2.0,
+        "text": "这也是常规的针对缓存的算法"
+      },
+      {
+        "start": 264.246,
+        "duration": 6.934,
+        "text": "如果你启用键缓存的话 Apache Cassandra\n会将之前计算的结果储存在其中"
+      },
+      {
+        "start": 271.18,
+        "duration": 1.659,
+        "text": "当收到下一个读取指令时"
+      },
+      {
+        "start": 272.839,
+        "duration": 3.161,
+        "text": "”嘿！我需要令牌为36的分区数据“"
+      },
+      {
+        "start": 276.0,
+        "duration": 6.077,
+        "text": "Apache Cassandra会说：\n”哦！ 我们之前已经见过它了。我知道它的具体位置！“"
+      },
+      {
+        "start": 282.077,
+        "duration": 5.559,
+        "text": "我们会跳过分区概要和分区索引\n直接找到相应的sstable文件"
+      },
+      {
+        "start": 287.636,
+        "duration": 2.81,
+        "text": "将数据串流出来并返回"
+      },
+      {
+        "start": 290.446,
+        "duration": 4.725,
+        "text": "此外 在这一系列读取过程之上\n还有一层优化机制"
+      },
+      {
+        "start": 295.171,
+        "duration": 1.785,
+        "text": "这就是布隆过滤器(Bloom Filter)"
+      },
+      {
+        "start": 296.956,
+        "duration": 2.782,
+        "text": "你可以网上搜索下这个算法\n事实上它超厉害"
+      },
+      {
+        "start": 299.738,
+        "duration": 5.793,
+        "text": "它会告诉用户数据在这儿或不在这儿\n或它不知道在与不在"
+      },
+      {
+        "start": 305.531,
+        "duration": 1.613,
+        "text": "让我们来大概看看布隆过滤器"
+      },
+      {
+        "start": 307.144,
+        "duration": 2.638,
+        "text": "假如我们想要分区为36的数据"
+      },
+      {
+        "start": 309.782,
+        "duration": 2.379,
+        "text": "我们已知分区36的数据在我们的数据库中"
+      },
+      {
+        "start": 312.161,
+        "duration": 3.18,
+        "text": "布隆过滤器会报告说：\n“嘿！你要的数据可能在这里。” "
+      },
+      {
+        "start": 315.341,
+        "duration": 5.744,
+        "text": "之后的读取过程就像我们之前看到的流程\n通过分区概要和分区索引查找数据"
+      },
+      {
+        "start": 321.085,
+        "duration": 3.386,
+        "text": "但现在有另一个读取请求——“我想要分区为48的数据”"
+      },
+      {
+        "start": 324.471,
+        "duration": 2.997,
+        "text": "布隆过滤器会说：“呃……它并不在这”"
+      },
+      {
+        "start": 327.468,
+        "duration": 4.753,
+        "text": "如果数据并没存在这儿\n布隆过滤器并不负责提供数据的存储位置"
+      },
+      {
+        "start": 332.221,
+        "duration": 2.565,
+        "text": "它只会说：“哟~我知道数据在那里”或“它不在那里”"
+      },
+      {
+        "start": 334.786,
+        "duration": 3.444,
+        "text": "现在又有了一个新的读取请求——请求分区74的数据"
+      },
+      {
+        "start": 338.23,
+        "duration": 5.488,
+        "text": "有时候布隆过滤器并不能告诉我们\n数据存储在这里或不在这里"
+      },
+      {
+        "start": 343.718,
+        "duration": 4.554,
+        "text": "这时布隆过滤器则会说：\n“呃……这我也不知道欸，可能在这儿吧。”"
+      },
+      {
+        "start": 348.272,
+        "duration": 3.475,
+        "text": "接着我们就会查看分区概要和分区索引"
+      },
+      {
+        "start": 351.747,
+        "duration": 3.974,
+        "text": "如果这些过程都发生了 但是那个令牌没有被找到"
+      },
+      {
+        "start": 355.721,
+        "duration": 1.612,
+        "text": "这被称为假阳性的读取(False read)"
+      },
+      {
+        "start": 357.333,
+        "duration": 6.247,
+        "text": "理想情况下 我们不应该为了一个不存在的数据\n找了分区概要又找分区索引"
+      },
+      {
+        "start": 363.58,
+        "duration": 2.318,
+        "text": "但有时候你确实会遇到\n这种假阳性(false positive)的情况"
+      },
+      {
+        "start": 365.898,
+        "duration": 4.438,
+        "text": "你可以调整它出现的概率\n如果你愿意用一些内存空间来交换的话"
+      },
+      {
+        "start": 370.336,
+        "duration": 2.318,
+        "text": "这样你就会得到一个更准确的布隆过滤器"
+      },
+      {
+        "start": 372.654,
+        "duration": 2.309,
+        "text": "这都是可以配置的 这都不算事儿"
+      },
+      {
+        "start": 374.963,
+        "duration": 3.963,
+        "text": "如果你用的是开源版的Apache Cassandra"
+      },
+      {
+        "start": 378.926,
+        "duration": 2.155,
+        "text": "所有我刚才讲的都成立"
+      },
+      {
+        "start": 381.081,
+        "duration": 4.085,
+        "text": "不过如果你是用的是DataStax的Cassandra发行版本"
+      },
+      {
+        "start": 385.166,
+        "duration": 5.292,
+        "text": "我们还有一些超级棒的优化\n让读取过程变得更更更快"
+      },
+      {
+        "start": 390.458,
+        "duration": 4.343,
+        "text": "首先 我们弃用了存储在内存的分区概要"
+      },
+      {
+        "start": 394.801,
+        "duration": 5.572,
+        "text": "我们还用分区索引\n不过我们将它的数据结构改为了字典树(trie-based)"
+      },
+      {
+        "start": 400.373,
+        "duration": 3.936,
+        "text": "如果你搜索字典树这种数据结构 会找到很多相关信息"
+      },
+      {
+        "start": 404.309,
+        "duration": 1.913,
+        "text": "这也是一个很棒的算法"
+      },
+      {
+        "start": 406.222,
+        "duration": 3.603,
+        "text": "需要知道的是 这个数据结构是树状的"
+      },
+      {
+        "start": 409.825,
+        "duration": 4.162,
+        "text": "是的 有些人说树结构和字典树是非常相似的数据结构"
+      },
+      {
+        "start": 413.987,
+        "duration": 6.858,
+        "text": "因为这个数据结构是树状的或者说是字典树状的\n它查询数据的速度极为的快"
+      },
+      {
+        "start": 420.845,
+        "duration": 3.582,
+        "text": "如果你的SSTable很大——其实这很有可能发生"
+      },
+      {
+        "start": 424.427,
+        "duration": 5.518,
+        "text": "使用DataStax的Apache Cassandra发行版本\n会让你看到性能上的大幅提升"
+      },
+      {
+        "start": 429.945,
+        "duration": 5.69,
+        "text": "如果你从Apache Cassandra开源版本\n迁移到DataStax的Apache Cassandra发行版本"
+      },
+      {
+        "start": 435.635,
+        "duration": 1.319,
+        "text": "这超级容易"
+      },
+      {
+        "start": 436.954,
+        "duration": 3.038,
+        "text": "DataStax的Apache Cassandra发行版本"
+      },
+      {
+        "start": 439.992,
+        "duration": 4.469,
+        "text": "会读取你在Apache Cassandra开源版本中的所有SSTable"
+      },
+      {
+        "start": 444.461,
+        "duration": 3.334,
+        "text": "之后会在压实(compaction)操作时\n将这些数据全部转移到新的Cassandra版本中"
+      },
+      {
+        "start": 447.795,
+        "duration": 2.385,
+        "text": "我们会在别的视频中讲压实操作"
+      },
+      {
+        "start": 450.18,
+        "duration": 6.002,
+        "text": "好了 读取路径比写入路径要复杂那么一些\n但还不至于使人感到畏惧"
+      },
+      {
+        "start": 456.182,
+        "duration": 3.287,
+        "text": "让我们通过练习获取一些动手经验吧"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T01:52:39.688274+00:00"
+}

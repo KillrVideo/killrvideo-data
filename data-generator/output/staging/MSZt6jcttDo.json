@@ -1,0 +1,1414 @@
+{
+  "video_id": "MSZt6jcttDo",
+  "title": "DS220.17 Logical Data Modeling | Data Modeling with Apache Cassandra",
+  "description": "#DataStaxAcademy #DS220\nDS220.17 Logical Data Modeling\nNow let's get into the details of creating a logical data model. In this unit, we go through some rules to consider when putting together your logical data model.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-14T09:27:02Z",
+  "thumbnail": "https://i.ytimg.com/vi/MSZt6jcttDo/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "data_modeling",
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=MSZt6jcttDo",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] so we've talked a lot about prepping to create your logical theta model now let's get into the gnarly details rule number one with apache cassandra is that we want to nest data that means group the data together on disk as much as possible remember those queries i keep talking about we want to hit our table go find our rows we want all that data aggregated together in the same spot and return it back to the client if you got your data in one place and can return it like that you're golden in the previous section we talked about partition per query this is the most ideal access pattern in order to achieve this we need to nest our data by far the most common way of doing so is by using clustering columns however you can use collection columns like lists and maps or you can use user defined types which we saw earlier clustering columns is pretty straightforward look at the actors by video table on the right we query by our video id but then we nest the actors by their actor name and character name using clustering columns so the partition key identifies the entity that other entities nest into while the clustering columns identify the nested entities we have actors identified by videos depending on your situation you may want to be a little bit more lightweight and use user-defined types which allow you to nest a few values inside of a single column in a table usually this occurs when you have a one-to-one relationship but you can also have lists or maps or whatever you like of user-defined types within a single column as well for example we took our videos and turned them into a videos type user-defined type on the right we have id title description so on and so forth and then we put all those videos in a collection column in the videos by user table i'll admit this is a little bit of a contrived example that's a lot of values to having one user defined type only to put it in a table with a single partition key but if you want to do so go ahead really this is more for lightweight situations for example you could see sticking an address inside of a user table instead it's really up to you one of the first disruptive experiences you probably had when coming to apache cassandra is the lack of joins how do you get your data together in order to see what the relationships are fundamental concept in apache cassandra is we actually join on right instead of joining on read in a relational database just say select from here join on this and you're joining two tables as you read the data but in apache cassandra we don't want to take time to join values together to do a read we just want to grab the data and return it to the client application thus when we perform the right that's when we actually materialize the join on disk so it's optimal when we turn around and do a query on that data let's look at these examples we have three tables that represent the videos object we have videos by actor videos by genre and videos by tag you could imagine in a relational model you'd have a separate actors table maybe a separate genres table tags table these would all be separate tables but in this example we've joined videos with actors we've joined videos by genre and we've joined videos by tag on disk in tables that we've materialized at right time this obviously duplicates video data every time we want to store a new video we have to write a record into each one of these tables and we have to keep those records in sync yeah that's could be painful but data stacks enterprise has several tools to help you along with this as well the important key concept is that we're writing tables to satisfy queries so that they can have constant time access that is awesome consider the two situations we have here on the left we have a videos by actor table where we query off the actor we get the video id for every video that actors been in we then have to do another query on a second table to pull all that video information what a headache lots of queries lots of network traffic the user is just waiting to click off of your website compare this with the example on the right we have the exact same setup for query one with actor video id and character name but then we've stored the video information along with the actor information in one table so i can query off the actor and get all the video information for that actor in a single partition this is golden it takes more space yes there's some synchronization headache on your side or if you use datastax enterprise then you have some tools to help you along with that but your query time is constant and that's great so now that we have our conceptual data model and our application workflow let's see how we combine the two to create our actual logical data tables we're going to discuss some mapping rules they're super simple just follow through with them and you'll be golden here are the five mapping rules go ahead and tattoo these on top of each one of your fingers they're simple they're straightforward they'll get you to the logical data tables we first start with our entities and relationships we then look at quality search attributes we then further look at inequality search attributes ordering attributes key attributes let's look at an example remember i said we need our conceptual data model and our access patterns to create the logical data table here's an example where we have both we have user uploads video and we have the access pattern below it we query on the user id and on the uploaded timestamp and we have an ordering restriction as well which is on the uploaded timestamp mapping rule number one model the entities and the relationships in a table we're querying for videos uploaded by a specific user so this entire relationship we store in a single table notice the table has all the attributes from user all the attributes and video and even the uploads attribute of timestamp in a relational world you may just look at the object and model it into a table and that's very common but here we're modeling an entire relationship type where all the attributes go into a single table mapping rule number two equality search attributes remember we're modeling for a query and the first thing we want to look for is what are we saying equals on in this case we're querying for videos given a specific user id so we will say equals on the user id thus user id becomes our partition key next you need to identify what your inequality search attributes are that basically means greater than less than greater than or equal to less than or equal to you get the idea we're not saying equals but we're going to do a range in this case we're looking for videos with an uploaded timestamp greater than some value think about this as far as clustering columns are concerned we first query on the partition key and then we search through the clustering columns thus we can do range queries or greater than less than queries on the clustering column values thus we make uploaded timestamp a clustering column following our user id partition key next you need to identify if there's any ordering constraints in your query in this example we want to order by the timestamp descending our uploaded timestamp is already a clustering column because of the previous mapping rule however we need to change the ordering from ascending to descending to satisfy our ordering constraint if uploaded timestamp was not already a clustering column here we would add it as another clustering column on top of the clustering columns we made from the previous mapping rule notice those four previous steps all had to do with the query we were performing remember modeling for apache cassandra is first query driven and then we add uniqueness this fifth step is just to satisfy that uniqueness constraint here we add our key attributes the key attribute for a user uploading a video is the video id because videos sit on the many side of the relationship type remember the example i gave you say i uploaded 10 videos of my cat my user id would show up multiple times thus not being unique but each one of those videos would have their own unique video id so the id of this relationship type is the video id thus we add video id as another clustering column at the end of our primary key and that's it you're done you just have five mapping rules to take the conceptual model and the application workflow and create your tables it's really that simple so now it's your turn to have a little experience with combining these two inputs go ahead and hit your whiteboard again and create your conceptual data model",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 5.32,
+        "text": "[Music]"
+      },
+      {
+        "start": 6.96,
+        "duration": 3.44,
+        "text": "so we've talked a lot about prepping to"
+      },
+      {
+        "start": 8.72,
+        "duration": 4.16,
+        "text": "create your logical theta model"
+      },
+      {
+        "start": 10.4,
+        "duration": 4.8,
+        "text": "now let's get into the gnarly details"
+      },
+      {
+        "start": 12.88,
+        "duration": 3.36,
+        "text": "rule number one with apache cassandra is"
+      },
+      {
+        "start": 15.2,
+        "duration": 4.239,
+        "text": "that we want to"
+      },
+      {
+        "start": 16.24,
+        "duration": 4.0,
+        "text": "nest data that means group the data"
+      },
+      {
+        "start": 19.439,
+        "duration": 3.68,
+        "text": "together"
+      },
+      {
+        "start": 20.24,
+        "duration": 4.879,
+        "text": "on disk as much as possible remember"
+      },
+      {
+        "start": 23.119,
+        "duration": 4.08,
+        "text": "those queries i keep talking about"
+      },
+      {
+        "start": 25.119,
+        "duration": 4.16,
+        "text": "we want to hit our table go find our"
+      },
+      {
+        "start": 27.199,
+        "duration": 3.441,
+        "text": "rows we want all that data aggregated"
+      },
+      {
+        "start": 29.279,
+        "duration": 3.601,
+        "text": "together in the same spot"
+      },
+      {
+        "start": 30.64,
+        "duration": 3.84,
+        "text": "and return it back to the client if you"
+      },
+      {
+        "start": 32.88,
+        "duration": 2.64,
+        "text": "got your data in one place and can"
+      },
+      {
+        "start": 34.48,
+        "duration": 3.36,
+        "text": "return it like that"
+      },
+      {
+        "start": 35.52,
+        "duration": 3.76,
+        "text": "you're golden in the previous section we"
+      },
+      {
+        "start": 37.84,
+        "duration": 4.32,
+        "text": "talked about partition per"
+      },
+      {
+        "start": 39.28,
+        "duration": 3.52,
+        "text": "query this is the most ideal access"
+      },
+      {
+        "start": 42.16,
+        "duration": 2.559,
+        "text": "pattern"
+      },
+      {
+        "start": 42.8,
+        "duration": 3.52,
+        "text": "in order to achieve this we need to nest"
+      },
+      {
+        "start": 44.719,
+        "duration": 4.481,
+        "text": "our data by"
+      },
+      {
+        "start": 46.32,
+        "duration": 5.12,
+        "text": "far the most common way of doing so is"
+      },
+      {
+        "start": 49.2,
+        "duration": 4.56,
+        "text": "by using clustering columns"
+      },
+      {
+        "start": 51.44,
+        "duration": 4.32,
+        "text": "however you can use collection columns"
+      },
+      {
+        "start": 53.76,
+        "duration": 4.16,
+        "text": "like lists and maps"
+      },
+      {
+        "start": 55.76,
+        "duration": 3.76,
+        "text": "or you can use user defined types which"
+      },
+      {
+        "start": 57.92,
+        "duration": 2.959,
+        "text": "we saw earlier"
+      },
+      {
+        "start": 59.52,
+        "duration": 3.76,
+        "text": "clustering columns is pretty"
+      },
+      {
+        "start": 60.879,
+        "duration": 4.081,
+        "text": "straightforward look at the actors by"
+      },
+      {
+        "start": 63.28,
+        "duration": 4.08,
+        "text": "video table on the right"
+      },
+      {
+        "start": 64.96,
+        "duration": 4.8,
+        "text": "we query by our video id but then we"
+      },
+      {
+        "start": 67.36,
+        "duration": 5.52,
+        "text": "nest the actors by their actor name and"
+      },
+      {
+        "start": 69.76,
+        "duration": 5.6,
+        "text": "character name using clustering columns"
+      },
+      {
+        "start": 72.88,
+        "duration": 5.36,
+        "text": "so the partition key identifies the"
+      },
+      {
+        "start": 75.36,
+        "duration": 4.72,
+        "text": "entity that other entities nest into"
+      },
+      {
+        "start": 78.24,
+        "duration": 3.6,
+        "text": "while the clustering columns identify"
+      },
+      {
+        "start": 80.08,
+        "duration": 6.16,
+        "text": "the nested entities"
+      },
+      {
+        "start": 81.84,
+        "duration": 6.639,
+        "text": "we have actors identified by videos"
+      },
+      {
+        "start": 86.24,
+        "duration": 4.16,
+        "text": "depending on your situation you may want"
+      },
+      {
+        "start": 88.479,
+        "duration": 4.081,
+        "text": "to be a little bit more lightweight and"
+      },
+      {
+        "start": 90.4,
+        "duration": 2.88,
+        "text": "use user-defined types which allow you"
+      },
+      {
+        "start": 92.56,
+        "duration": 3.44,
+        "text": "to nest"
+      },
+      {
+        "start": 93.28,
+        "duration": 3.04,
+        "text": "a few values inside of a single column"
+      },
+      {
+        "start": 96.0,
+        "duration": 2.64,
+        "text": "in"
+      },
+      {
+        "start": 96.32,
+        "duration": 4.159,
+        "text": "a table usually this occurs when you"
+      },
+      {
+        "start": 98.64,
+        "duration": 2.159,
+        "text": "have a one-to-one relationship but you"
+      },
+      {
+        "start": 100.479,
+        "duration": 3.041,
+        "text": "can"
+      },
+      {
+        "start": 100.799,
+        "duration": 4.561,
+        "text": "also have lists or maps or whatever you"
+      },
+      {
+        "start": 103.52,
+        "duration": 3.279,
+        "text": "like of user-defined types within a"
+      },
+      {
+        "start": 105.36,
+        "duration": 4.0,
+        "text": "single column as well"
+      },
+      {
+        "start": 106.799,
+        "duration": 4.241,
+        "text": "for example we took our videos and"
+      },
+      {
+        "start": 109.36,
+        "duration": 4.32,
+        "text": "turned them into a videos type"
+      },
+      {
+        "start": 111.04,
+        "duration": 3.119,
+        "text": "user-defined type on the right we have"
+      },
+      {
+        "start": 113.68,
+        "duration": 3.2,
+        "text": "id"
+      },
+      {
+        "start": 114.159,
+        "duration": 4.081,
+        "text": "title description so on and so forth and"
+      },
+      {
+        "start": 116.88,
+        "duration": 3.599,
+        "text": "then we put all those videos in a"
+      },
+      {
+        "start": 118.24,
+        "duration": 3.199,
+        "text": "collection column in the videos by user"
+      },
+      {
+        "start": 120.479,
+        "duration": 2.481,
+        "text": "table"
+      },
+      {
+        "start": 121.439,
+        "duration": 3.68,
+        "text": "i'll admit this is a little bit of a"
+      },
+      {
+        "start": 122.96,
+        "duration": 4.159,
+        "text": "contrived example that's a lot of values"
+      },
+      {
+        "start": 125.119,
+        "duration": 3.76,
+        "text": "to having one user defined type"
+      },
+      {
+        "start": 127.119,
+        "duration": 3.84,
+        "text": "only to put it in a table with a single"
+      },
+      {
+        "start": 128.879,
+        "duration": 4.801,
+        "text": "partition key"
+      },
+      {
+        "start": 130.959,
+        "duration": 4.561,
+        "text": "but if you want to do so go ahead really"
+      },
+      {
+        "start": 133.68,
+        "duration": 3.52,
+        "text": "this is more for lightweight situations"
+      },
+      {
+        "start": 135.52,
+        "duration": 4.079,
+        "text": "for example you could see sticking an"
+      },
+      {
+        "start": 137.2,
+        "duration": 4.0,
+        "text": "address inside of a user table instead"
+      },
+      {
+        "start": 139.599,
+        "duration": 3.841,
+        "text": "it's really up to you"
+      },
+      {
+        "start": 141.2,
+        "duration": 4.16,
+        "text": "one of the first disruptive experiences"
+      },
+      {
+        "start": 143.44,
+        "duration": 4.56,
+        "text": "you probably had when coming to apache"
+      },
+      {
+        "start": 145.36,
+        "duration": 4.4,
+        "text": "cassandra is the lack of joins"
+      },
+      {
+        "start": 148.0,
+        "duration": 3.92,
+        "text": "how do you get your data together in"
+      },
+      {
+        "start": 149.76,
+        "duration": 4.8,
+        "text": "order to see what the relationships are"
+      },
+      {
+        "start": 151.92,
+        "duration": 4.319,
+        "text": "fundamental concept in apache cassandra"
+      },
+      {
+        "start": 154.56,
+        "duration": 4.72,
+        "text": "is we actually join on"
+      },
+      {
+        "start": 156.239,
+        "duration": 5.36,
+        "text": "right instead of joining on read in a"
+      },
+      {
+        "start": 159.28,
+        "duration": 2.72,
+        "text": "relational database just say select from"
+      },
+      {
+        "start": 161.599,
+        "duration": 2.72,
+        "text": "here"
+      },
+      {
+        "start": 162.0,
+        "duration": 4.239,
+        "text": "join on this and you're joining two"
+      },
+      {
+        "start": 164.319,
+        "duration": 4.0,
+        "text": "tables as you read the data"
+      },
+      {
+        "start": 166.239,
+        "duration": 4.321,
+        "text": "but in apache cassandra we don't want to"
+      },
+      {
+        "start": 168.319,
+        "duration": 3.041,
+        "text": "take time to join values together to do"
+      },
+      {
+        "start": 170.56,
+        "duration": 2.64,
+        "text": "a read"
+      },
+      {
+        "start": 171.36,
+        "duration": 3.84,
+        "text": "we just want to grab the data and return"
+      },
+      {
+        "start": 173.2,
+        "duration": 4.72,
+        "text": "it to the client application"
+      },
+      {
+        "start": 175.2,
+        "duration": 4.959,
+        "text": "thus when we perform the right that's"
+      },
+      {
+        "start": 177.92,
+        "duration": 5.039,
+        "text": "when we actually materialize the join"
+      },
+      {
+        "start": 180.159,
+        "duration": 3.841,
+        "text": "on disk so it's optimal when we turn"
+      },
+      {
+        "start": 182.959,
+        "duration": 2.801,
+        "text": "around and do a query"
+      },
+      {
+        "start": 184.0,
+        "duration": 4.64,
+        "text": "on that data let's look at these"
+      },
+      {
+        "start": 185.76,
+        "duration": 4.479,
+        "text": "examples we have three tables that"
+      },
+      {
+        "start": 188.64,
+        "duration": 5.2,
+        "text": "represent the videos"
+      },
+      {
+        "start": 190.239,
+        "duration": 4.561,
+        "text": "object we have videos by actor videos by"
+      },
+      {
+        "start": 193.84,
+        "duration": 3.679,
+        "text": "genre"
+      },
+      {
+        "start": 194.8,
+        "duration": 4.4,
+        "text": "and videos by tag you could imagine in a"
+      },
+      {
+        "start": 197.519,
+        "duration": 3.681,
+        "text": "relational model you'd have a separate"
+      },
+      {
+        "start": 199.2,
+        "duration": 2.48,
+        "text": "actors table maybe a separate genres"
+      },
+      {
+        "start": 201.2,
+        "duration": 2.399,
+        "text": "table"
+      },
+      {
+        "start": 201.68,
+        "duration": 3.04,
+        "text": "tags table these would all be separate"
+      },
+      {
+        "start": 203.599,
+        "duration": 3.2,
+        "text": "tables"
+      },
+      {
+        "start": 204.72,
+        "duration": 4.64,
+        "text": "but in this example we've joined videos"
+      },
+      {
+        "start": 206.799,
+        "duration": 4.72,
+        "text": "with actors we've joined videos by genre"
+      },
+      {
+        "start": 209.36,
+        "duration": 4.4,
+        "text": "and we've joined videos by tag"
+      },
+      {
+        "start": 211.519,
+        "duration": 3.28,
+        "text": "on disk in tables that we've"
+      },
+      {
+        "start": 213.76,
+        "duration": 4.64,
+        "text": "materialized"
+      },
+      {
+        "start": 214.799,
+        "duration": 4.961,
+        "text": "at right time this obviously duplicates"
+      },
+      {
+        "start": 218.4,
+        "duration": 3.199,
+        "text": "video data"
+      },
+      {
+        "start": 219.76,
+        "duration": 3.119,
+        "text": "every time we want to store a new video"
+      },
+      {
+        "start": 221.599,
+        "duration": 3.28,
+        "text": "we have to write a record"
+      },
+      {
+        "start": 222.879,
+        "duration": 3.28,
+        "text": "into each one of these tables and we"
+      },
+      {
+        "start": 224.879,
+        "duration": 4.321,
+        "text": "have to keep those records"
+      },
+      {
+        "start": 226.159,
+        "duration": 5.041,
+        "text": "in sync yeah that's could be painful but"
+      },
+      {
+        "start": 229.2,
+        "duration": 4.0,
+        "text": "data stacks enterprise has several tools"
+      },
+      {
+        "start": 231.2,
+        "duration": 4.0,
+        "text": "to help you along with this as well"
+      },
+      {
+        "start": 233.2,
+        "duration": 4.16,
+        "text": "the important key concept is that we're"
+      },
+      {
+        "start": 235.2,
+        "duration": 3.759,
+        "text": "writing tables to satisfy queries so"
+      },
+      {
+        "start": 237.36,
+        "duration": 4.64,
+        "text": "that they can have constant time"
+      },
+      {
+        "start": 238.959,
+        "duration": 5.84,
+        "text": "access that is awesome"
+      },
+      {
+        "start": 242.0,
+        "duration": 5.12,
+        "text": "consider the two situations we have here"
+      },
+      {
+        "start": 244.799,
+        "duration": 4.8,
+        "text": "on the left we have a videos by actor"
+      },
+      {
+        "start": 247.12,
+        "duration": 5.119,
+        "text": "table where we query off the actor"
+      },
+      {
+        "start": 249.599,
+        "duration": 3.92,
+        "text": "we get the video id for every video that"
+      },
+      {
+        "start": 252.239,
+        "duration": 3.921,
+        "text": "actors been in"
+      },
+      {
+        "start": 253.519,
+        "duration": 3.921,
+        "text": "we then have to do another query on a"
+      },
+      {
+        "start": 256.16,
+        "duration": 4.4,
+        "text": "second table to pull"
+      },
+      {
+        "start": 257.44,
+        "duration": 4.0,
+        "text": "all that video information what a"
+      },
+      {
+        "start": 260.56,
+        "duration": 3.359,
+        "text": "headache"
+      },
+      {
+        "start": 261.44,
+        "duration": 4.319,
+        "text": "lots of queries lots of network traffic"
+      },
+      {
+        "start": 263.919,
+        "duration": 2.801,
+        "text": "the user is just waiting to click off of"
+      },
+      {
+        "start": 265.759,
+        "duration": 2.561,
+        "text": "your website"
+      },
+      {
+        "start": 266.72,
+        "duration": 3.68,
+        "text": "compare this with the example on the"
+      },
+      {
+        "start": 268.32,
+        "duration": 4.8,
+        "text": "right we have the exact same"
+      },
+      {
+        "start": 270.4,
+        "duration": 3.04,
+        "text": "setup for query one with actor video id"
+      },
+      {
+        "start": 273.12,
+        "duration": 2.72,
+        "text": "and"
+      },
+      {
+        "start": 273.44,
+        "duration": 3.6,
+        "text": "character name but then we've stored the"
+      },
+      {
+        "start": 275.84,
+        "duration": 3.919,
+        "text": "video information"
+      },
+      {
+        "start": 277.04,
+        "duration": 3.52,
+        "text": "along with the actor information in one"
+      },
+      {
+        "start": 279.759,
+        "duration": 3.921,
+        "text": "table"
+      },
+      {
+        "start": 280.56,
+        "duration": 5.52,
+        "text": "so i can query off the actor and get all"
+      },
+      {
+        "start": 283.68,
+        "duration": 4.16,
+        "text": "the video information for that actor in"
+      },
+      {
+        "start": 286.08,
+        "duration": 5.119,
+        "text": "a single partition"
+      },
+      {
+        "start": 287.84,
+        "duration": 5.2,
+        "text": "this is golden it takes more space yes"
+      },
+      {
+        "start": 291.199,
+        "duration": 3.921,
+        "text": "there's some synchronization headache on"
+      },
+      {
+        "start": 293.04,
+        "duration": 3.68,
+        "text": "your side or if you use datastax"
+      },
+      {
+        "start": 295.12,
+        "duration": 3.04,
+        "text": "enterprise then you have some tools to"
+      },
+      {
+        "start": 296.72,
+        "duration": 3.68,
+        "text": "help you along with that"
+      },
+      {
+        "start": 298.16,
+        "duration": 4.319,
+        "text": "but your query time is constant and"
+      },
+      {
+        "start": 300.4,
+        "duration": 3.76,
+        "text": "that's great"
+      },
+      {
+        "start": 302.479,
+        "duration": 4.401,
+        "text": "so now that we have our conceptual data"
+      },
+      {
+        "start": 304.16,
+        "duration": 4.479,
+        "text": "model and our application workflow"
+      },
+      {
+        "start": 306.88,
+        "duration": 4.72,
+        "text": "let's see how we combine the two to"
+      },
+      {
+        "start": 308.639,
+        "duration": 4.481,
+        "text": "create our actual logical data tables"
+      },
+      {
+        "start": 311.6,
+        "duration": 3.76,
+        "text": "we're going to discuss some mapping"
+      },
+      {
+        "start": 313.12,
+        "duration": 4.079,
+        "text": "rules they're super simple"
+      },
+      {
+        "start": 315.36,
+        "duration": 3.04,
+        "text": "just follow through with them and you'll"
+      },
+      {
+        "start": 317.199,
+        "duration": 3.601,
+        "text": "be golden"
+      },
+      {
+        "start": 318.4,
+        "duration": 4.4,
+        "text": "here are the five mapping rules go ahead"
+      },
+      {
+        "start": 320.8,
+        "duration": 4.16,
+        "text": "and tattoo these on top of each one of"
+      },
+      {
+        "start": 322.8,
+        "duration": 3.28,
+        "text": "your fingers they're simple they're"
+      },
+      {
+        "start": 324.96,
+        "duration": 2.64,
+        "text": "straightforward"
+      },
+      {
+        "start": 326.08,
+        "duration": 4.0,
+        "text": "they'll get you to the logical data"
+      },
+      {
+        "start": 327.6,
+        "duration": 4.56,
+        "text": "tables we first start with our entities"
+      },
+      {
+        "start": 330.08,
+        "duration": 4.16,
+        "text": "and relationships we then look at"
+      },
+      {
+        "start": 332.16,
+        "duration": 3.68,
+        "text": "quality search attributes we then"
+      },
+      {
+        "start": 334.24,
+        "duration": 2.48,
+        "text": "further look at inequality search"
+      },
+      {
+        "start": 335.84,
+        "duration": 3.68,
+        "text": "attributes"
+      },
+      {
+        "start": 336.72,
+        "duration": 4.72,
+        "text": "ordering attributes key attributes let's"
+      },
+      {
+        "start": 339.52,
+        "duration": 4.239,
+        "text": "look at an example"
+      },
+      {
+        "start": 341.44,
+        "duration": 3.199,
+        "text": "remember i said we need our conceptual"
+      },
+      {
+        "start": 343.759,
+        "duration": 3.041,
+        "text": "data model"
+      },
+      {
+        "start": 344.639,
+        "duration": 3.84,
+        "text": "and our access patterns to create the"
+      },
+      {
+        "start": 346.8,
+        "duration": 3.92,
+        "text": "logical data table"
+      },
+      {
+        "start": 348.479,
+        "duration": 3.041,
+        "text": "here's an example where we have both we"
+      },
+      {
+        "start": 350.72,
+        "duration": 2.96,
+        "text": "have user"
+      },
+      {
+        "start": 351.52,
+        "duration": 3.36,
+        "text": "uploads video and we have the access"
+      },
+      {
+        "start": 353.68,
+        "duration": 3.359,
+        "text": "pattern below it"
+      },
+      {
+        "start": 354.88,
+        "duration": 4.0,
+        "text": "we query on the user id and on the"
+      },
+      {
+        "start": 357.039,
+        "duration": 3.921,
+        "text": "uploaded timestamp and we have an"
+      },
+      {
+        "start": 358.88,
+        "duration": 3.84,
+        "text": "ordering restriction as well which is on"
+      },
+      {
+        "start": 360.96,
+        "duration": 3.92,
+        "text": "the uploaded timestamp"
+      },
+      {
+        "start": 362.72,
+        "duration": 4.08,
+        "text": "mapping rule number one model the"
+      },
+      {
+        "start": 364.88,
+        "duration": 2.8,
+        "text": "entities and the relationships in a"
+      },
+      {
+        "start": 366.8,
+        "duration": 3.04,
+        "text": "table"
+      },
+      {
+        "start": 367.68,
+        "duration": 3.519,
+        "text": "we're querying for videos uploaded by a"
+      },
+      {
+        "start": 369.84,
+        "duration": 3.919,
+        "text": "specific user"
+      },
+      {
+        "start": 371.199,
+        "duration": 3.84,
+        "text": "so this entire relationship we store in"
+      },
+      {
+        "start": 373.759,
+        "duration": 3.44,
+        "text": "a single table"
+      },
+      {
+        "start": 375.039,
+        "duration": 3.201,
+        "text": "notice the table has all the attributes"
+      },
+      {
+        "start": 377.199,
+        "duration": 3.28,
+        "text": "from user"
+      },
+      {
+        "start": 378.24,
+        "duration": 5.04,
+        "text": "all the attributes and video and even"
+      },
+      {
+        "start": 380.479,
+        "duration": 4.401,
+        "text": "the uploads attribute of timestamp"
+      },
+      {
+        "start": 383.28,
+        "duration": 3.919,
+        "text": "in a relational world you may just look"
+      },
+      {
+        "start": 384.88,
+        "duration": 4.24,
+        "text": "at the object and model it into a table"
+      },
+      {
+        "start": 387.199,
+        "duration": 3.84,
+        "text": "and that's very common but here we're"
+      },
+      {
+        "start": 389.12,
+        "duration": 2.24,
+        "text": "modeling an entire relationship type"
+      },
+      {
+        "start": 391.039,
+        "duration": 2.081,
+        "text": "where"
+      },
+      {
+        "start": 391.36,
+        "duration": 4.24,
+        "text": "all the attributes go into a single"
+      },
+      {
+        "start": 393.12,
+        "duration": 5.04,
+        "text": "table mapping rule number two"
+      },
+      {
+        "start": 395.6,
+        "duration": 4.319,
+        "text": "equality search attributes remember"
+      },
+      {
+        "start": 398.16,
+        "duration": 3.44,
+        "text": "we're modeling for a query"
+      },
+      {
+        "start": 399.919,
+        "duration": 4.081,
+        "text": "and the first thing we want to look for"
+      },
+      {
+        "start": 401.6,
+        "duration": 4.4,
+        "text": "is what are we saying equals on"
+      },
+      {
+        "start": 404.0,
+        "duration": 4.479,
+        "text": "in this case we're querying for videos"
+      },
+      {
+        "start": 406.0,
+        "duration": 5.84,
+        "text": "given a specific user id"
+      },
+      {
+        "start": 408.479,
+        "duration": 6.961,
+        "text": "so we will say equals on the user id"
+      },
+      {
+        "start": 411.84,
+        "duration": 5.52,
+        "text": "thus user id becomes our partition key"
+      },
+      {
+        "start": 415.44,
+        "duration": 3.92,
+        "text": "next you need to identify what your"
+      },
+      {
+        "start": 417.36,
+        "duration": 3.839,
+        "text": "inequality search attributes are"
+      },
+      {
+        "start": 419.36,
+        "duration": 3.52,
+        "text": "that basically means greater than less"
+      },
+      {
+        "start": 421.199,
+        "duration": 2.641,
+        "text": "than greater than or equal to less than"
+      },
+      {
+        "start": 422.88,
+        "duration": 3.68,
+        "text": "or equal to"
+      },
+      {
+        "start": 423.84,
+        "duration": 4.479,
+        "text": "you get the idea we're not saying equals"
+      },
+      {
+        "start": 426.56,
+        "duration": 3.68,
+        "text": "but we're going to do a range"
+      },
+      {
+        "start": 428.319,
+        "duration": 4.081,
+        "text": "in this case we're looking for videos"
+      },
+      {
+        "start": 430.24,
+        "duration": 3.359,
+        "text": "with an uploaded timestamp greater than"
+      },
+      {
+        "start": 432.4,
+        "duration": 2.88,
+        "text": "some value"
+      },
+      {
+        "start": 433.599,
+        "duration": 3.04,
+        "text": "think about this as far as clustering"
+      },
+      {
+        "start": 435.28,
+        "duration": 3.52,
+        "text": "columns are concerned"
+      },
+      {
+        "start": 436.639,
+        "duration": 3.761,
+        "text": "we first query on the partition key and"
+      },
+      {
+        "start": 438.8,
+        "duration": 2.399,
+        "text": "then we search through the clustering"
+      },
+      {
+        "start": 440.4,
+        "duration": 3.04,
+        "text": "columns"
+      },
+      {
+        "start": 441.199,
+        "duration": 4.081,
+        "text": "thus we can do range queries or greater"
+      },
+      {
+        "start": 443.44,
+        "duration": 3.599,
+        "text": "than less than queries on the clustering"
+      },
+      {
+        "start": 445.28,
+        "duration": 3.68,
+        "text": "column values"
+      },
+      {
+        "start": 447.039,
+        "duration": 4.961,
+        "text": "thus we make uploaded timestamp a"
+      },
+      {
+        "start": 448.96,
+        "duration": 5.6,
+        "text": "clustering column following our user id"
+      },
+      {
+        "start": 452.0,
+        "duration": 4.24,
+        "text": "partition key next you need to identify"
+      },
+      {
+        "start": 454.56,
+        "duration": 2.72,
+        "text": "if there's any ordering constraints in"
+      },
+      {
+        "start": 456.24,
+        "duration": 3.28,
+        "text": "your query"
+      },
+      {
+        "start": 457.28,
+        "duration": 3.199,
+        "text": "in this example we want to order by the"
+      },
+      {
+        "start": 459.52,
+        "duration": 3.76,
+        "text": "timestamp"
+      },
+      {
+        "start": 460.479,
+        "duration": 4.481,
+        "text": "descending our uploaded timestamp is"
+      },
+      {
+        "start": 463.28,
+        "duration": 3.68,
+        "text": "already a clustering column because of"
+      },
+      {
+        "start": 464.96,
+        "duration": 3.919,
+        "text": "the previous mapping rule"
+      },
+      {
+        "start": 466.96,
+        "duration": 4.0,
+        "text": "however we need to change the ordering"
+      },
+      {
+        "start": 468.879,
+        "duration": 5.04,
+        "text": "from ascending to descending"
+      },
+      {
+        "start": 470.96,
+        "duration": 4.799,
+        "text": "to satisfy our ordering constraint if"
+      },
+      {
+        "start": 473.919,
+        "duration": 2.96,
+        "text": "uploaded timestamp was not already a"
+      },
+      {
+        "start": 475.759,
+        "duration": 2.641,
+        "text": "clustering column"
+      },
+      {
+        "start": 476.879,
+        "duration": 2.88,
+        "text": "here we would add it as another"
+      },
+      {
+        "start": 478.4,
+        "duration": 2.88,
+        "text": "clustering column on top of the"
+      },
+      {
+        "start": 479.759,
+        "duration": 3.28,
+        "text": "clustering columns we made from the"
+      },
+      {
+        "start": 481.28,
+        "duration": 4.4,
+        "text": "previous mapping rule"
+      },
+      {
+        "start": 483.039,
+        "duration": 4.961,
+        "text": "notice those four previous steps all had"
+      },
+      {
+        "start": 485.68,
+        "duration": 4.56,
+        "text": "to do with the query we were performing"
+      },
+      {
+        "start": 488.0,
+        "duration": 4.0,
+        "text": "remember modeling for apache cassandra"
+      },
+      {
+        "start": 490.24,
+        "duration": 4.239,
+        "text": "is first query driven"
+      },
+      {
+        "start": 492.0,
+        "duration": 4.72,
+        "text": "and then we add uniqueness this fifth"
+      },
+      {
+        "start": 494.479,
+        "duration": 3.041,
+        "text": "step is just to satisfy that uniqueness"
+      },
+      {
+        "start": 496.72,
+        "duration": 4.08,
+        "text": "constraint"
+      },
+      {
+        "start": 497.52,
+        "duration": 6.799,
+        "text": "here we add our key attributes the key"
+      },
+      {
+        "start": 500.8,
+        "duration": 6.56,
+        "text": "attribute for a user uploading a video"
+      },
+      {
+        "start": 504.319,
+        "duration": 6.16,
+        "text": "is the video id because videos sit on"
+      },
+      {
+        "start": 507.36,
+        "duration": 5.359,
+        "text": "the many side of the relationship type"
+      },
+      {
+        "start": 510.479,
+        "duration": 4.48,
+        "text": "remember the example i gave you say i"
+      },
+      {
+        "start": 512.719,
+        "duration": 4.721,
+        "text": "uploaded 10 videos of my cat"
+      },
+      {
+        "start": 514.959,
+        "duration": 4.0,
+        "text": "my user id would show up multiple times"
+      },
+      {
+        "start": 517.44,
+        "duration": 3.039,
+        "text": "thus not being unique"
+      },
+      {
+        "start": 518.959,
+        "duration": 3.76,
+        "text": "but each one of those videos would have"
+      },
+      {
+        "start": 520.479,
+        "duration": 4.721,
+        "text": "their own unique video id"
+      },
+      {
+        "start": 522.719,
+        "duration": 3.921,
+        "text": "so the id of this relationship type is"
+      },
+      {
+        "start": 525.2,
+        "duration": 3.84,
+        "text": "the video id"
+      },
+      {
+        "start": 526.64,
+        "duration": 3.44,
+        "text": "thus we add video id as another"
+      },
+      {
+        "start": 529.04,
+        "duration": 3.919,
+        "text": "clustering column"
+      },
+      {
+        "start": 530.08,
+        "duration": 3.28,
+        "text": "at the end of our primary key and that's"
+      },
+      {
+        "start": 532.959,
+        "duration": 2.721,
+        "text": "it"
+      },
+      {
+        "start": 533.36,
+        "duration": 4.159,
+        "text": "you're done you just have five mapping"
+      },
+      {
+        "start": 535.68,
+        "duration": 3.76,
+        "text": "rules to take the conceptual model and"
+      },
+      {
+        "start": 537.519,
+        "duration": 2.801,
+        "text": "the application workflow and create your"
+      },
+      {
+        "start": 539.44,
+        "duration": 3.2,
+        "text": "tables"
+      },
+      {
+        "start": 540.32,
+        "duration": 3.76,
+        "text": "it's really that simple so now it's your"
+      },
+      {
+        "start": 542.64,
+        "duration": 2.48,
+        "text": "turn to have a little experience with"
+      },
+      {
+        "start": 544.08,
+        "duration": 2.96,
+        "text": "combining these two"
+      },
+      {
+        "start": 545.12,
+        "duration": 5.6,
+        "text": "inputs go ahead and hit your whiteboard"
+      },
+      {
+        "start": 547.04,
+        "duration": 3.68,
+        "text": "again and create your conceptual data"
+      },
+      {
+        "start": 551.08,
+        "duration": 3.0,
+        "text": "model"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:47:04.875147+00:00"
+}

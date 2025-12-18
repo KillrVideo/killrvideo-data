@@ -1,0 +1,1454 @@
+{
+  "video_id": "7EOyg3L7LIw",
+  "title": "DS320.33 Spark Streaming: Stateless Transformations | DataStax Enterprise Analytics",
+  "description": "#DataStaxAcademy #DS320\nDS320.33 Spark Streaming: Stateless Transformations\nIn this course, you will learn how to effectively and efficiently solve analytical problems with Apache Spark™, Apache Cassandra™, and DataStax Enterprise. You will learn about the Spark API, Spark-Cassandra Connector, Spark SQL, Spark Streaming, and crucial performance optimization techniques.  You will also learn the basics of the productive and robust Scala programming language for data analysis and processing in Apache Spark™.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-16T00:31:54Z",
+  "thumbnail": "https://i.ytimg.com/vi/7EOyg3L7LIw/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "performance",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=7EOyg3L7LIw",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] in spark streaming there are two kinds of operations we can perform on d streams transformations and output operations among the transformations there are stateless transformations which we're going to discuss in this section and state full transformations which we'll talk about later transformations just like in non-streaming spark are lazy they're evaluated lazily defining them doesn't cause any work to take place output operations though which are equivalent to actions in conventional spark do trigger computation a stateless transformation is stateless precisely because it doesn't depend on any other batches in a d stream as we can see here the input stream is divided up into four rdds those are run through some stateless transformation and we have a transformed d stream which is also composed of four rdds there's a one-to-one correspondence between each one of those output rdds and the input rdd in the d stream from which it was transformed let's take a look at a few of the basic stateless transformations that you can perform on a d stream these look a lot like the transformations we've seen from the rest of spark we have filter to which we pass an anonymous function and that function will select which elements of the input d stream will make it into the output d stream there's map which allows us again to provide an arbitrary function which transforms each element of the input into an element of the output and there's a one-to-one correspondence between those elements flat map is similar except it expects that the input elements may themselves be broken down into pieces so there's a one-to-many correspondence between the input elements and the output elements we would expect flat map in the general case to return many things having given it one thing we saw that used before in our word count example where we took a line of text and tokenized it on spaces count is now a transformation in spark streaming it's going to take every rdd every batch in a d stream count up the elements in it produce a new rdd containing just that number that count of elements from the source rtd count by value is going to do a similar thing except it will take distinct values in the source rdd and count them creating an rdd that has a record for each distinct value and a count for that value reduce will apply a function to every element in the input producing an aggregate of some kind in the output rdd finally union which is actually a binary operation will take another rdd and produce an output rdd that's the union of that batch in the source rdd with the other rdd that you pass into union spark streaming gives us a new and slightly lower level api called transform transform is a method we call on a stream and we pass it a function that function is going to get past a parameter which is an rdd every rdd every batch in a d stream will get passed to this transform function where we'll be able to operate on that rdd with the rdd api at our disposal anything we want to do we can do it inside that transform function transform with is going to do the same thing we'll pass it that same function it's going to take an rdd as an argument except we'll also be able to pass in another rdd this is basically like the binary transform version of transform let's work through some examples we're going to start with diagrams really because this stuff's fairly abstract i want to walk through just some pictures of what we're doing with streams and other data sources to make the stuff clear before we jump into the code here we have an input stream shown in the top on purple it's labeled input d stream comes through that receiver and what we have is a series of uuids we're going to assume those are movie ids from our movie database we're going to perform a transform on that d stream which is count by value and now we're getting a count of unique ids in that second rdd shown in blue in the middle then we want to join that with data from a cassandra table we want to augment that stream with actual metadata from our movie database so we're getting this stream of movie ids coming in and we want to decorate it a little bit with some more information that we have in our database this is a classical spark streaming application and here is the code let me walk you through it line by line we begin by making our streaming context assuming our configuration is already lying around and we use socket text stream to pull in those movie ids we're kind of lighting the rest of the details of the system assuming that those uuids are coming in as text from that input source next we'll query the cassandra table we're going to get the metadata we need from the movies table and make sure that's keyed by id so we'll be able to join on that by id we'll try to be a little bit smart with the partitioning as we learned in the section on controller partitioning and we'll persist that in memory finally we're going to define our stream computation itself we want to use the transform method why transform because we want to join a stream not to another stream but to a conventional rdd created from a cassandra table we're effectively joining a stream to a table we can only join that cassandra table to another rdd so we have to do that inside the transform function which gets past each batch rdd in the d stream you can see that happening on that last line where each rdd is joined to movies and then mapped into a result tuple that has the format we'd like now if you have d streams of pair rdds the apis for transforming these look very much like the pair rdd transformations in conventional spark we have map values flat map values reduce by key group by key combined by key all of those same apis that we have from before and also of course co-group join left outer join and right outer join now we said just in the last example that we had to use the transform method to get that join done spark will let you join one stream to another stream but you can't join a stream to a non-stream rdd let's look at an example again just by diagram first to make sense of the situation in the abstract of how to join two streams to each other afterward we'll look at the code which is incredibly simple after we've gotten the concepts in our heads on the left we have an input stream coming in which contains again movie ids on the right we have another input stream which contains movie ids you can see those are being broken up into discrete batches of data in this case every four seconds based on the period we picked for our example code then we'll apply a transformation to those which looks like we're counting them by value we're going to count up the number of times each movie id occurs uniquely in each batch rdd then we will join the two streams we're going to join them on their key these are pair rdds at this point so that's fairly simple to do conceptually we'll join them and we see the output of the join contains the key and now a tuple of the two counts which we'll have to reduce add those two counts together and finally at the output we're going to have count of the number of times each id occurs uniquely now why all this complexity why would we even have two streams well there are a number of reasons why that might happen number one the data rate coming in on one stream might simply be too high remember a receiver is a task which means it's one thing that runs on one executor it's possible that that one server could be overwhelmed by the rate of data coming in and you might need to split that work up among more than one worker so you might actually need to define multiple streams in order to scale it also may be the case that the data is not all available from one source you may have different regions globally that have separate information systems where you have to connect to each one of those regions separate servers separate parts of the world each of which will stream its own data and you want to provide a global aggregate of all of those regional roll-ups there are any number of other reasons why you might need to go to separate sources in trivial examples it's well and good to have a single fire hose with all of that data but in the real world you might have to do something like this and now as i said the code is frankly pretty simple to wrap our minds around we'll create a streaming context we'll create the two streams again text streams from as it turns out the same host different ports in this example and we will count the one by value just as we did in the example and then join it to the second stream also counted by value that joined stream we will map values adding them together that's effectively a way of reducing that tuple into a single scalar value and finally print the result [Music] you",
+    "segments": [
+      {
+        "start": 0.06,
+        "duration": 3.45,
+        "text": "[Music]"
+      },
+      {
+        "start": 6.24,
+        "duration": 3.04,
+        "text": "in spark streaming there are two kinds"
+      },
+      {
+        "start": 7.6,
+        "duration": 3.999,
+        "text": "of operations we can perform on"
+      },
+      {
+        "start": 9.28,
+        "duration": 3.04,
+        "text": "d streams transformations and output"
+      },
+      {
+        "start": 11.599,
+        "duration": 2.561,
+        "text": "operations"
+      },
+      {
+        "start": 12.32,
+        "duration": 3.519,
+        "text": "among the transformations there are"
+      },
+      {
+        "start": 14.16,
+        "duration": 2.4,
+        "text": "stateless transformations which we're"
+      },
+      {
+        "start": 15.839,
+        "duration": 2.721,
+        "text": "going to discuss"
+      },
+      {
+        "start": 16.56,
+        "duration": 3.68,
+        "text": "in this section and state full"
+      },
+      {
+        "start": 18.56,
+        "duration": 2.16,
+        "text": "transformations which we'll talk about"
+      },
+      {
+        "start": 20.24,
+        "duration": 2.56,
+        "text": "later"
+      },
+      {
+        "start": 20.72,
+        "duration": 3.68,
+        "text": "transformations just like in"
+      },
+      {
+        "start": 22.8,
+        "duration": 4.479,
+        "text": "non-streaming spark"
+      },
+      {
+        "start": 24.4,
+        "duration": 4.719,
+        "text": "are lazy they're evaluated lazily"
+      },
+      {
+        "start": 27.279,
+        "duration": 4.0,
+        "text": "defining them doesn't cause any work"
+      },
+      {
+        "start": 29.119,
+        "duration": 3.6,
+        "text": "to take place output operations though"
+      },
+      {
+        "start": 31.279,
+        "duration": 2.561,
+        "text": "which are equivalent to actions in"
+      },
+      {
+        "start": 32.719,
+        "duration": 3.601,
+        "text": "conventional spark"
+      },
+      {
+        "start": 33.84,
+        "duration": 4.239,
+        "text": "do trigger computation a stateless"
+      },
+      {
+        "start": 36.32,
+        "duration": 3.12,
+        "text": "transformation is stateless precisely"
+      },
+      {
+        "start": 38.079,
+        "duration": 4.32,
+        "text": "because it doesn't depend"
+      },
+      {
+        "start": 39.44,
+        "duration": 3.68,
+        "text": "on any other batches in a d stream as we"
+      },
+      {
+        "start": 42.399,
+        "duration": 3.84,
+        "text": "can see here"
+      },
+      {
+        "start": 43.12,
+        "duration": 4.0,
+        "text": "the input stream is divided up into four"
+      },
+      {
+        "start": 46.239,
+        "duration": 2.721,
+        "text": "rdds"
+      },
+      {
+        "start": 47.12,
+        "duration": 3.599,
+        "text": "those are run through some stateless"
+      },
+      {
+        "start": 48.96,
+        "duration": 2.64,
+        "text": "transformation and we have a transformed"
+      },
+      {
+        "start": 50.719,
+        "duration": 4.401,
+        "text": "d stream"
+      },
+      {
+        "start": 51.6,
+        "duration": 4.88,
+        "text": "which is also composed of four rdds"
+      },
+      {
+        "start": 55.12,
+        "duration": 3.759,
+        "text": "there's a one-to-one correspondence"
+      },
+      {
+        "start": 56.48,
+        "duration": 5.04,
+        "text": "between each one of those output rdds"
+      },
+      {
+        "start": 58.879,
+        "duration": 3.84,
+        "text": "and the input rdd in the d stream from"
+      },
+      {
+        "start": 61.52,
+        "duration": 3.44,
+        "text": "which it was transformed"
+      },
+      {
+        "start": 62.719,
+        "duration": 3.681,
+        "text": "let's take a look at a few of the basic"
+      },
+      {
+        "start": 64.96,
+        "duration": 3.28,
+        "text": "stateless transformations"
+      },
+      {
+        "start": 66.4,
+        "duration": 3.2,
+        "text": "that you can perform on a d stream these"
+      },
+      {
+        "start": 68.24,
+        "duration": 2.8,
+        "text": "look a lot like the transformations"
+      },
+      {
+        "start": 69.6,
+        "duration": 3.6,
+        "text": "we've seen from the rest of spark"
+      },
+      {
+        "start": 71.04,
+        "duration": 3.119,
+        "text": "we have filter to which we pass an"
+      },
+      {
+        "start": 73.2,
+        "duration": 2.72,
+        "text": "anonymous function"
+      },
+      {
+        "start": 74.159,
+        "duration": 3.121,
+        "text": "and that function will select which"
+      },
+      {
+        "start": 75.92,
+        "duration": 3.199,
+        "text": "elements of the input d"
+      },
+      {
+        "start": 77.28,
+        "duration": 3.28,
+        "text": "stream will make it into the output d"
+      },
+      {
+        "start": 79.119,
+        "duration": 3.201,
+        "text": "stream there's map"
+      },
+      {
+        "start": 80.56,
+        "duration": 3.84,
+        "text": "which allows us again to provide an"
+      },
+      {
+        "start": 82.32,
+        "duration": 3.76,
+        "text": "arbitrary function which transforms each"
+      },
+      {
+        "start": 84.4,
+        "duration": 3.039,
+        "text": "element of the input into an"
+      },
+      {
+        "start": 86.08,
+        "duration": 3.12,
+        "text": "element of the output and there's a"
+      },
+      {
+        "start": 87.439,
+        "duration": 2.32,
+        "text": "one-to-one correspondence between those"
+      },
+      {
+        "start": 89.2,
+        "duration": 3.2,
+        "text": "elements"
+      },
+      {
+        "start": 89.759,
+        "duration": 4.961,
+        "text": "flat map is similar except it expects"
+      },
+      {
+        "start": 92.4,
+        "duration": 2.56,
+        "text": "that the input elements may themselves"
+      },
+      {
+        "start": 94.72,
+        "duration": 2.48,
+        "text": "be"
+      },
+      {
+        "start": 94.96,
+        "duration": 4.32,
+        "text": "broken down into pieces so there's a"
+      },
+      {
+        "start": 97.2,
+        "duration": 3.2,
+        "text": "one-to-many correspondence between the"
+      },
+      {
+        "start": 99.28,
+        "duration": 3.839,
+        "text": "input elements"
+      },
+      {
+        "start": 100.4,
+        "duration": 4.48,
+        "text": "and the output elements we would expect"
+      },
+      {
+        "start": 103.119,
+        "duration": 4.161,
+        "text": "flat map in the general case"
+      },
+      {
+        "start": 104.88,
+        "duration": 3.199,
+        "text": "to return many things having given it"
+      },
+      {
+        "start": 107.28,
+        "duration": 2.32,
+        "text": "one thing"
+      },
+      {
+        "start": 108.079,
+        "duration": 3.36,
+        "text": "we saw that used before in our word"
+      },
+      {
+        "start": 109.6,
+        "duration": 4.0,
+        "text": "count example where we took a line of"
+      },
+      {
+        "start": 111.439,
+        "duration": 4.32,
+        "text": "text and tokenized it on spaces"
+      },
+      {
+        "start": 113.6,
+        "duration": 3.6,
+        "text": "count is now a transformation in spark"
+      },
+      {
+        "start": 115.759,
+        "duration": 4.32,
+        "text": "streaming it's going to take"
+      },
+      {
+        "start": 117.2,
+        "duration": 4.16,
+        "text": "every rdd every batch in a d stream"
+      },
+      {
+        "start": 120.079,
+        "duration": 3.601,
+        "text": "count up the elements in it"
+      },
+      {
+        "start": 121.36,
+        "duration": 4.0,
+        "text": "produce a new rdd containing just that"
+      },
+      {
+        "start": 123.68,
+        "duration": 4.24,
+        "text": "number that count of elements"
+      },
+      {
+        "start": 125.36,
+        "duration": 3.759,
+        "text": "from the source rtd count by value is"
+      },
+      {
+        "start": 127.92,
+        "duration": 3.92,
+        "text": "going to do a similar thing"
+      },
+      {
+        "start": 129.119,
+        "duration": 3.281,
+        "text": "except it will take distinct values in"
+      },
+      {
+        "start": 131.84,
+        "duration": 4.16,
+        "text": "the source"
+      },
+      {
+        "start": 132.4,
+        "duration": 5.68,
+        "text": "rdd and count them creating an rdd that"
+      },
+      {
+        "start": 136.0,
+        "duration": 4.72,
+        "text": "has a record for each distinct value"
+      },
+      {
+        "start": 138.08,
+        "duration": 3.92,
+        "text": "and a count for that value reduce will"
+      },
+      {
+        "start": 140.72,
+        "duration": 3.519,
+        "text": "apply a function to"
+      },
+      {
+        "start": 142.0,
+        "duration": 4.64,
+        "text": "every element in the input producing an"
+      },
+      {
+        "start": 144.239,
+        "duration": 4.481,
+        "text": "aggregate of some kind in the output rdd"
+      },
+      {
+        "start": 146.64,
+        "duration": 3.36,
+        "text": "finally union which is actually a binary"
+      },
+      {
+        "start": 148.72,
+        "duration": 4.72,
+        "text": "operation will take"
+      },
+      {
+        "start": 150.0,
+        "duration": 4.4,
+        "text": "another rdd and produce an output rdd"
+      },
+      {
+        "start": 153.44,
+        "duration": 3.6,
+        "text": "that's the union"
+      },
+      {
+        "start": 154.4,
+        "duration": 4.559,
+        "text": "of that batch in the source rdd with the"
+      },
+      {
+        "start": 157.04,
+        "duration": 3.36,
+        "text": "other rdd that you pass into union"
+      },
+      {
+        "start": 158.959,
+        "duration": 3.28,
+        "text": "spark streaming gives us a new and"
+      },
+      {
+        "start": 160.4,
+        "duration": 2.88,
+        "text": "slightly lower level api called"
+      },
+      {
+        "start": 162.239,
+        "duration": 3.601,
+        "text": "transform"
+      },
+      {
+        "start": 163.28,
+        "duration": 3.28,
+        "text": "transform is a method we call on a"
+      },
+      {
+        "start": 165.84,
+        "duration": 3.28,
+        "text": "stream"
+      },
+      {
+        "start": 166.56,
+        "duration": 4.08,
+        "text": "and we pass it a function that function"
+      },
+      {
+        "start": 169.12,
+        "duration": 5.759,
+        "text": "is going to get past a parameter"
+      },
+      {
+        "start": 170.64,
+        "duration": 7.12,
+        "text": "which is an rdd every rdd every batch"
+      },
+      {
+        "start": 174.879,
+        "duration": 4.241,
+        "text": "in a d stream will get passed to this"
+      },
+      {
+        "start": 177.76,
+        "duration": 2.88,
+        "text": "transform function"
+      },
+      {
+        "start": 179.12,
+        "duration": 3.68,
+        "text": "where we'll be able to operate on that"
+      },
+      {
+        "start": 180.64,
+        "duration": 4.16,
+        "text": "rdd with the rdd api"
+      },
+      {
+        "start": 182.8,
+        "duration": 4.0,
+        "text": "at our disposal anything we want to do"
+      },
+      {
+        "start": 184.8,
+        "duration": 2.56,
+        "text": "we can do it inside that transform"
+      },
+      {
+        "start": 186.8,
+        "duration": 2.64,
+        "text": "function"
+      },
+      {
+        "start": 187.36,
+        "duration": 3.84,
+        "text": "transform with is going to do the same"
+      },
+      {
+        "start": 189.44,
+        "duration": 3.28,
+        "text": "thing we'll pass it that same function"
+      },
+      {
+        "start": 191.2,
+        "duration": 3.039,
+        "text": "it's going to take an rdd as an argument"
+      },
+      {
+        "start": 192.72,
+        "duration": 2.799,
+        "text": "except we'll also be able to pass in"
+      },
+      {
+        "start": 194.239,
+        "duration": 2.881,
+        "text": "another rdd"
+      },
+      {
+        "start": 195.519,
+        "duration": 3.121,
+        "text": "this is basically like the binary"
+      },
+      {
+        "start": 197.12,
+        "duration": 3.52,
+        "text": "transform version"
+      },
+      {
+        "start": 198.64,
+        "duration": 3.2,
+        "text": "of transform let's work through some"
+      },
+      {
+        "start": 200.64,
+        "duration": 2.64,
+        "text": "examples we're going to start with"
+      },
+      {
+        "start": 201.84,
+        "duration": 2.479,
+        "text": "diagrams really because this stuff's"
+      },
+      {
+        "start": 203.28,
+        "duration": 2.16,
+        "text": "fairly abstract"
+      },
+      {
+        "start": 204.319,
+        "duration": 2.801,
+        "text": "i want to walk through just some"
+      },
+      {
+        "start": 205.44,
+        "duration": 3.76,
+        "text": "pictures of what we're doing with"
+      },
+      {
+        "start": 207.12,
+        "duration": 3.759,
+        "text": "streams and other data sources"
+      },
+      {
+        "start": 209.2,
+        "duration": 3.679,
+        "text": "to make the stuff clear before we jump"
+      },
+      {
+        "start": 210.879,
+        "duration": 3.92,
+        "text": "into the code here we have an input"
+      },
+      {
+        "start": 212.879,
+        "duration": 2.401,
+        "text": "stream shown in the top on purple it's"
+      },
+      {
+        "start": 214.799,
+        "duration": 2.0,
+        "text": "labeled"
+      },
+      {
+        "start": 215.28,
+        "duration": 4.16,
+        "text": "input d stream comes through that"
+      },
+      {
+        "start": 216.799,
+        "duration": 5.041,
+        "text": "receiver and what we have is a series of"
+      },
+      {
+        "start": 219.44,
+        "duration": 4.799,
+        "text": "uuids we're going to assume those are"
+      },
+      {
+        "start": 221.84,
+        "duration": 4.479,
+        "text": "movie ids from our movie database we're"
+      },
+      {
+        "start": 224.239,
+        "duration": 4.56,
+        "text": "going to perform a transform on that d"
+      },
+      {
+        "start": 226.319,
+        "duration": 4.961,
+        "text": "stream which is count by value and now"
+      },
+      {
+        "start": 228.799,
+        "duration": 4.561,
+        "text": "we're getting a count of unique ids"
+      },
+      {
+        "start": 231.28,
+        "duration": 3.28,
+        "text": "in that second rdd shown in blue in the"
+      },
+      {
+        "start": 233.36,
+        "duration": 3.28,
+        "text": "middle then"
+      },
+      {
+        "start": 234.56,
+        "duration": 4.08,
+        "text": "we want to join that with data from a"
+      },
+      {
+        "start": 236.64,
+        "duration": 2.64,
+        "text": "cassandra table we want to augment that"
+      },
+      {
+        "start": 238.64,
+        "duration": 3.599,
+        "text": "stream"
+      },
+      {
+        "start": 239.28,
+        "duration": 3.599,
+        "text": "with actual metadata from our movie"
+      },
+      {
+        "start": 242.239,
+        "duration": 2.241,
+        "text": "database"
+      },
+      {
+        "start": 242.879,
+        "duration": 4.161,
+        "text": "so we're getting this stream of movie"
+      },
+      {
+        "start": 244.48,
+        "duration": 3.119,
+        "text": "ids coming in and we want to decorate it"
+      },
+      {
+        "start": 247.04,
+        "duration": 2.32,
+        "text": "a little bit"
+      },
+      {
+        "start": 247.599,
+        "duration": 3.761,
+        "text": "with some more information that we have"
+      },
+      {
+        "start": 249.36,
+        "duration": 3.439,
+        "text": "in our database this is a classical"
+      },
+      {
+        "start": 251.36,
+        "duration": 3.439,
+        "text": "spark streaming application"
+      },
+      {
+        "start": 252.799,
+        "duration": 3.28,
+        "text": "and here is the code let me walk you"
+      },
+      {
+        "start": 254.799,
+        "duration": 3.44,
+        "text": "through it line by line"
+      },
+      {
+        "start": 256.079,
+        "duration": 3.68,
+        "text": "we begin by making our streaming context"
+      },
+      {
+        "start": 258.239,
+        "duration": 2.481,
+        "text": "assuming our configuration is already"
+      },
+      {
+        "start": 259.759,
+        "duration": 3.681,
+        "text": "lying around"
+      },
+      {
+        "start": 260.72,
+        "duration": 4.32,
+        "text": "and we use socket text stream to pull in"
+      },
+      {
+        "start": 263.44,
+        "duration": 2.96,
+        "text": "those movie ids we're kind of"
+      },
+      {
+        "start": 265.04,
+        "duration": 3.2,
+        "text": "lighting the rest of the details of the"
+      },
+      {
+        "start": 266.4,
+        "duration": 2.96,
+        "text": "system assuming that those uuids are"
+      },
+      {
+        "start": 268.24,
+        "duration": 3.04,
+        "text": "coming in as text"
+      },
+      {
+        "start": 269.36,
+        "duration": 3.6,
+        "text": "from that input source next we'll query"
+      },
+      {
+        "start": 271.28,
+        "duration": 3.52,
+        "text": "the cassandra table we're going to get"
+      },
+      {
+        "start": 272.96,
+        "duration": 3.84,
+        "text": "the metadata we need from the movies"
+      },
+      {
+        "start": 274.8,
+        "duration": 4.8,
+        "text": "table and make sure that's keyed"
+      },
+      {
+        "start": 276.8,
+        "duration": 3.679,
+        "text": "by id so we'll be able to join on that"
+      },
+      {
+        "start": 279.6,
+        "duration": 2.24,
+        "text": "by id"
+      },
+      {
+        "start": 280.479,
+        "duration": 3.041,
+        "text": "we'll try to be a little bit smart with"
+      },
+      {
+        "start": 281.84,
+        "duration": 3.44,
+        "text": "the partitioning as we learned in the"
+      },
+      {
+        "start": 283.52,
+        "duration": 4.08,
+        "text": "section on controller partitioning"
+      },
+      {
+        "start": 285.28,
+        "duration": 3.28,
+        "text": "and we'll persist that in memory finally"
+      },
+      {
+        "start": 287.6,
+        "duration": 3.44,
+        "text": "we're going to define"
+      },
+      {
+        "start": 288.56,
+        "duration": 4.16,
+        "text": "our stream computation itself we want to"
+      },
+      {
+        "start": 291.04,
+        "duration": 4.719,
+        "text": "use the transform method"
+      },
+      {
+        "start": 292.72,
+        "duration": 3.919,
+        "text": "why transform because we want to join a"
+      },
+      {
+        "start": 295.759,
+        "duration": 2.641,
+        "text": "stream"
+      },
+      {
+        "start": 296.639,
+        "duration": 3.521,
+        "text": "not to another stream but to a"
+      },
+      {
+        "start": 298.4,
+        "duration": 2.72,
+        "text": "conventional rdd created from a"
+      },
+      {
+        "start": 300.16,
+        "duration": 2.879,
+        "text": "cassandra table"
+      },
+      {
+        "start": 301.12,
+        "duration": 4.56,
+        "text": "we're effectively joining a stream to a"
+      },
+      {
+        "start": 303.039,
+        "duration": 3.44,
+        "text": "table we can only join that cassandra"
+      },
+      {
+        "start": 305.68,
+        "duration": 4.32,
+        "text": "table to"
+      },
+      {
+        "start": 306.479,
+        "duration": 6.16,
+        "text": "another rdd so we have to do that inside"
+      },
+      {
+        "start": 310.0,
+        "duration": 3.12,
+        "text": "the transform function which gets past"
+      },
+      {
+        "start": 312.639,
+        "duration": 3.201,
+        "text": "each"
+      },
+      {
+        "start": 313.12,
+        "duration": 4.639,
+        "text": "batch rdd in the d stream you can see"
+      },
+      {
+        "start": 315.84,
+        "duration": 4.48,
+        "text": "that happening on that last line"
+      },
+      {
+        "start": 317.759,
+        "duration": 4.481,
+        "text": "where each rdd is joined to movies and"
+      },
+      {
+        "start": 320.32,
+        "duration": 2.96,
+        "text": "then mapped into a result tuple that has"
+      },
+      {
+        "start": 322.24,
+        "duration": 3.519,
+        "text": "the format we'd like"
+      },
+      {
+        "start": 323.28,
+        "duration": 4.479,
+        "text": "now if you have d streams of pair rdds"
+      },
+      {
+        "start": 325.759,
+        "duration": 4.16,
+        "text": "the apis for transforming these look"
+      },
+      {
+        "start": 327.759,
+        "duration": 3.361,
+        "text": "very much like the pair rdd"
+      },
+      {
+        "start": 329.919,
+        "duration": 4.081,
+        "text": "transformations"
+      },
+      {
+        "start": 331.12,
+        "duration": 4.16,
+        "text": "in conventional spark we have map values"
+      },
+      {
+        "start": 334.0,
+        "duration": 3.52,
+        "text": "flat map values"
+      },
+      {
+        "start": 335.28,
+        "duration": 3.04,
+        "text": "reduce by key group by key combined by"
+      },
+      {
+        "start": 337.52,
+        "duration": 3.36,
+        "text": "key"
+      },
+      {
+        "start": 338.32,
+        "duration": 3.28,
+        "text": "all of those same apis that we have from"
+      },
+      {
+        "start": 340.88,
+        "duration": 3.2,
+        "text": "before"
+      },
+      {
+        "start": 341.6,
+        "duration": 3.2,
+        "text": "and also of course co-group join left"
+      },
+      {
+        "start": 344.08,
+        "duration": 2.8,
+        "text": "outer join"
+      },
+      {
+        "start": 344.8,
+        "duration": 3.2,
+        "text": "and right outer join now we said just in"
+      },
+      {
+        "start": 346.88,
+        "duration": 3.12,
+        "text": "the last example"
+      },
+      {
+        "start": 348.0,
+        "duration": 3.68,
+        "text": "that we had to use the transform method"
+      },
+      {
+        "start": 350.0,
+        "duration": 4.56,
+        "text": "to get that join done"
+      },
+      {
+        "start": 351.68,
+        "duration": 3.92,
+        "text": "spark will let you join one stream to"
+      },
+      {
+        "start": 354.56,
+        "duration": 2.96,
+        "text": "another stream"
+      },
+      {
+        "start": 355.6,
+        "duration": 3.439,
+        "text": "but you can't join a stream to a"
+      },
+      {
+        "start": 357.52,
+        "duration": 3.6,
+        "text": "non-stream rdd"
+      },
+      {
+        "start": 359.039,
+        "duration": 3.761,
+        "text": "let's look at an example again just by"
+      },
+      {
+        "start": 361.12,
+        "duration": 3.199,
+        "text": "diagram first to make sense of the"
+      },
+      {
+        "start": 362.8,
+        "duration": 4.08,
+        "text": "situation in the abstract"
+      },
+      {
+        "start": 364.319,
+        "duration": 4.081,
+        "text": "of how to join two streams to each other"
+      },
+      {
+        "start": 366.88,
+        "duration": 2.8,
+        "text": "afterward we'll look at the code which"
+      },
+      {
+        "start": 368.4,
+        "duration": 2.799,
+        "text": "is incredibly simple"
+      },
+      {
+        "start": 369.68,
+        "duration": 3.28,
+        "text": "after we've gotten the concepts in our"
+      },
+      {
+        "start": 371.199,
+        "duration": 3.761,
+        "text": "heads on the left we have an input"
+      },
+      {
+        "start": 372.96,
+        "duration": 4.72,
+        "text": "stream coming in which contains again"
+      },
+      {
+        "start": 374.96,
+        "duration": 4.799,
+        "text": "movie ids on the right we have another"
+      },
+      {
+        "start": 377.68,
+        "duration": 3.84,
+        "text": "input stream which contains movie ids"
+      },
+      {
+        "start": 379.759,
+        "duration": 4.961,
+        "text": "you can see those are being broken up"
+      },
+      {
+        "start": 381.52,
+        "duration": 4.959,
+        "text": "into discrete batches of data in this"
+      },
+      {
+        "start": 384.72,
+        "duration": 2.72,
+        "text": "case every four seconds based on the"
+      },
+      {
+        "start": 386.479,
+        "duration": 3.201,
+        "text": "period we picked"
+      },
+      {
+        "start": 387.44,
+        "duration": 3.92,
+        "text": "for our example code then we'll apply a"
+      },
+      {
+        "start": 389.68,
+        "duration": 3.519,
+        "text": "transformation to those which looks like"
+      },
+      {
+        "start": 391.36,
+        "duration": 3.44,
+        "text": "we're counting them by value we're going"
+      },
+      {
+        "start": 393.199,
+        "duration": 5.44,
+        "text": "to count up the number"
+      },
+      {
+        "start": 394.8,
+        "duration": 6.88,
+        "text": "of times each movie id occurs uniquely"
+      },
+      {
+        "start": 398.639,
+        "duration": 4.641,
+        "text": "in each batch rdd then we will join the"
+      },
+      {
+        "start": 401.68,
+        "duration": 2.239,
+        "text": "two streams we're going to join them on"
+      },
+      {
+        "start": 403.28,
+        "duration": 2.96,
+        "text": "their key"
+      },
+      {
+        "start": 403.919,
+        "duration": 4.4,
+        "text": "these are pair rdds at this point so"
+      },
+      {
+        "start": 406.24,
+        "duration": 3.6,
+        "text": "that's fairly simple to do conceptually"
+      },
+      {
+        "start": 408.319,
+        "duration": 3.521,
+        "text": "we'll join them and we see the output of"
+      },
+      {
+        "start": 409.84,
+        "duration": 4.32,
+        "text": "the join contains the key"
+      },
+      {
+        "start": 411.84,
+        "duration": 3.52,
+        "text": "and now a tuple of the two counts which"
+      },
+      {
+        "start": 414.16,
+        "duration": 2.96,
+        "text": "we'll have to reduce"
+      },
+      {
+        "start": 415.36,
+        "duration": 3.04,
+        "text": "add those two counts together and"
+      },
+      {
+        "start": 417.12,
+        "duration": 1.84,
+        "text": "finally at the output we're going to"
+      },
+      {
+        "start": 418.4,
+        "duration": 4.16,
+        "text": "have"
+      },
+      {
+        "start": 418.96,
+        "duration": 4.239,
+        "text": "count of the number of times each id"
+      },
+      {
+        "start": 422.56,
+        "duration": 3.12,
+        "text": "occurs"
+      },
+      {
+        "start": 423.199,
+        "duration": 3.84,
+        "text": "uniquely now why all this complexity why"
+      },
+      {
+        "start": 425.68,
+        "duration": 3.2,
+        "text": "would we even have"
+      },
+      {
+        "start": 427.039,
+        "duration": 3.521,
+        "text": "two streams well there are a number of"
+      },
+      {
+        "start": 428.88,
+        "duration": 4.08,
+        "text": "reasons why that might happen"
+      },
+      {
+        "start": 430.56,
+        "duration": 4.479,
+        "text": "number one the data rate coming in on"
+      },
+      {
+        "start": 432.96,
+        "duration": 4.56,
+        "text": "one stream might simply be too high"
+      },
+      {
+        "start": 435.039,
+        "duration": 3.121,
+        "text": "remember a receiver is a task which"
+      },
+      {
+        "start": 437.52,
+        "duration": 4.0,
+        "text": "means it's"
+      },
+      {
+        "start": 438.16,
+        "duration": 5.12,
+        "text": "one thing that runs on one executor"
+      },
+      {
+        "start": 441.52,
+        "duration": 3.519,
+        "text": "it's possible that that one server could"
+      },
+      {
+        "start": 443.28,
+        "duration": 3.28,
+        "text": "be overwhelmed by the rate of data"
+      },
+      {
+        "start": 445.039,
+        "duration": 4.801,
+        "text": "coming in and you might need to split"
+      },
+      {
+        "start": 446.56,
+        "duration": 4.72,
+        "text": "that work up among more than one worker"
+      },
+      {
+        "start": 449.84,
+        "duration": 2.56,
+        "text": "so you might actually need to define"
+      },
+      {
+        "start": 451.28,
+        "duration": 3.199,
+        "text": "multiple streams"
+      },
+      {
+        "start": 452.4,
+        "duration": 3.199,
+        "text": "in order to scale it also may be the"
+      },
+      {
+        "start": 454.479,
+        "duration": 3.44,
+        "text": "case that the data"
+      },
+      {
+        "start": 455.599,
+        "duration": 3.361,
+        "text": "is not all available from one source you"
+      },
+      {
+        "start": 457.919,
+        "duration": 3.361,
+        "text": "may have different"
+      },
+      {
+        "start": 458.96,
+        "duration": 3.6,
+        "text": "regions globally that have separate"
+      },
+      {
+        "start": 461.28,
+        "duration": 2.88,
+        "text": "information systems"
+      },
+      {
+        "start": 462.56,
+        "duration": 3.68,
+        "text": "where you have to connect to each one of"
+      },
+      {
+        "start": 464.16,
+        "duration": 3.12,
+        "text": "those regions separate servers separate"
+      },
+      {
+        "start": 466.24,
+        "duration": 3.2,
+        "text": "parts of the world"
+      },
+      {
+        "start": 467.28,
+        "duration": 4.24,
+        "text": "each of which will stream its own data"
+      },
+      {
+        "start": 469.44,
+        "duration": 4.4,
+        "text": "and you want to provide a global"
+      },
+      {
+        "start": 471.52,
+        "duration": 3.04,
+        "text": "aggregate of all of those regional"
+      },
+      {
+        "start": 473.84,
+        "duration": 2.079,
+        "text": "roll-ups"
+      },
+      {
+        "start": 474.56,
+        "duration": 3.28,
+        "text": "there are any number of other reasons"
+      },
+      {
+        "start": 475.919,
+        "duration": 2.72,
+        "text": "why you might need to go to separate"
+      },
+      {
+        "start": 477.84,
+        "duration": 2.639,
+        "text": "sources"
+      },
+      {
+        "start": 478.639,
+        "duration": 3.601,
+        "text": "in trivial examples it's well and good"
+      },
+      {
+        "start": 480.479,
+        "duration": 2.4,
+        "text": "to have a single fire hose with all of"
+      },
+      {
+        "start": 482.24,
+        "duration": 2.239,
+        "text": "that data"
+      },
+      {
+        "start": 482.879,
+        "duration": 3.6,
+        "text": "but in the real world you might have to"
+      },
+      {
+        "start": 484.479,
+        "duration": 3.761,
+        "text": "do something like this and now as i said"
+      },
+      {
+        "start": 486.479,
+        "duration": 2.72,
+        "text": "the code is frankly pretty simple to"
+      },
+      {
+        "start": 488.24,
+        "duration": 2.959,
+        "text": "wrap our minds around"
+      },
+      {
+        "start": 489.199,
+        "duration": 4.481,
+        "text": "we'll create a streaming context we'll"
+      },
+      {
+        "start": 491.199,
+        "duration": 3.12,
+        "text": "create the two streams again text"
+      },
+      {
+        "start": 493.68,
+        "duration": 2.32,
+        "text": "streams"
+      },
+      {
+        "start": 494.319,
+        "duration": 3.361,
+        "text": "from as it turns out the same host"
+      },
+      {
+        "start": 496.0,
+        "duration": 4.4,
+        "text": "different ports in this example"
+      },
+      {
+        "start": 497.68,
+        "duration": 4.32,
+        "text": "and we will count the one by value just"
+      },
+      {
+        "start": 500.4,
+        "duration": 3.6,
+        "text": "as we did in the example and then"
+      },
+      {
+        "start": 502.0,
+        "duration": 3.199,
+        "text": "join it to the second stream also"
+      },
+      {
+        "start": 504.0,
+        "duration": 4.56,
+        "text": "counted by value"
+      },
+      {
+        "start": 505.199,
+        "duration": 5.28,
+        "text": "that joined stream we will map values"
+      },
+      {
+        "start": 508.56,
+        "duration": 3.199,
+        "text": "adding them together that's effectively"
+      },
+      {
+        "start": 510.479,
+        "duration": 4.24,
+        "text": "a way of reducing"
+      },
+      {
+        "start": 511.759,
+        "duration": 8.251,
+        "text": "that tuple into a single scalar value"
+      },
+      {
+        "start": 514.719,
+        "duration": 8.481,
+        "text": "and finally print the result"
+      },
+      {
+        "start": 520.01,
+        "duration": 5.269,
+        "text": "[Music]"
+      },
+      {
+        "start": 523.2,
+        "duration": 2.079,
+        "text": "you"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T23:23:25.749593+00:00"
+}

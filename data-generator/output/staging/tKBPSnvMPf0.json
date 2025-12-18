@@ -1,0 +1,1634 @@
+{
+  "video_id": "tKBPSnvMPf0",
+  "title": "DS320.24 Tuning Partitioning: Controlling Partitioning | DataStax Enterprise Analytics",
+  "description": "#DataStaxAcademy #DS320\nDS320.24 Tuning Partitioning: Controlling Partitioning\nIn this course, you will learn how to effectively and efficiently solve analytical problems with Apache Spark™, Apache Cassandra™, and DataStax Enterprise. You will learn about the Spark API, Spark-Cassandra Connector, Spark SQL, Spark Streaming, and crucial performance optimization techniques.  You will also learn the basics of the productive and robust Scala programming language for data analysis and processing in Apache Spark™.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-16T00:29:46Z",
+  "thumbnail": "https://i.ytimg.com/vi/tKBPSnvMPf0/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "performance",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=tKBPSnvMPf0",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] if you want your spark applications to run well you are probably going to have to think about partitioning at some point and there are two parameters that we can set when we're doing that optimization one is the number of partitions and the other is the partitioner itself when we set the number of partitions we're going to be making a trade-off between task execution time in the case of a large number of partitions and making optimal use of parallelism in the case of a low number of partitions we'll have to look in some detail about the different partitioners and when to apply each one of those and how many partitions is enough well like i said if you have too few you have a few things that can go wrong number one you might not be taking proper advantage of the parallelism you have in your cluster there could be workers that you could be using that you're not using you also might get the problem of data skew where one partition ends up being larger than another you don't have a good uniform partition size with large partitions you can have increased pressure on ram on memory usage and you also might find that failure takes a long time to recover from so you don't want the partition count to be too small on the other hand you don't want the partition count to be too high remember a partition is a task spark will allocate a single task to run on a single executor to process that partition and there's overhead in scheduling that work you don't want to incur too much overhead for tiny little bits of computational work you don't want too many partitions you don't want too few and those trade-offs are nice but you might be wondering no seriously how many partitions should i have well the published guidelines say at least a hundred and no more than ten thousand uh you might not find that to be a very helpful range so let me give you a few more guidelines on your lower bound you want your partition count to be at least 2x the number of cores that are available to your spark application on the upper bound you want to make sure each task execution time is at least 100 milliseconds that's a thing you're going to have to observe you can't predict that by looking at a core count but in looking at the application web ui you'll be able to see those execution times and get an idea as we show here in this screenshot whether you're spending too much time coordinating and moving tasks around and moving work around and not enough time doing actual computation now as you may recall from our earlier treatment of partitioning not every operation not every transformation or action even requires a partitioner they may return none when you look at their partitioner some however do and let's take a look at those operations like the ones we show here reduce by key fold by key combined by key co-group join you may notice those all have something in common those are key based operations those all require the hash partitioner the range partitioner is required only by sort by key since the rdd that comes out of that is going to be ordered it needs a partitioner that's able to preserve that order and remember you can provide a custom partitioner this is something the spark cassandra connector does for efficiently dealing with data that comes from cassandra and is going to cassandra so implementing a custom partitioner is something that's very much available to you we're not going to cover it in this course but it is a documented thing and it might be of interest to you so check it out if you think it is let's take a look at maybe a sub-optimal case of a spark application that didn't use partitioners well and then how we might change that on the left you see the sub-optimal case we start with some rdd called rdd1 and we're applying two key-based transformations to it and then performing one key-based action all right so those two key-based transformations are going to create two new pair rdds on which we'll then run an action and produce an output and on the bottom you see the key based action produces its own output now each key based transformation or action will result in a shuffle and remember we don't like shuffles at all shuffles are one of our biggest costs probably our biggest cost in creating a spark application they require moving data around the network between workers and we want to avoid that so three unearned shuffles in one application is not a good thing if we look at the diagram on the right you'll see we proactively shuffle that partition ahead of time or we intentionally set a partitioner on rdd1 and create what we call rdd1 prime in terms of the data itself we haven't done any transformation to it it doesn't look like that rdd contains anything differently but we've done the partition which means we have incurred one shuffle at the beginning of the job to create that new rdd that partitioned rdd to work with we then perform those two key base transformations making rdd2 and rdd3 and the key based action on the bottom none of which requires another shuffle so we take one instead of three and that is a huge performance win so understanding partitioners and taking control of them can make your applications run a lot faster so what are the actual mechanisms we have to take control of partitioning well there are some at the application level there are some at the operation level and there's some intentional transformations that we can apply that will cause repartitioning in the way we want at the application level there are properties like spark default parallelism that's going to determine the value of the default parallelism property in the spark context we also have the spark cassandra input split size in megabytes which determines the largest possible size of a partition for an rdd that's coming from a cassandra query now by default this is 64 megabytes if you'd like that to be different you can change this parameter many transformation and action calls take an optional parameter called num tasks now task is synonymous with partition since one task will always be allocated to process one partition if you pass that parameter in when you call a transformation then the rdd you get out will have that number of partitions so you're able to set that on a transformation by transformation basis interestingly even the parallelize method has the num tasks parameter if you recall that's the method you call in the spark context when you want to take a static collection that you've created and turn it into an rdd so even then you can specify the number of partitions you'd like finally there are a few special methods that explicitly cause repartitioning of an rdd let's take a look at those in detail calling the repartition method on an rdd creates a new rdd that has the number of partitions you specify that's all it does you can make the number larger you can make the number smaller that new rdd also has the partitioner of none now doing this will cause shuffling it has to so this is an expensive operation but it might be worth it as we saw in the example before to take this hit up front before subsequent operations cause their own shuffles in a less controlled way coalesc is a lot like repartition except when we're shrinking the number of partitions coalesce might let us get away with that without a shuffle so if you have an rdd whose number of partitions you want to reduce call coalesce and what that will do is merge some of those partitions together without incurring the penalty of a shuffle over the whole data set you can see here an example of some of these things being called and i encourage you again if you've got a spark shell running try these things out with some of the test data watch them work make sure you get the same results back the same partition counts you see in the code if you want to re-partition a pair rdd or an rdd containing key value pairs you use the partition buy method this is a little pickier in that we have to explicitly tell it which partitioner we want to use so we have to know something about which one to pick let's take a look at the rules in most cases you're going to use the hash partitioner and you see in the code here that you'll create a new instance of the hash partitioner and pass to its constructor the number of partitions that you want to use so you're telling it the number of partitions you're telling it the partitioner to use if you've got an rdd that you know you're going to sort in the future and maybe sort more than once then you want to use the range partitioner that's going to allow you to pre-partition it with a partitioner that's friendly to ordering and so that way future sort calls even if there's more than one of them won't require a shuffle and remember we're showing the two standard partitioners hash and range this could always be a custom partitioner if you've got one let's take a look at some code that does this poorly and then some code that does it well so what we have here is a query from a cassandra table getting the records from the movies table making a pair rdd out of them organized by release year then we're going to repartition that by twice the default parallelism probably twice the number of cores is what we're doing there then we're going to do a count by key and in the next line a group by key now the re-partitioning causes the shuffle the count by key causes a shuffle the group by key causes a shuffle that's not efficient we would prefer just to shuffle once in the optimized code we do the same query we make the same pair rdd we're looking at all the movies organized by release here but now we partition by we call partition by because it's a pair rdd we tell it we want the hash partitioner with the same number of partitions as the sub-optimal version but we've pre-partitioned it with the hash partitioner now our call to count by key and group by key won't kick off a shuffle and won't require re-partitioning so we've just taken that expensive shuffle operation one time by thinking ahead and doing the partitioning the right way",
+    "segments": [
+      {
+        "start": 0.06,
+        "duration": 3.45,
+        "text": "[Music]"
+      },
+      {
+        "start": 6.48,
+        "duration": 3.039,
+        "text": "if you want your spark applications to"
+      },
+      {
+        "start": 8.0,
+        "duration": 2.4,
+        "text": "run well you are probably"
+      },
+      {
+        "start": 9.519,
+        "duration": 2.481,
+        "text": "going to have to think about"
+      },
+      {
+        "start": 10.4,
+        "duration": 2.96,
+        "text": "partitioning at some point and there are"
+      },
+      {
+        "start": 12.0,
+        "duration": 2.719,
+        "text": "two parameters that we can set when"
+      },
+      {
+        "start": 13.36,
+        "duration": 3.2,
+        "text": "we're doing that optimization"
+      },
+      {
+        "start": 14.719,
+        "duration": 4.001,
+        "text": "one is the number of partitions and the"
+      },
+      {
+        "start": 16.56,
+        "duration": 3.44,
+        "text": "other is the partitioner itself when we"
+      },
+      {
+        "start": 18.72,
+        "duration": 2.719,
+        "text": "set the number of partitions we're going"
+      },
+      {
+        "start": 20.0,
+        "duration": 4.16,
+        "text": "to be making a trade-off"
+      },
+      {
+        "start": 21.439,
+        "duration": 4.961,
+        "text": "between task execution time in the case"
+      },
+      {
+        "start": 24.16,
+        "duration": 4.72,
+        "text": "of a large number of partitions"
+      },
+      {
+        "start": 26.4,
+        "duration": 4.4,
+        "text": "and making optimal use of parallelism in"
+      },
+      {
+        "start": 28.88,
+        "duration": 3.359,
+        "text": "the case of a low number of partitions"
+      },
+      {
+        "start": 30.8,
+        "duration": 3.12,
+        "text": "we'll have to look in some detail about"
+      },
+      {
+        "start": 32.239,
+        "duration": 2.401,
+        "text": "the different partitioners and when to"
+      },
+      {
+        "start": 33.92,
+        "duration": 2.159,
+        "text": "apply"
+      },
+      {
+        "start": 34.64,
+        "duration": 3.04,
+        "text": "each one of those and how many"
+      },
+      {
+        "start": 36.079,
+        "duration": 2.401,
+        "text": "partitions is enough well like i said if"
+      },
+      {
+        "start": 37.68,
+        "duration": 2.559,
+        "text": "you have too"
+      },
+      {
+        "start": 38.48,
+        "duration": 3.759,
+        "text": "few you have a few things that can go"
+      },
+      {
+        "start": 40.239,
+        "duration": 4.0,
+        "text": "wrong number one you might not be taking"
+      },
+      {
+        "start": 42.239,
+        "duration": 2.961,
+        "text": "proper advantage of the parallelism you"
+      },
+      {
+        "start": 44.239,
+        "duration": 2.241,
+        "text": "have in your cluster"
+      },
+      {
+        "start": 45.2,
+        "duration": 3.6,
+        "text": "there could be workers that you could be"
+      },
+      {
+        "start": 46.48,
+        "duration": 4.16,
+        "text": "using that you're not using you also"
+      },
+      {
+        "start": 48.8,
+        "duration": 3.759,
+        "text": "might get the problem of data skew where"
+      },
+      {
+        "start": 50.64,
+        "duration": 3.28,
+        "text": "one partition ends up being larger"
+      },
+      {
+        "start": 52.559,
+        "duration": 3.201,
+        "text": "than another you don't have a good"
+      },
+      {
+        "start": 53.92,
+        "duration": 3.76,
+        "text": "uniform partition size"
+      },
+      {
+        "start": 55.76,
+        "duration": 3.52,
+        "text": "with large partitions you can have"
+      },
+      {
+        "start": 57.68,
+        "duration": 4.32,
+        "text": "increased pressure on"
+      },
+      {
+        "start": 59.28,
+        "duration": 4.4,
+        "text": "ram on memory usage and you also might"
+      },
+      {
+        "start": 62.0,
+        "duration": 2.96,
+        "text": "find that failure takes a long time to"
+      },
+      {
+        "start": 63.68,
+        "duration": 2.72,
+        "text": "recover from so you don't want the"
+      },
+      {
+        "start": 64.96,
+        "duration": 3.04,
+        "text": "partition count to be too small"
+      },
+      {
+        "start": 66.4,
+        "duration": 3.2,
+        "text": "on the other hand you don't want the"
+      },
+      {
+        "start": 68.0,
+        "duration": 4.08,
+        "text": "partition count to be too high"
+      },
+      {
+        "start": 69.6,
+        "duration": 4.16,
+        "text": "remember a partition is a task spark"
+      },
+      {
+        "start": 72.08,
+        "duration": 2.88,
+        "text": "will allocate a single task to run on a"
+      },
+      {
+        "start": 73.76,
+        "duration": 3.6,
+        "text": "single executor"
+      },
+      {
+        "start": 74.96,
+        "duration": 3.92,
+        "text": "to process that partition and there's"
+      },
+      {
+        "start": 77.36,
+        "duration": 2.48,
+        "text": "overhead in scheduling that work you"
+      },
+      {
+        "start": 78.88,
+        "duration": 3.2,
+        "text": "don't want to incur"
+      },
+      {
+        "start": 79.84,
+        "duration": 3.919,
+        "text": "too much overhead for tiny little bits"
+      },
+      {
+        "start": 82.08,
+        "duration": 3.52,
+        "text": "of computational work you don't want too"
+      },
+      {
+        "start": 83.759,
+        "duration": 2.241,
+        "text": "many partitions you don't want too few"
+      },
+      {
+        "start": 85.6,
+        "duration": 1.519,
+        "text": "and those"
+      },
+      {
+        "start": 86.0,
+        "duration": 3.04,
+        "text": "trade-offs are nice but you might be"
+      },
+      {
+        "start": 87.119,
+        "duration": 3.281,
+        "text": "wondering no seriously how many"
+      },
+      {
+        "start": 89.04,
+        "duration": 3.36,
+        "text": "partitions should i have"
+      },
+      {
+        "start": 90.4,
+        "duration": 3.92,
+        "text": "well the published guidelines say at"
+      },
+      {
+        "start": 92.4,
+        "duration": 2.56,
+        "text": "least a hundred and no more than ten"
+      },
+      {
+        "start": 94.32,
+        "duration": 2.96,
+        "text": "thousand"
+      },
+      {
+        "start": 94.96,
+        "duration": 3.199,
+        "text": "uh you might not find that to be a very"
+      },
+      {
+        "start": 97.28,
+        "duration": 2.72,
+        "text": "helpful range"
+      },
+      {
+        "start": 98.159,
+        "duration": 3.121,
+        "text": "so let me give you a few more guidelines"
+      },
+      {
+        "start": 100.0,
+        "duration": 2.479,
+        "text": "on your lower bound you want your"
+      },
+      {
+        "start": 101.28,
+        "duration": 3.68,
+        "text": "partition count to be"
+      },
+      {
+        "start": 102.479,
+        "duration": 4.481,
+        "text": "at least 2x the number of cores that are"
+      },
+      {
+        "start": 104.96,
+        "duration": 4.4,
+        "text": "available to your spark application"
+      },
+      {
+        "start": 106.96,
+        "duration": 3.519,
+        "text": "on the upper bound you want to make sure"
+      },
+      {
+        "start": 109.36,
+        "duration": 3.6,
+        "text": "each task"
+      },
+      {
+        "start": 110.479,
+        "duration": 4.081,
+        "text": "execution time is at least 100"
+      },
+      {
+        "start": 112.96,
+        "duration": 3.199,
+        "text": "milliseconds that's a thing you're going"
+      },
+      {
+        "start": 114.56,
+        "duration": 3.12,
+        "text": "to have to observe you can't predict"
+      },
+      {
+        "start": 116.159,
+        "duration": 3.441,
+        "text": "that by looking at a core"
+      },
+      {
+        "start": 117.68,
+        "duration": 4.0,
+        "text": "count but in looking at the application"
+      },
+      {
+        "start": 119.6,
+        "duration": 3.36,
+        "text": "web ui you'll be able to see those"
+      },
+      {
+        "start": 121.68,
+        "duration": 3.84,
+        "text": "execution times"
+      },
+      {
+        "start": 122.96,
+        "duration": 4.32,
+        "text": "and get an idea as we show here in this"
+      },
+      {
+        "start": 125.52,
+        "duration": 2.719,
+        "text": "screenshot whether you're spending too"
+      },
+      {
+        "start": 127.28,
+        "duration": 3.36,
+        "text": "much time"
+      },
+      {
+        "start": 128.239,
+        "duration": 3.841,
+        "text": "coordinating and moving tasks around and"
+      },
+      {
+        "start": 130.64,
+        "duration": 2.8,
+        "text": "moving work around and not enough time"
+      },
+      {
+        "start": 132.08,
+        "duration": 3.36,
+        "text": "doing actual computation"
+      },
+      {
+        "start": 133.44,
+        "duration": 3.439,
+        "text": "now as you may recall from our earlier"
+      },
+      {
+        "start": 135.44,
+        "duration": 3.12,
+        "text": "treatment of partitioning"
+      },
+      {
+        "start": 136.879,
+        "duration": 3.761,
+        "text": "not every operation not every"
+      },
+      {
+        "start": 138.56,
+        "duration": 4.08,
+        "text": "transformation or action even requires"
+      },
+      {
+        "start": 140.64,
+        "duration": 3.2,
+        "text": "a partitioner they may return none when"
+      },
+      {
+        "start": 142.64,
+        "duration": 3.36,
+        "text": "you look at their partitioner"
+      },
+      {
+        "start": 143.84,
+        "duration": 4.0,
+        "text": "some however do and let's take a look at"
+      },
+      {
+        "start": 146.0,
+        "duration": 2.4,
+        "text": "those operations like the ones we show"
+      },
+      {
+        "start": 147.84,
+        "duration": 3.28,
+        "text": "here"
+      },
+      {
+        "start": 148.4,
+        "duration": 3.44,
+        "text": "reduce by key fold by key combined by"
+      },
+      {
+        "start": 151.12,
+        "duration": 2.96,
+        "text": "key"
+      },
+      {
+        "start": 151.84,
+        "duration": 3.6,
+        "text": "co-group join you may notice those all"
+      },
+      {
+        "start": 154.08,
+        "duration": 1.76,
+        "text": "have something in common those are key"
+      },
+      {
+        "start": 155.44,
+        "duration": 3.519,
+        "text": "based"
+      },
+      {
+        "start": 155.84,
+        "duration": 6.24,
+        "text": "operations those all require the hash"
+      },
+      {
+        "start": 158.959,
+        "duration": 6.161,
+        "text": "partitioner the range partitioner"
+      },
+      {
+        "start": 162.08,
+        "duration": 4.879,
+        "text": "is required only by sort by key since"
+      },
+      {
+        "start": 165.12,
+        "duration": 2.8,
+        "text": "the rdd that comes out of that is going"
+      },
+      {
+        "start": 166.959,
+        "duration": 2.401,
+        "text": "to be ordered"
+      },
+      {
+        "start": 167.92,
+        "duration": 4.0,
+        "text": "it needs a partitioner that's able to"
+      },
+      {
+        "start": 169.36,
+        "duration": 4.56,
+        "text": "preserve that order and remember you can"
+      },
+      {
+        "start": 171.92,
+        "duration": 3.599,
+        "text": "provide a custom partitioner this is"
+      },
+      {
+        "start": 173.92,
+        "duration": 2.48,
+        "text": "something the spark cassandra connector"
+      },
+      {
+        "start": 175.519,
+        "duration": 2.481,
+        "text": "does"
+      },
+      {
+        "start": 176.4,
+        "duration": 3.04,
+        "text": "for efficiently dealing with data that"
+      },
+      {
+        "start": 178.0,
+        "duration": 2.159,
+        "text": "comes from cassandra and is going to"
+      },
+      {
+        "start": 179.44,
+        "duration": 2.4,
+        "text": "cassandra"
+      },
+      {
+        "start": 180.159,
+        "duration": 3.041,
+        "text": "so implementing a custom partitioner is"
+      },
+      {
+        "start": 181.84,
+        "duration": 1.679,
+        "text": "something that's very much available to"
+      },
+      {
+        "start": 183.2,
+        "duration": 1.679,
+        "text": "you"
+      },
+      {
+        "start": 183.519,
+        "duration": 3.121,
+        "text": "we're not going to cover it in this"
+      },
+      {
+        "start": 184.879,
+        "duration": 3.921,
+        "text": "course but it is a documented thing and"
+      },
+      {
+        "start": 186.64,
+        "duration": 3.28,
+        "text": "it might be of interest to you so check"
+      },
+      {
+        "start": 188.8,
+        "duration": 3.359,
+        "text": "it out if you think it is"
+      },
+      {
+        "start": 189.92,
+        "duration": 4.399,
+        "text": "let's take a look at maybe a sub-optimal"
+      },
+      {
+        "start": 192.159,
+        "duration": 4.401,
+        "text": "case of a spark application"
+      },
+      {
+        "start": 194.319,
+        "duration": 3.121,
+        "text": "that didn't use partitioners well and"
+      },
+      {
+        "start": 196.56,
+        "duration": 2.72,
+        "text": "then how we might"
+      },
+      {
+        "start": 197.44,
+        "duration": 4.0,
+        "text": "change that on the left you see the"
+      },
+      {
+        "start": 199.28,
+        "duration": 2.48,
+        "text": "sub-optimal case we start with some rdd"
+      },
+      {
+        "start": 201.44,
+        "duration": 3.359,
+        "text": "called"
+      },
+      {
+        "start": 201.76,
+        "duration": 5.36,
+        "text": "rdd1 and we're applying two"
+      },
+      {
+        "start": 204.799,
+        "duration": 3.601,
+        "text": "key-based transformations to it and then"
+      },
+      {
+        "start": 207.12,
+        "duration": 3.44,
+        "text": "performing one"
+      },
+      {
+        "start": 208.4,
+        "duration": 3.6,
+        "text": "key-based action all right so those two"
+      },
+      {
+        "start": 210.56,
+        "duration": 2.16,
+        "text": "key-based transformations are going to"
+      },
+      {
+        "start": 212.0,
+        "duration": 4.159,
+        "text": "create two"
+      },
+      {
+        "start": 212.72,
+        "duration": 3.92,
+        "text": "new pair rdds on which we'll then run an"
+      },
+      {
+        "start": 216.159,
+        "duration": 2.241,
+        "text": "action"
+      },
+      {
+        "start": 216.64,
+        "duration": 3.36,
+        "text": "and produce an output and on the bottom"
+      },
+      {
+        "start": 218.4,
+        "duration": 4.16,
+        "text": "you see the key based action"
+      },
+      {
+        "start": 220.0,
+        "duration": 3.2,
+        "text": "produces its own output now each key"
+      },
+      {
+        "start": 222.56,
+        "duration": 3.679,
+        "text": "based"
+      },
+      {
+        "start": 223.2,
+        "duration": 4.72,
+        "text": "transformation or action will result"
+      },
+      {
+        "start": 226.239,
+        "duration": 3.36,
+        "text": "in a shuffle and remember we don't like"
+      },
+      {
+        "start": 227.92,
+        "duration": 2.399,
+        "text": "shuffles at all shuffles are one of our"
+      },
+      {
+        "start": 229.599,
+        "duration": 2.881,
+        "text": "biggest costs"
+      },
+      {
+        "start": 230.319,
+        "duration": 4.0,
+        "text": "probably our biggest cost in creating a"
+      },
+      {
+        "start": 232.48,
+        "duration": 3.759,
+        "text": "spark application they require"
+      },
+      {
+        "start": 234.319,
+        "duration": 3.92,
+        "text": "moving data around the network between"
+      },
+      {
+        "start": 236.239,
+        "duration": 4.881,
+        "text": "workers and we want to avoid that"
+      },
+      {
+        "start": 238.239,
+        "duration": 4.56,
+        "text": "so three unearned shuffles in one"
+      },
+      {
+        "start": 241.12,
+        "duration": 2.88,
+        "text": "application is not a good thing if we"
+      },
+      {
+        "start": 242.799,
+        "duration": 4.481,
+        "text": "look at the diagram"
+      },
+      {
+        "start": 244.0,
+        "duration": 5.439,
+        "text": "on the right you'll see we proactively"
+      },
+      {
+        "start": 247.28,
+        "duration": 4.48,
+        "text": "shuffle that partition ahead of time or"
+      },
+      {
+        "start": 249.439,
+        "duration": 5.44,
+        "text": "we intentionally set a partitioner"
+      },
+      {
+        "start": 251.76,
+        "duration": 3.52,
+        "text": "on rdd1 and create what we call rdd1"
+      },
+      {
+        "start": 254.879,
+        "duration": 2.161,
+        "text": "prime"
+      },
+      {
+        "start": 255.28,
+        "duration": 3.199,
+        "text": "in terms of the data itself we haven't"
+      },
+      {
+        "start": 257.04,
+        "duration": 3.68,
+        "text": "done any transformation to it"
+      },
+      {
+        "start": 258.479,
+        "duration": 3.6,
+        "text": "it doesn't look like that rdd contains"
+      },
+      {
+        "start": 260.72,
+        "duration": 3.36,
+        "text": "anything differently"
+      },
+      {
+        "start": 262.079,
+        "duration": 3.361,
+        "text": "but we've done the partition which means"
+      },
+      {
+        "start": 264.08,
+        "duration": 3.76,
+        "text": "we have incurred"
+      },
+      {
+        "start": 265.44,
+        "duration": 4.56,
+        "text": "one shuffle at the beginning of the job"
+      },
+      {
+        "start": 267.84,
+        "duration": 2.96,
+        "text": "to create that new rdd that partitioned"
+      },
+      {
+        "start": 270.0,
+        "duration": 3.04,
+        "text": "rdd"
+      },
+      {
+        "start": 270.8,
+        "duration": 3.76,
+        "text": "to work with we then perform those two"
+      },
+      {
+        "start": 273.04,
+        "duration": 4.64,
+        "text": "key base transformations"
+      },
+      {
+        "start": 274.56,
+        "duration": 4.32,
+        "text": "making rdd2 and rdd3 and the key based"
+      },
+      {
+        "start": 277.68,
+        "duration": 3.44,
+        "text": "action on the bottom"
+      },
+      {
+        "start": 278.88,
+        "duration": 3.36,
+        "text": "none of which requires another shuffle"
+      },
+      {
+        "start": 281.12,
+        "duration": 2.639,
+        "text": "so we take one"
+      },
+      {
+        "start": 282.24,
+        "duration": 3.2,
+        "text": "instead of three and that is a huge"
+      },
+      {
+        "start": 283.759,
+        "duration": 3.121,
+        "text": "performance win so understanding"
+      },
+      {
+        "start": 285.44,
+        "duration": 2.88,
+        "text": "partitioners and taking control of them"
+      },
+      {
+        "start": 286.88,
+        "duration": 3.2,
+        "text": "can make your applications run a lot"
+      },
+      {
+        "start": 288.32,
+        "duration": 2.4,
+        "text": "faster so what are the actual mechanisms"
+      },
+      {
+        "start": 290.08,
+        "duration": 3.36,
+        "text": "we have"
+      },
+      {
+        "start": 290.72,
+        "duration": 4.56,
+        "text": "to take control of partitioning well"
+      },
+      {
+        "start": 293.44,
+        "duration": 3.68,
+        "text": "there are some at the application level"
+      },
+      {
+        "start": 295.28,
+        "duration": 3.04,
+        "text": "there are some at the operation level"
+      },
+      {
+        "start": 297.12,
+        "duration": 2.799,
+        "text": "and there's some intentional"
+      },
+      {
+        "start": 298.32,
+        "duration": 3.76,
+        "text": "transformations that we can apply"
+      },
+      {
+        "start": 299.919,
+        "duration": 3.12,
+        "text": "that will cause repartitioning in the"
+      },
+      {
+        "start": 302.08,
+        "duration": 2.32,
+        "text": "way we want"
+      },
+      {
+        "start": 303.039,
+        "duration": 3.281,
+        "text": "at the application level there are"
+      },
+      {
+        "start": 304.4,
+        "duration": 3.44,
+        "text": "properties like spark default"
+      },
+      {
+        "start": 306.32,
+        "duration": 3.28,
+        "text": "parallelism that's going to determine"
+      },
+      {
+        "start": 307.84,
+        "duration": 2.24,
+        "text": "the value of the default parallelism"
+      },
+      {
+        "start": 309.6,
+        "duration": 2.319,
+        "text": "property"
+      },
+      {
+        "start": 310.08,
+        "duration": 3.839,
+        "text": "in the spark context we also have the"
+      },
+      {
+        "start": 311.919,
+        "duration": 3.84,
+        "text": "spark cassandra input split"
+      },
+      {
+        "start": 313.919,
+        "duration": 3.441,
+        "text": "size in megabytes which determines the"
+      },
+      {
+        "start": 315.759,
+        "duration": 4.081,
+        "text": "largest possible size"
+      },
+      {
+        "start": 317.36,
+        "duration": 3.119,
+        "text": "of a partition for an rdd that's coming"
+      },
+      {
+        "start": 319.84,
+        "duration": 3.359,
+        "text": "from"
+      },
+      {
+        "start": 320.479,
+        "duration": 4.481,
+        "text": "a cassandra query now by default this is"
+      },
+      {
+        "start": 323.199,
+        "duration": 3.44,
+        "text": "64 megabytes if you'd like that to be"
+      },
+      {
+        "start": 324.96,
+        "duration": 4.4,
+        "text": "different you can change this parameter"
+      },
+      {
+        "start": 326.639,
+        "duration": 4.4,
+        "text": "many transformation and action calls"
+      },
+      {
+        "start": 329.36,
+        "duration": 4.559,
+        "text": "take an optional parameter called"
+      },
+      {
+        "start": 331.039,
+        "duration": 3.681,
+        "text": "num tasks now task is synonymous with"
+      },
+      {
+        "start": 333.919,
+        "duration": 2.481,
+        "text": "partition"
+      },
+      {
+        "start": 334.72,
+        "duration": 3.52,
+        "text": "since one task will always be allocated"
+      },
+      {
+        "start": 336.4,
+        "duration": 3.44,
+        "text": "to process one partition"
+      },
+      {
+        "start": 338.24,
+        "duration": 3.679,
+        "text": "if you pass that parameter in when you"
+      },
+      {
+        "start": 339.84,
+        "duration": 3.84,
+        "text": "call a transformation then the rdd you"
+      },
+      {
+        "start": 341.919,
+        "duration": 2.641,
+        "text": "get out will have that number of"
+      },
+      {
+        "start": 343.68,
+        "duration": 2.16,
+        "text": "partitions"
+      },
+      {
+        "start": 344.56,
+        "duration": 3.359,
+        "text": "so you're able to set that on a"
+      },
+      {
+        "start": 345.84,
+        "duration": 4.0,
+        "text": "transformation by transformation basis"
+      },
+      {
+        "start": 347.919,
+        "duration": 4.161,
+        "text": "interestingly even the parallelize"
+      },
+      {
+        "start": 349.84,
+        "duration": 3.52,
+        "text": "method has the num tasks parameter"
+      },
+      {
+        "start": 352.08,
+        "duration": 2.48,
+        "text": "if you recall that's the method you call"
+      },
+      {
+        "start": 353.36,
+        "duration": 2.88,
+        "text": "in the spark context when you want to"
+      },
+      {
+        "start": 354.56,
+        "duration": 2.32,
+        "text": "take a static collection that you've"
+      },
+      {
+        "start": 356.24,
+        "duration": 3.519,
+        "text": "created"
+      },
+      {
+        "start": 356.88,
+        "duration": 4.319,
+        "text": "and turn it into an rdd so even then you"
+      },
+      {
+        "start": 359.759,
+        "duration": 2.081,
+        "text": "can specify the number of partitions"
+      },
+      {
+        "start": 361.199,
+        "duration": 2.401,
+        "text": "you'd like"
+      },
+      {
+        "start": 361.84,
+        "duration": 4.24,
+        "text": "finally there are a few special methods"
+      },
+      {
+        "start": 363.6,
+        "duration": 4.159,
+        "text": "that explicitly cause repartitioning"
+      },
+      {
+        "start": 366.08,
+        "duration": 3.839,
+        "text": "of an rdd let's take a look at those in"
+      },
+      {
+        "start": 367.759,
+        "duration": 2.88,
+        "text": "detail calling the repartition method on"
+      },
+      {
+        "start": 369.919,
+        "duration": 3.201,
+        "text": "an rdd"
+      },
+      {
+        "start": 370.639,
+        "duration": 3.201,
+        "text": "creates a new rdd that has the number of"
+      },
+      {
+        "start": 373.12,
+        "duration": 3.04,
+        "text": "partitions"
+      },
+      {
+        "start": 373.84,
+        "duration": 3.44,
+        "text": "you specify that's all it does you can"
+      },
+      {
+        "start": 376.16,
+        "duration": 2.8,
+        "text": "make the number larger"
+      },
+      {
+        "start": 377.28,
+        "duration": 3.199,
+        "text": "you can make the number smaller that new"
+      },
+      {
+        "start": 378.96,
+        "duration": 4.32,
+        "text": "rdd also has"
+      },
+      {
+        "start": 380.479,
+        "duration": 3.521,
+        "text": "the partitioner of none now doing this"
+      },
+      {
+        "start": 383.28,
+        "duration": 3.44,
+        "text": "will"
+      },
+      {
+        "start": 384.0,
+        "duration": 4.479,
+        "text": "cause shuffling it has to so this is an"
+      },
+      {
+        "start": 386.72,
+        "duration": 2.4,
+        "text": "expensive operation but it might be"
+      },
+      {
+        "start": 388.479,
+        "duration": 2.72,
+        "text": "worth it"
+      },
+      {
+        "start": 389.12,
+        "duration": 4.0,
+        "text": "as we saw in the example before to take"
+      },
+      {
+        "start": 391.199,
+        "duration": 4.0,
+        "text": "this hit up front before subsequent"
+      },
+      {
+        "start": 393.12,
+        "duration": 4.48,
+        "text": "operations cause their own shuffles"
+      },
+      {
+        "start": 395.199,
+        "duration": 3.84,
+        "text": "in a less controlled way coalesc is a"
+      },
+      {
+        "start": 397.6,
+        "duration": 4.24,
+        "text": "lot like repartition"
+      },
+      {
+        "start": 399.039,
+        "duration": 3.841,
+        "text": "except when we're shrinking the number"
+      },
+      {
+        "start": 401.84,
+        "duration": 2.88,
+        "text": "of partitions"
+      },
+      {
+        "start": 402.88,
+        "duration": 3.84,
+        "text": "coalesce might let us get away with that"
+      },
+      {
+        "start": 404.72,
+        "duration": 3.199,
+        "text": "without a shuffle so if you have an rdd"
+      },
+      {
+        "start": 406.72,
+        "duration": 2.08,
+        "text": "whose number of partitions you want to"
+      },
+      {
+        "start": 407.919,
+        "duration": 3.68,
+        "text": "reduce"
+      },
+      {
+        "start": 408.8,
+        "duration": 3.28,
+        "text": "call coalesce and what that will do is"
+      },
+      {
+        "start": 411.599,
+        "duration": 1.921,
+        "text": "merge"
+      },
+      {
+        "start": 412.08,
+        "duration": 3.36,
+        "text": "some of those partitions together"
+      },
+      {
+        "start": 413.52,
+        "duration": 4.16,
+        "text": "without incurring the penalty"
+      },
+      {
+        "start": 415.44,
+        "duration": 3.84,
+        "text": "of a shuffle over the whole data set you"
+      },
+      {
+        "start": 417.68,
+        "duration": 3.44,
+        "text": "can see here an example of"
+      },
+      {
+        "start": 419.28,
+        "duration": 3.6,
+        "text": "some of these things being called and i"
+      },
+      {
+        "start": 421.12,
+        "duration": 4.16,
+        "text": "encourage you again if you've got"
+      },
+      {
+        "start": 422.88,
+        "duration": 3.92,
+        "text": "a spark shell running try these things"
+      },
+      {
+        "start": 425.28,
+        "duration": 3.28,
+        "text": "out with some of the test data"
+      },
+      {
+        "start": 426.8,
+        "duration": 3.76,
+        "text": "watch them work make sure you get the"
+      },
+      {
+        "start": 428.56,
+        "duration": 2.96,
+        "text": "same results back the same partition"
+      },
+      {
+        "start": 430.56,
+        "duration": 2.96,
+        "text": "counts you see"
+      },
+      {
+        "start": 431.52,
+        "duration": 4.079,
+        "text": "in the code if you want to re-partition"
+      },
+      {
+        "start": 433.52,
+        "duration": 3.92,
+        "text": "a pair rdd or an rdd containing key"
+      },
+      {
+        "start": 435.599,
+        "duration": 4.0,
+        "text": "value pairs you use the partition"
+      },
+      {
+        "start": 437.44,
+        "duration": 4.24,
+        "text": "buy method this is a little pickier in"
+      },
+      {
+        "start": 439.599,
+        "duration": 4.0,
+        "text": "that we have to explicitly tell it"
+      },
+      {
+        "start": 441.68,
+        "duration": 3.12,
+        "text": "which partitioner we want to use so we"
+      },
+      {
+        "start": 443.599,
+        "duration": 1.761,
+        "text": "have to know something about which one"
+      },
+      {
+        "start": 444.8,
+        "duration": 2.16,
+        "text": "to pick"
+      },
+      {
+        "start": 445.36,
+        "duration": 3.2,
+        "text": "let's take a look at the rules in most"
+      },
+      {
+        "start": 446.96,
+        "duration": 2.48,
+        "text": "cases you're going to use the hash"
+      },
+      {
+        "start": 448.56,
+        "duration": 2.24,
+        "text": "partitioner"
+      },
+      {
+        "start": 449.44,
+        "duration": 2.879,
+        "text": "and you see in the code here that you'll"
+      },
+      {
+        "start": 450.8,
+        "duration": 2.32,
+        "text": "create a new instance of the hash"
+      },
+      {
+        "start": 452.319,
+        "duration": 2.561,
+        "text": "partitioner"
+      },
+      {
+        "start": 453.12,
+        "duration": 3.919,
+        "text": "and pass to its constructor the number"
+      },
+      {
+        "start": 454.88,
+        "duration": 3.2,
+        "text": "of partitions that you want to use so"
+      },
+      {
+        "start": 457.039,
+        "duration": 1.681,
+        "text": "you're telling it the number of"
+      },
+      {
+        "start": 458.08,
+        "duration": 2.88,
+        "text": "partitions"
+      },
+      {
+        "start": 458.72,
+        "duration": 3.84,
+        "text": "you're telling it the partitioner to use"
+      },
+      {
+        "start": 460.96,
+        "duration": 3.2,
+        "text": "if you've got an rdd that you know"
+      },
+      {
+        "start": 462.56,
+        "duration": 2.88,
+        "text": "you're going to sort in the future and"
+      },
+      {
+        "start": 464.16,
+        "duration": 2.479,
+        "text": "maybe sort more than once"
+      },
+      {
+        "start": 465.44,
+        "duration": 2.56,
+        "text": "then you want to use the range"
+      },
+      {
+        "start": 466.639,
+        "duration": 2.56,
+        "text": "partitioner that's going to allow you to"
+      },
+      {
+        "start": 468.0,
+        "duration": 2.96,
+        "text": "pre-partition it"
+      },
+      {
+        "start": 469.199,
+        "duration": 3.28,
+        "text": "with a partitioner that's friendly to"
+      },
+      {
+        "start": 470.96,
+        "duration": 3.2,
+        "text": "ordering and so that way"
+      },
+      {
+        "start": 472.479,
+        "duration": 3.921,
+        "text": "future sort calls even if there's more"
+      },
+      {
+        "start": 474.16,
+        "duration": 3.439,
+        "text": "than one of them won't require a shuffle"
+      },
+      {
+        "start": 476.4,
+        "duration": 3.44,
+        "text": "and remember we're showing the two"
+      },
+      {
+        "start": 477.599,
+        "duration": 3.28,
+        "text": "standard partitioners hash and range"
+      },
+      {
+        "start": 479.84,
+        "duration": 2.88,
+        "text": "this could always be"
+      },
+      {
+        "start": 480.879,
+        "duration": 3.281,
+        "text": "a custom partitioner if you've got one"
+      },
+      {
+        "start": 482.72,
+        "duration": 3.039,
+        "text": "let's take a look at some code that does"
+      },
+      {
+        "start": 484.16,
+        "duration": 3.599,
+        "text": "this poorly and then some code"
+      },
+      {
+        "start": 485.759,
+        "duration": 4.0,
+        "text": "that does it well so what we have here"
+      },
+      {
+        "start": 487.759,
+        "duration": 3.601,
+        "text": "is a query from a cassandra table"
+      },
+      {
+        "start": 489.759,
+        "duration": 3.041,
+        "text": "getting the records from the movies"
+      },
+      {
+        "start": 491.36,
+        "duration": 3.44,
+        "text": "table making a pair"
+      },
+      {
+        "start": 492.8,
+        "duration": 3.36,
+        "text": "rdd out of them organized by release"
+      },
+      {
+        "start": 494.8,
+        "duration": 2.239,
+        "text": "year then we're going to repartition"
+      },
+      {
+        "start": 496.16,
+        "duration": 2.879,
+        "text": "that by twice"
+      },
+      {
+        "start": 497.039,
+        "duration": 3.361,
+        "text": "the default parallelism probably twice"
+      },
+      {
+        "start": 499.039,
+        "duration": 3.201,
+        "text": "the number of cores"
+      },
+      {
+        "start": 500.4,
+        "duration": 3.04,
+        "text": "is what we're doing there then we're"
+      },
+      {
+        "start": 502.24,
+        "duration": 4.48,
+        "text": "going to do a count by"
+      },
+      {
+        "start": 503.44,
+        "duration": 5.199,
+        "text": "key and in the next line a group by"
+      },
+      {
+        "start": 506.72,
+        "duration": 3.68,
+        "text": "key now the re-partitioning causes the"
+      },
+      {
+        "start": 508.639,
+        "duration": 2.321,
+        "text": "shuffle the count by key causes a"
+      },
+      {
+        "start": 510.4,
+        "duration": 3.04,
+        "text": "shuffle"
+      },
+      {
+        "start": 510.96,
+        "duration": 4.16,
+        "text": "the group by key causes a shuffle that's"
+      },
+      {
+        "start": 513.44,
+        "duration": 4.159,
+        "text": "not efficient we would prefer"
+      },
+      {
+        "start": 515.12,
+        "duration": 4.799,
+        "text": "just to shuffle once in the optimized"
+      },
+      {
+        "start": 517.599,
+        "duration": 4.0,
+        "text": "code we do the same query we make the"
+      },
+      {
+        "start": 519.919,
+        "duration": 2.961,
+        "text": "same pair rdd"
+      },
+      {
+        "start": 521.599,
+        "duration": 3.121,
+        "text": "we're looking at all the movies"
+      },
+      {
+        "start": 522.88,
+        "duration": 4.24,
+        "text": "organized by release here but"
+      },
+      {
+        "start": 524.72,
+        "duration": 3.84,
+        "text": "now we partition by we call partition by"
+      },
+      {
+        "start": 527.12,
+        "duration": 3.52,
+        "text": "because it's a pair rdd"
+      },
+      {
+        "start": 528.56,
+        "duration": 4.08,
+        "text": "we tell it we want the hash partitioner"
+      },
+      {
+        "start": 530.64,
+        "duration": 4.879,
+        "text": "with the same number of partitions"
+      },
+      {
+        "start": 532.64,
+        "duration": 4.319,
+        "text": "as the sub-optimal version but we've"
+      },
+      {
+        "start": 535.519,
+        "duration": 2.481,
+        "text": "pre-partitioned it with the hash"
+      },
+      {
+        "start": 536.959,
+        "duration": 3.121,
+        "text": "partitioner"
+      },
+      {
+        "start": 538.0,
+        "duration": 3.04,
+        "text": "now our call to count by key and group"
+      },
+      {
+        "start": 540.08,
+        "duration": 3.759,
+        "text": "by key"
+      },
+      {
+        "start": 541.04,
+        "duration": 4.239,
+        "text": "won't kick off a shuffle and won't"
+      },
+      {
+        "start": 543.839,
+        "duration": 2.961,
+        "text": "require re-partitioning"
+      },
+      {
+        "start": 545.279,
+        "duration": 3.12,
+        "text": "so we've just taken that expensive"
+      },
+      {
+        "start": 546.8,
+        "duration": 3.2,
+        "text": "shuffle operation one time"
+      },
+      {
+        "start": 548.399,
+        "duration": 11.601,
+        "text": "by thinking ahead and doing the"
+      },
+      {
+        "start": 550.0,
+        "duration": 10.0,
+        "text": "partitioning the right way"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T23:32:29.026397+00:00"
+}
