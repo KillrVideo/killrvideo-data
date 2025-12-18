@@ -1,0 +1,5565 @@
+{
+  "video_id": "GbmjAib-a-o",
+  "title": "Building a Chatbot agent with Vector Search, LangChain and Retrieval-Augmented Generation",
+  "description": "In this session, we break down our journey in building a Generative AI chatbot with memory using Retrieval-Augmented Generation (RAG).  In this demo, we use vector search and Langchain to construct prompts with context data for input to the LLM and discuss lessons learned in data pre-processing, prompt engineering, and prompt execution. Highlights:\n\n1:48 - Business objective -  Astra Assistant \n3:16 - Demo of the Astra Assistant chatbot\n6:20 - Retrieval-Augmented Generation workflow\n7:55 - Chatbot Agent architecture\n10:38 - Data-preprocessing for LLM agents\n10:45 - Why is vector search important? \n11:30 - How embeddings work\n12:19 - Data loading for agents\n13:40 - Demo: Data Pre-processing \n16:20 - Lessons learned: Data pre-processing\n18:58 - Prompt engineering deep-dive\n21:30 - Elements of a good prompt\n25:11 - Demo: Prompt engineering \n30:11 - Lessons learned: Vector Search\n32:30  - Lessons learned: Vector Search\n34:27 - Prompt execution\n36:39 - LangChain abstractions\n38:19 - Demo: Create Vector database \n\nDataStax is the real-time AI company. With DataStax, any enterprise can mobilize real-time data and quickly build smart, high-growth AI applications at an unlimited scale, on any cloud. The company’s offerings include the Astra DB cloud database, built on Apache Cassandra,®, and the Astra Streaming event streaming technology. Hundreds of the world’s leading enterprises, including Audi, Bud Financial, ESL Gaming, and SkyPoint Cloud and many more rely on DataStax to unleash the power of real-time data to deliver real-time AI. Learn more at DataStax.com.\n\nAbout DataStax Developer: On the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©. Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2023-07-11T19:15:00Z",
+  "thumbnail": "https://i.ytimg.com/vi/GbmjAib-a-o/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "demo",
+    "workshop",
+    "cassandra",
+    "search",
+    "database",
+    "apache_cassandra",
+    "tutorial",
+    "vector",
+    "astra",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=GbmjAib-a-o",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "foreign [Music] so we're going to be sharing with you how to actually build Hands-On a generative AI agent and so what we've done today is that we decided to show you our journey in building our own generative AI agent for our Astra assistant and I'll be going over some of the lessons learned and how to do it and then Alex going to be helping us get dived right into the code and showing you exactly where you need to code things up to build your own thank you all right so I'm going to first give you an overview of the assistant of what we're trying to do then I'm going to talk a little bit about architecture um how the generative AI workflow and the various components needed then I'm going to go step by step on how to build a retrieval augmented generation workflow we'll talk about the data pre-processing that's needed how to generate highly contextual prompts and how to execute the prompts and what to do afterwards to give you some context of what we're doing at data Stacks is that we're using generative AI to improve the results of our self-service business so when customers use our website and they want to use our app we've already used AI to increase our subscription business by 5X so now what we're doing with uh with a generative AI which is different from predictive AI is require the reduce the time it takes for people to actually deploy their apps for production and so today because databases are very complicated pieces of software most of the time we use actual real agents real people to help them out and this is our journey in replacing those people or augmenting those people uh with a generative AI agents so our key metric to get to production is our key metric that we care about is shorten the data time to production because the typical thing that happens for a software service like ours is that once they start using the software and they finish their first use case then they tend to spend more money for their second use case and we get them to the cycle through this uh a lot of times people just use the chat app to help them get through this cycle so our as Astra assistant that we built it's primarily focused on answering some of the uh technical questions it leverages our chat history and the documentation Etc to answer these questions and um we also use it as a mechanism to um tell people about how much it costs as well as uh get help and there's also the ability within it to refer or escalate to an actual person so we don't have uh we don't have 24x7 support for our our this chat bot so we're primarily thinking about using it especially during the off hours all right with that I'm going to hand it over to Alex who's going to show you a demo of how it works awesome thank you very much cool um so what you're seeing here is the dashboard of our product Astra if you haven't created an account you can create a free account at not sure.dasex.com register and on the bottom right of the screen you'll see this chat icon um so this chat icon for the past couple years has been managed by team sport engineers and just recently um it's now powered by the assisting column suspensions um so I'm first gonna start by asking a simple query hello generate token and I'm going to add this new context text and what no context does is it tells the assistant that we don't want to inject any additional information in the prompts and you'll see um because we haven't injected any additional information in the prompt um we get an answer from the bot that has nothing to do with data Stacks to actually work Cassandra um so here you can see we get some information on how to generate um an API token from Google documentation um has nothing to do with Astra is super um you know unhelpful for our users so I'm going to ask that same question with information from a documentation in our users in the promise and you'll see um with the improved prompts we get and enter the super relevant to Astro um so here you can see exactly how to generate a token some of this information was pulled directly from the docs I'm in in later in the session we'll we'll teach you exactly how to do this and the importance of prompt engineering um and how you could potentially build your own ball like this um we can also ask more advanced questions like tell me about my databases and because in the prompt we also include information on the user all their activity um we get this super awesome answer back on you know exactly the databases the user has created um and we can also ask the bot to generate sample code so here you can see um we have the bot generated just a simple sample app on exactly how um you know you connect to asteroid using python and I'll hand it back over to Alan to talk through um exactly how you can build this on your own all right thank you so there was a lot of magic being behind the scene that was going on so uh stick around and we'll be able to show you that magic before we get started to get to that magic let's talk a little bit about the workflow you need to build these what we call retrieval augmented generation workflows these are workflow General retrieval augmented generation basically means pairing up the large language model with your data set and by putting the two together you generate these highly relevant prompts that allow the llm to give you good responses like what you just saw so at a high level the first thing you need to do is you want to find what your agent does um is it a chat bot is an Enterprise Search application is it a GitHub co-pilot you want to do some definition of what it actually is doing um then you want to provide um you want to select which llm you use then you want to figure out what is the data that you're going to be using to augment the large language model with and then figure out how to take that that uh the that data and properly put it into what we call vectors these allow uh for the llm to semantically figure out what is relevant information for it to process and build that prompt then we use then we leverage that information to build the prompt and you code it up and then we have to figure out how when we actually launch in production how you're going to maintain this uh generative AI agent and how you're going to do it how you're going to deal with your operations so with that there's a lot of various different uh tools and there's a lot of different decisions that you have to ask yourself when going through all these decisions so this is kind of the architectural work that you need to do up front all right let's take a look at the the uh the the um the overall um architecture so at a very high level we showed you is an application which was the chat application it's talking to your agent this is the agent that you code up in our case we cut it up in Python and it's leveraged a combination of proprietary data this is a proprietary structured data just like the any kind of data you'd store on Cassandra day and then it also leverages uh proprietary unstructured data this is the data that's retrieved via Vector search and this is a brand new capability that we've added to astrodb Cassandra very recently now in order to deal with your unstructured data you need to leverage something what we call an embeddings API so this embeddings API takes unstructured data and turns them into the vectors that's needed so you can do the semantic search we'll get into more details on it later and then last but not least when the agent is being executing it calls these data sources and the lln in order to return it to the application now there's a lot of different Technologies you could use and so today what we're going to demonstrate is obviously leveraging data Stacks technology for proprieted structured data we're leveraging Astra DB for our Vector data we're also leveraging Astra DB leveraging the new Vector database capabilities then betting apis there's a lot of different Technologies you could use there's Technologies from vertex AI That's from Google open AI sagemaker hugging faces Etc there's a lot of different embedding models today and then today for llms there's also a lot of various different applications available today open AI Google Cloud Google vertex AI hugging faces Etc and we want to make sure that when we're doing this execution we want to actually actually have it execute in one of the clouds because latency becomes very very important we want to make sure that all these services are running in one cloud in a secure location so the technology that we're using on needs ahead for this one is the llms from Google we're using the vector database of that we have we're leveraging the embeddings API from Google vertex AI we're leveraging Lang chain and then we've also open sourced a new project called cast IO which basically allows you to create these highly scalable agent memory which plugs into all the very common Frameworks such as line chain and hopefully very soon Lama index so why don't I go into talk a little bit about the first step the data pre-processing so I wanted to give you a little context of what Vector search is so Vector search is a way that you can um you can interact with unstructured data and the reason why this is so important is because the llms need to have context it needs to have information proprietary information especially unstructured information in order to generate very relevant responses these can be information from your chats history system from actual people conversations this can be documentation this can be policy information Etc and the reason why this is so important is because if the llm doesn't have context if it doesn't have information then a lot of times that's the reason why it actually creates a lot of hallucinations so let's talk a little bit about how embeddings work so the first thing is that you what you would do is that you would map your database items into an embank space so we're leveraging an off-the-shelf model machine a neural network to generate these embeddings and you can see for every single piece of data it's mapping into this space now the time of inference when you actually uh doing the vector simulator search what it does is that when somebody types in the question it figures out what are the documents that are near it so in this case this in this scenario what it's doing is that it's mapping different um pieces of text to this embedding space and then somebody's asking a question what is like a good Shakespeare tragedy and it finds out the very nearest neighbors like Romeo Juliet et cetera so for our use case we have two sources of unstructured data that we care about one is our product documentation this tells people how to use the product this is probably the primary source of it and the second is chat history and what the chat history does is that it gives the uh it gives the AI agent example questions and answers that people ask and this is important for not necessarily for finding the answer but especially in the scenario because that information is in the product documentation but it gives kind of an example this is also what we call fuchsia learning of how to answer these questions uh so we take this information we generate embeddings and then we write the raw the embeddings and the raw text directly into the database so what does a raw text look like so for example this information here is um from right from our documentation and it generates about a thousand five hundred vectors sorry 5000 1500 um uh scalar values to create a vector and this is the data that allows you to do a similarity search so with that I'm going to head it over to um uh um I'm going to hand it over to Alex to show a little bit about how the pre-processing works yeah let me share my screen again um so what you're looking at here is a collab notebook um where you where we demonstrate how you could potentially um you know process all your data like Alan just mentioned um so I'm just going to walk through all the cells and how you can potentially build an app to do this um so at the top um really basic setup right we install our necessary dependencies um like Alan said we're using uh vertex AI for this demo right so we need to install Google dependencies along with the python driver our own python driver that supports vectors um we do some basic environment variables set up right we need the intercom API we need Cassandra creds we need um uh protects AI credits um and then the process is pretty straightforward um so first of all what we do is we call the intercom API to pull all our conversation history um so this is just kind of a simple call to intercom to um get all the conversations and then iterate through each of the pages of conversations um down here we do some Google vertex AI setup um we were at the library we set our project ID we load our credentials um and it really is just a couple API calls to um create the embeddings right so here we can see here's just kind of example of how you created embeddings Google has a very simple get embeddings API where you can feed in the Raw unstructured text and you get back into bedding um so if you wanted to kind of create embeddings for all of the intercom conversations it's pretty straightforward right so here we're doing some basic setup of the tables um in the vector store right we're creating the chat table we're creating an Sai index um and then all we do is we iterate through each we iterate through a list of conversations um for each conversation we generate the embedding and then we're loading it all into Cassandra um so pretty straightforward um and down here we just have kind of an example of how you potentially make uh a vector search once you've load all this data um so in order to actually query the vector store you would need to convert your search query into an embedding right we're doing that right here so let's say the question is where do I find a token we'd first generate the embedding um and then it's a really simple query right get the raw text where the embedding is the embedding which is generated um and I'll hand it back to Alan to walk through the next step of the process so there's a few tips that you that you should remember when you're doing your data pre-processing number one is that clean data matters so if you garbage in garbage out if you put irrelevant if you put data that's um that's uh it's actually irrelevant data is not that important that's not not that terrible it's actually data that's wrong so if you put in answers that are semantically wrong your llm is going to give you actually wrong answers the second thing is to actually properly split your data and this is kind of a 200 level type of uh um uh a tip here so when you're processing a very large document you don't want to store the entire document into the vector database what you actually want to do is you want to Chunk Up the document into pieces that are small enough that you could put in the large language model and when you split when you chunk it up you don't chunk it up let's say take a document and evenly split into 10 chunks what you would do is that you would take the document and you would split it into 10 overlapping chunks and this is necessary because the semantic search capability needs to have um a little bit for for a particular paragraph of text it only makes sense if it has a little bit of information about the previous paragraph of text so you have to be very smart and this is something that you need to there's no out of the magic answer for every piece of the text you got to be really smart about it uh the third thing that you want to do is you want to be careful about loading the information at speed so one of the nice things about Cassandra is that it can it can do a lot of parallel inserts at the order of thousands of Records per second for just even like a three note a small three node cluster so you want to leverage parallelization we have some tools called DS bulk that helps you load the data faster now another part that we have to be very careful is keeping the data safe especially if you're trying to leverage your chat history for a few shot learning you have to make sure you strip out all the pii data so you know customers often do things like put in their tokens in the chat history things of that sort their their proprietary secrets you want to make sure that's outside kept on your data set and last but not least the large language model is only as good as data it has so you need to make sure that the information you have is relevant uh and updated on a regular basis okay with that let's kind of get into the details of prompt engineering so the purpose of prompt engineering is to make sure that the data that's being the prompt that's being sent to the llm is as contextually relevant as possible and this is not easy because LMS are inherently they're kind of like human beings there's only a certain amount of working memory that it has so it has it has something we'll call the token limit you can't throw your entire knowledge base into the llm because there's simply not enough memory for the working memory for the llm to take it to do so so we have prompt templates and testing framework that you can use and it's really important to kind of compare all the various prompts now there's a there's a bunch of challenges so the first challenge is how do we make sure that the results are qualitatively good so how do you actually go do around that testing um sometimes there's a balance of detail you want to give enough information to the llm but you don't want to give too much llm information to the llm otherwise it gives a very vague responses and then last but not least um there's relevancy and safety so how do we prevent the llm from saying harmful things irrelevant things or very inappropriate things how do we do all that so Kyle let's go into the data flow so let's say a customer uses the application calls the nosql assistant to with a question the first thing that happens is that the nosql assistant calls the vertex AI to get the embedding uh so what for that question semantic what are vectors that are close to it um and then this this way is I just just a reminder of how this is done is that um you know there's there's the the database already has all these vectors in it and the question that's being asked is related to some of those uh those uh pieces of data in this case proc information or Returns the correct product information so for example how do I generate a token this turns back into the 1500 float float vector and it finds the closest ones and so when you're doing the vector when you're calling the vector store not only are you calling the vector content but you're also calling the vector store uh the the Cassandra database for information that's relevant about the user so what are what is the elements of the good prompt so a good prompt has the directive so what what the kind of what kind of Bot that person is it usually has information about the user the user itself like who is this particular person whether that person particularly done in the past and then also the previous interactions with the user so this is what we often call the chat history so when somebody's typing in and having a conversation just like a regular human being the llm needs to know what are the previous chats it had in the past in the context for that then it would have then also the prompt would have relevant information like sorry the relevant documents that give the answer and then finally of course the prompt has a user's question so let's take a look at this is kind of a subset of all this information but let's take a look at if the prompt asks if the user asks how do I generate a token inside the prompt it would have a directive so in this case we're telling using the using the person's profile information we determine that this is an advanced user trying to perform some actions in the database and this is very helpful because if you tell that llm that this is an advanced User it's it ends up not providing it providing the user more advanced answers so like more sustained code and things of that sort it assumes the user knows how to use Cassandra already um now we also provide uh information about the user and some of the databases that the person has created these are just regular key value pair lookups um in Cassandra nothing fancy here and then we have a bunch of unstructured uh data in this case we're showing similar chat history conversations with this user and you can see over here there's like three different conversations with various folks like Melissa who's one of our chat support reps who gives answers on how to connect to the how to connect to uh to a particular API for generating a token a talk a little bit about prompt selection so what you would do is that for prompt selection you would use the information about the user's profile the recent history and then select a particular prompt to use and this prompt is basic template you would select a prompt template to use so in this scenario we have two types of prompts one is a learner prompt template another is a qualified user prompt template and this is what a qualified user prompt template would look like it would say oh you know you should answer um okay sorry this is a little bit cut off but say you should answer customer questions it tells that this person is a qualified user and then the learner template when it says that you are giving answers to someone who's new to data stacks and Cassandra so be especially helpful and and be a little bit more verbose on how you answer the questions and if you look inside the prompt template it has both a little bit has um information about uh um you know helpful responses from intercom so this is used for prompt templating sorry for a few shop uh learning it has the user information it has the user's questions so we're going to give a demo of this so we'll Alex will show um the Astra assistant how to construct The Prompt The Prompt templates and how to test with some of the history okay headed over to you awesome um so what you're seeing here is just my ID Python and to manage prompts we use just the line chain prompt templates um so both of the templates that Alan just mentioned are within a prompts directory they're both yaml files and these templates are pretty straightforward essentially we Define that you know the XML file is a prompt um we Define input variables right here there's only a single input variable which is the output of the vector search and that's pretty much about it um the more interesting part is how the prompt template is actually selected um So within kind of our main bot code um we have a very simple um you know method to get the Persona right we check um the user's information on the user right when it when a user registers for a product we basically ask them a questionnaire on if they've used consider before what their primary programming language is um and and basically based on these responses um we determine if we want to give them the learner template or um the qualified template that all this mentions um so here's where we actually select the template and then um you know you've seen the single program snap here the actual templates um and we really struggled with kind of how do you actually test these templates how do you actually make sure that the responses are high quality um so to basically debug this process and consistently improve our templates um we built a pretty cool slack bot um so let me set that up real quick okay awesome um so on the left we have just the desperate of a product in the chat chatbot and on the right we have a slack Channel we set up to automatically log all the prompts along with the responses um so we can keep reviewing and improving the quality um so I'm just going to ask a simple question the chatbot and on the right um we can see the entire prompt along with the response I'm just going to scroll up a bit um so here we can see we have the directives basically over here is the full prompt that I'll just talked about um so first we have the directive um we then have the output of the vector search right so here we can see here a couple pieces of documentation we have information on the user so here's the username their email um their primary programming language and we have information on all their databases what's pretty interesting here is you can be the LM raw um Json and table two interpret all that data and then finally we have the response that was actually fed back to the user um so really our process of testing and improving the prompt has been I'm reviewing all the prompts reviewing all the responses um you know let's say we get um you know bad documentation left but sorry bad documentation back maybe we'd update the data in the vector store let's say you know maybe there isn't enough information on a topic we insert new documentation in the vector store but really it's just been kind of this iterative process of um you know we review uh The Prompt the response and we kind of keep improving um and now I'll hand it back to you just before you go there um actually you ever bring up your screen for a second yes go back to there you can see if you look in the document in the prompt template in the in the prompt there's a lot of information here um and if you go up into the into the the responses The Prompt template even to the human eye doesn't look super understandable so for example there's this in the middle of the screen that says Ah the token will no longer exist the length of time to persist the token is configurable that's unrelated to how to generate a token and so one of the things that we notice is that the semantic search that you're doing from the vector store it's more of a gross level search it doesn't it doesn't exactly understand the the the the context of the question it's able to get things that are related to it um and the llm is extremely good at ignoring irrelevant information so if we kind of go back to I'm going to kind of Select so talking a little bit about um if you can stop your share screen I'm going to show you some particular tips that you can use to help improve your prompts so the first thing is uh Vector search so what are the things that you really care about the vector search number one is that if there's no l if there's no data that's coming back relevant from your knowledge base there's a very high probability that you're going to have a hallucination um and so and the other thing too is that because lens are so good at rejecting irrelevant information it's really good idea to get as many nearest neighbors as possible at least whatever would fit within the prompt um and then actually there's another Advanced algorithm called uh maximal marginal relevance that what it does is that it takes the let's say a hundred nearest neighbors and it can isolate it down to the 70 or sorry the the 10 most nearest neighbors that's most relevant for for this particular prompt and the reason why that's very important this is a kind of a 200 level type of um of use case is that approximate nearest neighbor algorithm which is the underlying algorithm used for nearest neighbor is very very susceptible for a duplicate or near duplicate vectors in your prompt so for example if you're if you're if you're using your scripting or web page uh your web pages and you have five web pages with almost identical information what ends up happening is that it it fills up the database with those those vectors if it so happens that the vector infra those duplicates were also irrelevant what happens is we use search for let's say uh five nearest neighbors then end up what happens that all five nearest neighbors end up being very uh data becomes irrelevant whereas if you use a wider search let's say 50 um and then you as for 50 nearest neighbors and then ask for the five most different um uh documents within that the set of 50 all the duplicates automatically get removed because of this maximal marginal relevance it basically tries to find out the most distinct pieces of information so this is kind of an advanced thing that you should remember to use especially if you're concerned of your of your uh your system having duplicate data uh there's also another bunch of other things that you that we've learned to prompt engineering so number one is because this is a real-time application um we you want to respond to the user as quickly as possible so you want to fetch as much context from your data your your database in parallel so one of the optimizations that you didn't see underneath the hood is that the data is being fetched in parallel like calling the vector search for getting the user information getting uh um the the user activity getting the chat history and as well as getting the documents that are relevant that's all being happening in parallel against Cassandra which is great because Cassandra itself is built as a paralyzable database um you got to be very careful about managing the token size so this is important not just for making sure that you um it's it's not just important for Speed but it's also important to use a cost and then you want to have all the tools you need to simplify your development so prompt templates and in particular is a very very easy way to simplify the development and in our case because our our company is a slack so much instead of if we want to democratize more people testing out these LMS we use slack as a way that our customer support reps can look at all the data that's coming back and forth from that particular bot and last but not least you have to for hallucinations you really got to kind of test it out and then figure out what's the problem iterate and constantly improve the uh reduce the the that um that'll improve your problems to reduce the hallucinations all right so with that the next portion is actually and so we've talked about generating The Prompt now let's talk about execution of the llm and so what the way it would happen is that we're going to start from after the prompt is generated the first thing that we're going to do is that instead of calling the LM directly we do actually a cache lookup so we're calling the vector store to get see if that particular question has been asked before and if it's not in the cache that's at the time when we actually invoke the llm so calling this text bison llm model and getting the answer and at that point after we get the answer we store the chat history back in the vector store we also store the cached value in into the vector store as well for further use and then we respond return the the response to the to the user so just to give you some context to hear some other Lessons Learned uh when we're doing caching you got to be really careful about privacy so especially when you're doing a chat bot usually people are having one-on-one conversations that are private and so this doesn't lend itself very well like our Astro agent unfortunately doesn't lend itself very well to caching because usually the conversations are in the context of that particular person um and then to also reduce the hallucinations there's a lot of settings in the llm the temperature the K value p-value Etc that you can play with in order to um to uh to generate to see whether or not the answers are correct and last but not least one of the things you need to do before you roll out is you need to capture qualitatively these conversations are good conversations or bad conversations so what we do is that we we actually capture a thumbs up thumbs down of these conversations or good conversations and bad conversations and then we use that to understand um to we use that as feedback to improve our prompt templates and improve our prompts down the road one of the other things that we've made a lot of usage of is land chain so Lang chain has these key abstractions for accelerating development of your application the first key abstraction that we use this thing called indexes this is the data like for retrieving the um the the the the chat history as well as the um the the uh the DB um uh sorry retrieving the product documentation we use the CH The Prompt template capability to contextually generate contextually relevant prompts in fact we have this feature in Cass i o that you know you can write the prompt template and then the prompt template uh and in the prom template itself you can kind of feed in uh cql type functions such as Auto populate the prompt template uh we use this application a algorithm called the Maxwell marginal relevance this is kind of an advanced algorithm on top of vector search to improve the relevancy of the data coming back from our database we leverage the memory abstraction uh to record all the chat history um and uh underneath the hood there's a lever you can leverage something called a semantic memory so instead of just pulling all like let's say the 10 last 100 chat interactions it's able to semantically figure out what are the previous interactions that are relevant to the con the question the person is using and then last we use the cache for improving the performance and the cost all right so with that um I recommend you guys to get started um we can do a little demo why don't Alex can you show exactly how you would provision the vector database so if you haven't done so uh like on said you can create an account and ask for account at Azure daystax.com register um once you've done that you'll see the dashboard that looks like this and you really can create a vector store in just a couple minutes um so you're just going to click this create database button at the top of the screen you're going to select serverless with Vector um enter some basic details like your database name your key space name um finally choose a region and a couple minutes later you will have um your vector database in the in the region you select um so really I'm encourage everyone to give this a try um and if you need any additional help feel free to ask the nosql assistant at the bottom of the screen all right so with that um I want to tell you a little bit what we're going to be doing in the future uh so what we've done is that we've connected our chat bot to our internal data warehouse which is um uh bigquery and we're going to leverage looker which is a reporting system on top of bigquery to generate a lot of submit uh reports on how people are doing and using the chatbot uh what we also hope to do is that right now the chatbot is integrated into the nosql into the into the page but there's no reason why that this is the only location where you can integrate the chatbot so what we plan to actually do is integrate that into the shell the cql shell on the website or potentially integrate it directly into chat GPT as a chat GPT plugin and last but not least we planted leverage the nosql assistant to also do email follow-ups so not only can your agent be reactive you know you ask a question it gives an answer but you can also use the agent to predict when the person needs to would would prefer would want to interact with you and generate automatically relevant emails to help that user along their Journey so this is just kind of the beginning uh there's a lot of other things that we want to talk about in this in the next while so we're going to talk a lot about autonomous AI agents you may have heard this thing called Auto GPT so this is the idea of leveraging multiple llm calls in in sequence or in parallel to get to a particular uh to to enable a particular outcome uh whether it's fixing your database things of that sort so we're going to be experimenting a lot with that and talking about it we're also going to be talking about Advanced retrieval augmentation generation algorithms so we talked a little bit about the mark uh the the maximal marginal relevance algorithm uh next time around I really want to get into the details of the math behind it why is approximate nearest neighbor and uh K nearest neighbor algorithm useful but also what are the limitations so we want to talk a little bit about the limitations of vector search and then we're going to talk about things such as the forward-looking augmented retrieval generation algorithm also known as flare these are out these are Advanced algorithms that instead of doing just one API call to your vector store getting the content and then uh getting content and putting into the llm and to summarize a response this is whereby the uh the the agent can actually make multiple calls to the the vector store and multiple calls to the llms to actually summarize and extract information which is very similar to what us humans do so for example if we're reading a book and if we want to get an answer we would go reap different portions of the book we'd jump around with a book summarize go back to the places we forgot about and then try to come up with the answer by going to iteratively calling uh looking at different sections of the book processing Etc and then last but not least we want to talk about what this agent memory is so the idea behind how do we create a human-like memory for uh for autonomous AI agents and so we're going to get into the details of how data stacks and the Cassandra Community are trying to push this technology forward so we got a lot of resources that we've uh that we've put together that you could do more reading and um you know in terms of The Next Step uh we love to see what you built uh so if you're going to build something uh let's uh let's schedule a live end-to-end demonstration uh we can demonstrate what we have and we'd love to see yours uh let's schedule a collaborative Workshop so in the future what I hope to do is build a community of uh AI agent Builders and we're going to show each other what we've been building over the last month and so we want to have a regular touch point with the community to do so and last but not least uh try astrodb with Vector search and build some awesome llms and awesome AI agents thank you thank you [Music]",
+    "segments": [
+      {
+        "start": 2.04,
+        "duration": 5.52,
+        "text": "foreign"
+      },
+      {
+        "start": 4.0,
+        "duration": 6.56,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.56,
+        "duration": 3.0,
+        "text": "so"
+      },
+      {
+        "start": 10.74,
+        "duration": 7.379,
+        "text": "we're going to be sharing with you how"
+      },
+      {
+        "start": 14.639,
+        "duration": 6.3,
+        "text": "to actually build Hands-On"
+      },
+      {
+        "start": 18.119,
+        "duration": 5.461,
+        "text": "a generative AI agent"
+      },
+      {
+        "start": 20.939,
+        "duration": 5.701,
+        "text": "and so what we've done today is that we"
+      },
+      {
+        "start": 23.58,
+        "duration": 5.939,
+        "text": "decided to show you our journey in"
+      },
+      {
+        "start": 26.64,
+        "duration": 5.82,
+        "text": "building our own generative AI agent for"
+      },
+      {
+        "start": 29.519,
+        "duration": 5.941,
+        "text": "our Astra assistant and I'll be going"
+      },
+      {
+        "start": 32.46,
+        "duration": 5.58,
+        "text": "over some of the lessons learned and how"
+      },
+      {
+        "start": 35.46,
+        "duration": 4.5,
+        "text": "to do it and then Alex going to be"
+      },
+      {
+        "start": 38.04,
+        "duration": 4.199,
+        "text": "helping us get dived right into the code"
+      },
+      {
+        "start": 39.96,
+        "duration": 4.38,
+        "text": "and showing you exactly where you need"
+      },
+      {
+        "start": 42.239,
+        "duration": 3.66,
+        "text": "to code things up to build your own"
+      },
+      {
+        "start": 44.34,
+        "duration": 3.84,
+        "text": "thank you"
+      },
+      {
+        "start": 45.899,
+        "duration": 4.081,
+        "text": "all right so I'm going to first give you"
+      },
+      {
+        "start": 48.18,
+        "duration": 3.359,
+        "text": "an overview of the assistant of what"
+      },
+      {
+        "start": 49.98,
+        "duration": 4.02,
+        "text": "we're trying to do then I'm going to"
+      },
+      {
+        "start": 51.539,
+        "duration": 4.921,
+        "text": "talk a little bit about architecture"
+      },
+      {
+        "start": 54.0,
+        "duration": 4.559,
+        "text": "um how the generative AI workflow and"
+      },
+      {
+        "start": 56.46,
+        "duration": 4.919,
+        "text": "the various components needed then I'm"
+      },
+      {
+        "start": 58.559,
+        "duration": 5.101,
+        "text": "going to go step by step on how to build"
+      },
+      {
+        "start": 61.379,
+        "duration": 4.501,
+        "text": "a retrieval augmented generation"
+      },
+      {
+        "start": 63.66,
+        "duration": 4.68,
+        "text": "workflow we'll talk about the data"
+      },
+      {
+        "start": 65.88,
+        "duration": 5.279,
+        "text": "pre-processing that's needed how to"
+      },
+      {
+        "start": 68.34,
+        "duration": 4.38,
+        "text": "generate highly contextual prompts and"
+      },
+      {
+        "start": 71.159,
+        "duration": 3.661,
+        "text": "how to execute the prompts and what to"
+      },
+      {
+        "start": 72.72,
+        "duration": 3.84,
+        "text": "do afterwards"
+      },
+      {
+        "start": 74.82,
+        "duration": 3.54,
+        "text": "to give you some context of what we're"
+      },
+      {
+        "start": 76.56,
+        "duration": 5.099,
+        "text": "doing at data Stacks is that we're using"
+      },
+      {
+        "start": 78.36,
+        "duration": 6.24,
+        "text": "generative AI to improve the results of"
+      },
+      {
+        "start": 81.659,
+        "duration": 4.621,
+        "text": "our self-service business so when"
+      },
+      {
+        "start": 84.6,
+        "duration": 5.04,
+        "text": "customers use our website and they want"
+      },
+      {
+        "start": 86.28,
+        "duration": 6.3,
+        "text": "to use our app we've already used AI to"
+      },
+      {
+        "start": 89.64,
+        "duration": 5.939,
+        "text": "increase our subscription business by 5X"
+      },
+      {
+        "start": 92.58,
+        "duration": 4.62,
+        "text": "so now what we're doing with uh with a"
+      },
+      {
+        "start": 95.579,
+        "duration": 5.521,
+        "text": "generative AI which is different from"
+      },
+      {
+        "start": 97.2,
+        "duration": 5.94,
+        "text": "predictive AI is require the reduce the"
+      },
+      {
+        "start": 101.1,
+        "duration": 4.5,
+        "text": "time it takes for people to actually"
+      },
+      {
+        "start": 103.14,
+        "duration": 4.26,
+        "text": "deploy their apps for production and so"
+      },
+      {
+        "start": 105.6,
+        "duration": 4.08,
+        "text": "today because databases are very"
+      },
+      {
+        "start": 107.4,
+        "duration": 4.92,
+        "text": "complicated pieces of software most of"
+      },
+      {
+        "start": 109.68,
+        "duration": 5.04,
+        "text": "the time we use actual real agents real"
+      },
+      {
+        "start": 112.32,
+        "duration": 6.06,
+        "text": "people to help them out and this is our"
+      },
+      {
+        "start": 114.72,
+        "duration": 6.78,
+        "text": "journey in replacing those people or"
+      },
+      {
+        "start": 118.38,
+        "duration": 5.22,
+        "text": "augmenting those people uh with a"
+      },
+      {
+        "start": 121.5,
+        "duration": 5.06,
+        "text": "generative AI agents"
+      },
+      {
+        "start": 123.6,
+        "duration": 5.939,
+        "text": "so our key metric to get to production"
+      },
+      {
+        "start": 126.56,
+        "duration": 4.6,
+        "text": "is our key metric that we care about is"
+      },
+      {
+        "start": 129.539,
+        "duration": 4.021,
+        "text": "shorten the data time to production"
+      },
+      {
+        "start": 131.16,
+        "duration": 5.579,
+        "text": "because the typical thing that happens"
+      },
+      {
+        "start": 133.56,
+        "duration": 5.88,
+        "text": "for a software service like ours is that"
+      },
+      {
+        "start": 136.739,
+        "duration": 5.281,
+        "text": "once they start using the software and"
+      },
+      {
+        "start": 139.44,
+        "duration": 4.56,
+        "text": "they finish their first use case then"
+      },
+      {
+        "start": 142.02,
+        "duration": 4.2,
+        "text": "they tend to spend more money for their"
+      },
+      {
+        "start": 144.0,
+        "duration": 3.9,
+        "text": "second use case and we get them to the"
+      },
+      {
+        "start": 146.22,
+        "duration": 3.48,
+        "text": "cycle through this uh a lot of times"
+      },
+      {
+        "start": 147.9,
+        "duration": 3.839,
+        "text": "people just use the chat app to help"
+      },
+      {
+        "start": 149.7,
+        "duration": 4.92,
+        "text": "them get through this cycle"
+      },
+      {
+        "start": 151.739,
+        "duration": 6.061,
+        "text": "so our as Astra assistant that we built"
+      },
+      {
+        "start": 154.62,
+        "duration": 5.64,
+        "text": "it's primarily focused on answering some"
+      },
+      {
+        "start": 157.8,
+        "duration": 5.46,
+        "text": "of the uh technical questions it"
+      },
+      {
+        "start": 160.26,
+        "duration": 4.14,
+        "text": "leverages our chat history and the"
+      },
+      {
+        "start": 163.26,
+        "duration": 4.619,
+        "text": "documentation"
+      },
+      {
+        "start": 164.4,
+        "duration": 7.02,
+        "text": "Etc to answer these questions and"
+      },
+      {
+        "start": 167.879,
+        "duration": 5.401,
+        "text": "um we also use it as a mechanism to"
+      },
+      {
+        "start": 171.42,
+        "duration": 5.459,
+        "text": "um tell people about how much it costs"
+      },
+      {
+        "start": 173.28,
+        "duration": 6.48,
+        "text": "as well as uh get help and there's also"
+      },
+      {
+        "start": 176.879,
+        "duration": 5.521,
+        "text": "the ability within it to refer or"
+      },
+      {
+        "start": 179.76,
+        "duration": 5.82,
+        "text": "escalate to an actual person so we don't"
+      },
+      {
+        "start": 182.4,
+        "duration": 6.479,
+        "text": "have uh we don't have 24x7 support for"
+      },
+      {
+        "start": 185.58,
+        "duration": 5.04,
+        "text": "our our this chat bot so we're primarily"
+      },
+      {
+        "start": 188.879,
+        "duration": 3.601,
+        "text": "thinking about using it especially"
+      },
+      {
+        "start": 190.62,
+        "duration": 3.66,
+        "text": "during the off hours"
+      },
+      {
+        "start": 192.48,
+        "duration": 3.96,
+        "text": "all right with that I'm going to hand it"
+      },
+      {
+        "start": 194.28,
+        "duration": 4.26,
+        "text": "over to Alex who's going to show you a"
+      },
+      {
+        "start": 196.44,
+        "duration": 5.579,
+        "text": "demo of how it works"
+      },
+      {
+        "start": 198.54,
+        "duration": 5.64,
+        "text": "awesome thank you very much"
+      },
+      {
+        "start": 202.019,
+        "duration": 5.401,
+        "text": "cool um so what you're seeing here is"
+      },
+      {
+        "start": 204.18,
+        "duration": 4.5,
+        "text": "the dashboard of our product Astra if"
+      },
+      {
+        "start": 207.42,
+        "duration": 2.66,
+        "text": "you haven't created an account you can"
+      },
+      {
+        "start": 208.68,
+        "duration": 3.72,
+        "text": "create a free account at not"
+      },
+      {
+        "start": 210.08,
+        "duration": 4.299,
+        "text": "sure.dasex.com register"
+      },
+      {
+        "start": 212.4,
+        "duration": 4.199,
+        "text": "and on the bottom right of the screen"
+      },
+      {
+        "start": 214.379,
+        "duration": 4.381,
+        "text": "you'll see this chat icon"
+      },
+      {
+        "start": 216.599,
+        "duration": 4.981,
+        "text": "um so this chat icon for the past couple"
+      },
+      {
+        "start": 218.76,
+        "duration": 5.52,
+        "text": "years has been managed by team sport"
+      },
+      {
+        "start": 221.58,
+        "duration": 4.379,
+        "text": "engineers and just recently"
+      },
+      {
+        "start": 224.28,
+        "duration": 3.48,
+        "text": "um it's now powered by the assisting"
+      },
+      {
+        "start": 225.959,
+        "duration": 3.721,
+        "text": "column suspensions"
+      },
+      {
+        "start": 227.76,
+        "duration": 3.96,
+        "text": "um so I'm first gonna start by asking a"
+      },
+      {
+        "start": 229.68,
+        "duration": 4.86,
+        "text": "simple query"
+      },
+      {
+        "start": 231.72,
+        "duration": 5.159,
+        "text": "hello generate token"
+      },
+      {
+        "start": 234.54,
+        "duration": 5.64,
+        "text": "and I'm going to add this new context"
+      },
+      {
+        "start": 236.879,
+        "duration": 5.461,
+        "text": "text and what no context does"
+      },
+      {
+        "start": 240.18,
+        "duration": 3.839,
+        "text": "is it tells the assistant that we don't"
+      },
+      {
+        "start": 242.34,
+        "duration": 5.42,
+        "text": "want to inject any additional"
+      },
+      {
+        "start": 244.019,
+        "duration": 3.741,
+        "text": "information in the prompts"
+      },
+      {
+        "start": 250.019,
+        "duration": 3.841,
+        "text": "and you'll see"
+      },
+      {
+        "start": 251.58,
+        "duration": 4.379,
+        "text": "um because we haven't injected any"
+      },
+      {
+        "start": 253.86,
+        "duration": 3.779,
+        "text": "additional information in the prompt"
+      },
+      {
+        "start": 255.959,
+        "duration": 4.5,
+        "text": "um we get an answer from the bot that"
+      },
+      {
+        "start": 257.639,
+        "duration": 4.261,
+        "text": "has nothing to do with data Stacks to"
+      },
+      {
+        "start": 260.459,
+        "duration": 3.061,
+        "text": "actually work Cassandra"
+      },
+      {
+        "start": 261.9,
+        "duration": 4.019,
+        "text": "um so here you can see we get some"
+      },
+      {
+        "start": 263.52,
+        "duration": 3.119,
+        "text": "information on how to generate"
+      },
+      {
+        "start": 265.919,
+        "duration": 4.201,
+        "text": "um"
+      },
+      {
+        "start": 266.639,
+        "duration": 4.021,
+        "text": "an API token from Google documentation"
+      },
+      {
+        "start": 270.12,
+        "duration": 4.5,
+        "text": "um"
+      },
+      {
+        "start": 270.66,
+        "duration": 6.3,
+        "text": "has nothing to do with Astra is super"
+      },
+      {
+        "start": 274.62,
+        "duration": 4.799,
+        "text": "um you know unhelpful for our users so"
+      },
+      {
+        "start": 276.96,
+        "duration": 5.4,
+        "text": "I'm going to ask that same question with"
+      },
+      {
+        "start": 279.419,
+        "duration": 6.441,
+        "text": "information from a documentation in our"
+      },
+      {
+        "start": 282.36,
+        "duration": 3.5,
+        "text": "users in the promise"
+      },
+      {
+        "start": 291.12,
+        "duration": 4.38,
+        "text": "and you'll see"
+      },
+      {
+        "start": 293.04,
+        "duration": 4.86,
+        "text": "um with the improved prompts we get and"
+      },
+      {
+        "start": 295.5,
+        "duration": 3.9,
+        "text": "enter the super relevant to Astro"
+      },
+      {
+        "start": 297.9,
+        "duration": 2.7,
+        "text": "um so here you can see exactly how to"
+      },
+      {
+        "start": 299.4,
+        "duration": 2.7,
+        "text": "generate a token some of this"
+      },
+      {
+        "start": 300.6,
+        "duration": 3.9,
+        "text": "information was pulled directly from the"
+      },
+      {
+        "start": 302.1,
+        "duration": 4.2,
+        "text": "docs I'm in in later in the session"
+      },
+      {
+        "start": 304.5,
+        "duration": 4.08,
+        "text": "we'll we'll teach you exactly how to do"
+      },
+      {
+        "start": 306.3,
+        "duration": 3.6,
+        "text": "this and the importance of prompt"
+      },
+      {
+        "start": 308.58,
+        "duration": 2.82,
+        "text": "engineering"
+      },
+      {
+        "start": 309.9,
+        "duration": 3.12,
+        "text": "um and how you could potentially build"
+      },
+      {
+        "start": 311.4,
+        "duration": 3.12,
+        "text": "your own ball like this"
+      },
+      {
+        "start": 313.02,
+        "duration": 2.94,
+        "text": "um we can also ask more advanced"
+      },
+      {
+        "start": 314.52,
+        "duration": 4.04,
+        "text": "questions like tell me about my"
+      },
+      {
+        "start": 315.96,
+        "duration": 2.6,
+        "text": "databases"
+      },
+      {
+        "start": 321.8,
+        "duration": 4.48,
+        "text": "and because in the prompt we also"
+      },
+      {
+        "start": 324.3,
+        "duration": 3.36,
+        "text": "include information on the user all"
+      },
+      {
+        "start": 326.28,
+        "duration": 3.0,
+        "text": "their activity"
+      },
+      {
+        "start": 327.66,
+        "duration": 4.62,
+        "text": "um we get this super awesome answer back"
+      },
+      {
+        "start": 329.28,
+        "duration": 4.56,
+        "text": "on you know exactly the databases the"
+      },
+      {
+        "start": 332.28,
+        "duration": 3.6,
+        "text": "user has created"
+      },
+      {
+        "start": 333.84,
+        "duration": 5.299,
+        "text": "um and we can also ask the bot to"
+      },
+      {
+        "start": 335.88,
+        "duration": 3.259,
+        "text": "generate sample code"
+      },
+      {
+        "start": 344.539,
+        "duration": 4.72,
+        "text": "so here you can see"
+      },
+      {
+        "start": 347.58,
+        "duration": 3.72,
+        "text": "um we have"
+      },
+      {
+        "start": 349.259,
+        "duration": 4.201,
+        "text": "the bot generated just a simple sample"
+      },
+      {
+        "start": 351.3,
+        "duration": 3.6,
+        "text": "app on exactly how"
+      },
+      {
+        "start": 353.46,
+        "duration": 3.959,
+        "text": "um you know you connect to asteroid"
+      },
+      {
+        "start": 354.9,
+        "duration": 4.62,
+        "text": "using python and I'll hand it back over"
+      },
+      {
+        "start": 357.419,
+        "duration": 3.84,
+        "text": "to Alan to talk through"
+      },
+      {
+        "start": 359.52,
+        "duration": 4.32,
+        "text": "um exactly how you can build this on"
+      },
+      {
+        "start": 361.259,
+        "duration": 4.38,
+        "text": "your own all right thank you so there"
+      },
+      {
+        "start": 363.84,
+        "duration": 3.96,
+        "text": "was a lot of magic being behind the"
+      },
+      {
+        "start": 365.639,
+        "duration": 3.601,
+        "text": "scene that was going on so uh stick"
+      },
+      {
+        "start": 367.8,
+        "duration": 3.899,
+        "text": "around and we'll be able to show you"
+      },
+      {
+        "start": 369.24,
+        "duration": 4.08,
+        "text": "that magic before we get started to get"
+      },
+      {
+        "start": 371.699,
+        "duration": 3.421,
+        "text": "to that magic let's talk a little bit"
+      },
+      {
+        "start": 373.32,
+        "duration": 4.379,
+        "text": "about the workflow you need to build"
+      },
+      {
+        "start": 375.12,
+        "duration": 5.7,
+        "text": "these what we call retrieval augmented"
+      },
+      {
+        "start": 377.699,
+        "duration": 5.541,
+        "text": "generation workflows these are workflow"
+      },
+      {
+        "start": 380.82,
+        "duration": 5.04,
+        "text": "General retrieval augmented generation"
+      },
+      {
+        "start": 383.24,
+        "duration": 5.679,
+        "text": "basically means pairing up the large"
+      },
+      {
+        "start": 385.86,
+        "duration": 5.1,
+        "text": "language model with your data set and by"
+      },
+      {
+        "start": 388.919,
+        "duration": 4.56,
+        "text": "putting the two together you generate"
+      },
+      {
+        "start": 390.96,
+        "duration": 5.16,
+        "text": "these highly relevant prompts that allow"
+      },
+      {
+        "start": 393.479,
+        "duration": 4.021,
+        "text": "the llm to give you good responses like"
+      },
+      {
+        "start": 396.12,
+        "duration": 3.12,
+        "text": "what you just saw"
+      },
+      {
+        "start": 397.5,
+        "duration": 3.36,
+        "text": "so at a high level the first thing you"
+      },
+      {
+        "start": 399.24,
+        "duration": 3.36,
+        "text": "need to do is you want to find what your"
+      },
+      {
+        "start": 400.86,
+        "duration": 3.6,
+        "text": "agent does"
+      },
+      {
+        "start": 402.6,
+        "duration": 5.28,
+        "text": "um is it a chat bot is an Enterprise"
+      },
+      {
+        "start": 404.46,
+        "duration": 5.1,
+        "text": "Search application is it a GitHub"
+      },
+      {
+        "start": 407.88,
+        "duration": 4.379,
+        "text": "co-pilot you want to do some definition"
+      },
+      {
+        "start": 409.56,
+        "duration": 5.699,
+        "text": "of what it actually is doing"
+      },
+      {
+        "start": 412.259,
+        "duration": 5.401,
+        "text": "um then you want to provide um you want"
+      },
+      {
+        "start": 415.259,
+        "duration": 5.041,
+        "text": "to select which llm you use"
+      },
+      {
+        "start": 417.66,
+        "duration": 4.319,
+        "text": "then you want to figure out what is the"
+      },
+      {
+        "start": 420.3,
+        "duration": 4.38,
+        "text": "data that you're going to be using to"
+      },
+      {
+        "start": 421.979,
+        "duration": 4.861,
+        "text": "augment the large language model with"
+      },
+      {
+        "start": 424.68,
+        "duration": 6.299,
+        "text": "and then figure out how to take that"
+      },
+      {
+        "start": 426.84,
+        "duration": 7.919,
+        "text": "that uh the that data and properly put"
+      },
+      {
+        "start": 430.979,
+        "duration": 8.94,
+        "text": "it into what we call vectors these allow"
+      },
+      {
+        "start": 434.759,
+        "duration": 7.56,
+        "text": "uh for the llm to semantically figure"
+      },
+      {
+        "start": 439.919,
+        "duration": 4.62,
+        "text": "out what is relevant information for it"
+      },
+      {
+        "start": 442.319,
+        "duration": 4.261,
+        "text": "to process and build that prompt"
+      },
+      {
+        "start": 444.539,
+        "duration": 3.78,
+        "text": "then we use then we leverage that"
+      },
+      {
+        "start": 446.58,
+        "duration": 3.6,
+        "text": "information to build the prompt and you"
+      },
+      {
+        "start": 448.319,
+        "duration": 3.78,
+        "text": "code it up and then we have to figure"
+      },
+      {
+        "start": 450.18,
+        "duration": 3.72,
+        "text": "out how when we actually launch in"
+      },
+      {
+        "start": 452.099,
+        "duration": 4.981,
+        "text": "production how you're going to maintain"
+      },
+      {
+        "start": 453.9,
+        "duration": 4.199,
+        "text": "this uh generative AI agent and how"
+      },
+      {
+        "start": 457.08,
+        "duration": 3.98,
+        "text": "you're going to do it how you're going"
+      },
+      {
+        "start": 458.099,
+        "duration": 2.961,
+        "text": "to deal with your operations"
+      },
+      {
+        "start": 461.099,
+        "duration": 3.261,
+        "text": "so with that there's a lot of various"
+      },
+      {
+        "start": 462.78,
+        "duration": 3.96,
+        "text": "different uh"
+      },
+      {
+        "start": 464.36,
+        "duration": 3.94,
+        "text": "tools and there's a lot of different"
+      },
+      {
+        "start": 466.74,
+        "duration": 3.54,
+        "text": "decisions that you have to ask yourself"
+      },
+      {
+        "start": 468.3,
+        "duration": 3.42,
+        "text": "when going through all these decisions"
+      },
+      {
+        "start": 470.28,
+        "duration": 3.359,
+        "text": "so this is kind of the architectural"
+      },
+      {
+        "start": 471.72,
+        "duration": 3.539,
+        "text": "work that you need to do up front"
+      },
+      {
+        "start": 473.639,
+        "duration": 4.56,
+        "text": "all right let's take a look at the the"
+      },
+      {
+        "start": 475.259,
+        "duration": 5.821,
+        "text": "uh the the um the overall um"
+      },
+      {
+        "start": 478.199,
+        "duration": 4.56,
+        "text": "architecture so at a very high level we"
+      },
+      {
+        "start": 481.08,
+        "duration": 4.26,
+        "text": "showed you is an application which was"
+      },
+      {
+        "start": 482.759,
+        "duration": 4.141,
+        "text": "the chat application it's talking to"
+      },
+      {
+        "start": 485.34,
+        "duration": 4.199,
+        "text": "your agent this is the agent that you"
+      },
+      {
+        "start": 486.9,
+        "duration": 5.1,
+        "text": "code up in our case we cut it up in"
+      },
+      {
+        "start": 489.539,
+        "duration": 4.5,
+        "text": "Python and it's leveraged a combination"
+      },
+      {
+        "start": 492.0,
+        "duration": 3.78,
+        "text": "of proprietary data this is a"
+      },
+      {
+        "start": 494.039,
+        "duration": 3.181,
+        "text": "proprietary structured data just like"
+      },
+      {
+        "start": 495.78,
+        "duration": 4.5,
+        "text": "the any kind of data you'd store on"
+      },
+      {
+        "start": 497.22,
+        "duration": 6.96,
+        "text": "Cassandra day and then it also leverages"
+      },
+      {
+        "start": 500.28,
+        "duration": 6.0,
+        "text": "uh proprietary unstructured data this is"
+      },
+      {
+        "start": 504.18,
+        "duration": 3.66,
+        "text": "the data that's retrieved via Vector"
+      },
+      {
+        "start": 506.28,
+        "duration": 3.8,
+        "text": "search and this is a brand new"
+      },
+      {
+        "start": 507.84,
+        "duration": 5.579,
+        "text": "capability that we've added to"
+      },
+      {
+        "start": 510.08,
+        "duration": 4.899,
+        "text": "astrodb Cassandra very recently"
+      },
+      {
+        "start": 513.419,
+        "duration": 4.081,
+        "text": "now in order to deal with your"
+      },
+      {
+        "start": 514.979,
+        "duration": 4.68,
+        "text": "unstructured data you need to leverage"
+      },
+      {
+        "start": 517.5,
+        "duration": 5.399,
+        "text": "something what we call an embeddings API"
+      },
+      {
+        "start": 519.659,
+        "duration": 5.701,
+        "text": "so this embeddings API takes"
+      },
+      {
+        "start": 522.899,
+        "duration": 4.141,
+        "text": "unstructured data and turns them into"
+      },
+      {
+        "start": 525.36,
+        "duration": 3.06,
+        "text": "the vectors that's needed so you can do"
+      },
+      {
+        "start": 527.04,
+        "duration": 4.2,
+        "text": "the semantic search we'll get into more"
+      },
+      {
+        "start": 528.42,
+        "duration": 5.18,
+        "text": "details on it later and then last but"
+      },
+      {
+        "start": 531.24,
+        "duration": 5.52,
+        "text": "not least when the agent is being"
+      },
+      {
+        "start": 533.6,
+        "duration": 6.64,
+        "text": "executing it calls these data sources"
+      },
+      {
+        "start": 536.76,
+        "duration": 4.92,
+        "text": "and the lln in order to return it to the"
+      },
+      {
+        "start": 540.24,
+        "duration": 2.64,
+        "text": "application"
+      },
+      {
+        "start": 541.68,
+        "duration": 3.18,
+        "text": "now there's a lot of different"
+      },
+      {
+        "start": 542.88,
+        "duration": 3.3,
+        "text": "Technologies you could use and so today"
+      },
+      {
+        "start": 544.86,
+        "duration": 4.02,
+        "text": "what we're going to demonstrate is"
+      },
+      {
+        "start": 546.18,
+        "duration": 5.279,
+        "text": "obviously leveraging data Stacks"
+      },
+      {
+        "start": 548.88,
+        "duration": 6.6,
+        "text": "technology for proprieted structured"
+      },
+      {
+        "start": 551.459,
+        "duration": 5.94,
+        "text": "data we're leveraging Astra DB for our"
+      },
+      {
+        "start": 555.48,
+        "duration": 4.68,
+        "text": "Vector data we're also leveraging Astra"
+      },
+      {
+        "start": 557.399,
+        "duration": 4.081,
+        "text": "DB leveraging the new Vector database"
+      },
+      {
+        "start": 560.16,
+        "duration": 3.179,
+        "text": "capabilities"
+      },
+      {
+        "start": 561.48,
+        "duration": 2.88,
+        "text": "then betting apis there's a lot of"
+      },
+      {
+        "start": 563.339,
+        "duration": 3.0,
+        "text": "different Technologies you could use"
+      },
+      {
+        "start": 564.36,
+        "duration": 5.419,
+        "text": "there's Technologies from vertex AI"
+      },
+      {
+        "start": 566.339,
+        "duration": 6.0,
+        "text": "That's from Google open AI sagemaker"
+      },
+      {
+        "start": 569.779,
+        "duration": 4.541,
+        "text": "hugging faces Etc there's a lot of"
+      },
+      {
+        "start": 572.339,
+        "duration": 4.321,
+        "text": "different embedding models today and"
+      },
+      {
+        "start": 574.32,
+        "duration": 3.84,
+        "text": "then today for llms there's also a lot"
+      },
+      {
+        "start": 576.66,
+        "duration": 4.26,
+        "text": "of various different applications"
+      },
+      {
+        "start": 578.16,
+        "duration": 6.78,
+        "text": "available today open AI"
+      },
+      {
+        "start": 580.92,
+        "duration": 5.64,
+        "text": "Google Cloud Google vertex AI hugging"
+      },
+      {
+        "start": 584.94,
+        "duration": 3.72,
+        "text": "faces Etc"
+      },
+      {
+        "start": 586.56,
+        "duration": 3.839,
+        "text": "and we want to make sure that when we're"
+      },
+      {
+        "start": 588.66,
+        "duration": 3.6,
+        "text": "doing this execution we want to actually"
+      },
+      {
+        "start": 590.399,
+        "duration": 5.041,
+        "text": "actually have it execute in one of the"
+      },
+      {
+        "start": 592.26,
+        "duration": 5.22,
+        "text": "clouds because latency becomes very very"
+      },
+      {
+        "start": 595.44,
+        "duration": 3.72,
+        "text": "important we want to make sure that all"
+      },
+      {
+        "start": 597.48,
+        "duration": 4.68,
+        "text": "these services are running in one cloud"
+      },
+      {
+        "start": 599.16,
+        "duration": 4.92,
+        "text": "in a secure location"
+      },
+      {
+        "start": 602.16,
+        "duration": 4.08,
+        "text": "so the technology that we're using on"
+      },
+      {
+        "start": 604.08,
+        "duration": 4.62,
+        "text": "needs ahead for this one is the llms"
+      },
+      {
+        "start": 606.24,
+        "duration": 4.62,
+        "text": "from Google we're using the vector"
+      },
+      {
+        "start": 608.7,
+        "duration": 4.38,
+        "text": "database of that we have we're"
+      },
+      {
+        "start": 610.86,
+        "duration": 4.86,
+        "text": "leveraging the embeddings API from"
+      },
+      {
+        "start": 613.08,
+        "duration": 5.52,
+        "text": "Google vertex AI we're leveraging Lang"
+      },
+      {
+        "start": 615.72,
+        "duration": 5.46,
+        "text": "chain and then we've also open sourced a"
+      },
+      {
+        "start": 618.6,
+        "duration": 4.859,
+        "text": "new project called cast IO which"
+      },
+      {
+        "start": 621.18,
+        "duration": 6.06,
+        "text": "basically allows you to create these"
+      },
+      {
+        "start": 623.459,
+        "duration": 6.721,
+        "text": "highly scalable agent memory which plugs"
+      },
+      {
+        "start": 627.24,
+        "duration": 5.279,
+        "text": "into all the very common Frameworks such"
+      },
+      {
+        "start": 630.18,
+        "duration": 4.26,
+        "text": "as line chain and hopefully very soon"
+      },
+      {
+        "start": 632.519,
+        "duration": 4.081,
+        "text": "Lama index"
+      },
+      {
+        "start": 634.44,
+        "duration": 3.54,
+        "text": "so why don't I go into talk a little bit"
+      },
+      {
+        "start": 636.6,
+        "duration": 2.82,
+        "text": "about the first step the data"
+      },
+      {
+        "start": 637.98,
+        "duration": 3.18,
+        "text": "pre-processing"
+      },
+      {
+        "start": 639.42,
+        "duration": 4.08,
+        "text": "so I wanted to give you a little context"
+      },
+      {
+        "start": 641.16,
+        "duration": 5.4,
+        "text": "of what Vector search is so Vector"
+      },
+      {
+        "start": 643.5,
+        "duration": 5.22,
+        "text": "search is a way that you can"
+      },
+      {
+        "start": 646.56,
+        "duration": 4.86,
+        "text": "um you can interact with unstructured"
+      },
+      {
+        "start": 648.72,
+        "duration": 6.6,
+        "text": "data and the reason why this is so"
+      },
+      {
+        "start": 651.42,
+        "duration": 5.4,
+        "text": "important is because the llms need to"
+      },
+      {
+        "start": 655.32,
+        "duration": 3.24,
+        "text": "have context it needs to have"
+      },
+      {
+        "start": 656.82,
+        "duration": 4.74,
+        "text": "information proprietary information"
+      },
+      {
+        "start": 658.56,
+        "duration": 4.56,
+        "text": "especially unstructured information in"
+      },
+      {
+        "start": 661.56,
+        "duration": 4.08,
+        "text": "order to generate very relevant"
+      },
+      {
+        "start": 663.12,
+        "duration": 5.339,
+        "text": "responses these can be information from"
+      },
+      {
+        "start": 665.64,
+        "duration": 5.04,
+        "text": "your chats history system from actual"
+      },
+      {
+        "start": 668.459,
+        "duration": 4.38,
+        "text": "people conversations this can be"
+      },
+      {
+        "start": 670.68,
+        "duration": 2.94,
+        "text": "documentation this can be policy"
+      },
+      {
+        "start": 672.839,
+        "duration": 1.62,
+        "text": "information"
+      },
+      {
+        "start": 673.62,
+        "duration": 2.7,
+        "text": "Etc"
+      },
+      {
+        "start": 674.459,
+        "duration": 3.961,
+        "text": "and the reason why this is so important"
+      },
+      {
+        "start": 676.32,
+        "duration": 4.639,
+        "text": "is because if the llm doesn't have"
+      },
+      {
+        "start": 678.42,
+        "duration": 4.979,
+        "text": "context if it doesn't have information"
+      },
+      {
+        "start": 680.959,
+        "duration": 4.301,
+        "text": "then a lot of times that's the reason"
+      },
+      {
+        "start": 683.399,
+        "duration": 3.661,
+        "text": "why it actually creates a lot of"
+      },
+      {
+        "start": 685.26,
+        "duration": 3.3,
+        "text": "hallucinations"
+      },
+      {
+        "start": 687.06,
+        "duration": 3.959,
+        "text": "so let's talk a little bit about how"
+      },
+      {
+        "start": 688.56,
+        "duration": 4.2,
+        "text": "embeddings work so the first thing is"
+      },
+      {
+        "start": 691.019,
+        "duration": 4.38,
+        "text": "that you what you would do is that you"
+      },
+      {
+        "start": 692.76,
+        "duration": 5.16,
+        "text": "would map your database items into an"
+      },
+      {
+        "start": 695.399,
+        "duration": 5.401,
+        "text": "embank space so we're leveraging an"
+      },
+      {
+        "start": 697.92,
+        "duration": 5.34,
+        "text": "off-the-shelf model machine a neural"
+      },
+      {
+        "start": 700.8,
+        "duration": 4.2,
+        "text": "network to generate these embeddings and"
+      },
+      {
+        "start": 703.26,
+        "duration": 5.28,
+        "text": "you can see for every single piece of"
+      },
+      {
+        "start": 705.0,
+        "duration": 5.64,
+        "text": "data it's mapping into this space"
+      },
+      {
+        "start": 708.54,
+        "duration": 4.26,
+        "text": "now the time of inference when you"
+      },
+      {
+        "start": 710.64,
+        "duration": 4.259,
+        "text": "actually uh doing the vector simulator"
+      },
+      {
+        "start": 712.8,
+        "duration": 4.56,
+        "text": "search what it does is that when"
+      },
+      {
+        "start": 714.899,
+        "duration": 5.101,
+        "text": "somebody types in the question it"
+      },
+      {
+        "start": 717.36,
+        "duration": 4.979,
+        "text": "figures out what are the documents that"
+      },
+      {
+        "start": 720.0,
+        "duration": 4.62,
+        "text": "are near it so in this case this in this"
+      },
+      {
+        "start": 722.339,
+        "duration": 3.901,
+        "text": "scenario what it's doing is that it's"
+      },
+      {
+        "start": 724.62,
+        "duration": 4.56,
+        "text": "mapping different"
+      },
+      {
+        "start": 726.24,
+        "duration": 5.099,
+        "text": "um pieces of text to this embedding"
+      },
+      {
+        "start": 729.18,
+        "duration": 4.8,
+        "text": "space and then somebody's asking a"
+      },
+      {
+        "start": 731.339,
+        "duration": 4.62,
+        "text": "question what is like a good Shakespeare"
+      },
+      {
+        "start": 733.98,
+        "duration": 4.14,
+        "text": "tragedy and it finds out the very"
+      },
+      {
+        "start": 735.959,
+        "duration": 3.781,
+        "text": "nearest neighbors like Romeo Juliet et"
+      },
+      {
+        "start": 738.12,
+        "duration": 4.02,
+        "text": "cetera"
+      },
+      {
+        "start": 739.74,
+        "duration": 4.08,
+        "text": "so for our use case we have two sources"
+      },
+      {
+        "start": 742.14,
+        "duration": 4.439,
+        "text": "of unstructured data that we care about"
+      },
+      {
+        "start": 743.82,
+        "duration": 4.38,
+        "text": "one is our product documentation this"
+      },
+      {
+        "start": 746.579,
+        "duration": 3.901,
+        "text": "tells people how to use the product this"
+      },
+      {
+        "start": 748.2,
+        "duration": 4.86,
+        "text": "is probably the primary source of it and"
+      },
+      {
+        "start": 750.48,
+        "duration": 4.859,
+        "text": "the second is chat history and what the"
+      },
+      {
+        "start": 753.06,
+        "duration": 5.76,
+        "text": "chat history does is that it gives the"
+      },
+      {
+        "start": 755.339,
+        "duration": 5.641,
+        "text": "uh it gives the AI agent example"
+      },
+      {
+        "start": 758.82,
+        "duration": 5.1,
+        "text": "questions and answers that people ask"
+      },
+      {
+        "start": 760.98,
+        "duration": 5.52,
+        "text": "and this is important for not"
+      },
+      {
+        "start": 763.92,
+        "duration": 4.68,
+        "text": "necessarily for finding the answer but"
+      },
+      {
+        "start": 766.5,
+        "duration": 3.18,
+        "text": "especially in the scenario because that"
+      },
+      {
+        "start": 768.6,
+        "duration": 3.72,
+        "text": "information is in the product"
+      },
+      {
+        "start": 769.68,
+        "duration": 4.14,
+        "text": "documentation but it gives kind of an"
+      },
+      {
+        "start": 772.32,
+        "duration": 4.92,
+        "text": "example this is also what we call"
+      },
+      {
+        "start": 773.82,
+        "duration": 5.04,
+        "text": "fuchsia learning of how to answer these"
+      },
+      {
+        "start": 777.24,
+        "duration": 4.62,
+        "text": "questions"
+      },
+      {
+        "start": 778.86,
+        "duration": 4.62,
+        "text": "uh so we take this information we"
+      },
+      {
+        "start": 781.86,
+        "duration": 3.96,
+        "text": "generate embeddings and then we write"
+      },
+      {
+        "start": 783.48,
+        "duration": 4.859,
+        "text": "the raw the embeddings and the raw text"
+      },
+      {
+        "start": 785.82,
+        "duration": 5.16,
+        "text": "directly into the database so what does"
+      },
+      {
+        "start": 788.339,
+        "duration": 5.401,
+        "text": "a raw text look like so for example this"
+      },
+      {
+        "start": 790.98,
+        "duration": 6.0,
+        "text": "information here is"
+      },
+      {
+        "start": 793.74,
+        "duration": 5.339,
+        "text": "um from right from our documentation and"
+      },
+      {
+        "start": 796.98,
+        "duration": 3.32,
+        "text": "it generates about a thousand five"
+      },
+      {
+        "start": 799.079,
+        "duration": 5.88,
+        "text": "hundred"
+      },
+      {
+        "start": 800.3,
+        "duration": 5.26,
+        "text": "vectors sorry 5000 1500"
+      },
+      {
+        "start": 804.959,
+        "duration": 3.961,
+        "text": "um"
+      },
+      {
+        "start": 805.56,
+        "duration": 5.16,
+        "text": "uh scalar values to create a vector and"
+      },
+      {
+        "start": 808.92,
+        "duration": 3.9,
+        "text": "this is the data that allows you to do a"
+      },
+      {
+        "start": 810.72,
+        "duration": 3.84,
+        "text": "similarity search"
+      },
+      {
+        "start": 812.82,
+        "duration": 3.06,
+        "text": "so with that I'm going to head it over"
+      },
+      {
+        "start": 814.56,
+        "duration": 4.019,
+        "text": "to"
+      },
+      {
+        "start": 815.88,
+        "duration": 5.579,
+        "text": "um uh um I'm going to hand it over to"
+      },
+      {
+        "start": 818.579,
+        "duration": 5.101,
+        "text": "Alex to show a little bit about how the"
+      },
+      {
+        "start": 821.459,
+        "duration": 5.94,
+        "text": "pre-processing works"
+      },
+      {
+        "start": 823.68,
+        "duration": 6.54,
+        "text": "yeah let me share my screen again"
+      },
+      {
+        "start": 827.399,
+        "duration": 4.321,
+        "text": "um so what you're looking at here is a"
+      },
+      {
+        "start": 830.22,
+        "duration": 3.059,
+        "text": "collab notebook"
+      },
+      {
+        "start": 831.72,
+        "duration": 3.119,
+        "text": "um where you where we demonstrate how"
+      },
+      {
+        "start": 833.279,
+        "duration": 4.201,
+        "text": "you could potentially"
+      },
+      {
+        "start": 834.839,
+        "duration": 4.081,
+        "text": "um you know process all your data like"
+      },
+      {
+        "start": 837.48,
+        "duration": 2.64,
+        "text": "Alan just mentioned"
+      },
+      {
+        "start": 838.92,
+        "duration": 2.94,
+        "text": "um so I'm just going to walk through all"
+      },
+      {
+        "start": 840.12,
+        "duration": 4.14,
+        "text": "the cells and how you can potentially"
+      },
+      {
+        "start": 841.86,
+        "duration": 4.02,
+        "text": "build an app to do this"
+      },
+      {
+        "start": 844.26,
+        "duration": 3.66,
+        "text": "um so at the top"
+      },
+      {
+        "start": 845.88,
+        "duration": 4.5,
+        "text": "um really basic setup right we install"
+      },
+      {
+        "start": 847.92,
+        "duration": 4.44,
+        "text": "our necessary dependencies"
+      },
+      {
+        "start": 850.38,
+        "duration": 3.78,
+        "text": "um like Alan said we're using uh vertex"
+      },
+      {
+        "start": 852.36,
+        "duration": 4.62,
+        "text": "AI for this demo right so we need to"
+      },
+      {
+        "start": 854.16,
+        "duration": 5.22,
+        "text": "install Google dependencies along with"
+      },
+      {
+        "start": 856.98,
+        "duration": 5.4,
+        "text": "the python driver our own python driver"
+      },
+      {
+        "start": 859.38,
+        "duration": 5.28,
+        "text": "that supports vectors"
+      },
+      {
+        "start": 862.38,
+        "duration": 4.38,
+        "text": "um we do some basic environment"
+      },
+      {
+        "start": 864.66,
+        "duration": 5.16,
+        "text": "variables set up right we need the"
+      },
+      {
+        "start": 866.76,
+        "duration": 3.84,
+        "text": "intercom API we need Cassandra creds we"
+      },
+      {
+        "start": 869.82,
+        "duration": 1.579,
+        "text": "need"
+      },
+      {
+        "start": 870.6,
+        "duration": 3.539,
+        "text": "um"
+      },
+      {
+        "start": 871.399,
+        "duration": 5.021,
+        "text": "uh protects AI credits"
+      },
+      {
+        "start": 874.139,
+        "duration": 3.781,
+        "text": "um and then the process is pretty"
+      },
+      {
+        "start": 876.42,
+        "duration": 3.24,
+        "text": "straightforward"
+      },
+      {
+        "start": 877.92,
+        "duration": 3.599,
+        "text": "um so first of all what we do is we call"
+      },
+      {
+        "start": 879.66,
+        "duration": 3.359,
+        "text": "the intercom API to pull all our"
+      },
+      {
+        "start": 881.519,
+        "duration": 2.88,
+        "text": "conversation history"
+      },
+      {
+        "start": 883.019,
+        "duration": 4.32,
+        "text": "um so this is just kind of a simple call"
+      },
+      {
+        "start": 884.399,
+        "duration": 4.981,
+        "text": "to intercom to um get all the"
+      },
+      {
+        "start": 887.339,
+        "duration": 3.841,
+        "text": "conversations and then iterate through"
+      },
+      {
+        "start": 889.38,
+        "duration": 4.699,
+        "text": "each of the pages"
+      },
+      {
+        "start": 891.18,
+        "duration": 2.899,
+        "text": "of conversations"
+      },
+      {
+        "start": 894.42,
+        "duration": 3.599,
+        "text": "um down here we do some Google vertex AI"
+      },
+      {
+        "start": 896.94,
+        "duration": 2.519,
+        "text": "setup"
+      },
+      {
+        "start": 898.019,
+        "duration": 4.38,
+        "text": "um we were at the library we set our"
+      },
+      {
+        "start": 899.459,
+        "duration": 5.401,
+        "text": "project ID we load our credentials"
+      },
+      {
+        "start": 902.399,
+        "duration": 3.781,
+        "text": "um and it really is just a couple API"
+      },
+      {
+        "start": 904.86,
+        "duration": 3.3,
+        "text": "calls to"
+      },
+      {
+        "start": 906.18,
+        "duration": 4.08,
+        "text": "um create the embeddings right so here"
+      },
+      {
+        "start": 908.16,
+        "duration": 4.679,
+        "text": "we can see here's just kind of example"
+      },
+      {
+        "start": 910.26,
+        "duration": 5.28,
+        "text": "of how you created embeddings Google has"
+      },
+      {
+        "start": 912.839,
+        "duration": 4.8,
+        "text": "a very simple get embeddings API where"
+      },
+      {
+        "start": 915.54,
+        "duration": 4.739,
+        "text": "you can feed in the Raw unstructured"
+      },
+      {
+        "start": 917.639,
+        "duration": 5.401,
+        "text": "text and you get back into bedding"
+      },
+      {
+        "start": 920.279,
+        "duration": 4.321,
+        "text": "um so if you wanted to kind of create"
+      },
+      {
+        "start": 923.04,
+        "duration": 3.0,
+        "text": "embeddings for all of the intercom"
+      },
+      {
+        "start": 924.6,
+        "duration": 3.539,
+        "text": "conversations"
+      },
+      {
+        "start": 926.04,
+        "duration": 3.84,
+        "text": "it's pretty straightforward right so"
+      },
+      {
+        "start": 928.139,
+        "duration": 3.06,
+        "text": "here we're doing some basic setup of the"
+      },
+      {
+        "start": 929.88,
+        "duration": 2.699,
+        "text": "tables"
+      },
+      {
+        "start": 931.199,
+        "duration": 3.781,
+        "text": "um in the vector store right we're"
+      },
+      {
+        "start": 932.579,
+        "duration": 4.62,
+        "text": "creating the chat table we're creating"
+      },
+      {
+        "start": 934.98,
+        "duration": 4.08,
+        "text": "an Sai index"
+      },
+      {
+        "start": 937.199,
+        "duration": 3.0,
+        "text": "um and then all we do is we iterate"
+      },
+      {
+        "start": 939.06,
+        "duration": 3.0,
+        "text": "through each"
+      },
+      {
+        "start": 940.199,
+        "duration": 3.121,
+        "text": "we iterate through a list of"
+      },
+      {
+        "start": 942.06,
+        "duration": 3.3,
+        "text": "conversations"
+      },
+      {
+        "start": 943.32,
+        "duration": 3.84,
+        "text": "um for each conversation we generate the"
+      },
+      {
+        "start": 945.36,
+        "duration": 3.479,
+        "text": "embedding and then we're loading it all"
+      },
+      {
+        "start": 947.16,
+        "duration": 4.5,
+        "text": "into Cassandra"
+      },
+      {
+        "start": 948.839,
+        "duration": 4.62,
+        "text": "um so pretty straightforward"
+      },
+      {
+        "start": 951.66,
+        "duration": 4.679,
+        "text": "um and down here we just have kind of an"
+      },
+      {
+        "start": 953.459,
+        "duration": 4.261,
+        "text": "example of how you potentially make uh a"
+      },
+      {
+        "start": 956.339,
+        "duration": 2.401,
+        "text": "vector search once you've load all this"
+      },
+      {
+        "start": 957.72,
+        "duration": 3.119,
+        "text": "data"
+      },
+      {
+        "start": 958.74,
+        "duration": 4.02,
+        "text": "um so in order to actually query the"
+      },
+      {
+        "start": 960.839,
+        "duration": 3.421,
+        "text": "vector store you would need to convert"
+      },
+      {
+        "start": 962.76,
+        "duration": 3.06,
+        "text": "your search query into an embedding"
+      },
+      {
+        "start": 964.26,
+        "duration": 2.759,
+        "text": "right we're doing that right here so"
+      },
+      {
+        "start": 965.82,
+        "duration": 3.42,
+        "text": "let's say the question is where do I"
+      },
+      {
+        "start": 967.019,
+        "duration": 3.421,
+        "text": "find a token we'd first generate the"
+      },
+      {
+        "start": 969.24,
+        "duration": 3.36,
+        "text": "embedding"
+      },
+      {
+        "start": 970.44,
+        "duration": 4.199,
+        "text": "um and then it's a really simple query"
+      },
+      {
+        "start": 972.6,
+        "duration": 3.84,
+        "text": "right get the raw text where the"
+      },
+      {
+        "start": 974.639,
+        "duration": 3.301,
+        "text": "embedding is the embedding which is"
+      },
+      {
+        "start": 976.44,
+        "duration": 3.48,
+        "text": "generated"
+      },
+      {
+        "start": 977.94,
+        "duration": 4.5,
+        "text": "um and I'll hand it back to Alan to walk"
+      },
+      {
+        "start": 979.92,
+        "duration": 4.8,
+        "text": "through the next step of the process"
+      },
+      {
+        "start": 982.44,
+        "duration": 3.959,
+        "text": "so there's a few tips that you that you"
+      },
+      {
+        "start": 984.72,
+        "duration": 4.26,
+        "text": "should remember when you're doing your"
+      },
+      {
+        "start": 986.399,
+        "duration": 5.161,
+        "text": "data pre-processing number one is that"
+      },
+      {
+        "start": 988.98,
+        "duration": 5.52,
+        "text": "clean data matters so if you garbage in"
+      },
+      {
+        "start": 991.56,
+        "duration": 4.5,
+        "text": "garbage out if you put irrelevant if you"
+      },
+      {
+        "start": 994.5,
+        "duration": 3.839,
+        "text": "put data that's"
+      },
+      {
+        "start": 996.06,
+        "duration": 4.199,
+        "text": "um that's uh it's actually irrelevant"
+      },
+      {
+        "start": 998.339,
+        "duration": 4.201,
+        "text": "data is not that important that's not"
+      },
+      {
+        "start": 1000.259,
+        "duration": 4.08,
+        "text": "not that terrible it's actually data"
+      },
+      {
+        "start": 1002.54,
+        "duration": 4.56,
+        "text": "that's wrong so if you put in answers"
+      },
+      {
+        "start": 1004.339,
+        "duration": 5.761,
+        "text": "that are semantically wrong your llm is"
+      },
+      {
+        "start": 1007.1,
+        "duration": 6.12,
+        "text": "going to give you actually wrong answers"
+      },
+      {
+        "start": 1010.1,
+        "duration": 5.22,
+        "text": "the second thing is to actually properly"
+      },
+      {
+        "start": 1013.22,
+        "duration": 7.14,
+        "text": "split your data and this is kind of a"
+      },
+      {
+        "start": 1015.32,
+        "duration": 6.42,
+        "text": "200 level type of uh um uh a tip here so"
+      },
+      {
+        "start": 1020.36,
+        "duration": 3.24,
+        "text": "when you're processing a very large"
+      },
+      {
+        "start": 1021.74,
+        "duration": 4.38,
+        "text": "document you don't want to store the"
+      },
+      {
+        "start": 1023.6,
+        "duration": 4.62,
+        "text": "entire document into the vector database"
+      },
+      {
+        "start": 1026.12,
+        "duration": 5.28,
+        "text": "what you actually want to do is you want"
+      },
+      {
+        "start": 1028.22,
+        "duration": 5.82,
+        "text": "to Chunk Up the document into pieces"
+      },
+      {
+        "start": 1031.4,
+        "duration": 4.74,
+        "text": "that are small enough that you could put"
+      },
+      {
+        "start": 1034.04,
+        "duration": 4.44,
+        "text": "in the large language model"
+      },
+      {
+        "start": 1036.14,
+        "duration": 4.86,
+        "text": "and when you split when you chunk it up"
+      },
+      {
+        "start": 1038.48,
+        "duration": 4.979,
+        "text": "you don't chunk it up let's say take a"
+      },
+      {
+        "start": 1041.0,
+        "duration": 4.439,
+        "text": "document and evenly split into 10 chunks"
+      },
+      {
+        "start": 1043.459,
+        "duration": 4.38,
+        "text": "what you would do is that you would take"
+      },
+      {
+        "start": 1045.439,
+        "duration": 4.98,
+        "text": "the document and you would split it into"
+      },
+      {
+        "start": 1047.839,
+        "duration": 4.801,
+        "text": "10 overlapping chunks and this is"
+      },
+      {
+        "start": 1050.419,
+        "duration": 5.461,
+        "text": "necessary because the semantic search"
+      },
+      {
+        "start": 1052.64,
+        "duration": 5.46,
+        "text": "capability needs to have"
+      },
+      {
+        "start": 1055.88,
+        "duration": 5.039,
+        "text": "um a little bit for for a particular"
+      },
+      {
+        "start": 1058.1,
+        "duration": 4.319,
+        "text": "paragraph of text it only makes sense if"
+      },
+      {
+        "start": 1060.919,
+        "duration": 3.841,
+        "text": "it has a little bit of information about"
+      },
+      {
+        "start": 1062.419,
+        "duration": 3.721,
+        "text": "the previous paragraph of text so you"
+      },
+      {
+        "start": 1064.76,
+        "duration": 2.88,
+        "text": "have to be very smart and this is"
+      },
+      {
+        "start": 1066.14,
+        "duration": 3.659,
+        "text": "something that you need to there's no"
+      },
+      {
+        "start": 1067.64,
+        "duration": 3.899,
+        "text": "out of the magic answer for every piece"
+      },
+      {
+        "start": 1069.799,
+        "duration": 3.361,
+        "text": "of the text you got to be really smart"
+      },
+      {
+        "start": 1071.539,
+        "duration": 3.361,
+        "text": "about it"
+      },
+      {
+        "start": 1073.16,
+        "duration": 3.54,
+        "text": "uh the third thing that you want to do"
+      },
+      {
+        "start": 1074.9,
+        "duration": 4.2,
+        "text": "is you want to be careful about loading"
+      },
+      {
+        "start": 1076.7,
+        "duration": 4.56,
+        "text": "the information at speed so one of the"
+      },
+      {
+        "start": 1079.1,
+        "duration": 5.66,
+        "text": "nice things about Cassandra is that it"
+      },
+      {
+        "start": 1081.26,
+        "duration": 6.06,
+        "text": "can it can do a lot of parallel"
+      },
+      {
+        "start": 1084.76,
+        "duration": 5.68,
+        "text": "inserts at the order of thousands of"
+      },
+      {
+        "start": 1087.32,
+        "duration": 5.28,
+        "text": "Records per second for just even like a"
+      },
+      {
+        "start": 1090.44,
+        "duration": 4.2,
+        "text": "three note a small three node cluster so"
+      },
+      {
+        "start": 1092.6,
+        "duration": 4.199,
+        "text": "you want to leverage parallelization we"
+      },
+      {
+        "start": 1094.64,
+        "duration": 4.5,
+        "text": "have some tools called DS bulk that"
+      },
+      {
+        "start": 1096.799,
+        "duration": 4.5,
+        "text": "helps you load the data faster"
+      },
+      {
+        "start": 1099.14,
+        "duration": 5.24,
+        "text": "now another part that we have to be very"
+      },
+      {
+        "start": 1101.299,
+        "duration": 5.161,
+        "text": "careful is keeping the data safe"
+      },
+      {
+        "start": 1104.38,
+        "duration": 4.299,
+        "text": "especially if you're trying to leverage"
+      },
+      {
+        "start": 1106.46,
+        "duration": 3.32,
+        "text": "your chat history for a few shot"
+      },
+      {
+        "start": 1108.679,
+        "duration": 3.721,
+        "text": "learning"
+      },
+      {
+        "start": 1109.78,
+        "duration": 5.92,
+        "text": "you have to make sure you strip out all"
+      },
+      {
+        "start": 1112.4,
+        "duration": 5.46,
+        "text": "the pii data so you know customers often"
+      },
+      {
+        "start": 1115.7,
+        "duration": 3.78,
+        "text": "do things like put in their tokens in"
+      },
+      {
+        "start": 1117.86,
+        "duration": 4.14,
+        "text": "the chat history things of that sort"
+      },
+      {
+        "start": 1119.48,
+        "duration": 4.68,
+        "text": "their their proprietary secrets you want"
+      },
+      {
+        "start": 1122.0,
+        "duration": 3.179,
+        "text": "to make sure that's outside kept on your"
+      },
+      {
+        "start": 1124.16,
+        "duration": 3.72,
+        "text": "data set"
+      },
+      {
+        "start": 1125.179,
+        "duration": 4.801,
+        "text": "and last but not least the large"
+      },
+      {
+        "start": 1127.88,
+        "duration": 4.32,
+        "text": "language model is only as good as data"
+      },
+      {
+        "start": 1129.98,
+        "duration": 5.28,
+        "text": "it has so you need to make sure that the"
+      },
+      {
+        "start": 1132.2,
+        "duration": 5.88,
+        "text": "information you have is relevant uh and"
+      },
+      {
+        "start": 1135.26,
+        "duration": 5.159,
+        "text": "updated on a regular basis"
+      },
+      {
+        "start": 1138.08,
+        "duration": 5.339,
+        "text": "okay with that let's kind of get into"
+      },
+      {
+        "start": 1140.419,
+        "duration": 6.481,
+        "text": "the details of prompt engineering"
+      },
+      {
+        "start": 1143.419,
+        "duration": 6.661,
+        "text": "so the purpose of prompt engineering is"
+      },
+      {
+        "start": 1146.9,
+        "duration": 5.6,
+        "text": "to make sure that the data that's being"
+      },
+      {
+        "start": 1150.08,
+        "duration": 6.0,
+        "text": "the prompt that's being sent to the llm"
+      },
+      {
+        "start": 1152.5,
+        "duration": 6.36,
+        "text": "is as contextually relevant as possible"
+      },
+      {
+        "start": 1156.08,
+        "duration": 5.099,
+        "text": "and this is not easy because"
+      },
+      {
+        "start": 1158.86,
+        "duration": 4.24,
+        "text": "LMS are inherently they're kind of like"
+      },
+      {
+        "start": 1161.179,
+        "duration": 3.901,
+        "text": "human beings there's only a certain"
+      },
+      {
+        "start": 1163.1,
+        "duration": 3.6,
+        "text": "amount of working memory that it has so"
+      },
+      {
+        "start": 1165.08,
+        "duration": 4.68,
+        "text": "it has it has something we'll call the"
+      },
+      {
+        "start": 1166.7,
+        "duration": 5.58,
+        "text": "token limit you can't throw your entire"
+      },
+      {
+        "start": 1169.76,
+        "duration": 5.279,
+        "text": "knowledge base into the llm because"
+      },
+      {
+        "start": 1172.28,
+        "duration": 5.7,
+        "text": "there's simply not enough memory for the"
+      },
+      {
+        "start": 1175.039,
+        "duration": 5.88,
+        "text": "working memory for the llm to take it to"
+      },
+      {
+        "start": 1177.98,
+        "duration": 5.699,
+        "text": "do so so we have prompt templates and"
+      },
+      {
+        "start": 1180.919,
+        "duration": 4.38,
+        "text": "testing framework that you can use and"
+      },
+      {
+        "start": 1183.679,
+        "duration": 3.841,
+        "text": "it's really important to kind of compare"
+      },
+      {
+        "start": 1185.299,
+        "duration": 3.901,
+        "text": "all the various prompts"
+      },
+      {
+        "start": 1187.52,
+        "duration": 5.159,
+        "text": "now there's a there's a bunch of"
+      },
+      {
+        "start": 1189.2,
+        "duration": 7.14,
+        "text": "challenges so the first challenge is how"
+      },
+      {
+        "start": 1192.679,
+        "duration": 5.461,
+        "text": "do we make sure that the results are"
+      },
+      {
+        "start": 1196.34,
+        "duration": 4.62,
+        "text": "qualitatively good so how do you"
+      },
+      {
+        "start": 1198.14,
+        "duration": 4.919,
+        "text": "actually go do around that testing"
+      },
+      {
+        "start": 1200.96,
+        "duration": 3.9,
+        "text": "um sometimes there's a balance of detail"
+      },
+      {
+        "start": 1203.059,
+        "duration": 3.961,
+        "text": "you want to give enough information to"
+      },
+      {
+        "start": 1204.86,
+        "duration": 4.62,
+        "text": "the llm but you don't want to give too"
+      },
+      {
+        "start": 1207.02,
+        "duration": 4.62,
+        "text": "much llm information to the llm"
+      },
+      {
+        "start": 1209.48,
+        "duration": 5.76,
+        "text": "otherwise it gives a very vague"
+      },
+      {
+        "start": 1211.64,
+        "duration": 5.94,
+        "text": "responses and then last but not least"
+      },
+      {
+        "start": 1215.24,
+        "duration": 4.92,
+        "text": "um there's relevancy and safety so how"
+      },
+      {
+        "start": 1217.58,
+        "duration": 5.04,
+        "text": "do we prevent the llm from saying"
+      },
+      {
+        "start": 1220.16,
+        "duration": 4.139,
+        "text": "harmful things irrelevant things or very"
+      },
+      {
+        "start": 1222.62,
+        "duration": 2.96,
+        "text": "inappropriate things how do we do all"
+      },
+      {
+        "start": 1224.299,
+        "duration": 3.901,
+        "text": "that"
+      },
+      {
+        "start": 1225.58,
+        "duration": 4.42,
+        "text": "so Kyle let's go into the data flow so"
+      },
+      {
+        "start": 1228.2,
+        "duration": 5.12,
+        "text": "let's say a customer uses the"
+      },
+      {
+        "start": 1230.0,
+        "duration": 6.9,
+        "text": "application calls the nosql assistant"
+      },
+      {
+        "start": 1233.32,
+        "duration": 5.44,
+        "text": "to with a question the first thing that"
+      },
+      {
+        "start": 1236.9,
+        "duration": 4.92,
+        "text": "happens is that the nosql assistant"
+      },
+      {
+        "start": 1238.76,
+        "duration": 6.24,
+        "text": "calls the vertex AI to get the embedding"
+      },
+      {
+        "start": 1241.82,
+        "duration": 6.66,
+        "text": "uh so what for that question semantic"
+      },
+      {
+        "start": 1245.0,
+        "duration": 5.4,
+        "text": "what are vectors that are close to it"
+      },
+      {
+        "start": 1248.48,
+        "duration": 5.939,
+        "text": "um and then this this way is I just just"
+      },
+      {
+        "start": 1250.4,
+        "duration": 5.76,
+        "text": "a reminder of how this is done is that"
+      },
+      {
+        "start": 1254.419,
+        "duration": 5.041,
+        "text": "um you know there's there's the the"
+      },
+      {
+        "start": 1256.16,
+        "duration": 6.18,
+        "text": "database already has all these vectors"
+      },
+      {
+        "start": 1259.46,
+        "duration": 6.42,
+        "text": "in it and the question that's being"
+      },
+      {
+        "start": 1262.34,
+        "duration": 6.0,
+        "text": "asked is related to some of those uh"
+      },
+      {
+        "start": 1265.88,
+        "duration": 4.56,
+        "text": "those uh pieces of data in this case"
+      },
+      {
+        "start": 1268.34,
+        "duration": 4.56,
+        "text": "proc information or Returns the correct"
+      },
+      {
+        "start": 1270.44,
+        "duration": 4.92,
+        "text": "product information"
+      },
+      {
+        "start": 1272.9,
+        "duration": 6.019,
+        "text": "so for example how do I generate a token"
+      },
+      {
+        "start": 1275.36,
+        "duration": 6.42,
+        "text": "this turns back into the 1500 float"
+      },
+      {
+        "start": 1278.919,
+        "duration": 4.061,
+        "text": "float vector and it finds the closest"
+      },
+      {
+        "start": 1281.78,
+        "duration": 3.3,
+        "text": "ones"
+      },
+      {
+        "start": 1282.98,
+        "duration": 4.5,
+        "text": "and so when you're doing the vector when"
+      },
+      {
+        "start": 1285.08,
+        "duration": 4.38,
+        "text": "you're calling the vector store not only"
+      },
+      {
+        "start": 1287.48,
+        "duration": 4.86,
+        "text": "are you calling the vector"
+      },
+      {
+        "start": 1289.46,
+        "duration": 5.04,
+        "text": "content but you're also calling the"
+      },
+      {
+        "start": 1292.34,
+        "duration": 4.68,
+        "text": "vector store uh the the Cassandra"
+      },
+      {
+        "start": 1294.5,
+        "duration": 4.02,
+        "text": "database for information that's relevant"
+      },
+      {
+        "start": 1297.02,
+        "duration": 3.6,
+        "text": "about the user"
+      },
+      {
+        "start": 1298.52,
+        "duration": 4.8,
+        "text": "so what are what is the elements of the"
+      },
+      {
+        "start": 1300.62,
+        "duration": 4.799,
+        "text": "good prompt so a good prompt has the"
+      },
+      {
+        "start": 1303.32,
+        "duration": 4.62,
+        "text": "directive so what what the kind of what"
+      },
+      {
+        "start": 1305.419,
+        "duration": 4.921,
+        "text": "kind of Bot that person is it usually"
+      },
+      {
+        "start": 1307.94,
+        "duration": 3.96,
+        "text": "has information about the user the user"
+      },
+      {
+        "start": 1310.34,
+        "duration": 2.819,
+        "text": "itself like who is this particular"
+      },
+      {
+        "start": 1311.9,
+        "duration": 3.779,
+        "text": "person"
+      },
+      {
+        "start": 1313.159,
+        "duration": 3.661,
+        "text": "whether that person particularly done in"
+      },
+      {
+        "start": 1315.679,
+        "duration": 3.661,
+        "text": "the past"
+      },
+      {
+        "start": 1316.82,
+        "duration": 3.96,
+        "text": "and then also the previous interactions"
+      },
+      {
+        "start": 1319.34,
+        "duration": 3.3,
+        "text": "with the user"
+      },
+      {
+        "start": 1320.78,
+        "duration": 4.2,
+        "text": "so this is what we often call the chat"
+      },
+      {
+        "start": 1322.64,
+        "duration": 4.32,
+        "text": "history so when somebody's typing in and"
+      },
+      {
+        "start": 1324.98,
+        "duration": 4.679,
+        "text": "having a conversation just like a"
+      },
+      {
+        "start": 1326.96,
+        "duration": 4.44,
+        "text": "regular human being the llm needs to"
+      },
+      {
+        "start": 1329.659,
+        "duration": 4.02,
+        "text": "know what are the previous chats it had"
+      },
+      {
+        "start": 1331.4,
+        "duration": 4.56,
+        "text": "in the past in the context for that"
+      },
+      {
+        "start": 1333.679,
+        "duration": 3.841,
+        "text": "then it would have then also the prompt"
+      },
+      {
+        "start": 1335.96,
+        "duration": 3.48,
+        "text": "would have relevant information like"
+      },
+      {
+        "start": 1337.52,
+        "duration": 3.899,
+        "text": "sorry the relevant documents that give"
+      },
+      {
+        "start": 1339.44,
+        "duration": 4.32,
+        "text": "the answer and then finally of course"
+      },
+      {
+        "start": 1341.419,
+        "duration": 4.38,
+        "text": "the prompt has a user's question"
+      },
+      {
+        "start": 1343.76,
+        "duration": 3.84,
+        "text": "so let's take a look at this is kind of"
+      },
+      {
+        "start": 1345.799,
+        "duration": 5.041,
+        "text": "a subset of all this information but"
+      },
+      {
+        "start": 1347.6,
+        "duration": 5.1,
+        "text": "let's take a look at if the prompt asks"
+      },
+      {
+        "start": 1350.84,
+        "duration": 4.38,
+        "text": "if the user asks how do I generate a"
+      },
+      {
+        "start": 1352.7,
+        "duration": 5.7,
+        "text": "token inside the prompt it would have a"
+      },
+      {
+        "start": 1355.22,
+        "duration": 5.4,
+        "text": "directive so in this case we're telling"
+      },
+      {
+        "start": 1358.4,
+        "duration": 4.98,
+        "text": "using the using the person's profile"
+      },
+      {
+        "start": 1360.62,
+        "duration": 5.1,
+        "text": "information we determine that this is an"
+      },
+      {
+        "start": 1363.38,
+        "duration": 4.86,
+        "text": "advanced user trying to perform some"
+      },
+      {
+        "start": 1365.72,
+        "duration": 4.62,
+        "text": "actions in the database and this is very"
+      },
+      {
+        "start": 1368.24,
+        "duration": 4.679,
+        "text": "helpful because if you tell that llm"
+      },
+      {
+        "start": 1370.34,
+        "duration": 5.699,
+        "text": "that this is an advanced User it's it"
+      },
+      {
+        "start": 1372.919,
+        "duration": 5.821,
+        "text": "ends up not providing it providing the"
+      },
+      {
+        "start": 1376.039,
+        "duration": 4.38,
+        "text": "user more advanced answers so like more"
+      },
+      {
+        "start": 1378.74,
+        "duration": 3.419,
+        "text": "sustained code and things of that sort"
+      },
+      {
+        "start": 1380.419,
+        "duration": 4.461,
+        "text": "it assumes the user knows how to use"
+      },
+      {
+        "start": 1382.159,
+        "duration": 2.721,
+        "text": "Cassandra already"
+      },
+      {
+        "start": 1385.22,
+        "duration": 4.56,
+        "text": "um now we also provide uh information"
+      },
+      {
+        "start": 1387.44,
+        "duration": 4.619,
+        "text": "about the user and some of the databases"
+      },
+      {
+        "start": 1389.78,
+        "duration": 5.22,
+        "text": "that the person has created these are"
+      },
+      {
+        "start": 1392.059,
+        "duration": 6.061,
+        "text": "just regular key value pair lookups um"
+      },
+      {
+        "start": 1395.0,
+        "duration": 6.36,
+        "text": "in Cassandra nothing fancy here and then"
+      },
+      {
+        "start": 1398.12,
+        "duration": 5.76,
+        "text": "we have a bunch of unstructured uh data"
+      },
+      {
+        "start": 1401.36,
+        "duration": 5.1,
+        "text": "in this case we're showing similar chat"
+      },
+      {
+        "start": 1403.88,
+        "duration": 5.279,
+        "text": "history conversations with this user and"
+      },
+      {
+        "start": 1406.46,
+        "duration": 5.579,
+        "text": "you can see over here there's like three"
+      },
+      {
+        "start": 1409.159,
+        "duration": 5.041,
+        "text": "different conversations with various"
+      },
+      {
+        "start": 1412.039,
+        "duration": 5.161,
+        "text": "folks like Melissa who's one of our chat"
+      },
+      {
+        "start": 1414.2,
+        "duration": 6.0,
+        "text": "support reps who gives answers on how to"
+      },
+      {
+        "start": 1417.2,
+        "duration": 6.68,
+        "text": "connect to the how to connect to uh to a"
+      },
+      {
+        "start": 1420.2,
+        "duration": 6.06,
+        "text": "particular API for generating a token"
+      },
+      {
+        "start": 1423.88,
+        "duration": 4.179,
+        "text": "a talk a little bit about prompt"
+      },
+      {
+        "start": 1426.26,
+        "duration": 3.96,
+        "text": "selection so what you would do is that"
+      },
+      {
+        "start": 1428.059,
+        "duration": 4.5,
+        "text": "for prompt selection you would use the"
+      },
+      {
+        "start": 1430.22,
+        "duration": 4.439,
+        "text": "information about the user's profile the"
+      },
+      {
+        "start": 1432.559,
+        "duration": 4.561,
+        "text": "recent history and then select a"
+      },
+      {
+        "start": 1434.659,
+        "duration": 4.321,
+        "text": "particular prompt to use and this prompt"
+      },
+      {
+        "start": 1437.12,
+        "duration": 3.9,
+        "text": "is basic template you would select a"
+      },
+      {
+        "start": 1438.98,
+        "duration": 3.72,
+        "text": "prompt template to use so in this"
+      },
+      {
+        "start": 1441.02,
+        "duration": 4.8,
+        "text": "scenario we have two types of prompts"
+      },
+      {
+        "start": 1442.7,
+        "duration": 6.42,
+        "text": "one is a learner prompt template another"
+      },
+      {
+        "start": 1445.82,
+        "duration": 5.219,
+        "text": "is a qualified user prompt template and"
+      },
+      {
+        "start": 1449.12,
+        "duration": 4.559,
+        "text": "this is what a qualified user prompt"
+      },
+      {
+        "start": 1451.039,
+        "duration": 5.52,
+        "text": "template would look like it would say oh"
+      },
+      {
+        "start": 1453.679,
+        "duration": 5.341,
+        "text": "you know you should answer"
+      },
+      {
+        "start": 1456.559,
+        "duration": 4.801,
+        "text": "um okay sorry this is a little bit cut"
+      },
+      {
+        "start": 1459.02,
+        "duration": 4.44,
+        "text": "off but say you should answer customer"
+      },
+      {
+        "start": 1461.36,
+        "duration": 4.74,
+        "text": "questions it tells that this person is a"
+      },
+      {
+        "start": 1463.46,
+        "duration": 5.579,
+        "text": "qualified user and then the learner"
+      },
+      {
+        "start": 1466.1,
+        "duration": 5.1,
+        "text": "template when it says that you are"
+      },
+      {
+        "start": 1469.039,
+        "duration": 4.441,
+        "text": "giving answers to someone who's new to"
+      },
+      {
+        "start": 1471.2,
+        "duration": 5.28,
+        "text": "data stacks and Cassandra so be"
+      },
+      {
+        "start": 1473.48,
+        "duration": 4.74,
+        "text": "especially helpful and and be a little"
+      },
+      {
+        "start": 1476.48,
+        "duration": 3.78,
+        "text": "bit more verbose on how you answer the"
+      },
+      {
+        "start": 1478.22,
+        "duration": 5.04,
+        "text": "questions and if you look inside the"
+      },
+      {
+        "start": 1480.26,
+        "duration": 7.38,
+        "text": "prompt template it has both a little bit"
+      },
+      {
+        "start": 1483.26,
+        "duration": 6.899,
+        "text": "has um information about uh"
+      },
+      {
+        "start": 1487.64,
+        "duration": 4.32,
+        "text": "um you know helpful responses from"
+      },
+      {
+        "start": 1490.159,
+        "duration": 4.38,
+        "text": "intercom so this is used for prompt"
+      },
+      {
+        "start": 1491.96,
+        "duration": 5.28,
+        "text": "templating sorry for a few shop uh"
+      },
+      {
+        "start": 1494.539,
+        "duration": 5.581,
+        "text": "learning it has the user information it"
+      },
+      {
+        "start": 1497.24,
+        "duration": 4.919,
+        "text": "has the user's questions"
+      },
+      {
+        "start": 1500.12,
+        "duration": 4.38,
+        "text": "so we're going to give a demo of this so"
+      },
+      {
+        "start": 1502.159,
+        "duration": 4.441,
+        "text": "we'll Alex will show"
+      },
+      {
+        "start": 1504.5,
+        "duration": 5.7,
+        "text": "um the Astra assistant how to construct"
+      },
+      {
+        "start": 1506.6,
+        "duration": 5.64,
+        "text": "The Prompt The Prompt templates and how"
+      },
+      {
+        "start": 1510.2,
+        "duration": 4.8,
+        "text": "to test with some of the history"
+      },
+      {
+        "start": 1512.24,
+        "duration": 3.66,
+        "text": "okay headed over to you"
+      },
+      {
+        "start": 1515.0,
+        "duration": 3.48,
+        "text": "awesome"
+      },
+      {
+        "start": 1515.9,
+        "duration": 6.54,
+        "text": "um so what you're seeing here is just my"
+      },
+      {
+        "start": 1518.48,
+        "duration": 6.66,
+        "text": "ID Python and to manage prompts we use"
+      },
+      {
+        "start": 1522.44,
+        "duration": 5.4,
+        "text": "just the line chain prompt templates"
+      },
+      {
+        "start": 1525.14,
+        "duration": 4.38,
+        "text": "um so both of the templates that Alan"
+      },
+      {
+        "start": 1527.84,
+        "duration": 4.86,
+        "text": "just mentioned are within a prompts"
+      },
+      {
+        "start": 1529.52,
+        "duration": 4.019,
+        "text": "directory they're both yaml files and"
+      },
+      {
+        "start": 1532.7,
+        "duration": 3.12,
+        "text": "these templates are pretty"
+      },
+      {
+        "start": 1533.539,
+        "duration": 5.52,
+        "text": "straightforward essentially we Define"
+      },
+      {
+        "start": 1535.82,
+        "duration": 5.76,
+        "text": "that you know the XML file is a prompt"
+      },
+      {
+        "start": 1539.059,
+        "duration": 4.141,
+        "text": "um we Define input variables right here"
+      },
+      {
+        "start": 1541.58,
+        "duration": 4.14,
+        "text": "there's only a single input variable"
+      },
+      {
+        "start": 1543.2,
+        "duration": 5.52,
+        "text": "which is the output of the vector search"
+      },
+      {
+        "start": 1545.72,
+        "duration": 5.52,
+        "text": "and that's pretty much about it"
+      },
+      {
+        "start": 1548.72,
+        "duration": 5.64,
+        "text": "um the more interesting part is how the"
+      },
+      {
+        "start": 1551.24,
+        "duration": 6.12,
+        "text": "prompt template is actually selected"
+      },
+      {
+        "start": 1554.36,
+        "duration": 5.1,
+        "text": "um So within kind of our main bot code"
+      },
+      {
+        "start": 1557.36,
+        "duration": 4.439,
+        "text": "um we have a very simple"
+      },
+      {
+        "start": 1559.46,
+        "duration": 4.079,
+        "text": "um you know method to get the Persona"
+      },
+      {
+        "start": 1561.799,
+        "duration": 4.141,
+        "text": "right we check"
+      },
+      {
+        "start": 1563.539,
+        "duration": 4.38,
+        "text": "um the user's information on the user"
+      },
+      {
+        "start": 1565.94,
+        "duration": 3.96,
+        "text": "right when it when a user registers for"
+      },
+      {
+        "start": 1567.919,
+        "duration": 3.421,
+        "text": "a product we basically ask them a"
+      },
+      {
+        "start": 1569.9,
+        "duration": 2.82,
+        "text": "questionnaire on if they've used"
+      },
+      {
+        "start": 1571.34,
+        "duration": 3.3,
+        "text": "consider before what their primary"
+      },
+      {
+        "start": 1572.72,
+        "duration": 4.319,
+        "text": "programming language is"
+      },
+      {
+        "start": 1574.64,
+        "duration": 3.84,
+        "text": "um and and basically based on these"
+      },
+      {
+        "start": 1577.039,
+        "duration": 3.24,
+        "text": "responses"
+      },
+      {
+        "start": 1578.48,
+        "duration": 5.16,
+        "text": "um we determine if we want to give them"
+      },
+      {
+        "start": 1580.279,
+        "duration": 5.101,
+        "text": "the learner template or"
+      },
+      {
+        "start": 1583.64,
+        "duration": 2.88,
+        "text": "um the qualified template that all this"
+      },
+      {
+        "start": 1585.38,
+        "duration": 2.88,
+        "text": "mentions"
+      },
+      {
+        "start": 1586.52,
+        "duration": 3.6,
+        "text": "um so here's where we actually select"
+      },
+      {
+        "start": 1588.26,
+        "duration": 3.0,
+        "text": "the template and then"
+      },
+      {
+        "start": 1590.12,
+        "duration": 3.72,
+        "text": "um you know you've seen the single"
+      },
+      {
+        "start": 1591.26,
+        "duration": 7.08,
+        "text": "program snap here the actual templates"
+      },
+      {
+        "start": 1593.84,
+        "duration": 6.6,
+        "text": "um and we really struggled with kind of"
+      },
+      {
+        "start": 1598.34,
+        "duration": 3.9,
+        "text": "how do you actually test these templates"
+      },
+      {
+        "start": 1600.44,
+        "duration": 4.26,
+        "text": "how do you actually make sure that the"
+      },
+      {
+        "start": 1602.24,
+        "duration": 5.22,
+        "text": "responses are high quality"
+      },
+      {
+        "start": 1604.7,
+        "duration": 5.7,
+        "text": "um so to basically debug this process"
+      },
+      {
+        "start": 1607.46,
+        "duration": 6.959,
+        "text": "and consistently improve our templates"
+      },
+      {
+        "start": 1610.4,
+        "duration": 5.519,
+        "text": "um we built a pretty cool slack bot"
+      },
+      {
+        "start": 1614.419,
+        "duration": 4.981,
+        "text": "um so let me"
+      },
+      {
+        "start": 1615.919,
+        "duration": 6.12,
+        "text": "set that up real quick okay awesome"
+      },
+      {
+        "start": 1619.4,
+        "duration": 4.5,
+        "text": "um so on the left we have"
+      },
+      {
+        "start": 1622.039,
+        "duration": 4.801,
+        "text": "just the desperate of a product in the"
+      },
+      {
+        "start": 1623.9,
+        "duration": 5.519,
+        "text": "chat chatbot and on the right we have a"
+      },
+      {
+        "start": 1626.84,
+        "duration": 5.04,
+        "text": "slack Channel we set up to automatically"
+      },
+      {
+        "start": 1629.419,
+        "duration": 4.441,
+        "text": "log all the prompts along with the"
+      },
+      {
+        "start": 1631.88,
+        "duration": 3.96,
+        "text": "responses um so we can keep reviewing"
+      },
+      {
+        "start": 1633.86,
+        "duration": 3.179,
+        "text": "and improving the quality"
+      },
+      {
+        "start": 1635.84,
+        "duration": 2.219,
+        "text": "um so I'm just going to ask a simple"
+      },
+      {
+        "start": 1637.039,
+        "duration": 4.101,
+        "text": "question"
+      },
+      {
+        "start": 1638.059,
+        "duration": 3.081,
+        "text": "the chatbot"
+      },
+      {
+        "start": 1646.0,
+        "duration": 5.559,
+        "text": "and on the right"
+      },
+      {
+        "start": 1648.74,
+        "duration": 4.5,
+        "text": "um we can see the entire prompt along"
+      },
+      {
+        "start": 1651.559,
+        "duration": 5.48,
+        "text": "with the response"
+      },
+      {
+        "start": 1653.24,
+        "duration": 3.799,
+        "text": "I'm just going to scroll up a bit"
+      },
+      {
+        "start": 1659.539,
+        "duration": 3.661,
+        "text": "um so here we can see we have the"
+      },
+      {
+        "start": 1660.919,
+        "duration": 5.041,
+        "text": "directives basically over here is the"
+      },
+      {
+        "start": 1663.2,
+        "duration": 5.52,
+        "text": "full prompt that I'll just talked about"
+      },
+      {
+        "start": 1665.96,
+        "duration": 4.319,
+        "text": "um so first we have the directive"
+      },
+      {
+        "start": 1668.72,
+        "duration": 4.62,
+        "text": "um"
+      },
+      {
+        "start": 1670.279,
+        "duration": 4.441,
+        "text": "we then have the output of the vector"
+      },
+      {
+        "start": 1673.34,
+        "duration": 4.699,
+        "text": "search right so here we can see here a"
+      },
+      {
+        "start": 1674.72,
+        "duration": 3.319,
+        "text": "couple pieces of documentation"
+      },
+      {
+        "start": 1678.32,
+        "duration": 5.04,
+        "text": "we have information on the user so"
+      },
+      {
+        "start": 1680.96,
+        "duration": 4.079,
+        "text": "here's the username their email"
+      },
+      {
+        "start": 1683.36,
+        "duration": 3.78,
+        "text": "um their primary programming language"
+      },
+      {
+        "start": 1685.039,
+        "duration": 4.081,
+        "text": "and we have information on all their"
+      },
+      {
+        "start": 1687.14,
+        "duration": 5.159,
+        "text": "databases what's pretty interesting here"
+      },
+      {
+        "start": 1689.12,
+        "duration": 5.159,
+        "text": "is you can be the LM raw"
+      },
+      {
+        "start": 1692.299,
+        "duration": 4.801,
+        "text": "um Json and table two"
+      },
+      {
+        "start": 1694.279,
+        "duration": 5.161,
+        "text": "interpret all that data"
+      },
+      {
+        "start": 1697.1,
+        "duration": 5.16,
+        "text": "and then finally we have the response"
+      },
+      {
+        "start": 1699.44,
+        "duration": 4.619,
+        "text": "that was actually fed back to the user"
+      },
+      {
+        "start": 1702.26,
+        "duration": 3.72,
+        "text": "um so really our process of testing and"
+      },
+      {
+        "start": 1704.059,
+        "duration": 3.6,
+        "text": "improving the prompt has been I'm"
+      },
+      {
+        "start": 1705.98,
+        "duration": 3.36,
+        "text": "reviewing all the prompts reviewing all"
+      },
+      {
+        "start": 1707.659,
+        "duration": 4.14,
+        "text": "the responses"
+      },
+      {
+        "start": 1709.34,
+        "duration": 3.719,
+        "text": "um you know let's say we get"
+      },
+      {
+        "start": 1711.799,
+        "duration": 3.901,
+        "text": "um"
+      },
+      {
+        "start": 1713.059,
+        "duration": 5.1,
+        "text": "you know bad documentation left but"
+      },
+      {
+        "start": 1715.7,
+        "duration": 3.78,
+        "text": "sorry bad documentation back maybe we'd"
+      },
+      {
+        "start": 1718.159,
+        "duration": 3.12,
+        "text": "update the data in the vector store"
+      },
+      {
+        "start": 1719.48,
+        "duration": 4.5,
+        "text": "let's say you know maybe there isn't"
+      },
+      {
+        "start": 1721.279,
+        "duration": 4.38,
+        "text": "enough information on a topic we insert"
+      },
+      {
+        "start": 1723.98,
+        "duration": 3.42,
+        "text": "new documentation in the vector store"
+      },
+      {
+        "start": 1725.659,
+        "duration": 3.781,
+        "text": "but really it's just been kind of this"
+      },
+      {
+        "start": 1727.4,
+        "duration": 4.56,
+        "text": "iterative process of"
+      },
+      {
+        "start": 1729.44,
+        "duration": 5.58,
+        "text": "um you know we review uh The Prompt the"
+      },
+      {
+        "start": 1731.96,
+        "duration": 5.459,
+        "text": "response and we kind of keep improving"
+      },
+      {
+        "start": 1735.02,
+        "duration": 3.84,
+        "text": "um and now I'll hand it back to you just"
+      },
+      {
+        "start": 1737.419,
+        "duration": 3.181,
+        "text": "before you go there"
+      },
+      {
+        "start": 1738.86,
+        "duration": 3.0,
+        "text": "um actually you ever bring up your"
+      },
+      {
+        "start": 1740.6,
+        "duration": 3.9,
+        "text": "screen for a second"
+      },
+      {
+        "start": 1741.86,
+        "duration": 4.5,
+        "text": "yes go back to there you can see if you"
+      },
+      {
+        "start": 1744.5,
+        "duration": 4.799,
+        "text": "look in the document in the prompt"
+      },
+      {
+        "start": 1746.36,
+        "duration": 5.28,
+        "text": "template in the in the prompt there's a"
+      },
+      {
+        "start": 1749.299,
+        "duration": 4.5,
+        "text": "lot of information here"
+      },
+      {
+        "start": 1751.64,
+        "duration": 3.659,
+        "text": "um and if you go up into the into the"
+      },
+      {
+        "start": 1753.799,
+        "duration": 3.541,
+        "text": "the responses"
+      },
+      {
+        "start": 1755.299,
+        "duration": 5.821,
+        "text": "The Prompt template even to the human"
+      },
+      {
+        "start": 1757.34,
+        "duration": 6.059,
+        "text": "eye doesn't look super understandable so"
+      },
+      {
+        "start": 1761.12,
+        "duration": 4.439,
+        "text": "for example there's this in the middle"
+      },
+      {
+        "start": 1763.399,
+        "duration": 4.38,
+        "text": "of the screen that says Ah the token"
+      },
+      {
+        "start": 1765.559,
+        "duration": 4.5,
+        "text": "will no longer exist the length of time"
+      },
+      {
+        "start": 1767.779,
+        "duration": 5.101,
+        "text": "to persist the token is configurable"
+      },
+      {
+        "start": 1770.059,
+        "duration": 4.921,
+        "text": "that's unrelated to how to generate a"
+      },
+      {
+        "start": 1772.88,
+        "duration": 4.98,
+        "text": "token and so one of the things that we"
+      },
+      {
+        "start": 1774.98,
+        "duration": 4.98,
+        "text": "notice is that the semantic search that"
+      },
+      {
+        "start": 1777.86,
+        "duration": 4.199,
+        "text": "you're doing from the vector store it's"
+      },
+      {
+        "start": 1779.96,
+        "duration": 4.8,
+        "text": "more of a gross level search it doesn't"
+      },
+      {
+        "start": 1782.059,
+        "duration": 6.12,
+        "text": "it doesn't exactly understand the the"
+      },
+      {
+        "start": 1784.76,
+        "duration": 5.159,
+        "text": "the the context of the question it's"
+      },
+      {
+        "start": 1788.179,
+        "duration": 2.821,
+        "text": "able to get things that are related to"
+      },
+      {
+        "start": 1789.919,
+        "duration": 5.161,
+        "text": "it"
+      },
+      {
+        "start": 1791.0,
+        "duration": 6.48,
+        "text": "um and the llm is extremely good at"
+      },
+      {
+        "start": 1795.08,
+        "duration": 4.74,
+        "text": "ignoring irrelevant information"
+      },
+      {
+        "start": 1797.48,
+        "duration": 4.14,
+        "text": "so if we kind of go back to I'm going to"
+      },
+      {
+        "start": 1799.82,
+        "duration": 3.12,
+        "text": "kind of Select so talking a little bit"
+      },
+      {
+        "start": 1801.62,
+        "duration": 3.84,
+        "text": "about"
+      },
+      {
+        "start": 1802.94,
+        "duration": 5.099,
+        "text": "um if you can stop your share screen I'm"
+      },
+      {
+        "start": 1805.46,
+        "duration": 4.68,
+        "text": "going to show you some particular tips"
+      },
+      {
+        "start": 1808.039,
+        "duration": 4.38,
+        "text": "that you can use to help improve your"
+      },
+      {
+        "start": 1810.14,
+        "duration": 5.1,
+        "text": "prompts"
+      },
+      {
+        "start": 1812.419,
+        "duration": 4.921,
+        "text": "so the first thing is uh Vector search"
+      },
+      {
+        "start": 1815.24,
+        "duration": 3.799,
+        "text": "so what are the things that you really"
+      },
+      {
+        "start": 1817.34,
+        "duration": 5.219,
+        "text": "care about the vector search number one"
+      },
+      {
+        "start": 1819.039,
+        "duration": 6.401,
+        "text": "is that if there's no l if there's no"
+      },
+      {
+        "start": 1822.559,
+        "duration": 5.881,
+        "text": "data that's coming back relevant from"
+      },
+      {
+        "start": 1825.44,
+        "duration": 6.119,
+        "text": "your knowledge base there's a very high"
+      },
+      {
+        "start": 1828.44,
+        "duration": 5.099,
+        "text": "probability that you're going to have a"
+      },
+      {
+        "start": 1831.559,
+        "duration": 3.781,
+        "text": "hallucination"
+      },
+      {
+        "start": 1833.539,
+        "duration": 4.02,
+        "text": "um and so and the other thing too is"
+      },
+      {
+        "start": 1835.34,
+        "duration": 4.92,
+        "text": "that because lens are so good at"
+      },
+      {
+        "start": 1837.559,
+        "duration": 5.34,
+        "text": "rejecting irrelevant information it's"
+      },
+      {
+        "start": 1840.26,
+        "duration": 5.039,
+        "text": "really good idea to get as many nearest"
+      },
+      {
+        "start": 1842.899,
+        "duration": 5.4,
+        "text": "neighbors as possible at least whatever"
+      },
+      {
+        "start": 1845.299,
+        "duration": 4.681,
+        "text": "would fit within the prompt"
+      },
+      {
+        "start": 1848.299,
+        "duration": 5.461,
+        "text": "um and then actually there's another"
+      },
+      {
+        "start": 1849.98,
+        "duration": 6.24,
+        "text": "Advanced algorithm called uh maximal"
+      },
+      {
+        "start": 1853.76,
+        "duration": 5.159,
+        "text": "marginal relevance that what it does is"
+      },
+      {
+        "start": 1856.22,
+        "duration": 5.579,
+        "text": "that it takes the let's say a hundred"
+      },
+      {
+        "start": 1858.919,
+        "duration": 6.781,
+        "text": "nearest neighbors and it can isolate it"
+      },
+      {
+        "start": 1861.799,
+        "duration": 7.321,
+        "text": "down to the 70 or sorry the the 10 most"
+      },
+      {
+        "start": 1865.7,
+        "duration": 6.599,
+        "text": "nearest neighbors that's most relevant"
+      },
+      {
+        "start": 1869.12,
+        "duration": 4.799,
+        "text": "for for this particular prompt and the"
+      },
+      {
+        "start": 1872.299,
+        "duration": 4.26,
+        "text": "reason why that's very important this is"
+      },
+      {
+        "start": 1873.919,
+        "duration": 5.941,
+        "text": "a kind of a 200 level type of"
+      },
+      {
+        "start": 1876.559,
+        "duration": 5.161,
+        "text": "um of use case is that approximate"
+      },
+      {
+        "start": 1879.86,
+        "duration": 3.24,
+        "text": "nearest neighbor algorithm which is the"
+      },
+      {
+        "start": 1881.72,
+        "duration": 4.92,
+        "text": "underlying algorithm used for nearest"
+      },
+      {
+        "start": 1883.1,
+        "duration": 7.02,
+        "text": "neighbor is very very susceptible for a"
+      },
+      {
+        "start": 1886.64,
+        "duration": 6.06,
+        "text": "duplicate or near duplicate vectors in"
+      },
+      {
+        "start": 1890.12,
+        "duration": 4.679,
+        "text": "your prompt so for example if you're if"
+      },
+      {
+        "start": 1892.7,
+        "duration": 5.699,
+        "text": "you're if you're using your scripting or"
+      },
+      {
+        "start": 1894.799,
+        "duration": 5.76,
+        "text": "web page uh your web pages and you have"
+      },
+      {
+        "start": 1898.399,
+        "duration": 3.441,
+        "text": "five web pages with almost identical"
+      },
+      {
+        "start": 1900.559,
+        "duration": 4.681,
+        "text": "information"
+      },
+      {
+        "start": 1901.84,
+        "duration": 5.92,
+        "text": "what ends up happening is that it it"
+      },
+      {
+        "start": 1905.24,
+        "duration": 5.4,
+        "text": "fills up the database with those those"
+      },
+      {
+        "start": 1907.76,
+        "duration": 4.799,
+        "text": "vectors if it so happens that the vector"
+      },
+      {
+        "start": 1910.64,
+        "duration": 4.259,
+        "text": "infra those duplicates were also"
+      },
+      {
+        "start": 1912.559,
+        "duration": 5.581,
+        "text": "irrelevant what happens is we use search"
+      },
+      {
+        "start": 1914.899,
+        "duration": 5.581,
+        "text": "for let's say uh five nearest neighbors"
+      },
+      {
+        "start": 1918.14,
+        "duration": 4.44,
+        "text": "then end up what happens that all five"
+      },
+      {
+        "start": 1920.48,
+        "duration": 5.1,
+        "text": "nearest neighbors end up being very uh"
+      },
+      {
+        "start": 1922.58,
+        "duration": 7.14,
+        "text": "data becomes irrelevant whereas if you"
+      },
+      {
+        "start": 1925.58,
+        "duration": 7.44,
+        "text": "use a wider search let's say 50"
+      },
+      {
+        "start": 1929.72,
+        "duration": 6.059,
+        "text": "um and then you as for 50 nearest"
+      },
+      {
+        "start": 1933.02,
+        "duration": 4.74,
+        "text": "neighbors and then ask for the five most"
+      },
+      {
+        "start": 1935.779,
+        "duration": 4.861,
+        "text": "different"
+      },
+      {
+        "start": 1937.76,
+        "duration": 5.519,
+        "text": "um uh documents within that the set of"
+      },
+      {
+        "start": 1940.64,
+        "duration": 4.86,
+        "text": "50 all the duplicates automatically get"
+      },
+      {
+        "start": 1943.279,
+        "duration": 4.081,
+        "text": "removed because of this maximal marginal"
+      },
+      {
+        "start": 1945.5,
+        "duration": 4.76,
+        "text": "relevance it basically tries to find out"
+      },
+      {
+        "start": 1947.36,
+        "duration": 5.1,
+        "text": "the most distinct pieces of information"
+      },
+      {
+        "start": 1950.26,
+        "duration": 3.7,
+        "text": "so this is kind of an advanced thing"
+      },
+      {
+        "start": 1952.46,
+        "duration": 3.839,
+        "text": "that you should remember to use"
+      },
+      {
+        "start": 1953.96,
+        "duration": 5.099,
+        "text": "especially if you're concerned of your"
+      },
+      {
+        "start": 1956.299,
+        "duration": 4.681,
+        "text": "of your uh your system having duplicate"
+      },
+      {
+        "start": 1959.059,
+        "duration": 3.901,
+        "text": "data"
+      },
+      {
+        "start": 1960.98,
+        "duration": 3.36,
+        "text": "uh there's also another bunch of other"
+      },
+      {
+        "start": 1962.96,
+        "duration": 3.24,
+        "text": "things that you that we've learned to"
+      },
+      {
+        "start": 1964.34,
+        "duration": 4.86,
+        "text": "prompt engineering so number one is"
+      },
+      {
+        "start": 1966.2,
+        "duration": 5.64,
+        "text": "because this is a real-time application"
+      },
+      {
+        "start": 1969.2,
+        "duration": 5.339,
+        "text": "um we you want to respond to the user as"
+      },
+      {
+        "start": 1971.84,
+        "duration": 4.86,
+        "text": "quickly as possible so you want to fetch"
+      },
+      {
+        "start": 1974.539,
+        "duration": 4.86,
+        "text": "as much context from your data your your"
+      },
+      {
+        "start": 1976.7,
+        "duration": 4.199,
+        "text": "database in parallel so one of the"
+      },
+      {
+        "start": 1979.399,
+        "duration": 3.78,
+        "text": "optimizations that you didn't see"
+      },
+      {
+        "start": 1980.899,
+        "duration": 4.681,
+        "text": "underneath the hood is that the data is"
+      },
+      {
+        "start": 1983.179,
+        "duration": 4.441,
+        "text": "being fetched in parallel like calling"
+      },
+      {
+        "start": 1985.58,
+        "duration": 2.78,
+        "text": "the vector search for getting the user"
+      },
+      {
+        "start": 1987.62,
+        "duration": 4.88,
+        "text": "information"
+      },
+      {
+        "start": 1988.36,
+        "duration": 7.84,
+        "text": "getting uh um the the user activity"
+      },
+      {
+        "start": 1992.5,
+        "duration": 6.279,
+        "text": "getting the chat history and as well as"
+      },
+      {
+        "start": 1996.2,
+        "duration": 4.92,
+        "text": "getting the documents that are relevant"
+      },
+      {
+        "start": 1998.779,
+        "duration": 3.9,
+        "text": "that's all being happening in parallel"
+      },
+      {
+        "start": 2001.12,
+        "duration": 3.539,
+        "text": "against Cassandra which is great because"
+      },
+      {
+        "start": 2002.679,
+        "duration": 5.401,
+        "text": "Cassandra itself is built as a"
+      },
+      {
+        "start": 2004.659,
+        "duration": 4.62,
+        "text": "paralyzable database"
+      },
+      {
+        "start": 2008.08,
+        "duration": 3.78,
+        "text": "um you got to be very careful about"
+      },
+      {
+        "start": 2009.279,
+        "duration": 5.64,
+        "text": "managing the token size so this is"
+      },
+      {
+        "start": 2011.86,
+        "duration": 6.659,
+        "text": "important not just for making sure that"
+      },
+      {
+        "start": 2014.919,
+        "duration": 6.0,
+        "text": "you um it's it's not just important for"
+      },
+      {
+        "start": 2018.519,
+        "duration": 5.04,
+        "text": "Speed but it's also important to use a"
+      },
+      {
+        "start": 2020.919,
+        "duration": 5.041,
+        "text": "cost and then you want to have all the"
+      },
+      {
+        "start": 2023.559,
+        "duration": 4.441,
+        "text": "tools you need to simplify your"
+      },
+      {
+        "start": 2025.96,
+        "duration": 3.839,
+        "text": "development so prompt templates and in"
+      },
+      {
+        "start": 2028.0,
+        "duration": 4.679,
+        "text": "particular is a very very easy way to"
+      },
+      {
+        "start": 2029.799,
+        "duration": 5.401,
+        "text": "simplify the development and in our case"
+      },
+      {
+        "start": 2032.679,
+        "duration": 4.74,
+        "text": "because our our company is a slack so"
+      },
+      {
+        "start": 2035.2,
+        "duration": 4.38,
+        "text": "much instead of if we want to"
+      },
+      {
+        "start": 2037.419,
+        "duration": 5.88,
+        "text": "democratize more people testing out"
+      },
+      {
+        "start": 2039.58,
+        "duration": 5.459,
+        "text": "these LMS we use slack as a way that our"
+      },
+      {
+        "start": 2043.299,
+        "duration": 3.301,
+        "text": "customer support reps can look at all"
+      },
+      {
+        "start": 2045.039,
+        "duration": 4.56,
+        "text": "the data that's coming back and forth"
+      },
+      {
+        "start": 2046.6,
+        "duration": 4.92,
+        "text": "from that particular bot and last but"
+      },
+      {
+        "start": 2049.599,
+        "duration": 4.881,
+        "text": "not least you have to for hallucinations"
+      },
+      {
+        "start": 2051.52,
+        "duration": 5.22,
+        "text": "you really got to kind of test it out"
+      },
+      {
+        "start": 2054.48,
+        "duration": 4.899,
+        "text": "and then figure out what's the problem"
+      },
+      {
+        "start": 2056.74,
+        "duration": 6.96,
+        "text": "iterate and constantly improve the uh"
+      },
+      {
+        "start": 2059.379,
+        "duration": 5.28,
+        "text": "reduce the the that um that'll improve"
+      },
+      {
+        "start": 2063.7,
+        "duration": 3.06,
+        "text": "your problems to reduce the"
+      },
+      {
+        "start": 2064.659,
+        "duration": 4.74,
+        "text": "hallucinations"
+      },
+      {
+        "start": 2066.76,
+        "duration": 4.56,
+        "text": "all right so with that the next portion"
+      },
+      {
+        "start": 2069.399,
+        "duration": 3.901,
+        "text": "is actually and so we've talked about"
+      },
+      {
+        "start": 2071.32,
+        "duration": 4.5,
+        "text": "generating The Prompt now let's talk"
+      },
+      {
+        "start": 2073.3,
+        "duration": 4.26,
+        "text": "about execution of the llm"
+      },
+      {
+        "start": 2075.82,
+        "duration": 4.019,
+        "text": "and so what the way it would happen is"
+      },
+      {
+        "start": 2077.56,
+        "duration": 4.5,
+        "text": "that we're going to start from after the"
+      },
+      {
+        "start": 2079.839,
+        "duration": 3.661,
+        "text": "prompt is generated the first thing that"
+      },
+      {
+        "start": 2082.06,
+        "duration": 4.26,
+        "text": "we're going to do is that instead of"
+      },
+      {
+        "start": 2083.5,
+        "duration": 5.52,
+        "text": "calling the LM directly we do actually a"
+      },
+      {
+        "start": 2086.32,
+        "duration": 4.98,
+        "text": "cache lookup so we're calling the vector"
+      },
+      {
+        "start": 2089.02,
+        "duration": 4.68,
+        "text": "store to get see if that particular"
+      },
+      {
+        "start": 2091.3,
+        "duration": 5.039,
+        "text": "question has been asked before"
+      },
+      {
+        "start": 2093.7,
+        "duration": 4.919,
+        "text": "and if it's not in the cache that's at"
+      },
+      {
+        "start": 2096.339,
+        "duration": 4.341,
+        "text": "the time when we actually invoke the llm"
+      },
+      {
+        "start": 2098.619,
+        "duration": 4.861,
+        "text": "so calling this text bison"
+      },
+      {
+        "start": 2100.68,
+        "duration": 4.84,
+        "text": "llm model and getting the answer"
+      },
+      {
+        "start": 2103.48,
+        "duration": 4.859,
+        "text": "and at that point after we get the"
+      },
+      {
+        "start": 2105.52,
+        "duration": 5.04,
+        "text": "answer we store the chat history back in"
+      },
+      {
+        "start": 2108.339,
+        "duration": 4.5,
+        "text": "the vector store we also store the"
+      },
+      {
+        "start": 2110.56,
+        "duration": 4.68,
+        "text": "cached value in into the vector store as"
+      },
+      {
+        "start": 2112.839,
+        "duration": 5.401,
+        "text": "well for further use and then we respond"
+      },
+      {
+        "start": 2115.24,
+        "duration": 5.46,
+        "text": "return the the response to the to the"
+      },
+      {
+        "start": 2118.24,
+        "duration": 5.099,
+        "text": "user so just to give you some context to"
+      },
+      {
+        "start": 2120.7,
+        "duration": 4.379,
+        "text": "hear some other Lessons Learned uh when"
+      },
+      {
+        "start": 2123.339,
+        "duration": 3.5,
+        "text": "we're doing caching you got to be really"
+      },
+      {
+        "start": 2125.079,
+        "duration": 4.621,
+        "text": "careful about"
+      },
+      {
+        "start": 2126.839,
+        "duration": 6.221,
+        "text": "privacy so especially when you're doing"
+      },
+      {
+        "start": 2129.7,
+        "duration": 6.06,
+        "text": "a chat bot usually people are having"
+      },
+      {
+        "start": 2133.06,
+        "duration": 5.46,
+        "text": "one-on-one conversations that are"
+      },
+      {
+        "start": 2135.76,
+        "duration": 4.56,
+        "text": "private and so this doesn't lend itself"
+      },
+      {
+        "start": 2138.52,
+        "duration": 3.66,
+        "text": "very well like our Astro agent"
+      },
+      {
+        "start": 2140.32,
+        "duration": 4.62,
+        "text": "unfortunately doesn't lend itself very"
+      },
+      {
+        "start": 2142.18,
+        "duration": 4.919,
+        "text": "well to caching because usually the"
+      },
+      {
+        "start": 2144.94,
+        "duration": 4.5,
+        "text": "conversations are in the context of that"
+      },
+      {
+        "start": 2147.099,
+        "duration": 4.381,
+        "text": "particular person"
+      },
+      {
+        "start": 2149.44,
+        "duration": 4.44,
+        "text": "um and then to also reduce the"
+      },
+      {
+        "start": 2151.48,
+        "duration": 5.099,
+        "text": "hallucinations there's a lot of settings"
+      },
+      {
+        "start": 2153.88,
+        "duration": 5.699,
+        "text": "in the llm the temperature the K value"
+      },
+      {
+        "start": 2156.579,
+        "duration": 4.081,
+        "text": "p-value Etc that you can play with in"
+      },
+      {
+        "start": 2159.579,
+        "duration": 4.321,
+        "text": "order to"
+      },
+      {
+        "start": 2160.66,
+        "duration": 5.58,
+        "text": "um to uh to generate to see whether or"
+      },
+      {
+        "start": 2163.9,
+        "duration": 3.719,
+        "text": "not the answers are correct and last but"
+      },
+      {
+        "start": 2166.24,
+        "duration": 3.9,
+        "text": "not least one of the things you need to"
+      },
+      {
+        "start": 2167.619,
+        "duration": 4.321,
+        "text": "do before you roll out is you need to"
+      },
+      {
+        "start": 2170.14,
+        "duration": 3.66,
+        "text": "capture qualitatively these"
+      },
+      {
+        "start": 2171.94,
+        "duration": 4.44,
+        "text": "conversations are good conversations or"
+      },
+      {
+        "start": 2173.8,
+        "duration": 4.98,
+        "text": "bad conversations so"
+      },
+      {
+        "start": 2176.38,
+        "duration": 4.92,
+        "text": "what we do is that we we actually"
+      },
+      {
+        "start": 2178.78,
+        "duration": 4.5,
+        "text": "capture a thumbs up thumbs down of these"
+      },
+      {
+        "start": 2181.3,
+        "duration": 4.44,
+        "text": "conversations or good conversations and"
+      },
+      {
+        "start": 2183.28,
+        "duration": 4.62,
+        "text": "bad conversations and then we use that"
+      },
+      {
+        "start": 2185.74,
+        "duration": 5.52,
+        "text": "to understand"
+      },
+      {
+        "start": 2187.9,
+        "duration": 4.8,
+        "text": "um to we use that as feedback to improve"
+      },
+      {
+        "start": 2191.26,
+        "duration": 3.839,
+        "text": "our prompt templates and improve our"
+      },
+      {
+        "start": 2192.7,
+        "duration": 4.26,
+        "text": "prompts down the road"
+      },
+      {
+        "start": 2195.099,
+        "duration": 5.221,
+        "text": "one of the other things that we've made"
+      },
+      {
+        "start": 2196.96,
+        "duration": 6.0,
+        "text": "a lot of usage of is land chain so Lang"
+      },
+      {
+        "start": 2200.32,
+        "duration": 4.2,
+        "text": "chain has these key abstractions for"
+      },
+      {
+        "start": 2202.96,
+        "duration": 3.659,
+        "text": "accelerating development of your"
+      },
+      {
+        "start": 2204.52,
+        "duration": 3.78,
+        "text": "application the first key abstraction"
+      },
+      {
+        "start": 2206.619,
+        "duration": 4.98,
+        "text": "that we use this thing called indexes"
+      },
+      {
+        "start": 2208.3,
+        "duration": 6.9,
+        "text": "this is the data like for retrieving the"
+      },
+      {
+        "start": 2211.599,
+        "duration": 8.581,
+        "text": "um the the the the chat history as well"
+      },
+      {
+        "start": 2215.2,
+        "duration": 5.94,
+        "text": "as the um the the uh the DB"
+      },
+      {
+        "start": 2220.18,
+        "duration": 3.36,
+        "text": "um"
+      },
+      {
+        "start": 2221.14,
+        "duration": 5.52,
+        "text": "uh sorry retrieving the product"
+      },
+      {
+        "start": 2223.54,
+        "duration": 5.16,
+        "text": "documentation we use the CH The Prompt"
+      },
+      {
+        "start": 2226.66,
+        "duration": 4.26,
+        "text": "template capability to contextually"
+      },
+      {
+        "start": 2228.7,
+        "duration": 5.04,
+        "text": "generate contextually relevant prompts"
+      },
+      {
+        "start": 2230.92,
+        "duration": 4.98,
+        "text": "in fact we have this feature in Cass i o"
+      },
+      {
+        "start": 2233.74,
+        "duration": 4.98,
+        "text": "that you know you can write the prompt"
+      },
+      {
+        "start": 2235.9,
+        "duration": 4.98,
+        "text": "template and then the prompt template uh"
+      },
+      {
+        "start": 2238.72,
+        "duration": 6.54,
+        "text": "and in the prom template itself you can"
+      },
+      {
+        "start": 2240.88,
+        "duration": 6.06,
+        "text": "kind of feed in uh cql type functions"
+      },
+      {
+        "start": 2245.26,
+        "duration": 4.8,
+        "text": "such as Auto populate the prompt"
+      },
+      {
+        "start": 2246.94,
+        "duration": 5.1,
+        "text": "template uh we use this application a"
+      },
+      {
+        "start": 2250.06,
+        "duration": 3.66,
+        "text": "algorithm called the Maxwell marginal"
+      },
+      {
+        "start": 2252.04,
+        "duration": 3.6,
+        "text": "relevance this is kind of an advanced"
+      },
+      {
+        "start": 2253.72,
+        "duration": 4.44,
+        "text": "algorithm on top of vector search to"
+      },
+      {
+        "start": 2255.64,
+        "duration": 5.04,
+        "text": "improve the relevancy of the data coming"
+      },
+      {
+        "start": 2258.16,
+        "duration": 5.699,
+        "text": "back from our database we leverage the"
+      },
+      {
+        "start": 2260.68,
+        "duration": 5.04,
+        "text": "memory abstraction uh to record all the"
+      },
+      {
+        "start": 2263.859,
+        "duration": 5.161,
+        "text": "chat history"
+      },
+      {
+        "start": 2265.72,
+        "duration": 4.68,
+        "text": "um and uh underneath the hood there's a"
+      },
+      {
+        "start": 2269.02,
+        "duration": 4.8,
+        "text": "lever you can leverage something called"
+      },
+      {
+        "start": 2270.4,
+        "duration": 5.4,
+        "text": "a semantic memory so instead of just"
+      },
+      {
+        "start": 2273.82,
+        "duration": 5.16,
+        "text": "pulling all like let's say the 10 last"
+      },
+      {
+        "start": 2275.8,
+        "duration": 5.279,
+        "text": "100 chat interactions it's able to"
+      },
+      {
+        "start": 2278.98,
+        "duration": 3.78,
+        "text": "semantically figure out what are the"
+      },
+      {
+        "start": 2281.079,
+        "duration": 3.54,
+        "text": "previous interactions that are relevant"
+      },
+      {
+        "start": 2282.76,
+        "duration": 5.16,
+        "text": "to the con the question the person is"
+      },
+      {
+        "start": 2284.619,
+        "duration": 5.941,
+        "text": "using and then last we use the cache for"
+      },
+      {
+        "start": 2287.92,
+        "duration": 5.1,
+        "text": "improving the performance and the cost"
+      },
+      {
+        "start": 2290.56,
+        "duration": 5.4,
+        "text": "all right so with that"
+      },
+      {
+        "start": 2293.02,
+        "duration": 4.62,
+        "text": "um I recommend you guys to get started"
+      },
+      {
+        "start": 2295.96,
+        "duration": 4.86,
+        "text": "um we can do a little demo why don't"
+      },
+      {
+        "start": 2297.64,
+        "duration": 5.699,
+        "text": "Alex can you show exactly how you would"
+      },
+      {
+        "start": 2300.82,
+        "duration": 5.039,
+        "text": "provision the vector database"
+      },
+      {
+        "start": 2303.339,
+        "duration": 4.441,
+        "text": "so if you haven't done so uh like on"
+      },
+      {
+        "start": 2305.859,
+        "duration": 3.541,
+        "text": "said you can create an account and ask"
+      },
+      {
+        "start": 2307.78,
+        "duration": 3.48,
+        "text": "for account at Azure daystax.com"
+      },
+      {
+        "start": 2309.4,
+        "duration": 3.6,
+        "text": "register"
+      },
+      {
+        "start": 2311.26,
+        "duration": 3.9,
+        "text": "um once you've done that you'll see the"
+      },
+      {
+        "start": 2313.0,
+        "duration": 4.44,
+        "text": "dashboard that looks like this and you"
+      },
+      {
+        "start": 2315.16,
+        "duration": 3.6,
+        "text": "really can create a vector store in just"
+      },
+      {
+        "start": 2317.44,
+        "duration": 2.28,
+        "text": "a couple minutes"
+      },
+      {
+        "start": 2318.76,
+        "duration": 2.579,
+        "text": "um so you're just going to click this"
+      },
+      {
+        "start": 2319.72,
+        "duration": 4.2,
+        "text": "create database button at the top of the"
+      },
+      {
+        "start": 2321.339,
+        "duration": 4.26,
+        "text": "screen you're going to select serverless"
+      },
+      {
+        "start": 2323.92,
+        "duration": 3.48,
+        "text": "with Vector"
+      },
+      {
+        "start": 2325.599,
+        "duration": 4.26,
+        "text": "um enter some basic details like your"
+      },
+      {
+        "start": 2327.4,
+        "duration": 6.06,
+        "text": "database name your key space name"
+      },
+      {
+        "start": 2329.859,
+        "duration": 5.641,
+        "text": "um finally choose a region and a couple"
+      },
+      {
+        "start": 2333.46,
+        "duration": 4.44,
+        "text": "minutes later you will have"
+      },
+      {
+        "start": 2335.5,
+        "duration": 4.32,
+        "text": "um your vector database in the in the"
+      },
+      {
+        "start": 2337.9,
+        "duration": 3.84,
+        "text": "region you select"
+      },
+      {
+        "start": 2339.82,
+        "duration": 3.96,
+        "text": "um so really I'm encourage everyone to"
+      },
+      {
+        "start": 2341.74,
+        "duration": 4.379,
+        "text": "give this a try"
+      },
+      {
+        "start": 2343.78,
+        "duration": 5.04,
+        "text": "um and if you need any additional help"
+      },
+      {
+        "start": 2346.119,
+        "duration": 4.861,
+        "text": "feel free to ask the nosql assistant at"
+      },
+      {
+        "start": 2348.82,
+        "duration": 3.36,
+        "text": "the bottom of the screen all right so"
+      },
+      {
+        "start": 2350.98,
+        "duration": 2.4,
+        "text": "with that"
+      },
+      {
+        "start": 2352.18,
+        "duration": 3.06,
+        "text": "um I want to tell you a little bit what"
+      },
+      {
+        "start": 2353.38,
+        "duration": 3.0,
+        "text": "we're going to be doing in the future uh"
+      },
+      {
+        "start": 2355.24,
+        "duration": 3.119,
+        "text": "so what we've done is that we've"
+      },
+      {
+        "start": 2356.38,
+        "duration": 4.08,
+        "text": "connected our chat bot to our internal"
+      },
+      {
+        "start": 2358.359,
+        "duration": 4.141,
+        "text": "data warehouse which is"
+      },
+      {
+        "start": 2360.46,
+        "duration": 3.96,
+        "text": "um uh bigquery and we're going to"
+      },
+      {
+        "start": 2362.5,
+        "duration": 4.5,
+        "text": "leverage looker which is a reporting"
+      },
+      {
+        "start": 2364.42,
+        "duration": 4.56,
+        "text": "system on top of bigquery to generate a"
+      },
+      {
+        "start": 2367.0,
+        "duration": 4.98,
+        "text": "lot of submit uh reports on how people"
+      },
+      {
+        "start": 2368.98,
+        "duration": 5.04,
+        "text": "are doing and using the chatbot uh what"
+      },
+      {
+        "start": 2371.98,
+        "duration": 4.859,
+        "text": "we also hope to do is that right now the"
+      },
+      {
+        "start": 2374.02,
+        "duration": 5.4,
+        "text": "chatbot is integrated into the nosql"
+      },
+      {
+        "start": 2376.839,
+        "duration": 4.641,
+        "text": "into the into the page but there's no"
+      },
+      {
+        "start": 2379.42,
+        "duration": 5.64,
+        "text": "reason why that this is the only"
+      },
+      {
+        "start": 2381.48,
+        "duration": 5.92,
+        "text": "location where you can integrate the"
+      },
+      {
+        "start": 2385.06,
+        "duration": 4.92,
+        "text": "chatbot so what we plan to actually do"
+      },
+      {
+        "start": 2387.4,
+        "duration": 5.16,
+        "text": "is integrate that into the shell the cql"
+      },
+      {
+        "start": 2389.98,
+        "duration": 7.379,
+        "text": "shell on the website or potentially"
+      },
+      {
+        "start": 2392.56,
+        "duration": 7.019,
+        "text": "integrate it directly into chat GPT as a"
+      },
+      {
+        "start": 2397.359,
+        "duration": 3.841,
+        "text": "chat GPT plugin"
+      },
+      {
+        "start": 2399.579,
+        "duration": 4.621,
+        "text": "and last but not least we planted"
+      },
+      {
+        "start": 2401.2,
+        "duration": 6.3,
+        "text": "leverage the nosql assistant to also do"
+      },
+      {
+        "start": 2404.2,
+        "duration": 5.58,
+        "text": "email follow-ups so not only can your"
+      },
+      {
+        "start": 2407.5,
+        "duration": 4.2,
+        "text": "agent be reactive you know you ask a"
+      },
+      {
+        "start": 2409.78,
+        "duration": 4.92,
+        "text": "question it gives an answer but you can"
+      },
+      {
+        "start": 2411.7,
+        "duration": 5.159,
+        "text": "also use the agent to predict when the"
+      },
+      {
+        "start": 2414.7,
+        "duration": 4.379,
+        "text": "person needs to would would prefer would"
+      },
+      {
+        "start": 2416.859,
+        "duration": 5.281,
+        "text": "want to interact with you and generate"
+      },
+      {
+        "start": 2419.079,
+        "duration": 6.241,
+        "text": "automatically relevant emails to help"
+      },
+      {
+        "start": 2422.14,
+        "duration": 5.459,
+        "text": "that user along their Journey"
+      },
+      {
+        "start": 2425.32,
+        "duration": 3.6,
+        "text": "so this is just kind of the beginning uh"
+      },
+      {
+        "start": 2427.599,
+        "duration": 2.941,
+        "text": "there's a lot of other things that we"
+      },
+      {
+        "start": 2428.92,
+        "duration": 3.78,
+        "text": "want to talk about in this in the next"
+      },
+      {
+        "start": 2430.54,
+        "duration": 4.74,
+        "text": "while so we're going to talk a lot about"
+      },
+      {
+        "start": 2432.7,
+        "duration": 5.22,
+        "text": "autonomous AI agents you may have heard"
+      },
+      {
+        "start": 2435.28,
+        "duration": 6.0,
+        "text": "this thing called Auto GPT so this is"
+      },
+      {
+        "start": 2437.92,
+        "duration": 6.78,
+        "text": "the idea of leveraging multiple llm"
+      },
+      {
+        "start": 2441.28,
+        "duration": 6.9,
+        "text": "calls in in sequence or in parallel to"
+      },
+      {
+        "start": 2444.7,
+        "duration": 5.82,
+        "text": "get to a particular uh to to enable a"
+      },
+      {
+        "start": 2448.18,
+        "duration": 4.32,
+        "text": "particular outcome uh whether it's"
+      },
+      {
+        "start": 2450.52,
+        "duration": 3.54,
+        "text": "fixing your database things of that sort"
+      },
+      {
+        "start": 2452.5,
+        "duration": 3.72,
+        "text": "so we're going to be experimenting a lot"
+      },
+      {
+        "start": 2454.06,
+        "duration": 4.019,
+        "text": "with that and talking about it we're"
+      },
+      {
+        "start": 2456.22,
+        "duration": 4.379,
+        "text": "also going to be talking about Advanced"
+      },
+      {
+        "start": 2458.079,
+        "duration": 5.04,
+        "text": "retrieval augmentation generation"
+      },
+      {
+        "start": 2460.599,
+        "duration": 5.101,
+        "text": "algorithms so we talked a little bit"
+      },
+      {
+        "start": 2463.119,
+        "duration": 4.921,
+        "text": "about the mark uh the the maximal"
+      },
+      {
+        "start": 2465.7,
+        "duration": 3.659,
+        "text": "marginal relevance algorithm uh next"
+      },
+      {
+        "start": 2468.04,
+        "duration": 4.26,
+        "text": "time around I really want to get into"
+      },
+      {
+        "start": 2469.359,
+        "duration": 5.941,
+        "text": "the details of the math behind it why is"
+      },
+      {
+        "start": 2472.3,
+        "duration": 6.12,
+        "text": "approximate nearest neighbor and uh K"
+      },
+      {
+        "start": 2475.3,
+        "duration": 4.98,
+        "text": "nearest neighbor algorithm useful but"
+      },
+      {
+        "start": 2478.42,
+        "duration": 2.88,
+        "text": "also what are the limitations so we want"
+      },
+      {
+        "start": 2480.28,
+        "duration": 3.299,
+        "text": "to talk a little bit about the"
+      },
+      {
+        "start": 2481.3,
+        "duration": 3.84,
+        "text": "limitations of vector search and then"
+      },
+      {
+        "start": 2483.579,
+        "duration": 4.141,
+        "text": "we're going to talk about things such as"
+      },
+      {
+        "start": 2485.14,
+        "duration": 4.939,
+        "text": "the forward-looking augmented retrieval"
+      },
+      {
+        "start": 2487.72,
+        "duration": 5.1,
+        "text": "generation algorithm also known as flare"
+      },
+      {
+        "start": 2490.079,
+        "duration": 5.081,
+        "text": "these are out these are Advanced"
+      },
+      {
+        "start": 2492.82,
+        "duration": 4.86,
+        "text": "algorithms that instead of doing just"
+      },
+      {
+        "start": 2495.16,
+        "duration": 6.36,
+        "text": "one API call to your vector store"
+      },
+      {
+        "start": 2497.68,
+        "duration": 6.36,
+        "text": "getting the content and then uh getting"
+      },
+      {
+        "start": 2501.52,
+        "duration": 5.76,
+        "text": "content and putting into the llm and to"
+      },
+      {
+        "start": 2504.04,
+        "duration": 6.18,
+        "text": "summarize a response this is whereby the"
+      },
+      {
+        "start": 2507.28,
+        "duration": 6.26,
+        "text": "uh the the agent can actually make"
+      },
+      {
+        "start": 2510.22,
+        "duration": 6.6,
+        "text": "multiple calls to the the vector store"
+      },
+      {
+        "start": 2513.54,
+        "duration": 4.78,
+        "text": "and multiple calls to the llms to"
+      },
+      {
+        "start": 2516.82,
+        "duration": 3.48,
+        "text": "actually summarize and extract"
+      },
+      {
+        "start": 2518.32,
+        "duration": 3.9,
+        "text": "information which is very similar to"
+      },
+      {
+        "start": 2520.3,
+        "duration": 4.08,
+        "text": "what us humans do so for example if"
+      },
+      {
+        "start": 2522.22,
+        "duration": 4.98,
+        "text": "we're reading a book and if we want to"
+      },
+      {
+        "start": 2524.38,
+        "duration": 4.38,
+        "text": "get an answer we would go reap different"
+      },
+      {
+        "start": 2527.2,
+        "duration": 3.96,
+        "text": "portions of the book we'd jump around"
+      },
+      {
+        "start": 2528.76,
+        "duration": 4.74,
+        "text": "with a book summarize go back to the"
+      },
+      {
+        "start": 2531.16,
+        "duration": 4.32,
+        "text": "places we forgot about and then try to"
+      },
+      {
+        "start": 2533.5,
+        "duration": 5.099,
+        "text": "come up with the answer by going to"
+      },
+      {
+        "start": 2535.48,
+        "duration": 4.26,
+        "text": "iteratively calling uh looking at"
+      },
+      {
+        "start": 2538.599,
+        "duration": 3.421,
+        "text": "different sections of the book"
+      },
+      {
+        "start": 2539.74,
+        "duration": 4.08,
+        "text": "processing Etc"
+      },
+      {
+        "start": 2542.02,
+        "duration": 4.559,
+        "text": "and then last but not least we want to"
+      },
+      {
+        "start": 2543.82,
+        "duration": 5.039,
+        "text": "talk about what this agent memory is so"
+      },
+      {
+        "start": 2546.579,
+        "duration": 5.881,
+        "text": "the idea behind how do we create a"
+      },
+      {
+        "start": 2548.859,
+        "duration": 5.581,
+        "text": "human-like memory for uh for autonomous"
+      },
+      {
+        "start": 2552.46,
+        "duration": 5.04,
+        "text": "AI agents and so we're going to get into"
+      },
+      {
+        "start": 2554.44,
+        "duration": 4.98,
+        "text": "the details of how data stacks and the"
+      },
+      {
+        "start": 2557.5,
+        "duration": 3.839,
+        "text": "Cassandra Community are trying to push"
+      },
+      {
+        "start": 2559.42,
+        "duration": 4.74,
+        "text": "this technology forward"
+      },
+      {
+        "start": 2561.339,
+        "duration": 5.041,
+        "text": "so we got a lot of resources that we've"
+      },
+      {
+        "start": 2564.16,
+        "duration": 5.16,
+        "text": "uh that we've put together that you"
+      },
+      {
+        "start": 2566.38,
+        "duration": 5.28,
+        "text": "could do more reading and um you know in"
+      },
+      {
+        "start": 2569.32,
+        "duration": 4.32,
+        "text": "terms of The Next Step uh we love to see"
+      },
+      {
+        "start": 2571.66,
+        "duration": 4.439,
+        "text": "what you built uh so if you're going to"
+      },
+      {
+        "start": 2573.64,
+        "duration": 4.199,
+        "text": "build something uh let's uh let's"
+      },
+      {
+        "start": 2576.099,
+        "duration": 3.601,
+        "text": "schedule a live end-to-end demonstration"
+      },
+      {
+        "start": 2577.839,
+        "duration": 4.26,
+        "text": "uh we can demonstrate what we have and"
+      },
+      {
+        "start": 2579.7,
+        "duration": 5.22,
+        "text": "we'd love to see yours uh let's schedule"
+      },
+      {
+        "start": 2582.099,
+        "duration": 4.681,
+        "text": "a collaborative Workshop so in the"
+      },
+      {
+        "start": 2584.92,
+        "duration": 5.58,
+        "text": "future what I hope to do is build a"
+      },
+      {
+        "start": 2586.78,
+        "duration": 4.92,
+        "text": "community of uh AI agent Builders and"
+      },
+      {
+        "start": 2590.5,
+        "duration": 2.76,
+        "text": "we're going to show each other what"
+      },
+      {
+        "start": 2591.7,
+        "duration": 3.72,
+        "text": "we've been building over the last month"
+      },
+      {
+        "start": 2593.26,
+        "duration": 4.38,
+        "text": "and so we want to have a regular touch"
+      },
+      {
+        "start": 2595.42,
+        "duration": 4.919,
+        "text": "point with the community to do so and"
+      },
+      {
+        "start": 2597.64,
+        "duration": 4.439,
+        "text": "last but not least uh try astrodb with"
+      },
+      {
+        "start": 2600.339,
+        "duration": 5.52,
+        "text": "Vector search and build some awesome"
+      },
+      {
+        "start": 2602.079,
+        "duration": 6.381,
+        "text": "llms and awesome AI agents thank you"
+      },
+      {
+        "start": 2605.859,
+        "duration": 2.601,
+        "text": "thank you"
+      },
+      {
+        "start": 2609.92,
+        "duration": 3.23,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T17:49:44.542298+00:00"
+}

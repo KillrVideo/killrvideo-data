@@ -1,0 +1,3119 @@
+{
+  "video_id": "LkmJGNrPPK8",
+  "title": "Distributed Data Show Episode 63: Building Applications on Graph Databases with Josh Perryman",
+  "description": "We talk with Josh Perryman of Expero about his experiences building highly scalable and performant applications using relational databases, graph databases and sometimes even both at the same time. \n\nHighlights\n0:15 - Jeff welcomes Josh to the show and finds out what a “data junkie” is,\n1:31 - Josh got into graph databases by way of consulting in high performance computing - a client struggling with relational performance asked him to look at graph solutions\n3:41 - He started by working on proof of concepts with multiple graph databases\n4:49 - In this particular case, it turned out that it wasn’t necessary to rewrite the entire backend to use graph wasn’t the right choice, because they were able to optimize relational queries. \n8:47 - Lesson learned: the ideal solution may involve both relational and graph databases. Josh recommends using the Command Query Responsibility Segregation (CQRS) pattern to help determine where to use graph.\n11:37 - The nutshell of the CQRS pattern is separating reads and writes. Graphs can really shine on read performance, helping when there are complex queries involving multiple hops. The tradeoff is the write amplification - you pay a performance penalty up front on the write. \n15:43 - When using multiple databases, abstract the interactions behind a data layer. Josh favors using GraphFrames for loading data into DSE Graph. \n19:25 - Creating an abstraction layer, perhaps using a Data Access Object (DAO) pattern, gives an ideal place in your architecture where you can manage the performance and scalability of your data access\n22:19 - Wrapping up\n\n\nABOUT DATASTAX ENTERPRISE 6\nDataStax  powers  the  Right-Now  Enterprise  with  the  always-on,  distributed  cloud  database  built  on  Apache  Cassandra™  and designed for hybrid cloud. DataStax Enterprise 6 (DSE 6) includes industry-leading performance, self-driving operational simplicity, and robust analytics.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://",
+  "published_at": "2018-09-04T15:00:02Z",
+  "thumbnail": "https://i.ytimg.com/vi/LkmJGNrPPK8/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "scalable",
+    "distributed",
+    "cassandra",
+    "query",
+    "database",
+    "performance",
+    "talk",
+    "architecture",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=LkmJGNrPPK8",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems hey I'm Jeff carpenter I'm here with Josh Perryman from Experian is Josh my pleasure great to talk with you Jeff so here you know a few things about graph I think it's probably fair to say I've been slogging my way through this technology for a few years now and you know probably if anyone tells you that they have 20 years experiencing graph that's one of those instant resume red flags right so I mean there certainly has been maybe some presence of graph in the research community for a while but in terms of you know recent developments and recent popularity of graph it's been not too long right that's my impression I mean I've talked to you talk to Mattias and Marko those guys are probably close to definitely past the 10-year mark I'm counting on your for at this point okay but that kind of puts you at the upper echelon in terms of longevity I mean it's really it is has been an emerging area over the past few years and I know that you like to refer to yourself as a data junkie right is that an official job title at XP row up with something other than a you know like code ninja and other stuff so I ended up with data junkie probably need to revisit that well so push this out for me a little bit more because I you know I think data junkie is probably a fair description but expanded me a little bit like what does that mean what's in your background a lot of solving interesting problems the first when I first started with XP robot six or so years ago the owner of the company had a client they was saying okay we need someone who can do high performance computing and Microsoft Excel and he his response was that guy doesn't exist but if he does I'll find him and I didn't really know high performance computing but I learned it and I had done enough other things in my background so I kept kind of popping around from one interesting engagement to another largely they just seemed to coincide with my bench time and how I got into Graff was kind of along the same lines a lot of my work has tend to focus on the back end and so I went from being kind of a jack of many trades I wouldn't say all to a guy who focused on ok let's let's figure out how this data performance stuff needs to work so that's how you kind of zeroed in on it like you're solving your so many problems for clients helping them out and then you reach a point where it wasn't like hey this graph thing is new and I really need to find a use case where I can apply graph it wasn't like a solution looking for a problem for you it doesn't sound like it sounds like something that you came to you because you had certain problems you were trying to solve well we had a client that had problems and they they had frankly lost confidence and their developer's ability to solve them they had a really thin and enterprise application that was backed by relational database that was really poor performing and they were it was beginning to affect sales and so they called us in I remember that first meeting they called us in and several of us were sitting around and the product manager product owner was saying really this is how it's designed it looks like a graph it smells like a graph maybe we should use a graph database I asked my developers to try it they tried a bunch of triple stores but they didn't ever really try the graph databases we'd like for you Experian and try a graph database for us and I came out of that meeting with only one question which was what is a graph database okay so what happened like how did you get into it how do you how did you get rolling I was really fortunate because the product owner is technically really good he was also really good at understanding his boundaries and and recognizing hey I needed about I need technical staff just to dig into this and they gave me a good good enough time budget to work with it and he said here's the three I want you to try out there's Titan there's Neil for J and then there's what was the allegro graph was the third one that I looked at which was really a triple store it's not a graph database so I just took a few weeks on each of them figured him out through the clients sample data into it and started playing around with it and that's it was a you know the the fun part about that was kind of diving into some of those technical details but kind of poking my head up in ink in rehashing the results with the different people at expereience way and how does all this stuff interact and is this really the right approach to solving these problems so there's a lot of kind of okay surfacing results internally and then in breaking those down and trying to understand how this technology really works gotcha so what were the things that kind of drove your decision-making process you mentioned that you were evaluating multiple tools so we know the end of the story maybe that you ended up is having like a high degree of expertise in India see graph in particular which was kind of came out of that Titan world but you know tell me a little bit about how you got there well so that was really fun about that story is in the end graph wasn't the right answer for them it which was kind of shocking this is what caused a lot of discussion internally because we were told like well the right answer is to use graph because they're clearly using the relational database wrong and part of that was correct they were clearly using the relational database wrong what I did in my evaluation and just didn't come out in the blog series that they recapped it though what I did in my evaluation was I looked at each of the three vendors but then I also did took a step back and said okay from what I know about relational database performance if I were to take their example their data and do a properly kind of normalized relational database how would performance work and so we went through that they had one there were two salient examples that came out of this one is when I did the examples I then presented it to the client and showed them the code that was used in one particular example they had a common table common table expression a CTE there was a hundred plus lines long it had five or six different parts to it they have multiple joins going on throughout it was it was a unholy mess and what it were amounted to was a five hop step in a graph it was just go hit these five different types of nodes and so I rewrote it and I showed him what it looked like was I don't know if it was cypher with gremlin and showed them okay here's your sequel code and then here's what it looks like when it's coded with the graph coded with the graph language and their response was oh my word I can read that yes being like a two or three line long statement in a graph language so it one of the first things it was an obvious benefit to us was developer product you're gonna go from a hundred and fifty plus lines to five lines with very arbitrary line breaks in there your you've now created something that can easily be reasoned over and it's just a whole lot less lines of code to deal with so that there was that side of that but then when we also realized was that they were just relational database technology is really amazingly good there's a lot of benefits that we've taken from that four decades of experience and if you start using it correctly they were using it in a way that neutered the query analyzer but when you start using it correctly then it the result is that you can get some really great performance so my normalized relational designs worked really well and we told them what you really want to do is you want to do both you want to use a relational database better than what you're doing right now and then you want to eventually add or add a graph grab at a graph component to that so I spent the next year and a half rebuilding their back-end with the with their team and after a year and a half we got for some of their worst queries a hundred 2x performance improvement using relational database and then the next step was bring in the graph for the very graph types of access for that for that technology right ah so that's a that's a really really interesting case study there which I you know I didn't realize kind of some of the details of which is just because somebody that looks like a graph problem on the surface and actually there are portions of it that might very nicely fit and you're saying like hey it looked great when we began rewriting some of these queries in a graph query language but that even that doesn't necessarily mean that the graph database is the right you know the right solution on your back-end for every problem so talk to me a little bit more because I mean I'm intrigued here like you're suggesting that the solution may in fact involve continuing to use some relational technology for some of the data and then some graph for other portions of the data so let's expand on that and how did you go about determining which is which and what state relational what went to graph yeah a lot of this comes down to and this is I talked to developers and so I I talked to one developer in particular this is kind of falls into that cqs pattern where you're separating your your reads and your right paths in your application and I talked to one developer back and he said you know I've seen that but I've never seen it implemented successfully and he's I'm really skeptical that it makes sense in our in our environment and I told him it I want to state this upfront just because you're adding some when you take that approach you're adding significant complexity to your application and if it doesn't warrant that level of complexity you shouldn't do it and I told that developer because I had been working with his in in his same domain for with actually with his same data for five or six years I said you're right it doesn't make sense in the area where you're working right now for smaller places full of places were you not running into performance issues with your data layer and other stuff try and keep it as simple as possible because you have a problem more complexity in your business logic than you do at your business for systems layer and so manage for that so that's one of the things I want to state up front is that you don't just start adding new data types or persistent or persistence engines just willy-nilly you need at least think through your problem and recognize and try at least push the limits of what you've got and you should always probably start with a relational database most likely because you can just you can find developers that write SQL or you can use an ORM so that's where I'd start with things but when you start looking into problem areas and you start wanting to reason over your stuff differently such as if I've got if I've got use cases where I'm doing dependency analysis and I'm going three or four or five hops out then I you know I'm gonna make my relational engine fall over if I've got use cases where I'm joining together multiple things and I want a result set that's not just it's not just apples by Wan apples and wheelbarrows for some reason then I I can't use a relational database because then my joins and everything else get really clunky but graph is great for those kind of so when you've got multiple hops indeterminate number of hops so you were you're writing that recursive CTE you need to start reconsidering when you're writing those recursive CDEs or when you're trying to join together multiple different types of things to come back in the same result set that's when you start looking at the graph okay and you mentioned the CQRS pattern a minute ago which maybe we should explain just like super nutshell briefly in case someone's not familiar with it but I take it a year you're talking again like you said about a separating the read in the right path and maybe that helps you determine where you use graph like help just to unpack that a little bit for me well what I really like thinking about the CQRS or thinking about separating read and write paths because what is the secure RSS command and query response structure or something like that forget what the full MIT commanding query or parts of it yeah people don't tend to name patterns is straightforwardly as as maybe I would always hope right so I like write pass and repass you I mean if you're writing a logging application you what the first question you need to ask yourself is am i read heavy or write heavy and if I'm if I'm right heavy I'm writing a logging application where I'm just gonna be throwing a whole bunch of data in some way and I'll be you want to organize or think about that data pattern differently then as if I'm gonna be searching through or querying that data so if I'm if I'm read heavy which tends to be where most of our applications are they tend to be very light with writes and very heavy with reads now I need to start thinking about how I'm organizing my data a little bit differently because 80 90 percent of my data interaction is just gonna be querying in that case I need to optimize for queries and the sad fact is and most developers don't think about this but their normal form is horrible for querying that's right and maybe what we were doing was optimizing for storage because that was the cost driver is being efficient on our use of storage but that's not really the world that we're living in today today is speed is king right and we got to get those read that read performance up latency 'slow etc etc yeah we like to talk an X period performance is a feature so am i right to say that the graph the applicability of the graph is more on the read side then I think that's really I think that's where it is there's two main areas where I see it one is the read side where because with the graph this is one of those things that I've learned about graph along the way anytime you write that edge or that relationship you're there's a write amplification that happens you are taking in every graph database that I've seen this may not apply to triple stores but at least with the graph databases there's a write amplification you write an edge you're gonna write there's at least two separate disk write operations that are happening there but when you do the read they go a lot faster because you're you're no longer and this is kind of taking a step back with relational databases joins the runtime operation and so when you do a join you're pulling a whole bunch of data into memory and you're now you're trying to figure out or short those keys and organize them now our modern query engines and relational databases are really really amazingly fast at that and they know how to do that really well but if you can avoid doing a read and in memory operation like that and just read from cache or read from disk you're gonna be a whole lot faster than having to kind of sort all that stuff out at runtime so that's one of the great advantages of graph you take the the write amplification hit upfront but if you're doing a lot of reads and a very unpredictable reads like following different paths in the graph or traversing different through different paths then it's gonna be extremely beneficial that's that was the concept index free adjacency they like to throw out okay what does that mean index so when I hear a new term I want to know of what it means so it it's a it's basically it's saying we're using a linked list to store our data that's it from in developer speak right index free means I'm not going to consult an index I'm just gonna follow the pointers from the link less list see as things like a if a links to be then I'll have on disk source a destination B and I'll just read that one row out of the file or out of the row in the table okay so one question that I want to follow up on I get the idea of using of separating your workload reading my workload of the idea that you may want to be using multiple databases in fact for for certain pieces of that but how does the data get into the graph if I'm a my writing to relational and then I'm also writing to it to the graph in parallel or you know I'm thinking like and I'm sort of sort of leading toward the idea that like I at least with with the data strikes graphed product Cassandra comes in there and that's not necessarily a relational it does have CQ o which is SQ o like so I guess that's kind of where I'm going is are we talking about duplicating writes to multiple locations or you know how do you see this working in practice kind of depends on who I'm talking to right the if I'm talking to a business owner I'm gonna say there's a data abstraction later there and we're just gonna figure it all out for you and your front end coders and your middle level coders they're gonna they're gonna code against the DL and they don't have to worry about what's going on under the covers when I'm talking to the guys or when I'm talking to myself I guess the guys who are actually building the stuff under the covers now that gets to be an interesting question some of its gonna come down to what engine we're using the the data stacks engine right now I really impartial on an ETL process our data load process for using DSE graph frames which makes it it's a really great API for abstracting out all of it just takes care of all of that stuff under the covers for me all that stuff means like multiple databases or what is well Cassandra what's what's going on with Cassandra and the multiple tables and the graph I'm able to think about the graph the graph part of the problem as graph but still deal with it in a graph II API a graph oriented API but not have to worry about you know how do things get persisted underneath that the it integrates so nicely with the DSC graphing so DAC graph Reims is a really neat API if I'm if it's more transactional than maybe I'm using tinker pop I'm working with DSC graph I'm really reluctant to edit the DSC graph Kassandra tables directly I might read them directly from time to time just because I like to see how things are stored on disk that helps that aids in my modeling I'm really I would never go in and hit those cassandra table write to those Cassandra tables directly and prefer to use an API that's a vendor provided one now if I'm working with sequel server on the other hand that's now added a graph API access to their stuff I will probably in that scenario write to the tables with MySQL same type of SQL stuff and then their API API allows some graphi abstractions to be introduced on top of that so that some of this is very vendor specific in terms of trying to understand which is my vendor allow what did you do I wouldn't be surprised if my buddy Ted who was on here a few episodes ago when working with his open-source tools prefers to just hit the tables directly or understand stuff table do some crazy stuff I I prefer to run with training wheels yeah no I hear you I mean there are there are definitely virtues of kind of going with direct access for speed kind of at your own risk maybe it's less maintainable code mate or overtime so that's the trade-off that you're making there but I do like very much the point that you made earlier about kind of offering up those abstraction layers and using patterns like a Dao data access object pattern to hide some of the gory details of your database implementation and then you're separating that out for your business logic you can continue doing what it's doing you do need to be conscious of things when you're writing that Dao layer and that's kind of where you're where I want to take the conversation or where I want to ask you about is like I think that's where you really need to when you're talking about architectures that scale up and and that's a lot about what we talked about on this on this show you do need to be conscious that the the database is not going to give you the magic abstraction that's just gonna give you scale right and is that Dao they are in fact the place where were you have to be conscious of some things I was just down down under actually working with the client in Sydney and we were designing a solution their architect have done a great job of kind of thinking through a lot of things and clarifying the problems this kind of falls in line with there's a there's a recent blogging article that's saying the micro services are just some company who struggle with micro services and they're back to the monolith and so we talked with this client Down Under and we're talking through the again it came down to read and write patterns and we they're querying part of it is gonna be this new solution this new API for them internally is going to be extremely Reed intensive and performance sensitive very performance sensitive we need sub 20 millisecond response times on a 99.995 9s basis I mean otherwise it will like it will potentially have severe impacts throughout the enterprise if we don't do that so that this these are the performance requirements coming in and so one of the first things we did from a design point of view is we carved out that read path and said this is just going to be handled separately we're gonna think about it from our dao level or from our the way we're expressing it to the the business this this SLA sensitive path here is going to be its own thing and we will always have that separate now will still be part of a uniform api and there'll be other accesses in it but at least as we're building this api and designing that we know that that's the most sensitive area of that and so we'll start with graph but we may need to go to a severe caching solution we've got we may need to do all sorts of shenanigans in the backend for that but we don't want to impact the business or have them worry about that at all so we we at least you know presented a uniform api to them up front saying here's what you're going to use but understand that this area right here is probably all the shifting in the backend is gonna happen when we get into like building and testing the solution that's a great example then and perfect so I feel like you have a number of stories that you could probably tell about you know ways that you've solved kind of these hard scalability problems for mission critical systems so how about we continue this conversation on another episode I'd love to hear some more examples from you and even to pick your brain on where you see enterprise data architecture going in the future so oh that's good like yeah definitely so I've got I'll clear my schedule Jeff just let me know what works for you okay excellent sounds good look forward to doing this again thanks everyone for joining us this week on the distributed data show look forward to seeing you next week thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data Stax Academy and tell us what you think you can also find us on the data stacks Academy YouTube channel or find our podcast on iTunes Google Play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.19,
+        "duration": 4.05,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.44,
+        "duration": 4.2,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.24,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.64,
+        "duration": 4.05,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.5,
+        "duration": 8.49,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.69,
+        "duration": 8.099,
+        "text": "large-scale distributed systems hey I'm"
+      },
+      {
+        "start": 16.99,
+        "duration": 5.879,
+        "text": "Jeff carpenter I'm here with Josh"
+      },
+      {
+        "start": 18.789,
+        "duration": 5.941,
+        "text": "Perryman from Experian is Josh my"
+      },
+      {
+        "start": 22.869,
+        "duration": 3.721,
+        "text": "pleasure great to talk with you Jeff"
+      },
+      {
+        "start": 24.73,
+        "duration": 5.0,
+        "text": "so here you know a few things about"
+      },
+      {
+        "start": 26.59,
+        "duration": 5.849,
+        "text": "graph I think it's probably fair to say"
+      },
+      {
+        "start": 29.73,
+        "duration": 5.14,
+        "text": "I've been slogging my way through this"
+      },
+      {
+        "start": 32.439,
+        "duration": 3.87,
+        "text": "technology for a few years now and you"
+      },
+      {
+        "start": 34.87,
+        "duration": 3.3,
+        "text": "know probably if anyone tells you that"
+      },
+      {
+        "start": 36.309,
+        "duration": 3.93,
+        "text": "they have 20 years experiencing graph"
+      },
+      {
+        "start": 38.17,
+        "duration": 4.74,
+        "text": "that's one of those instant resume red"
+      },
+      {
+        "start": 40.239,
+        "duration": 5.281,
+        "text": "flags right so I mean there certainly"
+      },
+      {
+        "start": 42.91,
+        "duration": 4.05,
+        "text": "has been maybe some presence of graph in"
+      },
+      {
+        "start": 45.52,
+        "duration": 3.48,
+        "text": "the research community for a while but"
+      },
+      {
+        "start": 46.96,
+        "duration": 3.9,
+        "text": "in terms of you know recent developments"
+      },
+      {
+        "start": 49.0,
+        "duration": 4.289,
+        "text": "and recent popularity of graph it's been"
+      },
+      {
+        "start": 50.86,
+        "duration": 4.08,
+        "text": "not too long right that's my impression"
+      },
+      {
+        "start": 53.289,
+        "duration": 3.511,
+        "text": "I mean I've talked to you talk to"
+      },
+      {
+        "start": 54.94,
+        "duration": 3.93,
+        "text": "Mattias and Marko those guys are"
+      },
+      {
+        "start": 56.8,
+        "duration": 4.529,
+        "text": "probably close to definitely past the"
+      },
+      {
+        "start": 58.87,
+        "duration": 4.349,
+        "text": "10-year mark I'm counting on your for at"
+      },
+      {
+        "start": 61.329,
+        "duration": 3.271,
+        "text": "this point okay"
+      },
+      {
+        "start": 63.219,
+        "duration": 4.141,
+        "text": "but that kind of puts you at the upper"
+      },
+      {
+        "start": 64.6,
+        "duration": 5.49,
+        "text": "echelon in terms of longevity I mean"
+      },
+      {
+        "start": 67.36,
+        "duration": 6.78,
+        "text": "it's really it is has been an emerging"
+      },
+      {
+        "start": 70.09,
+        "duration": 6.45,
+        "text": "area over the past few years and I know"
+      },
+      {
+        "start": 74.14,
+        "duration": 4.44,
+        "text": "that you like to refer to yourself as a"
+      },
+      {
+        "start": 76.54,
+        "duration": 5.28,
+        "text": "data junkie right is that an official"
+      },
+      {
+        "start": 78.58,
+        "duration": 6.21,
+        "text": "job title at XP row up with something"
+      },
+      {
+        "start": 81.82,
+        "duration": 5.55,
+        "text": "other than a you know like code ninja"
+      },
+      {
+        "start": 84.79,
+        "duration": 5.16,
+        "text": "and other stuff so I ended up with data"
+      },
+      {
+        "start": 87.37,
+        "duration": 5.85,
+        "text": "junkie probably need to revisit that"
+      },
+      {
+        "start": 89.95,
+        "duration": 5.49,
+        "text": "well so push this out for me a little"
+      },
+      {
+        "start": 93.22,
+        "duration": 3.45,
+        "text": "bit more because I you know I think data"
+      },
+      {
+        "start": 95.44,
+        "duration": 3.09,
+        "text": "junkie is probably a fair description"
+      },
+      {
+        "start": 96.67,
+        "duration": 3.18,
+        "text": "but expanded me a little bit like what"
+      },
+      {
+        "start": 98.53,
+        "duration": 5.01,
+        "text": "does that mean what's in your background"
+      },
+      {
+        "start": 99.85,
+        "duration": 5.55,
+        "text": "a lot of solving interesting problems"
+      },
+      {
+        "start": 103.54,
+        "duration": 4.92,
+        "text": "the first when I first started with XP"
+      },
+      {
+        "start": 105.4,
+        "duration": 5.37,
+        "text": "robot six or so years ago the owner of"
+      },
+      {
+        "start": 108.46,
+        "duration": 3.78,
+        "text": "the company had a client they was saying"
+      },
+      {
+        "start": 110.77,
+        "duration": 2.94,
+        "text": "okay we need someone who can do high"
+      },
+      {
+        "start": 112.24,
+        "duration": 4.02,
+        "text": "performance computing and Microsoft"
+      },
+      {
+        "start": 113.71,
+        "duration": 4.41,
+        "text": "Excel and he his response was that guy"
+      },
+      {
+        "start": 116.26,
+        "duration": 4.17,
+        "text": "doesn't exist but if he does I'll find"
+      },
+      {
+        "start": 118.12,
+        "duration": 3.78,
+        "text": "him and I didn't really know high"
+      },
+      {
+        "start": 120.43,
+        "duration": 4.65,
+        "text": "performance computing but I learned it"
+      },
+      {
+        "start": 121.9,
+        "duration": 5.19,
+        "text": "and I had done enough other things in my"
+      },
+      {
+        "start": 125.08,
+        "duration": 4.26,
+        "text": "background so I kept kind of popping"
+      },
+      {
+        "start": 127.09,
+        "duration": 4.26,
+        "text": "around from one interesting engagement"
+      },
+      {
+        "start": 129.34,
+        "duration": 4.35,
+        "text": "to another largely they just seemed to"
+      },
+      {
+        "start": 131.35,
+        "duration": 4.26,
+        "text": "coincide with my bench time"
+      },
+      {
+        "start": 133.69,
+        "duration": 4.53,
+        "text": "and how I got into Graff was kind of"
+      },
+      {
+        "start": 135.61,
+        "duration": 4.8,
+        "text": "along the same lines a lot of my work"
+      },
+      {
+        "start": 138.22,
+        "duration": 4.65,
+        "text": "has tend to focus on the back end and so"
+      },
+      {
+        "start": 140.41,
+        "duration": 4.86,
+        "text": "I went from being kind of a jack of many"
+      },
+      {
+        "start": 142.87,
+        "duration": 4.92,
+        "text": "trades I wouldn't say all to a guy who"
+      },
+      {
+        "start": 145.27,
+        "duration": 4.41,
+        "text": "focused on ok let's let's figure out how"
+      },
+      {
+        "start": 147.79,
+        "duration": 4.98,
+        "text": "this data performance stuff needs to"
+      },
+      {
+        "start": 149.68,
+        "duration": 4.86,
+        "text": "work so that's how you kind of zeroed in"
+      },
+      {
+        "start": 152.77,
+        "duration": 3.18,
+        "text": "on it like you're solving your so many"
+      },
+      {
+        "start": 154.54,
+        "duration": 4.86,
+        "text": "problems for clients helping them out"
+      },
+      {
+        "start": 155.95,
+        "duration": 5.67,
+        "text": "and then you reach a point where it"
+      },
+      {
+        "start": 159.4,
+        "duration": 5.43,
+        "text": "wasn't like hey this graph thing is new"
+      },
+      {
+        "start": 161.62,
+        "duration": 4.8,
+        "text": "and I really need to find a use case"
+      },
+      {
+        "start": 164.83,
+        "duration": 3.54,
+        "text": "where I can apply graph it wasn't like a"
+      },
+      {
+        "start": 166.42,
+        "duration": 3.21,
+        "text": "solution looking for a problem for you"
+      },
+      {
+        "start": 168.37,
+        "duration": 2.57,
+        "text": "it doesn't sound like it sounds like"
+      },
+      {
+        "start": 169.63,
+        "duration": 3.6,
+        "text": "something that you came to you because"
+      },
+      {
+        "start": 170.94,
+        "duration": 4.36,
+        "text": "you had certain problems you were trying"
+      },
+      {
+        "start": 173.23,
+        "duration": 5.4,
+        "text": "to solve well we had a client that had"
+      },
+      {
+        "start": 175.3,
+        "duration": 5.01,
+        "text": "problems and they they had frankly lost"
+      },
+      {
+        "start": 178.63,
+        "duration": 3.6,
+        "text": "confidence and their developer's ability"
+      },
+      {
+        "start": 180.31,
+        "duration": 3.81,
+        "text": "to solve them they had a really thin and"
+      },
+      {
+        "start": 182.23,
+        "duration": 4.23,
+        "text": "enterprise application that was backed"
+      },
+      {
+        "start": 184.12,
+        "duration": 4.44,
+        "text": "by relational database that was really"
+      },
+      {
+        "start": 186.46,
+        "duration": 4.38,
+        "text": "poor performing and they were it was"
+      },
+      {
+        "start": 188.56,
+        "duration": 3.66,
+        "text": "beginning to affect sales and so they"
+      },
+      {
+        "start": 190.84,
+        "duration": 2.85,
+        "text": "called us in I remember that first"
+      },
+      {
+        "start": 192.22,
+        "duration": 2.85,
+        "text": "meeting they called us in and several of"
+      },
+      {
+        "start": 193.69,
+        "duration": 3.9,
+        "text": "us were sitting around and the product"
+      },
+      {
+        "start": 195.07,
+        "duration": 4.08,
+        "text": "manager product owner was saying really"
+      },
+      {
+        "start": 197.59,
+        "duration": 3.36,
+        "text": "this is how it's designed it looks like"
+      },
+      {
+        "start": 199.15,
+        "duration": 3.51,
+        "text": "a graph it smells like a graph maybe we"
+      },
+      {
+        "start": 200.95,
+        "duration": 3.48,
+        "text": "should use a graph database I asked my"
+      },
+      {
+        "start": 202.66,
+        "duration": 3.99,
+        "text": "developers to try it they tried a bunch"
+      },
+      {
+        "start": 204.43,
+        "duration": 4.32,
+        "text": "of triple stores but they didn't ever"
+      },
+      {
+        "start": 206.65,
+        "duration": 4.5,
+        "text": "really try the graph databases we'd like"
+      },
+      {
+        "start": 208.75,
+        "duration": 5.31,
+        "text": "for you Experian and try a graph"
+      },
+      {
+        "start": 211.15,
+        "duration": 4.68,
+        "text": "database for us and I came out of that"
+      },
+      {
+        "start": 214.06,
+        "duration": 6.0,
+        "text": "meeting with only one question which was"
+      },
+      {
+        "start": 215.83,
+        "duration": 5.73,
+        "text": "what is a graph database okay so what"
+      },
+      {
+        "start": 220.06,
+        "duration": 3.3,
+        "text": "happened like how did you get into it"
+      },
+      {
+        "start": 221.56,
+        "duration": 3.149,
+        "text": "how do you how did you get rolling I was"
+      },
+      {
+        "start": 223.36,
+        "duration": 4.47,
+        "text": "really fortunate because the product"
+      },
+      {
+        "start": 224.709,
+        "duration": 4.381,
+        "text": "owner is technically really good he was"
+      },
+      {
+        "start": 227.83,
+        "duration": 3.03,
+        "text": "also really good at understanding his"
+      },
+      {
+        "start": 229.09,
+        "duration": 3.39,
+        "text": "boundaries and and recognizing hey I"
+      },
+      {
+        "start": 230.86,
+        "duration": 3.42,
+        "text": "needed about I need technical staff just"
+      },
+      {
+        "start": 232.48,
+        "duration": 4.14,
+        "text": "to dig into this and they gave me a good"
+      },
+      {
+        "start": 234.28,
+        "duration": 3.72,
+        "text": "good enough time budget to work with it"
+      },
+      {
+        "start": 236.62,
+        "duration": 4.08,
+        "text": "and he said here's the three I want you"
+      },
+      {
+        "start": 238.0,
+        "duration": 6.18,
+        "text": "to try out there's Titan there's Neil"
+      },
+      {
+        "start": 240.7,
+        "duration": 5.91,
+        "text": "for J and then there's what was the"
+      },
+      {
+        "start": 244.18,
+        "duration": 4.08,
+        "text": "allegro graph was the third one that I"
+      },
+      {
+        "start": 246.61,
+        "duration": 4.16,
+        "text": "looked at which was really a triple"
+      },
+      {
+        "start": 248.26,
+        "duration": 5.4,
+        "text": "store it's not a graph database so I"
+      },
+      {
+        "start": 250.77,
+        "duration": 5.29,
+        "text": "just took a few weeks on each of them"
+      },
+      {
+        "start": 253.66,
+        "duration": 4.98,
+        "text": "figured him out through the clients"
+      },
+      {
+        "start": 256.06,
+        "duration": 6.27,
+        "text": "sample data into it and started playing"
+      },
+      {
+        "start": 258.64,
+        "duration": 5.58,
+        "text": "around with it and that's it was a you"
+      },
+      {
+        "start": 262.33,
+        "duration": 3.18,
+        "text": "know the the fun part about that was"
+      },
+      {
+        "start": 264.22,
+        "duration": 2.91,
+        "text": "kind of diving into some of those"
+      },
+      {
+        "start": 265.51,
+        "duration": 3.45,
+        "text": "technical details but"
+      },
+      {
+        "start": 267.13,
+        "duration": 4.32,
+        "text": "kind of poking my head up in ink in"
+      },
+      {
+        "start": 268.96,
+        "duration": 6.36,
+        "text": "rehashing the results with the different"
+      },
+      {
+        "start": 271.45,
+        "duration": 6.09,
+        "text": "people at expereience way and how does"
+      },
+      {
+        "start": 275.32,
+        "duration": 3.51,
+        "text": "all this stuff interact and is this"
+      },
+      {
+        "start": 277.54,
+        "duration": 4.2,
+        "text": "really the right approach to solving"
+      },
+      {
+        "start": 278.83,
+        "duration": 5.22,
+        "text": "these problems so there's a lot of kind"
+      },
+      {
+        "start": 281.74,
+        "duration": 4.29,
+        "text": "of okay surfacing results internally and"
+      },
+      {
+        "start": 284.05,
+        "duration": 3.48,
+        "text": "then in breaking those down and trying"
+      },
+      {
+        "start": 286.03,
+        "duration": 4.86,
+        "text": "to understand how this technology really"
+      },
+      {
+        "start": 287.53,
+        "duration": 5.4,
+        "text": "works gotcha so what were the things"
+      },
+      {
+        "start": 290.89,
+        "duration": 3.69,
+        "text": "that kind of drove your decision-making"
+      },
+      {
+        "start": 292.93,
+        "duration": 4.44,
+        "text": "process you mentioned that you were"
+      },
+      {
+        "start": 294.58,
+        "duration": 4.77,
+        "text": "evaluating multiple tools so we know the"
+      },
+      {
+        "start": 297.37,
+        "duration": 3.81,
+        "text": "end of the story maybe that you ended up"
+      },
+      {
+        "start": 299.35,
+        "duration": 3.87,
+        "text": "is having like a high degree of"
+      },
+      {
+        "start": 301.18,
+        "duration": 4.11,
+        "text": "expertise in India see graph in"
+      },
+      {
+        "start": 303.22,
+        "duration": 4.56,
+        "text": "particular which was kind of came out of"
+      },
+      {
+        "start": 305.29,
+        "duration": 4.29,
+        "text": "that Titan world but you know tell me a"
+      },
+      {
+        "start": 307.78,
+        "duration": 3.72,
+        "text": "little bit about how you got there well"
+      },
+      {
+        "start": 309.58,
+        "duration": 5.31,
+        "text": "so that was really fun about that story"
+      },
+      {
+        "start": 311.5,
+        "duration": 5.88,
+        "text": "is in the end graph wasn't the right"
+      },
+      {
+        "start": 314.89,
+        "duration": 5.52,
+        "text": "answer for them it which was kind of"
+      },
+      {
+        "start": 317.38,
+        "duration": 4.44,
+        "text": "shocking this is what caused a lot of"
+      },
+      {
+        "start": 320.41,
+        "duration": 2.64,
+        "text": "discussion internally because we were"
+      },
+      {
+        "start": 321.82,
+        "duration": 2.58,
+        "text": "told like well the right answer is to"
+      },
+      {
+        "start": 323.05,
+        "duration": 4.32,
+        "text": "use graph because they're clearly using"
+      },
+      {
+        "start": 324.4,
+        "duration": 4.08,
+        "text": "the relational database wrong and part"
+      },
+      {
+        "start": 327.37,
+        "duration": 2.46,
+        "text": "of that was correct"
+      },
+      {
+        "start": 328.48,
+        "duration": 2.85,
+        "text": "they were clearly using the relational"
+      },
+      {
+        "start": 329.83,
+        "duration": 3.3,
+        "text": "database wrong what I did in my"
+      },
+      {
+        "start": 331.33,
+        "duration": 3.72,
+        "text": "evaluation and just didn't come out in"
+      },
+      {
+        "start": 333.13,
+        "duration": 3.93,
+        "text": "the blog series that they recapped it"
+      },
+      {
+        "start": 335.05,
+        "duration": 4.38,
+        "text": "though what I did in my evaluation was I"
+      },
+      {
+        "start": 337.06,
+        "duration": 4.98,
+        "text": "looked at each of the three vendors but"
+      },
+      {
+        "start": 339.43,
+        "duration": 3.93,
+        "text": "then I also did took a step back and"
+      },
+      {
+        "start": 342.04,
+        "duration": 3.81,
+        "text": "said okay from what I know about"
+      },
+      {
+        "start": 343.36,
+        "duration": 5.01,
+        "text": "relational database performance if I"
+      },
+      {
+        "start": 345.85,
+        "duration": 5.79,
+        "text": "were to take their example their data"
+      },
+      {
+        "start": 348.37,
+        "duration": 4.62,
+        "text": "and do a properly kind of normalized"
+      },
+      {
+        "start": 351.64,
+        "duration": 3.72,
+        "text": "relational database how would"
+      },
+      {
+        "start": 352.99,
+        "duration": 4.89,
+        "text": "performance work and so we went through"
+      },
+      {
+        "start": 355.36,
+        "duration": 4.29,
+        "text": "that they had one there were two salient"
+      },
+      {
+        "start": 357.88,
+        "duration": 4.14,
+        "text": "examples that came out of this one is"
+      },
+      {
+        "start": 359.65,
+        "duration": 3.93,
+        "text": "when I did the examples I then presented"
+      },
+      {
+        "start": 362.02,
+        "duration": 3.72,
+        "text": "it to the client and showed them the"
+      },
+      {
+        "start": 363.58,
+        "duration": 4.47,
+        "text": "code that was used in one particular"
+      },
+      {
+        "start": 365.74,
+        "duration": 4.65,
+        "text": "example they had a common table common"
+      },
+      {
+        "start": 368.05,
+        "duration": 4.35,
+        "text": "table expression a CTE there was a"
+      },
+      {
+        "start": 370.39,
+        "duration": 3.78,
+        "text": "hundred plus lines long it had five or"
+      },
+      {
+        "start": 372.4,
+        "duration": 4.95,
+        "text": "six different parts to it they have"
+      },
+      {
+        "start": 374.17,
+        "duration": 5.46,
+        "text": "multiple joins going on throughout it"
+      },
+      {
+        "start": 377.35,
+        "duration": 5.1,
+        "text": "was it was a unholy mess and what it"
+      },
+      {
+        "start": 379.63,
+        "duration": 5.19,
+        "text": "were amounted to was a five hop step in"
+      },
+      {
+        "start": 382.45,
+        "duration": 4.11,
+        "text": "a graph it was just go hit these five"
+      },
+      {
+        "start": 384.82,
+        "duration": 3.48,
+        "text": "different types of nodes and so I"
+      },
+      {
+        "start": 386.56,
+        "duration": 3.99,
+        "text": "rewrote it and I showed him what it"
+      },
+      {
+        "start": 388.3,
+        "duration": 5.34,
+        "text": "looked like was I don't know if it was"
+      },
+      {
+        "start": 390.55,
+        "duration": 5.07,
+        "text": "cypher with gremlin and showed them okay"
+      },
+      {
+        "start": 393.64,
+        "duration": 3.93,
+        "text": "here's your sequel code and then here's"
+      },
+      {
+        "start": 395.62,
+        "duration": 3.42,
+        "text": "what it looks like when it's coded with"
+      },
+      {
+        "start": 397.57,
+        "duration": 3.399,
+        "text": "the graph coded with the graph language"
+      },
+      {
+        "start": 399.04,
+        "duration": 5.109,
+        "text": "and their response was oh my word"
+      },
+      {
+        "start": 400.969,
+        "duration": 5.52,
+        "text": "I can read that yes being like a two or"
+      },
+      {
+        "start": 404.149,
+        "duration": 5.19,
+        "text": "three line long statement in a graph"
+      },
+      {
+        "start": 406.489,
+        "duration": 4.68,
+        "text": "language so it one of the first things"
+      },
+      {
+        "start": 409.339,
+        "duration": 3.48,
+        "text": "it was an obvious benefit to us was"
+      },
+      {
+        "start": 411.169,
+        "duration": 3.691,
+        "text": "developer product you're gonna go from a"
+      },
+      {
+        "start": 412.819,
+        "duration": 4.47,
+        "text": "hundred and fifty plus lines to five"
+      },
+      {
+        "start": 414.86,
+        "duration": 5.489,
+        "text": "lines with very arbitrary line breaks in"
+      },
+      {
+        "start": 417.289,
+        "duration": 4.53,
+        "text": "there your you've now created something"
+      },
+      {
+        "start": 420.349,
+        "duration": 3.75,
+        "text": "that can easily be reasoned over and"
+      },
+      {
+        "start": 421.819,
+        "duration": 4.98,
+        "text": "it's just a whole lot less lines of code"
+      },
+      {
+        "start": 424.099,
+        "duration": 4.92,
+        "text": "to deal with so that there was that side"
+      },
+      {
+        "start": 426.799,
+        "duration": 3.93,
+        "text": "of that but then when we also realized"
+      },
+      {
+        "start": 429.019,
+        "duration": 3.81,
+        "text": "was that they were just relational"
+      },
+      {
+        "start": 430.729,
+        "duration": 4.83,
+        "text": "database technology is really amazingly"
+      },
+      {
+        "start": 432.829,
+        "duration": 4.92,
+        "text": "good there's a lot of benefits that"
+      },
+      {
+        "start": 435.559,
+        "duration": 4.801,
+        "text": "we've taken from that four decades of"
+      },
+      {
+        "start": 437.749,
+        "duration": 4.41,
+        "text": "experience and if you start using it"
+      },
+      {
+        "start": 440.36,
+        "duration": 3.419,
+        "text": "correctly they were using it in a way"
+      },
+      {
+        "start": 442.159,
+        "duration": 3.9,
+        "text": "that neutered the query analyzer but"
+      },
+      {
+        "start": 443.779,
+        "duration": 5.52,
+        "text": "when you start using it correctly then"
+      },
+      {
+        "start": 446.059,
+        "duration": 4.29,
+        "text": "it the result is that you can get some"
+      },
+      {
+        "start": 449.299,
+        "duration": 4.44,
+        "text": "really great performance"
+      },
+      {
+        "start": 450.349,
+        "duration": 5.79,
+        "text": "so my normalized relational designs"
+      },
+      {
+        "start": 453.739,
+        "duration": 3.6,
+        "text": "worked really well and we told them what"
+      },
+      {
+        "start": 456.139,
+        "duration": 2.971,
+        "text": "you really want to do is you want to do"
+      },
+      {
+        "start": 457.339,
+        "duration": 3.39,
+        "text": "both you want to use a relational"
+      },
+      {
+        "start": 459.11,
+        "duration": 2.849,
+        "text": "database better than what you're doing"
+      },
+      {
+        "start": 460.729,
+        "duration": 5.071,
+        "text": "right now and then you want to"
+      },
+      {
+        "start": 461.959,
+        "duration": 6.24,
+        "text": "eventually add or add a graph grab at a"
+      },
+      {
+        "start": 465.8,
+        "duration": 4.469,
+        "text": "graph component to that so I spent the"
+      },
+      {
+        "start": 468.199,
+        "duration": 4.92,
+        "text": "next year and a half rebuilding their"
+      },
+      {
+        "start": 470.269,
+        "duration": 6.21,
+        "text": "back-end with the with their team and"
+      },
+      {
+        "start": 473.119,
+        "duration": 5.431,
+        "text": "after a year and a half we got for some"
+      },
+      {
+        "start": 476.479,
+        "duration": 3.93,
+        "text": "of their worst queries a hundred 2x"
+      },
+      {
+        "start": 478.55,
+        "duration": 3.989,
+        "text": "performance improvement using relational"
+      },
+      {
+        "start": 480.409,
+        "duration": 5.31,
+        "text": "database and then the next step was"
+      },
+      {
+        "start": 482.539,
+        "duration": 6.0,
+        "text": "bring in the graph for the very graph"
+      },
+      {
+        "start": 485.719,
+        "duration": 6.18,
+        "text": "types of access for that for that"
+      },
+      {
+        "start": 488.539,
+        "duration": 5.88,
+        "text": "technology right ah so that's a that's a"
+      },
+      {
+        "start": 491.899,
+        "duration": 4.92,
+        "text": "really really interesting case study"
+      },
+      {
+        "start": 494.419,
+        "duration": 5.15,
+        "text": "there which I you know I didn't realize"
+      },
+      {
+        "start": 496.819,
+        "duration": 5.041,
+        "text": "kind of some of the details of which is"
+      },
+      {
+        "start": 499.569,
+        "duration": 3.64,
+        "text": "just because somebody that looks like a"
+      },
+      {
+        "start": 501.86,
+        "duration": 2.789,
+        "text": "graph problem on the surface and"
+      },
+      {
+        "start": 503.209,
+        "duration": 3.87,
+        "text": "actually there are portions of it that"
+      },
+      {
+        "start": 504.649,
+        "duration": 5.94,
+        "text": "might very nicely fit and you're saying"
+      },
+      {
+        "start": 507.079,
+        "duration": 6.33,
+        "text": "like hey it looked great when we began"
+      },
+      {
+        "start": 510.589,
+        "duration": 6.06,
+        "text": "rewriting some of these queries in a"
+      },
+      {
+        "start": 513.409,
+        "duration": 6.12,
+        "text": "graph query language but that even that"
+      },
+      {
+        "start": 516.649,
+        "duration": 5.81,
+        "text": "doesn't necessarily mean that the graph"
+      },
+      {
+        "start": 519.529,
+        "duration": 5.701,
+        "text": "database is the right you know the right"
+      },
+      {
+        "start": 522.459,
+        "duration": 5.32,
+        "text": "solution on your back-end for every"
+      },
+      {
+        "start": 525.23,
+        "duration": 4.859,
+        "text": "problem so talk to me a little bit more"
+      },
+      {
+        "start": 527.779,
+        "duration": 5.391,
+        "text": "because I mean I'm intrigued here like"
+      },
+      {
+        "start": 530.089,
+        "duration": 6.141,
+        "text": "you're suggesting that the"
+      },
+      {
+        "start": 533.17,
+        "duration": 6.66,
+        "text": "solution may in fact involve continuing"
+      },
+      {
+        "start": 536.23,
+        "duration": 6.3,
+        "text": "to use some relational technology for"
+      },
+      {
+        "start": 539.83,
+        "duration": 4.98,
+        "text": "some of the data and then some graph for"
+      },
+      {
+        "start": 542.53,
+        "duration": 3.84,
+        "text": "other portions of the data so let's"
+      },
+      {
+        "start": 544.81,
+        "duration": 4.26,
+        "text": "expand on that and how did you go about"
+      },
+      {
+        "start": 546.37,
+        "duration": 5.55,
+        "text": "determining which is which and what"
+      },
+      {
+        "start": 549.07,
+        "duration": 5.34,
+        "text": "state relational what went to graph yeah"
+      },
+      {
+        "start": 551.92,
+        "duration": 5.49,
+        "text": "a lot of this comes down to and this is"
+      },
+      {
+        "start": 554.41,
+        "duration": 4.74,
+        "text": "I talked to developers and so I I talked"
+      },
+      {
+        "start": 557.41,
+        "duration": 4.35,
+        "text": "to one developer in particular this is"
+      },
+      {
+        "start": 559.15,
+        "duration": 4.86,
+        "text": "kind of falls into that cqs pattern"
+      },
+      {
+        "start": 561.76,
+        "duration": 4.2,
+        "text": "where you're separating your your reads"
+      },
+      {
+        "start": 564.01,
+        "duration": 3.69,
+        "text": "and your right paths in your application"
+      },
+      {
+        "start": 565.96,
+        "duration": 3.96,
+        "text": "and I talked to one developer back and"
+      },
+      {
+        "start": 567.7,
+        "duration": 3.6,
+        "text": "he said you know I've seen that but I've"
+      },
+      {
+        "start": 569.92,
+        "duration": 4.17,
+        "text": "never seen it implemented successfully"
+      },
+      {
+        "start": 571.3,
+        "duration": 4.56,
+        "text": "and he's I'm really skeptical that it"
+      },
+      {
+        "start": 574.09,
+        "duration": 4.26,
+        "text": "makes sense in our in our environment"
+      },
+      {
+        "start": 575.86,
+        "duration": 4.56,
+        "text": "and I told him it I want to state this"
+      },
+      {
+        "start": 578.35,
+        "duration": 3.3,
+        "text": "upfront just because you're adding some"
+      },
+      {
+        "start": 580.42,
+        "duration": 2.79,
+        "text": "when you take that approach you're"
+      },
+      {
+        "start": 581.65,
+        "duration": 3.69,
+        "text": "adding significant complexity to your"
+      },
+      {
+        "start": 583.21,
+        "duration": 3.99,
+        "text": "application and if it doesn't warrant"
+      },
+      {
+        "start": 585.34,
+        "duration": 3.87,
+        "text": "that level of complexity you shouldn't"
+      },
+      {
+        "start": 587.2,
+        "duration": 4.14,
+        "text": "do it and I told that developer because"
+      },
+      {
+        "start": 589.21,
+        "duration": 4.62,
+        "text": "I had been working with his in in his"
+      },
+      {
+        "start": 591.34,
+        "duration": 5.1,
+        "text": "same domain for with actually with his"
+      },
+      {
+        "start": 593.83,
+        "duration": 4.02,
+        "text": "same data for five or six years I said"
+      },
+      {
+        "start": 596.44,
+        "duration": 2.79,
+        "text": "you're right it doesn't make sense in"
+      },
+      {
+        "start": 597.85,
+        "duration": 3.9,
+        "text": "the area where you're working right now"
+      },
+      {
+        "start": 599.23,
+        "duration": 4.29,
+        "text": "for smaller places full of places were"
+      },
+      {
+        "start": 601.75,
+        "duration": 4.74,
+        "text": "you not running into performance issues"
+      },
+      {
+        "start": 603.52,
+        "duration": 3.87,
+        "text": "with your data layer and other stuff try"
+      },
+      {
+        "start": 606.49,
+        "duration": 3.0,
+        "text": "and keep it as simple as possible"
+      },
+      {
+        "start": 607.39,
+        "duration": 3.66,
+        "text": "because you have a problem more"
+      },
+      {
+        "start": 609.49,
+        "duration": 2.7,
+        "text": "complexity in your business logic than"
+      },
+      {
+        "start": 611.05,
+        "duration": 3.6,
+        "text": "you do at your business for systems"
+      },
+      {
+        "start": 612.19,
+        "duration": 3.45,
+        "text": "layer and so manage for that so that's"
+      },
+      {
+        "start": 614.65,
+        "duration": 3.36,
+        "text": "one of the things I want to state up"
+      },
+      {
+        "start": 615.64,
+        "duration": 5.49,
+        "text": "front is that you don't just start"
+      },
+      {
+        "start": 618.01,
+        "duration": 6.15,
+        "text": "adding new data types or persistent or"
+      },
+      {
+        "start": 621.13,
+        "duration": 4.53,
+        "text": "persistence engines just willy-nilly you"
+      },
+      {
+        "start": 624.16,
+        "duration": 3.33,
+        "text": "need at least think through your problem"
+      },
+      {
+        "start": 625.66,
+        "duration": 3.3,
+        "text": "and recognize and try at least push the"
+      },
+      {
+        "start": 627.49,
+        "duration": 3.18,
+        "text": "limits of what you've got and you should"
+      },
+      {
+        "start": 628.96,
+        "duration": 3.66,
+        "text": "always probably start with a relational"
+      },
+      {
+        "start": 630.67,
+        "duration": 4.35,
+        "text": "database most likely because you can"
+      },
+      {
+        "start": 632.62,
+        "duration": 5.94,
+        "text": "just you can find developers that write"
+      },
+      {
+        "start": 635.02,
+        "duration": 6.06,
+        "text": "SQL or you can use an ORM so that's"
+      },
+      {
+        "start": 638.56,
+        "duration": 4.8,
+        "text": "where I'd start with things but when you"
+      },
+      {
+        "start": 641.08,
+        "duration": 3.81,
+        "text": "start looking into problem areas and you"
+      },
+      {
+        "start": 643.36,
+        "duration": 6.18,
+        "text": "start wanting to reason over your stuff"
+      },
+      {
+        "start": 644.89,
+        "duration": 6.63,
+        "text": "differently such as if I've got if I've"
+      },
+      {
+        "start": 649.54,
+        "duration": 3.81,
+        "text": "got use cases where I'm doing dependency"
+      },
+      {
+        "start": 651.52,
+        "duration": 5.34,
+        "text": "analysis and I'm going three or four or"
+      },
+      {
+        "start": 653.35,
+        "duration": 5.94,
+        "text": "five hops out then I you know I'm gonna"
+      },
+      {
+        "start": 656.86,
+        "duration": 4.2,
+        "text": "make my relational engine fall over if"
+      },
+      {
+        "start": 659.29,
+        "duration": 3.36,
+        "text": "I've got use cases where I'm joining"
+      },
+      {
+        "start": 661.06,
+        "duration": 4.53,
+        "text": "together multiple things and I want a"
+      },
+      {
+        "start": 662.65,
+        "duration": 4.439,
+        "text": "result set that's not just it's not just"
+      },
+      {
+        "start": 665.59,
+        "duration": 5.219,
+        "text": "apples by Wan apples and"
+      },
+      {
+        "start": 667.089,
+        "duration": 5.521,
+        "text": "wheelbarrows for some reason then I I"
+      },
+      {
+        "start": 670.809,
+        "duration": 3.84,
+        "text": "can't use a relational database because"
+      },
+      {
+        "start": 672.61,
+        "duration": 3.959,
+        "text": "then my joins and everything else get"
+      },
+      {
+        "start": 674.649,
+        "duration": 3.44,
+        "text": "really clunky but graph is great for"
+      },
+      {
+        "start": 676.569,
+        "duration": 4.44,
+        "text": "those kind of so when you've got"
+      },
+      {
+        "start": 678.089,
+        "duration": 4.6,
+        "text": "multiple hops indeterminate number of"
+      },
+      {
+        "start": 681.009,
+        "duration": 4.291,
+        "text": "hops so you were you're writing that"
+      },
+      {
+        "start": 682.689,
+        "duration": 4.71,
+        "text": "recursive CTE you need to start"
+      },
+      {
+        "start": 685.3,
+        "duration": 5.07,
+        "text": "reconsidering when you're writing those"
+      },
+      {
+        "start": 687.399,
+        "duration": 4.261,
+        "text": "recursive CDEs or when you're trying to"
+      },
+      {
+        "start": 690.37,
+        "duration": 2.85,
+        "text": "join together multiple different types"
+      },
+      {
+        "start": 691.66,
+        "duration": 3.989,
+        "text": "of things to come back in the same"
+      },
+      {
+        "start": 693.22,
+        "duration": 5.099,
+        "text": "result set that's when you start looking"
+      },
+      {
+        "start": 695.649,
+        "duration": 5.79,
+        "text": "at the graph okay and you mentioned the"
+      },
+      {
+        "start": 698.319,
+        "duration": 6.541,
+        "text": "CQRS pattern a minute ago which maybe we"
+      },
+      {
+        "start": 701.439,
+        "duration": 5.431,
+        "text": "should explain just like super nutshell"
+      },
+      {
+        "start": 704.86,
+        "duration": 4.529,
+        "text": "briefly in case someone's not familiar"
+      },
+      {
+        "start": 706.87,
+        "duration": 3.959,
+        "text": "with it but I take it a year you're"
+      },
+      {
+        "start": 709.389,
+        "duration": 3.3,
+        "text": "talking again like you said about a"
+      },
+      {
+        "start": 710.829,
+        "duration": 4.891,
+        "text": "separating the read in the right path"
+      },
+      {
+        "start": 712.689,
+        "duration": 5.281,
+        "text": "and maybe that helps you determine where"
+      },
+      {
+        "start": 715.72,
+        "duration": 4.2,
+        "text": "you use graph like help just to unpack"
+      },
+      {
+        "start": 717.97,
+        "duration": 4.409,
+        "text": "that a little bit for me well what I"
+      },
+      {
+        "start": 719.92,
+        "duration": 3.93,
+        "text": "really like thinking about the CQRS or"
+      },
+      {
+        "start": 722.379,
+        "duration": 3.81,
+        "text": "thinking about separating read and write"
+      },
+      {
+        "start": 723.85,
+        "duration": 5.19,
+        "text": "paths because what is the secure RSS"
+      },
+      {
+        "start": 726.189,
+        "duration": 3.721,
+        "text": "command and query response structure or"
+      },
+      {
+        "start": 729.04,
+        "duration": 2.519,
+        "text": "something like that"
+      },
+      {
+        "start": 729.91,
+        "duration": 3.659,
+        "text": "forget what the full MIT commanding"
+      },
+      {
+        "start": 731.559,
+        "duration": 3.77,
+        "text": "query or parts of it yeah people don't"
+      },
+      {
+        "start": 733.569,
+        "duration": 3.93,
+        "text": "tend to name patterns is"
+      },
+      {
+        "start": 735.329,
+        "duration": 4.541,
+        "text": "straightforwardly as as maybe I would"
+      },
+      {
+        "start": 737.499,
+        "duration": 3.411,
+        "text": "always hope right so I like write pass"
+      },
+      {
+        "start": 739.87,
+        "duration": 3.569,
+        "text": "and repass"
+      },
+      {
+        "start": 740.91,
+        "duration": 4.419,
+        "text": "you I mean if you're writing a logging"
+      },
+      {
+        "start": 743.439,
+        "duration": 3.51,
+        "text": "application you what the first question"
+      },
+      {
+        "start": 745.329,
+        "duration": 4.44,
+        "text": "you need to ask yourself is am i read"
+      },
+      {
+        "start": 746.949,
+        "duration": 4.05,
+        "text": "heavy or write heavy and if I'm if I'm"
+      },
+      {
+        "start": 749.769,
+        "duration": 3.57,
+        "text": "right heavy I'm writing a logging"
+      },
+      {
+        "start": 750.999,
+        "duration": 3.69,
+        "text": "application where I'm just gonna be"
+      },
+      {
+        "start": 753.339,
+        "duration": 5.25,
+        "text": "throwing a whole bunch of data in some"
+      },
+      {
+        "start": 754.689,
+        "duration": 5.52,
+        "text": "way and I'll be you want to organize or"
+      },
+      {
+        "start": 758.589,
+        "duration": 3.631,
+        "text": "think about that data pattern"
+      },
+      {
+        "start": 760.209,
+        "duration": 3.93,
+        "text": "differently then as if I'm gonna be"
+      },
+      {
+        "start": 762.22,
+        "duration": 4.14,
+        "text": "searching through or querying that data"
+      },
+      {
+        "start": 764.139,
+        "duration": 3.841,
+        "text": "so if I'm if I'm read heavy which tends"
+      },
+      {
+        "start": 766.36,
+        "duration": 3.63,
+        "text": "to be where most of our applications are"
+      },
+      {
+        "start": 767.98,
+        "duration": 4.74,
+        "text": "they tend to be very light with writes"
+      },
+      {
+        "start": 769.99,
+        "duration": 5.459,
+        "text": "and very heavy with reads now I need to"
+      },
+      {
+        "start": 772.72,
+        "duration": 4.26,
+        "text": "start thinking about how I'm organizing"
+      },
+      {
+        "start": 775.449,
+        "duration": 4.651,
+        "text": "my data a little bit differently because"
+      },
+      {
+        "start": 776.98,
+        "duration": 5.43,
+        "text": "80 90 percent of my data interaction is"
+      },
+      {
+        "start": 780.1,
+        "duration": 4.799,
+        "text": "just gonna be querying in that case I"
+      },
+      {
+        "start": 782.41,
+        "duration": 4.619,
+        "text": "need to optimize for queries and the sad"
+      },
+      {
+        "start": 784.899,
+        "duration": 3.93,
+        "text": "fact is and most developers don't think"
+      },
+      {
+        "start": 787.029,
+        "duration": 3.87,
+        "text": "about this but their normal form is"
+      },
+      {
+        "start": 788.829,
+        "duration": 3.781,
+        "text": "horrible for querying that's right and"
+      },
+      {
+        "start": 790.899,
+        "duration": 4.8,
+        "text": "maybe what we were doing was optimizing"
+      },
+      {
+        "start": 792.61,
+        "duration": 5.519,
+        "text": "for storage because that was the cost"
+      },
+      {
+        "start": 795.699,
+        "duration": 3.941,
+        "text": "driver is being efficient on our use of"
+      },
+      {
+        "start": 798.129,
+        "duration": 4.391,
+        "text": "storage but that's not really the world"
+      },
+      {
+        "start": 799.64,
+        "duration": 5.25,
+        "text": "that we're living in today today is"
+      },
+      {
+        "start": 802.52,
+        "duration": 3.75,
+        "text": "speed is king right and we got to get"
+      },
+      {
+        "start": 804.89,
+        "duration": 4.32,
+        "text": "those read that read performance up"
+      },
+      {
+        "start": 806.27,
+        "duration": 4.83,
+        "text": "latency 'slow etc etc yeah we like to"
+      },
+      {
+        "start": 809.21,
+        "duration": 4.05,
+        "text": "talk an X period performance is a"
+      },
+      {
+        "start": 811.1,
+        "duration": 4.41,
+        "text": "feature so am i right to say that the"
+      },
+      {
+        "start": 813.26,
+        "duration": 5.49,
+        "text": "graph the applicability of the graph is"
+      },
+      {
+        "start": 815.51,
+        "duration": 5.19,
+        "text": "more on the read side then I think"
+      },
+      {
+        "start": 818.75,
+        "duration": 4.14,
+        "text": "that's really I think that's where it is"
+      },
+      {
+        "start": 820.7,
+        "duration": 5.91,
+        "text": "there's two main areas where I see it"
+      },
+      {
+        "start": 822.89,
+        "duration": 5.16,
+        "text": "one is the read side where because with"
+      },
+      {
+        "start": 826.61,
+        "duration": 2.76,
+        "text": "the graph this is one of those things"
+      },
+      {
+        "start": 828.05,
+        "duration": 3.57,
+        "text": "that I've learned about graph along the"
+      },
+      {
+        "start": 829.37,
+        "duration": 4.23,
+        "text": "way anytime you write that edge or that"
+      },
+      {
+        "start": 831.62,
+        "duration": 3.54,
+        "text": "relationship you're there's a write"
+      },
+      {
+        "start": 833.6,
+        "duration": 5.37,
+        "text": "amplification that happens you are"
+      },
+      {
+        "start": 835.16,
+        "duration": 5.97,
+        "text": "taking in every graph database that I've"
+      },
+      {
+        "start": 838.97,
+        "duration": 3.45,
+        "text": "seen this may not apply to triple stores"
+      },
+      {
+        "start": 841.13,
+        "duration": 3.03,
+        "text": "but at least with the graph databases"
+      },
+      {
+        "start": 842.42,
+        "duration": 3.99,
+        "text": "there's a write amplification you write"
+      },
+      {
+        "start": 844.16,
+        "duration": 5.01,
+        "text": "an edge you're gonna write there's at"
+      },
+      {
+        "start": 846.41,
+        "duration": 4.41,
+        "text": "least two separate disk write operations"
+      },
+      {
+        "start": 849.17,
+        "duration": 4.29,
+        "text": "that are happening there but when you do"
+      },
+      {
+        "start": 850.82,
+        "duration": 5.61,
+        "text": "the read they go a lot faster because"
+      },
+      {
+        "start": 853.46,
+        "duration": 4.62,
+        "text": "you're you're no longer and this is kind"
+      },
+      {
+        "start": 856.43,
+        "duration": 4.29,
+        "text": "of taking a step back with relational"
+      },
+      {
+        "start": 858.08,
+        "duration": 4.77,
+        "text": "databases joins the runtime operation"
+      },
+      {
+        "start": 860.72,
+        "duration": 3.6,
+        "text": "and so when you do a join you're pulling"
+      },
+      {
+        "start": 862.85,
+        "duration": 4.77,
+        "text": "a whole bunch of data into memory and"
+      },
+      {
+        "start": 864.32,
+        "duration": 5.34,
+        "text": "you're now you're trying to figure out"
+      },
+      {
+        "start": 867.62,
+        "duration": 5.58,
+        "text": "or short those keys and organize them"
+      },
+      {
+        "start": 869.66,
+        "duration": 5.46,
+        "text": "now our modern query engines and"
+      },
+      {
+        "start": 873.2,
+        "duration": 4.11,
+        "text": "relational databases are really really"
+      },
+      {
+        "start": 875.12,
+        "duration": 4.08,
+        "text": "amazingly fast at that and they know how"
+      },
+      {
+        "start": 877.31,
+        "duration": 4.52,
+        "text": "to do that really well but if you can"
+      },
+      {
+        "start": 879.2,
+        "duration": 4.77,
+        "text": "avoid doing a read and in memory"
+      },
+      {
+        "start": 881.83,
+        "duration": 4.27,
+        "text": "operation like that and just read from"
+      },
+      {
+        "start": 883.97,
+        "duration": 4.53,
+        "text": "cache or read from disk you're gonna be"
+      },
+      {
+        "start": 886.1,
+        "duration": 4.02,
+        "text": "a whole lot faster than having to kind"
+      },
+      {
+        "start": 888.5,
+        "duration": 3.48,
+        "text": "of sort all that stuff out at runtime so"
+      },
+      {
+        "start": 890.12,
+        "duration": 3.36,
+        "text": "that's one of the great advantages of"
+      },
+      {
+        "start": 891.98,
+        "duration": 3.99,
+        "text": "graph you take the the write"
+      },
+      {
+        "start": 893.48,
+        "duration": 4.08,
+        "text": "amplification hit upfront but if you're"
+      },
+      {
+        "start": 895.97,
+        "duration": 3.39,
+        "text": "doing a lot of reads and a very"
+      },
+      {
+        "start": 897.56,
+        "duration": 3.66,
+        "text": "unpredictable reads like following"
+      },
+      {
+        "start": 899.36,
+        "duration": 3.93,
+        "text": "different paths in the graph or"
+      },
+      {
+        "start": 901.22,
+        "duration": 4.86,
+        "text": "traversing different through different"
+      },
+      {
+        "start": 903.29,
+        "duration": 5.25,
+        "text": "paths then it's gonna be extremely"
+      },
+      {
+        "start": 906.08,
+        "duration": 4.68,
+        "text": "beneficial that's that was the concept"
+      },
+      {
+        "start": 908.54,
+        "duration": 6.57,
+        "text": "index free adjacency they like to throw"
+      },
+      {
+        "start": 910.76,
+        "duration": 6.78,
+        "text": "out okay what does that mean index so"
+      },
+      {
+        "start": 915.11,
+        "duration": 5.28,
+        "text": "when I hear a new term I want to know of"
+      },
+      {
+        "start": 917.54,
+        "duration": 4.38,
+        "text": "what it means so it it's a it's"
+      },
+      {
+        "start": 920.39,
+        "duration": 4.71,
+        "text": "basically it's saying we're using a"
+      },
+      {
+        "start": 921.92,
+        "duration": 6.33,
+        "text": "linked list to store our data that's it"
+      },
+      {
+        "start": 925.1,
+        "duration": 5.01,
+        "text": "from in developer speak right index free"
+      },
+      {
+        "start": 928.25,
+        "duration": 3.27,
+        "text": "means I'm not going to consult an index"
+      },
+      {
+        "start": 930.11,
+        "duration": 3.24,
+        "text": "I'm just gonna follow the pointers from"
+      },
+      {
+        "start": 931.52,
+        "duration": 4.44,
+        "text": "the link less list"
+      },
+      {
+        "start": 933.35,
+        "duration": 5.13,
+        "text": "see as things like a if a links to be"
+      },
+      {
+        "start": 935.96,
+        "duration": 4.53,
+        "text": "then I'll have on disk source a"
+      },
+      {
+        "start": 938.48,
+        "duration": 4.5,
+        "text": "destination B and I'll just read that"
+      },
+      {
+        "start": 940.49,
+        "duration": 4.17,
+        "text": "one row out of the file or out of the"
+      },
+      {
+        "start": 942.98,
+        "duration": 3.66,
+        "text": "row in the table okay so one question"
+      },
+      {
+        "start": 944.66,
+        "duration": 4.17,
+        "text": "that I want to follow up on I get the"
+      },
+      {
+        "start": 946.64,
+        "duration": 5.94,
+        "text": "idea of using of separating your"
+      },
+      {
+        "start": 948.83,
+        "duration": 5.31,
+        "text": "workload reading my workload of the idea"
+      },
+      {
+        "start": 952.58,
+        "duration": 4.53,
+        "text": "that you may want to be using multiple"
+      },
+      {
+        "start": 954.14,
+        "duration": 6.69,
+        "text": "databases in fact for for certain pieces"
+      },
+      {
+        "start": 957.11,
+        "duration": 5.16,
+        "text": "of that but how does the data get into"
+      },
+      {
+        "start": 960.83,
+        "duration": 5.22,
+        "text": "the graph if I'm a my writing to"
+      },
+      {
+        "start": 962.27,
+        "duration": 7.95,
+        "text": "relational and then I'm also writing to"
+      },
+      {
+        "start": 966.05,
+        "duration": 6.39,
+        "text": "it to the graph in parallel or you know"
+      },
+      {
+        "start": 970.22,
+        "duration": 4.32,
+        "text": "I'm thinking like and I'm sort of sort"
+      },
+      {
+        "start": 972.44,
+        "duration": 4.71,
+        "text": "of leading toward the idea that like I"
+      },
+      {
+        "start": 974.54,
+        "duration": 4.38,
+        "text": "at least with with the data strikes"
+      },
+      {
+        "start": 977.15,
+        "duration": 4.07,
+        "text": "graphed product Cassandra comes in there"
+      },
+      {
+        "start": 978.92,
+        "duration": 6.63,
+        "text": "and that's not necessarily a relational"
+      },
+      {
+        "start": 981.22,
+        "duration": 6.61,
+        "text": "it does have CQ o which is SQ o like so"
+      },
+      {
+        "start": 985.55,
+        "duration": 5.73,
+        "text": "I guess that's kind of where I'm going"
+      },
+      {
+        "start": 987.83,
+        "duration": 5.88,
+        "text": "is are we talking about duplicating"
+      },
+      {
+        "start": 991.28,
+        "duration": 4.97,
+        "text": "writes to multiple locations or you know"
+      },
+      {
+        "start": 993.71,
+        "duration": 4.71,
+        "text": "how do you see this working in practice"
+      },
+      {
+        "start": 996.25,
+        "duration": 4.57,
+        "text": "kind of depends on who I'm talking to"
+      },
+      {
+        "start": 998.42,
+        "duration": 3.87,
+        "text": "right the if I'm talking to a business"
+      },
+      {
+        "start": 1000.82,
+        "duration": 2.31,
+        "text": "owner I'm gonna say there's a data"
+      },
+      {
+        "start": 1002.29,
+        "duration": 2.22,
+        "text": "abstraction later"
+      },
+      {
+        "start": 1003.13,
+        "duration": 4.08,
+        "text": "there and we're just gonna figure it all"
+      },
+      {
+        "start": 1004.51,
+        "duration": 4.02,
+        "text": "out for you and your front end coders"
+      },
+      {
+        "start": 1007.21,
+        "duration": 3.29,
+        "text": "and your middle level coders they're"
+      },
+      {
+        "start": 1008.53,
+        "duration": 4.38,
+        "text": "gonna they're gonna code against the DL"
+      },
+      {
+        "start": 1010.5,
+        "duration": 4.81,
+        "text": "and they don't have to worry about"
+      },
+      {
+        "start": 1012.91,
+        "duration": 4.59,
+        "text": "what's going on under the covers when"
+      },
+      {
+        "start": 1015.31,
+        "duration": 4.05,
+        "text": "I'm talking to the guys or when I'm"
+      },
+      {
+        "start": 1017.5,
+        "duration": 3.24,
+        "text": "talking to myself I guess the guys who"
+      },
+      {
+        "start": 1019.36,
+        "duration": 3.54,
+        "text": "are actually building the stuff under"
+      },
+      {
+        "start": 1020.74,
+        "duration": 3.51,
+        "text": "the covers now that gets to be an"
+      },
+      {
+        "start": 1022.9,
+        "duration": 3.09,
+        "text": "interesting question some of its gonna"
+      },
+      {
+        "start": 1024.25,
+        "duration": 5.42,
+        "text": "come down to what engine we're using the"
+      },
+      {
+        "start": 1025.99,
+        "duration": 6.54,
+        "text": "the data stacks engine right now I"
+      },
+      {
+        "start": 1029.67,
+        "duration": 5.65,
+        "text": "really impartial on an ETL process our"
+      },
+      {
+        "start": 1032.53,
+        "duration": 6.3,
+        "text": "data load process for using DSE graph"
+      },
+      {
+        "start": 1035.32,
+        "duration": 8.37,
+        "text": "frames which makes it it's a really"
+      },
+      {
+        "start": 1038.83,
+        "duration": 6.57,
+        "text": "great API for abstracting out all of it"
+      },
+      {
+        "start": 1043.69,
+        "duration": 4.2,
+        "text": "just takes care of all of that stuff"
+      },
+      {
+        "start": 1045.4,
+        "duration": 4.98,
+        "text": "under the covers for me all that stuff"
+      },
+      {
+        "start": 1047.89,
+        "duration": 4.62,
+        "text": "means like multiple databases or what is"
+      },
+      {
+        "start": 1050.38,
+        "duration": 3.36,
+        "text": "well Cassandra what's what's going on"
+      },
+      {
+        "start": 1052.51,
+        "duration": 4.2,
+        "text": "with Cassandra and the multiple tables"
+      },
+      {
+        "start": 1053.74,
+        "duration": 5.76,
+        "text": "and the graph I'm able to think about"
+      },
+      {
+        "start": 1056.71,
+        "duration": 6.87,
+        "text": "the graph the graph part of the problem"
+      },
+      {
+        "start": 1059.5,
+        "duration": 7.75,
+        "text": "as graph but still deal with it in a"
+      },
+      {
+        "start": 1063.58,
+        "duration": 6.61,
+        "text": "graph II API a graph oriented API but"
+      },
+      {
+        "start": 1067.25,
+        "duration": 4.95,
+        "text": "not have to worry about you know how do"
+      },
+      {
+        "start": 1070.19,
+        "duration": 4.56,
+        "text": "things get persisted underneath that the"
+      },
+      {
+        "start": 1072.2,
+        "duration": 5.04,
+        "text": "it integrates so nicely with the DSC"
+      },
+      {
+        "start": 1074.75,
+        "duration": 4.59,
+        "text": "graphing so DAC graph Reims is a really"
+      },
+      {
+        "start": 1077.24,
+        "duration": 4.53,
+        "text": "neat API if I'm if it's more"
+      },
+      {
+        "start": 1079.34,
+        "duration": 6.09,
+        "text": "transactional than maybe I'm using"
+      },
+      {
+        "start": 1081.77,
+        "duration": 7.68,
+        "text": "tinker pop I'm working with DSC graph"
+      },
+      {
+        "start": 1085.43,
+        "duration": 6.78,
+        "text": "I'm really reluctant to edit the DSC"
+      },
+      {
+        "start": 1089.45,
+        "duration": 4.11,
+        "text": "graph Kassandra tables directly I might"
+      },
+      {
+        "start": 1092.21,
+        "duration": 3.18,
+        "text": "read them directly from time to time"
+      },
+      {
+        "start": 1093.56,
+        "duration": 3.84,
+        "text": "just because I like to see how things"
+      },
+      {
+        "start": 1095.39,
+        "duration": 4.62,
+        "text": "are stored on disk that helps that aids"
+      },
+      {
+        "start": 1097.4,
+        "duration": 4.95,
+        "text": "in my modeling I'm really I would never"
+      },
+      {
+        "start": 1100.01,
+        "duration": 3.69,
+        "text": "go in and hit those cassandra table"
+      },
+      {
+        "start": 1102.35,
+        "duration": 3.48,
+        "text": "write to those Cassandra tables directly"
+      },
+      {
+        "start": 1103.7,
+        "duration": 4.05,
+        "text": "and prefer to use an API that's a vendor"
+      },
+      {
+        "start": 1105.83,
+        "duration": 3.81,
+        "text": "provided one now if I'm working with"
+      },
+      {
+        "start": 1107.75,
+        "duration": 5.22,
+        "text": "sequel server on the other hand that's"
+      },
+      {
+        "start": 1109.64,
+        "duration": 6.62,
+        "text": "now added a graph API access to their"
+      },
+      {
+        "start": 1112.97,
+        "duration": 7.02,
+        "text": "stuff I will probably in that scenario"
+      },
+      {
+        "start": 1116.26,
+        "duration": 6.52,
+        "text": "write to the tables with MySQL same type"
+      },
+      {
+        "start": 1119.99,
+        "duration": 5.67,
+        "text": "of SQL stuff and then their API API"
+      },
+      {
+        "start": 1122.78,
+        "duration": 5.91,
+        "text": "allows some graphi abstractions to be"
+      },
+      {
+        "start": 1125.66,
+        "duration": 5.82,
+        "text": "introduced on top of that so that some"
+      },
+      {
+        "start": 1128.69,
+        "duration": 4.23,
+        "text": "of this is very vendor specific in terms"
+      },
+      {
+        "start": 1131.48,
+        "duration": 4.11,
+        "text": "of trying to understand which is my"
+      },
+      {
+        "start": 1132.92,
+        "duration": 5.46,
+        "text": "vendor allow what did you do"
+      },
+      {
+        "start": 1135.59,
+        "duration": 5.85,
+        "text": "I wouldn't be surprised if my buddy Ted"
+      },
+      {
+        "start": 1138.38,
+        "duration": 5.04,
+        "text": "who was on here a few episodes ago when"
+      },
+      {
+        "start": 1141.44,
+        "duration": 4.23,
+        "text": "working with his open-source tools"
+      },
+      {
+        "start": 1143.42,
+        "duration": 4.77,
+        "text": "prefers to just hit the tables directly"
+      },
+      {
+        "start": 1145.67,
+        "duration": 5.61,
+        "text": "or understand stuff table do some crazy"
+      },
+      {
+        "start": 1148.19,
+        "duration": 4.68,
+        "text": "stuff I I prefer to run with training"
+      },
+      {
+        "start": 1151.28,
+        "duration": 4.29,
+        "text": "wheels yeah no I hear you I mean there"
+      },
+      {
+        "start": 1152.87,
+        "duration": 4.5,
+        "text": "are there are definitely virtues of kind"
+      },
+      {
+        "start": 1155.57,
+        "duration": 4.35,
+        "text": "of going with direct access for speed"
+      },
+      {
+        "start": 1157.37,
+        "duration": 6.72,
+        "text": "kind of at your own risk maybe it's less"
+      },
+      {
+        "start": 1159.92,
+        "duration": 5.13,
+        "text": "maintainable code mate or overtime so"
+      },
+      {
+        "start": 1164.09,
+        "duration": 4.2,
+        "text": "that's the trade-off that you're making"
+      },
+      {
+        "start": 1165.05,
+        "duration": 5.19,
+        "text": "there but I do like very much the point"
+      },
+      {
+        "start": 1168.29,
+        "duration": 4.11,
+        "text": "that you made earlier about kind of"
+      },
+      {
+        "start": 1170.24,
+        "duration": 5.04,
+        "text": "offering up those abstraction layers and"
+      },
+      {
+        "start": 1172.4,
+        "duration": 5.34,
+        "text": "using patterns like a Dao data access"
+      },
+      {
+        "start": 1175.28,
+        "duration": 4.41,
+        "text": "object pattern to hide some of the gory"
+      },
+      {
+        "start": 1177.74,
+        "duration": 4.26,
+        "text": "details of your database implementation"
+      },
+      {
+        "start": 1179.69,
+        "duration": 3.93,
+        "text": "and then you're separating that out for"
+      },
+      {
+        "start": 1182.0,
+        "duration": 5.79,
+        "text": "your business logic you can continue"
+      },
+      {
+        "start": 1183.62,
+        "duration": 5.61,
+        "text": "doing what it's doing you do need to be"
+      },
+      {
+        "start": 1187.79,
+        "duration": 5.1,
+        "text": "conscious of things when you're writing"
+      },
+      {
+        "start": 1189.23,
+        "duration": 6.78,
+        "text": "that Dao layer and that's kind of where"
+      },
+      {
+        "start": 1192.89,
+        "duration": 5.82,
+        "text": "you're where I want to take the"
+      },
+      {
+        "start": 1196.01,
+        "duration": 4.53,
+        "text": "conversation or where I want to ask you"
+      },
+      {
+        "start": 1198.71,
+        "duration": 4.62,
+        "text": "about is like I think"
+      },
+      {
+        "start": 1200.54,
+        "duration": 3.99,
+        "text": "that's where you really need to when"
+      },
+      {
+        "start": 1203.33,
+        "duration": 3.54,
+        "text": "you're talking about architectures that"
+      },
+      {
+        "start": 1204.53,
+        "duration": 5.67,
+        "text": "scale up and and that's a lot about what"
+      },
+      {
+        "start": 1206.87,
+        "duration": 5.58,
+        "text": "we talked about on this on this show you"
+      },
+      {
+        "start": 1210.2,
+        "duration": 3.72,
+        "text": "do need to be conscious that the the"
+      },
+      {
+        "start": 1212.45,
+        "duration": 3.6,
+        "text": "database is not going to give you the"
+      },
+      {
+        "start": 1213.92,
+        "duration": 5.52,
+        "text": "magic abstraction that's just gonna give"
+      },
+      {
+        "start": 1216.05,
+        "duration": 6.0,
+        "text": "you scale right and is that Dao they are"
+      },
+      {
+        "start": 1219.44,
+        "duration": 3.81,
+        "text": "in fact the place where were you have to"
+      },
+      {
+        "start": 1222.05,
+        "duration": 3.45,
+        "text": "be conscious of some things"
+      },
+      {
+        "start": 1223.25,
+        "duration": 4.89,
+        "text": "I was just down down under actually"
+      },
+      {
+        "start": 1225.5,
+        "duration": 5.25,
+        "text": "working with the client in Sydney and we"
+      },
+      {
+        "start": 1228.14,
+        "duration": 4.47,
+        "text": "were designing a solution their"
+      },
+      {
+        "start": 1230.75,
+        "duration": 3.18,
+        "text": "architect have done a great job of kind"
+      },
+      {
+        "start": 1232.61,
+        "duration": 3.18,
+        "text": "of thinking through a lot of things and"
+      },
+      {
+        "start": 1233.93,
+        "duration": 3.45,
+        "text": "clarifying the problems this kind of"
+      },
+      {
+        "start": 1235.79,
+        "duration": 3.12,
+        "text": "falls in line with there's a there's a"
+      },
+      {
+        "start": 1237.38,
+        "duration": 3.6,
+        "text": "recent blogging article that's saying"
+      },
+      {
+        "start": 1238.91,
+        "duration": 3.24,
+        "text": "the micro services are just some company"
+      },
+      {
+        "start": 1240.98,
+        "duration": 2.91,
+        "text": "who struggle with micro services and"
+      },
+      {
+        "start": 1242.15,
+        "duration": 5.24,
+        "text": "they're back to the monolith and so we"
+      },
+      {
+        "start": 1243.89,
+        "duration": 6.3,
+        "text": "talked with this client Down Under and"
+      },
+      {
+        "start": 1247.39,
+        "duration": 5.74,
+        "text": "we're talking through the again it came"
+      },
+      {
+        "start": 1250.19,
+        "duration": 5.88,
+        "text": "down to read and write patterns and we"
+      },
+      {
+        "start": 1253.13,
+        "duration": 6.12,
+        "text": "they're querying part of it is gonna be"
+      },
+      {
+        "start": 1256.07,
+        "duration": 5.43,
+        "text": "this new solution this new API for them"
+      },
+      {
+        "start": 1259.25,
+        "duration": 4.92,
+        "text": "internally is going to be extremely Reed"
+      },
+      {
+        "start": 1261.5,
+        "duration": 5.31,
+        "text": "intensive and performance sensitive very"
+      },
+      {
+        "start": 1264.17,
+        "duration": 6.45,
+        "text": "performance sensitive we need sub 20"
+      },
+      {
+        "start": 1266.81,
+        "duration": 7.68,
+        "text": "millisecond response times on a 99.995"
+      },
+      {
+        "start": 1270.62,
+        "duration": 6.87,
+        "text": "9s basis I mean otherwise it will like"
+      },
+      {
+        "start": 1274.49,
+        "duration": 4.68,
+        "text": "it will potentially have severe impacts"
+      },
+      {
+        "start": 1277.49,
+        "duration": 2.97,
+        "text": "throughout the enterprise if we don't do"
+      },
+      {
+        "start": 1279.17,
+        "duration": 3.18,
+        "text": "that so that this these are the"
+      },
+      {
+        "start": 1280.46,
+        "duration": 3.84,
+        "text": "performance requirements coming in and"
+      },
+      {
+        "start": 1282.35,
+        "duration": 4.65,
+        "text": "so one of the first things we did from a"
+      },
+      {
+        "start": 1284.3,
+        "duration": 4.53,
+        "text": "design point of view is we carved out"
+      },
+      {
+        "start": 1287.0,
+        "duration": 3.57,
+        "text": "that read path and said this is just"
+      },
+      {
+        "start": 1288.83,
+        "duration": 4.11,
+        "text": "going to be handled separately we're"
+      },
+      {
+        "start": 1290.57,
+        "duration": 4.17,
+        "text": "gonna think about it from our dao level"
+      },
+      {
+        "start": 1292.94,
+        "duration": 5.07,
+        "text": "or from our the way we're expressing it"
+      },
+      {
+        "start": 1294.74,
+        "duration": 5.55,
+        "text": "to the the business this this SLA"
+      },
+      {
+        "start": 1298.01,
+        "duration": 4.44,
+        "text": "sensitive path here is going to be its"
+      },
+      {
+        "start": 1300.29,
+        "duration": 4.17,
+        "text": "own thing and we will always have that"
+      },
+      {
+        "start": 1302.45,
+        "duration": 3.42,
+        "text": "separate now will still be part of a"
+      },
+      {
+        "start": 1304.46,
+        "duration": 3.6,
+        "text": "uniform api and there'll be other"
+      },
+      {
+        "start": 1305.87,
+        "duration": 4.08,
+        "text": "accesses in it but at least as we're"
+      },
+      {
+        "start": 1308.06,
+        "duration": 3.63,
+        "text": "building this api and designing that we"
+      },
+      {
+        "start": 1309.95,
+        "duration": 4.38,
+        "text": "know that that's the most sensitive area"
+      },
+      {
+        "start": 1311.69,
+        "duration": 4.71,
+        "text": "of that and so we'll start with graph"
+      },
+      {
+        "start": 1314.33,
+        "duration": 4.08,
+        "text": "but we may need to go to a severe"
+      },
+      {
+        "start": 1316.4,
+        "duration": 4.53,
+        "text": "caching solution we've got we may need"
+      },
+      {
+        "start": 1318.41,
+        "duration": 4.35,
+        "text": "to do all sorts of shenanigans in the"
+      },
+      {
+        "start": 1320.93,
+        "duration": 3.69,
+        "text": "backend for that but we don't want to"
+      },
+      {
+        "start": 1322.76,
+        "duration": 5.28,
+        "text": "impact the business or have them worry"
+      },
+      {
+        "start": 1324.62,
+        "duration": 5.67,
+        "text": "about that at all so we we at least you"
+      },
+      {
+        "start": 1328.04,
+        "duration": 3.3,
+        "text": "know presented a uniform api to them up"
+      },
+      {
+        "start": 1330.29,
+        "duration": 3.24,
+        "text": "front saying here's what you're going to"
+      },
+      {
+        "start": 1331.34,
+        "duration": 3.19,
+        "text": "use but understand that this area right"
+      },
+      {
+        "start": 1333.53,
+        "duration": 2.32,
+        "text": "here is probably"
+      },
+      {
+        "start": 1334.53,
+        "duration": 3.39,
+        "text": "all the shifting in the backend is gonna"
+      },
+      {
+        "start": 1335.85,
+        "duration": 3.93,
+        "text": "happen when we get into like building"
+      },
+      {
+        "start": 1337.92,
+        "duration": 5.21,
+        "text": "and testing the solution that's a great"
+      },
+      {
+        "start": 1339.78,
+        "duration": 6.63,
+        "text": "example then and perfect so I feel like"
+      },
+      {
+        "start": 1343.13,
+        "duration": 6.25,
+        "text": "you have a number of stories that you"
+      },
+      {
+        "start": 1346.41,
+        "duration": 4.29,
+        "text": "could probably tell about you know ways"
+      },
+      {
+        "start": 1349.38,
+        "duration": 3.54,
+        "text": "that you've solved kind of these hard"
+      },
+      {
+        "start": 1350.7,
+        "duration": 6.3,
+        "text": "scalability problems for mission"
+      },
+      {
+        "start": 1352.92,
+        "duration": 6.48,
+        "text": "critical systems so how about we"
+      },
+      {
+        "start": 1357.0,
+        "duration": 3.72,
+        "text": "continue this conversation on another"
+      },
+      {
+        "start": 1359.4,
+        "duration": 3.48,
+        "text": "episode I'd love to hear some more"
+      },
+      {
+        "start": 1360.72,
+        "duration": 5.34,
+        "text": "examples from you and even to pick your"
+      },
+      {
+        "start": 1362.88,
+        "duration": 5.52,
+        "text": "brain on where you see enterprise data"
+      },
+      {
+        "start": 1366.06,
+        "duration": 6.18,
+        "text": "architecture going in the future so oh"
+      },
+      {
+        "start": 1368.4,
+        "duration": 6.3,
+        "text": "that's good like yeah definitely so I've"
+      },
+      {
+        "start": 1372.24,
+        "duration": 5.46,
+        "text": "got I'll clear my schedule Jeff just let"
+      },
+      {
+        "start": 1374.7,
+        "duration": 5.19,
+        "text": "me know what works for you okay"
+      },
+      {
+        "start": 1377.7,
+        "duration": 3.96,
+        "text": "excellent sounds good look forward to"
+      },
+      {
+        "start": 1379.89,
+        "duration": 3.69,
+        "text": "doing this again thanks everyone for"
+      },
+      {
+        "start": 1381.66,
+        "duration": 3.24,
+        "text": "joining us this week on the distributed"
+      },
+      {
+        "start": 1383.58,
+        "duration": 4.05,
+        "text": "data show look forward to seeing you"
+      },
+      {
+        "start": 1384.9,
+        "duration": 4.8,
+        "text": "next week thank you for joining us again"
+      },
+      {
+        "start": 1387.63,
+        "duration": 3.81,
+        "text": "for the distributed data show we love"
+      },
+      {
+        "start": 1389.7,
+        "duration": 3.75,
+        "text": "your feedback so go to the distributed"
+      },
+      {
+        "start": 1391.44,
+        "duration": 3.84,
+        "text": "data show page on data Stax Academy and"
+      },
+      {
+        "start": 1393.45,
+        "duration": 3.51,
+        "text": "tell us what you think you can also find"
+      },
+      {
+        "start": 1395.28,
+        "duration": 4.38,
+        "text": "us on the data stacks Academy YouTube"
+      },
+      {
+        "start": 1396.96,
+        "duration": 4.71,
+        "text": "channel or find our podcast on iTunes"
+      },
+      {
+        "start": 1399.66,
+        "duration": 4.47,
+        "text": "Google Play or wherever you get great"
+      },
+      {
+        "start": 1401.67,
+        "duration": 3.93,
+        "text": "podcast while you're there make sure and"
+      },
+      {
+        "start": 1404.13,
+        "duration": 2.52,
+        "text": "subscribe so you don't miss a single"
+      },
+      {
+        "start": 1405.6,
+        "duration": 5.229,
+        "text": "episode"
+      },
+      {
+        "start": 1406.65,
+        "duration": 4.179,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T05:59:23.235270+00:00"
+}

@@ -1,0 +1,1789 @@
+{
+  "video_id": "zh_vSrPnVVc",
+  "title": "DS220.22 Table / Key Optimizations | Data Modeling with Apache Cassandra",
+  "description": "#DataStaxAcademy #DS220\nDS220.22 Table / Key Optimizations\nIn this unit, you will learn about table / key optimizations. Most likely the majority of the optimizations we can make to our data model involve making changes to our table's schema, particular to the primary key.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-14T09:29:35Z",
+  "thumbnail": "https://i.ytimg.com/vi/zh_vSrPnVVc/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "data_modeling",
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=zh_vSrPnVVc",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] probably the majority of the optimizations we are able to do with our data model involve making changes to our table schemas particularly with the primary key of our table it's no wonder considering the primary key determines how data gets distributed to different nodes across the cluster and helps to determine how large partitions will grow over time in this video we'll be taking a look at some of the optimization techniques that can be used to help manage performance issues you may have with your tables and how they can be modified for better performance and efficiency when thinking back to the keys used in traditional relational databases the whole purpose of the primary key is to maintain uniqueness for each row that is inserted into the table while minimizing the number of columns needed to form the primary key in our example below both video tables here work perfectly fine for describing in a unique row however the table on the left includes several other columns that are not necessary for the purpose of uniqueness with a primary key in apache cassandra there are several parts to the key that fulfill different purposes it is divided between the partition key which makes some number of columns in the primary key and the clustering columns which make up the rest of the columns in the primary key the partition key is what defines the partitions that are holding up certain cql rows and also determines where the partition will be stored in the cluster clustering columns also have some useful attributes as well namely being able to determine the ordering of ckl rows stored within a partition and makes searching those clustering columns slightly easier for our latest videos table here we are interested in having rows ordered by the time stamp when a video is uploaded but in descending order of course the primary key still needs to be able to maintain uniqueness using a minimum number of columns which is why the video id is included in the primary key although this place at the very end when considering what keys to use to make up your primary key you usually decide between two different types natural keys and surrogate keys natural keys represent attributes that already exist within your data when thinking about a user table you can define a unique user using their email address or maybe a combination of their first and last name and date of birth or if you're here with us in the united states you can make use of each person's unique social security number or taxpayer number in comparison surrogate keys are keys that are generated for the sole purpose of establishing uniqueness for a row this can be something like an auto-incrementing integer or sequence that you may be familiar with from relational databases or something like a uuid that would be more commonly used in cassandra most importantly there shouldn't be any particular relationship with the data that it's representing the nice thing about surrogate keys is that they are intended to be completely unique this means that you should never generate the same key twice and therefore wouldn't have to worry about the possibility of overwriting an existing row that has the same primary key surrogate keys are also immutable and do not change over time whereas it is possible that attributes used for natural keys change and therefore changes the key itself a surrogate key is generated specifically for a row and will always be the same value for that row because there is some mechanism to generate a surrogate key they also tend to be of uniform size and performance let's now take a look at some different techniques that can be used to optimize the table there are several characteristics we can optimize for such as the speed of reading partitions or managing the size of the partitions or even removing some of the complexity of maintaining the data in the table in comparison to other tables the first technique we'll take a look at here is splitting a table partition having partitions grow too large is a frequently encountered problem which may require some adjustment to how the partition or basically the partition key is defined a typical example might be the case of a table that tracks actions performed by individual users it may be possible that a highly active user may have more than 1 000 different video interactions per day in the form of playing videos pausing videos skipping ahead in the video and so forth our table that we define here is the video interactions by user table which uses the user id as the primary key and the event timestamp and video id as the clustering columns this means that each partition represents a user and each cql row represents a unique interaction for that user with so many interactions done by this highly active user the size of this partition can easily exceed the recommended guidelines for the partition size within 2 months what do we want to do if we don't want operations that touch this partition to be impacted well we can see if it's possible to split the partition by redefining our partition key the general strategy is to find an existing column that you can use to logically split the partition into multiple pieces sometimes this may be an existing clustering column or a regular column that you have in the table if it doesn't seem like there are any viable choices it's possible that you will need to create your own artificial columns specifically for splitting a partition a bit later we'll take a look at an example of creating an artificial column for partition splitting continuing on with our example the highly active user and their large partition let's say that we want to split the partition using an existing column just looking at the primary key let's see if there are any possible choices here if using a bent timestamp that would mean that the partition will store all user interactions that occurred at that specific point in time this may not make too much sense though since it is unlikely to have more than one interaction occurring within the same second the next clustering column video id just so happens to be a good candidate instead of defining each partition to store all the interactions for all videos that a user has done it will instead represent all interactions by that user for a specific video all you need to do is to move the video id column in the primary key so that it becomes part of the partition key in this way you optimize the table to better control the size of each partition let's now take a look at using an artificial column to split the partition here we need to come up with some sort of column that can split up the partition although we have previously ruled out event timestamp what if we were able to make that value less granular for example we can split the partition by the date of the event rather than exact timestamp this way all interactions for a user on a particular date would be stored in one partition even taking into account our highly active user this should still make the partition quite manageable therefore we create a new column called event date that will be a part of the partition key the application will then need to handle populating that column using the value from the event timestamp it is also possible to split a partition using a bucket column where you and the application can manually control how much of the partition is split you basically control the max bucket value and the application will then need to ensure that each split partition is uniform for example maybe we want to store 1000 interactions in each partition as the user has more and more interactions it'll fill up the first partition which would have a bucket value of zero and then proceed to write to the next partition with a bucket value of one and so forth another technique that we'll talk about here is a way to split up the table instead of storing all the data into a single table it may make sense to split up the table basically the columns in the table into separate tables this will allow some queries to perform faster if they do not necessarily need to read all the columns in the original table table partitions will also be smaller when split finally because the partitions are smaller it may allow more of them to be cached in memory and thus making the cache more useful in this example users will query for video metadata more often than watching the video itself we split the video streaming data to its own table so our application does not unnecessarily pull it when displaying just the title tags and other columns depending on your queries you may need to adjust the primary key when you split a table be careful to ensure that you don't lose or orphan records in either table while performing the split for example if we are not careful in our application we can store interstellar's metadata but fail to also store its streaming blob or vice versa also ensure that you don't require client-side joins when splitting a table for example splitting the stream blob here seems like a good choice but if we never allow users to view video metadata without watching the video in the same action we forced our application to do two queries now instead of one if you can split table and partitions you can also do the reverse which is merging them together this may be helpful in eliminating duplication which reduces complexity but may come at the expense of having queries run slower when merging partitions the general strategy is to introduce a new partition key and nest objects in the new partition the new key can use either existing columns or a new artificial column in our example below we have a table users which defines each partition as a single row or a single user our goal is to merge users together so that there are multiple users in a single partition there are many different ways this can be done with three possible tables shown here one merges users based on their first name and their last name using a new name column as a partition key another merges users based on a related attribute called symbol the final one uses an arbitrary bucket column to merge users together in this case what do you think would be the best choice the answer of course is that it depends each one has certain advantages and disadvantages so it is really up to you to decide what works best finally let's take a look at adding new columns to a table this is pretty straightforward since you just need to alter the current table to include your new columns so long as the new columns do not need to be in the primary key if you take a look at our example this is a scenario we've seen in a different video where we want to compute and save the average rating of a video we have the original videos table as well as a ratings by video table with the count and some of the ratings for each video all we need to do then is to alter the table to include our new average rating column so that the calculated average rating can then be updated for the video this is quite a lot of information to absorb so why don't we try applying some of these optimization techniques that we covered in this video give that a try and once you finish you can come back and go to the next module",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 5.32,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.44,
+        "duration": 3.199,
+        "text": "probably the majority of the"
+      },
+      {
+        "start": 8.72,
+        "duration": 2.799,
+        "text": "optimizations we are able to do with our"
+      },
+      {
+        "start": 10.639,
+        "duration": 2.561,
+        "text": "data model"
+      },
+      {
+        "start": 11.519,
+        "duration": 4.08,
+        "text": "involve making changes to our table"
+      },
+      {
+        "start": 13.2,
+        "duration": 3.36,
+        "text": "schemas particularly with the primary"
+      },
+      {
+        "start": 15.599,
+        "duration": 3.201,
+        "text": "key of our table"
+      },
+      {
+        "start": 16.56,
+        "duration": 4.08,
+        "text": "it's no wonder considering the primary"
+      },
+      {
+        "start": 18.8,
+        "duration": 3.76,
+        "text": "key determines how data gets distributed"
+      },
+      {
+        "start": 20.64,
+        "duration": 3.28,
+        "text": "to different nodes across the cluster"
+      },
+      {
+        "start": 22.56,
+        "duration": 3.28,
+        "text": "and helps to determine how large"
+      },
+      {
+        "start": 23.92,
+        "duration": 3.76,
+        "text": "partitions will grow over time"
+      },
+      {
+        "start": 25.84,
+        "duration": 3.599,
+        "text": "in this video we'll be taking a look at"
+      },
+      {
+        "start": 27.68,
+        "duration": 3.2,
+        "text": "some of the optimization techniques"
+      },
+      {
+        "start": 29.439,
+        "duration": 3.041,
+        "text": "that can be used to help manage"
+      },
+      {
+        "start": 30.88,
+        "duration": 2.48,
+        "text": "performance issues you may have with"
+      },
+      {
+        "start": 32.48,
+        "duration": 2.4,
+        "text": "your tables"
+      },
+      {
+        "start": 33.36,
+        "duration": 3.44,
+        "text": "and how they can be modified for better"
+      },
+      {
+        "start": 34.88,
+        "duration": 3.76,
+        "text": "performance and efficiency"
+      },
+      {
+        "start": 36.8,
+        "duration": 4.0,
+        "text": "when thinking back to the keys used in"
+      },
+      {
+        "start": 38.64,
+        "duration": 3.919,
+        "text": "traditional relational databases"
+      },
+      {
+        "start": 40.8,
+        "duration": 3.2,
+        "text": "the whole purpose of the primary key is"
+      },
+      {
+        "start": 42.559,
+        "duration": 3.601,
+        "text": "to maintain uniqueness for each"
+      },
+      {
+        "start": 44.0,
+        "duration": 3.92,
+        "text": "row that is inserted into the table"
+      },
+      {
+        "start": 46.16,
+        "duration": 3.919,
+        "text": "while minimizing the number of columns"
+      },
+      {
+        "start": 47.92,
+        "duration": 4.56,
+        "text": "needed to form the primary key"
+      },
+      {
+        "start": 50.079,
+        "duration": 4.401,
+        "text": "in our example below both video tables"
+      },
+      {
+        "start": 52.48,
+        "duration": 3.44,
+        "text": "here work perfectly fine for describing"
+      },
+      {
+        "start": 54.48,
+        "duration": 3.28,
+        "text": "in a unique row"
+      },
+      {
+        "start": 55.92,
+        "duration": 3.36,
+        "text": "however the table on the left includes"
+      },
+      {
+        "start": 57.76,
+        "duration": 4.16,
+        "text": "several other columns that are not"
+      },
+      {
+        "start": 59.28,
+        "duration": 4.959,
+        "text": "necessary for the purpose of uniqueness"
+      },
+      {
+        "start": 61.92,
+        "duration": 3.84,
+        "text": "with a primary key in apache cassandra"
+      },
+      {
+        "start": 64.239,
+        "duration": 3.441,
+        "text": "there are several parts to the key"
+      },
+      {
+        "start": 65.76,
+        "duration": 3.6,
+        "text": "that fulfill different purposes it is"
+      },
+      {
+        "start": 67.68,
+        "duration": 3.2,
+        "text": "divided between the partition key"
+      },
+      {
+        "start": 69.36,
+        "duration": 3.36,
+        "text": "which makes some number of columns in"
+      },
+      {
+        "start": 70.88,
+        "duration": 2.48,
+        "text": "the primary key and the clustering"
+      },
+      {
+        "start": 72.72,
+        "duration": 2.24,
+        "text": "columns"
+      },
+      {
+        "start": 73.36,
+        "duration": 3.2,
+        "text": "which make up the rest of the columns in"
+      },
+      {
+        "start": 74.96,
+        "duration": 3.36,
+        "text": "the primary key"
+      },
+      {
+        "start": 76.56,
+        "duration": 3.76,
+        "text": "the partition key is what defines the"
+      },
+      {
+        "start": 78.32,
+        "duration": 3.119,
+        "text": "partitions that are holding up certain"
+      },
+      {
+        "start": 80.32,
+        "duration": 3.04,
+        "text": "cql rows"
+      },
+      {
+        "start": 81.439,
+        "duration": 3.601,
+        "text": "and also determines where the partition"
+      },
+      {
+        "start": 83.36,
+        "duration": 3.68,
+        "text": "will be stored in the cluster"
+      },
+      {
+        "start": 85.04,
+        "duration": 3.28,
+        "text": "clustering columns also have some useful"
+      },
+      {
+        "start": 87.04,
+        "duration": 2.88,
+        "text": "attributes as well"
+      },
+      {
+        "start": 88.32,
+        "duration": 3.759,
+        "text": "namely being able to determine the"
+      },
+      {
+        "start": 89.92,
+        "duration": 3.12,
+        "text": "ordering of ckl rows stored within a"
+      },
+      {
+        "start": 92.079,
+        "duration": 2.641,
+        "text": "partition"
+      },
+      {
+        "start": 93.04,
+        "duration": 3.439,
+        "text": "and makes searching those clustering"
+      },
+      {
+        "start": 94.72,
+        "duration": 4.24,
+        "text": "columns slightly easier"
+      },
+      {
+        "start": 96.479,
+        "duration": 4.241,
+        "text": "for our latest videos table here we are"
+      },
+      {
+        "start": 98.96,
+        "duration": 3.92,
+        "text": "interested in having rows ordered by the"
+      },
+      {
+        "start": 100.72,
+        "duration": 4.88,
+        "text": "time stamp when a video is uploaded"
+      },
+      {
+        "start": 102.88,
+        "duration": 4.4,
+        "text": "but in descending order of course the"
+      },
+      {
+        "start": 105.6,
+        "duration": 2.799,
+        "text": "primary key still needs to be able to"
+      },
+      {
+        "start": 107.28,
+        "duration": 3.36,
+        "text": "maintain uniqueness"
+      },
+      {
+        "start": 108.399,
+        "duration": 3.68,
+        "text": "using a minimum number of columns which"
+      },
+      {
+        "start": 110.64,
+        "duration": 3.439,
+        "text": "is why the video id"
+      },
+      {
+        "start": 112.079,
+        "duration": 3.761,
+        "text": "is included in the primary key although"
+      },
+      {
+        "start": 114.079,
+        "duration": 3.521,
+        "text": "this place at the very end"
+      },
+      {
+        "start": 115.84,
+        "duration": 3.36,
+        "text": "when considering what keys to use to"
+      },
+      {
+        "start": 117.6,
+        "duration": 3.44,
+        "text": "make up your primary key"
+      },
+      {
+        "start": 119.2,
+        "duration": 4.879,
+        "text": "you usually decide between two different"
+      },
+      {
+        "start": 121.04,
+        "duration": 4.96,
+        "text": "types natural keys and surrogate keys"
+      },
+      {
+        "start": 124.079,
+        "duration": 3.521,
+        "text": "natural keys represent attributes that"
+      },
+      {
+        "start": 126.0,
+        "duration": 3.52,
+        "text": "already exist within your data"
+      },
+      {
+        "start": 127.6,
+        "duration": 3.92,
+        "text": "when thinking about a user table you can"
+      },
+      {
+        "start": 129.52,
+        "duration": 2.56,
+        "text": "define a unique user using their email"
+      },
+      {
+        "start": 131.52,
+        "duration": 2.24,
+        "text": "address"
+      },
+      {
+        "start": 132.08,
+        "duration": 3.84,
+        "text": "or maybe a combination of their first"
+      },
+      {
+        "start": 133.76,
+        "duration": 4.16,
+        "text": "and last name and date of birth"
+      },
+      {
+        "start": 135.92,
+        "duration": 4.24,
+        "text": "or if you're here with us in the united"
+      },
+      {
+        "start": 137.92,
+        "duration": 3.76,
+        "text": "states you can make use of each person's"
+      },
+      {
+        "start": 140.16,
+        "duration": 4.719,
+        "text": "unique social security number"
+      },
+      {
+        "start": 141.68,
+        "duration": 4.8,
+        "text": "or taxpayer number in comparison"
+      },
+      {
+        "start": 144.879,
+        "duration": 3.121,
+        "text": "surrogate keys are keys that are"
+      },
+      {
+        "start": 146.48,
+        "duration": 3.68,
+        "text": "generated for the sole purpose of"
+      },
+      {
+        "start": 148.0,
+        "duration": 3.36,
+        "text": "establishing uniqueness for a row"
+      },
+      {
+        "start": 150.16,
+        "duration": 3.439,
+        "text": "this can be something like an"
+      },
+      {
+        "start": 151.36,
+        "duration": 3.76,
+        "text": "auto-incrementing integer or sequence"
+      },
+      {
+        "start": 153.599,
+        "duration": 2.961,
+        "text": "that you may be familiar with from"
+      },
+      {
+        "start": 155.12,
+        "duration": 3.759,
+        "text": "relational databases"
+      },
+      {
+        "start": 156.56,
+        "duration": 4.24,
+        "text": "or something like a uuid that would be"
+      },
+      {
+        "start": 158.879,
+        "duration": 3.921,
+        "text": "more commonly used in cassandra"
+      },
+      {
+        "start": 160.8,
+        "duration": 3.519,
+        "text": "most importantly there shouldn't be any"
+      },
+      {
+        "start": 162.8,
+        "duration": 2.88,
+        "text": "particular relationship with the data"
+      },
+      {
+        "start": 164.319,
+        "duration": 3.361,
+        "text": "that it's representing"
+      },
+      {
+        "start": 165.68,
+        "duration": 3.44,
+        "text": "the nice thing about surrogate keys is"
+      },
+      {
+        "start": 167.68,
+        "duration": 1.919,
+        "text": "that they are intended to be completely"
+      },
+      {
+        "start": 169.12,
+        "duration": 1.759,
+        "text": "unique"
+      },
+      {
+        "start": 169.599,
+        "duration": 2.881,
+        "text": "this means that you should never"
+      },
+      {
+        "start": 170.879,
+        "duration": 2.321,
+        "text": "generate the same key twice and"
+      },
+      {
+        "start": 172.48,
+        "duration": 1.92,
+        "text": "therefore"
+      },
+      {
+        "start": 173.2,
+        "duration": 3.44,
+        "text": "wouldn't have to worry about the"
+      },
+      {
+        "start": 174.4,
+        "duration": 2.64,
+        "text": "possibility of overwriting an existing"
+      },
+      {
+        "start": 176.64,
+        "duration": 3.2,
+        "text": "row"
+      },
+      {
+        "start": 177.04,
+        "duration": 4.4,
+        "text": "that has the same primary key surrogate"
+      },
+      {
+        "start": 179.84,
+        "duration": 4.16,
+        "text": "keys are also immutable"
+      },
+      {
+        "start": 181.44,
+        "duration": 4.24,
+        "text": "and do not change over time whereas it"
+      },
+      {
+        "start": 184.0,
+        "duration": 2.48,
+        "text": "is possible that attributes used for"
+      },
+      {
+        "start": 185.68,
+        "duration": 2.559,
+        "text": "natural keys"
+      },
+      {
+        "start": 186.48,
+        "duration": 4.08,
+        "text": "change and therefore changes the key"
+      },
+      {
+        "start": 188.239,
+        "duration": 3.601,
+        "text": "itself a surrogate key is generated"
+      },
+      {
+        "start": 190.56,
+        "duration": 2.8,
+        "text": "specifically for a row"
+      },
+      {
+        "start": 191.84,
+        "duration": 3.84,
+        "text": "and will always be the same value for"
+      },
+      {
+        "start": 193.36,
+        "duration": 3.92,
+        "text": "that row because there is some mechanism"
+      },
+      {
+        "start": 195.68,
+        "duration": 3.76,
+        "text": "to generate a surrogate key"
+      },
+      {
+        "start": 197.28,
+        "duration": 3.52,
+        "text": "they also tend to be of uniform size and"
+      },
+      {
+        "start": 199.44,
+        "duration": 2.96,
+        "text": "performance"
+      },
+      {
+        "start": 200.8,
+        "duration": 3.28,
+        "text": "let's now take a look at some different"
+      },
+      {
+        "start": 202.4,
+        "duration": 2.72,
+        "text": "techniques that can be used to optimize"
+      },
+      {
+        "start": 204.08,
+        "duration": 2.64,
+        "text": "the table"
+      },
+      {
+        "start": 205.12,
+        "duration": 3.52,
+        "text": "there are several characteristics we can"
+      },
+      {
+        "start": 206.72,
+        "duration": 3.04,
+        "text": "optimize for such as the speed of"
+      },
+      {
+        "start": 208.64,
+        "duration": 2.959,
+        "text": "reading partitions"
+      },
+      {
+        "start": 209.76,
+        "duration": 4.0,
+        "text": "or managing the size of the partitions"
+      },
+      {
+        "start": 211.599,
+        "duration": 4.0,
+        "text": "or even removing some of the complexity"
+      },
+      {
+        "start": 213.76,
+        "duration": 4.24,
+        "text": "of maintaining the data in the table"
+      },
+      {
+        "start": 215.599,
+        "duration": 4.0,
+        "text": "in comparison to other tables the first"
+      },
+      {
+        "start": 218.0,
+        "duration": 4.0,
+        "text": "technique we'll take a look at here"
+      },
+      {
+        "start": 219.599,
+        "duration": 3.841,
+        "text": "is splitting a table partition having"
+      },
+      {
+        "start": 222.0,
+        "duration": 3.12,
+        "text": "partitions grow too large"
+      },
+      {
+        "start": 223.44,
+        "duration": 3.6,
+        "text": "is a frequently encountered problem"
+      },
+      {
+        "start": 225.12,
+        "duration": 2.8,
+        "text": "which may require some adjustment to how"
+      },
+      {
+        "start": 227.04,
+        "duration": 2.72,
+        "text": "the partition"
+      },
+      {
+        "start": 227.92,
+        "duration": 4.16,
+        "text": "or basically the partition key is"
+      },
+      {
+        "start": 229.76,
+        "duration": 3.28,
+        "text": "defined a typical example might be the"
+      },
+      {
+        "start": 232.08,
+        "duration": 2.719,
+        "text": "case of a table"
+      },
+      {
+        "start": 233.04,
+        "duration": 4.08,
+        "text": "that tracks actions performed by"
+      },
+      {
+        "start": 234.799,
+        "duration": 4.401,
+        "text": "individual users it may be possible that"
+      },
+      {
+        "start": 237.12,
+        "duration": 4.24,
+        "text": "a highly active user may have more than"
+      },
+      {
+        "start": 239.2,
+        "duration": 2.64,
+        "text": "1 000 different video interactions per"
+      },
+      {
+        "start": 241.36,
+        "duration": 2.32,
+        "text": "day"
+      },
+      {
+        "start": 241.84,
+        "duration": 3.92,
+        "text": "in the form of playing videos pausing"
+      },
+      {
+        "start": 243.68,
+        "duration": 2.96,
+        "text": "videos skipping ahead in the video and"
+      },
+      {
+        "start": 245.76,
+        "duration": 2.399,
+        "text": "so forth"
+      },
+      {
+        "start": 246.64,
+        "duration": 3.679,
+        "text": "our table that we define here is the"
+      },
+      {
+        "start": 248.159,
+        "duration": 4.241,
+        "text": "video interactions by user table"
+      },
+      {
+        "start": 250.319,
+        "duration": 3.92,
+        "text": "which uses the user id as the primary"
+      },
+      {
+        "start": 252.4,
+        "duration": 4.959,
+        "text": "key and the event timestamp"
+      },
+      {
+        "start": 254.239,
+        "duration": 4.56,
+        "text": "and video id as the clustering columns"
+      },
+      {
+        "start": 257.359,
+        "duration": 4.081,
+        "text": "this means that each partition"
+      },
+      {
+        "start": 258.799,
+        "duration": 4.481,
+        "text": "represents a user and each cql row"
+      },
+      {
+        "start": 261.44,
+        "duration": 2.88,
+        "text": "represents a unique interaction for that"
+      },
+      {
+        "start": 263.28,
+        "duration": 2.88,
+        "text": "user"
+      },
+      {
+        "start": 264.32,
+        "duration": 3.2,
+        "text": "with so many interactions done by this"
+      },
+      {
+        "start": 266.16,
+        "duration": 3.36,
+        "text": "highly active user"
+      },
+      {
+        "start": 267.52,
+        "duration": 3.92,
+        "text": "the size of this partition can easily"
+      },
+      {
+        "start": 269.52,
+        "duration": 4.399,
+        "text": "exceed the recommended guidelines for"
+      },
+      {
+        "start": 271.44,
+        "duration": 4.08,
+        "text": "the partition size within 2 months"
+      },
+      {
+        "start": 273.919,
+        "duration": 3.28,
+        "text": "what do we want to do if we don't want"
+      },
+      {
+        "start": 275.52,
+        "duration": 3.119,
+        "text": "operations that touch this partition to"
+      },
+      {
+        "start": 277.199,
+        "duration": 3.201,
+        "text": "be impacted"
+      },
+      {
+        "start": 278.639,
+        "duration": 3.761,
+        "text": "well we can see if it's possible to"
+      },
+      {
+        "start": 280.4,
+        "duration": 3.44,
+        "text": "split the partition by redefining our"
+      },
+      {
+        "start": 282.4,
+        "duration": 3.28,
+        "text": "partition key"
+      },
+      {
+        "start": 283.84,
+        "duration": 3.44,
+        "text": "the general strategy is to find an"
+      },
+      {
+        "start": 285.68,
+        "duration": 3.36,
+        "text": "existing column that you can use to"
+      },
+      {
+        "start": 287.28,
+        "duration": 3.04,
+        "text": "logically split the partition into"
+      },
+      {
+        "start": 289.04,
+        "duration": 2.719,
+        "text": "multiple pieces"
+      },
+      {
+        "start": 290.32,
+        "duration": 3.28,
+        "text": "sometimes this may be an existing"
+      },
+      {
+        "start": 291.759,
+        "duration": 3.681,
+        "text": "clustering column or a regular column"
+      },
+      {
+        "start": 293.6,
+        "duration": 3.52,
+        "text": "that you have in the table"
+      },
+      {
+        "start": 295.44,
+        "duration": 3.759,
+        "text": "if it doesn't seem like there are any"
+      },
+      {
+        "start": 297.12,
+        "duration": 3.6,
+        "text": "viable choices it's possible that you"
+      },
+      {
+        "start": 299.199,
+        "duration": 3.28,
+        "text": "will need to create your own artificial"
+      },
+      {
+        "start": 300.72,
+        "duration": 2.88,
+        "text": "columns specifically for splitting a"
+      },
+      {
+        "start": 302.479,
+        "duration": 2.881,
+        "text": "partition"
+      },
+      {
+        "start": 303.6,
+        "duration": 3.76,
+        "text": "a bit later we'll take a look at an"
+      },
+      {
+        "start": 305.36,
+        "duration": 3.76,
+        "text": "example of creating an artificial column"
+      },
+      {
+        "start": 307.36,
+        "duration": 3.52,
+        "text": "for partition splitting"
+      },
+      {
+        "start": 309.12,
+        "duration": 3.519,
+        "text": "continuing on with our example the"
+      },
+      {
+        "start": 310.88,
+        "duration": 2.879,
+        "text": "highly active user and their large"
+      },
+      {
+        "start": 312.639,
+        "duration": 2.481,
+        "text": "partition"
+      },
+      {
+        "start": 313.759,
+        "duration": 3.841,
+        "text": "let's say that we want to split the"
+      },
+      {
+        "start": 315.12,
+        "duration": 4.48,
+        "text": "partition using an existing column"
+      },
+      {
+        "start": 317.6,
+        "duration": 3.52,
+        "text": "just looking at the primary key let's"
+      },
+      {
+        "start": 319.6,
+        "duration": 1.92,
+        "text": "see if there are any possible choices"
+      },
+      {
+        "start": 321.12,
+        "duration": 2.4,
+        "text": "here"
+      },
+      {
+        "start": 321.52,
+        "duration": 3.76,
+        "text": "if using a bent timestamp that would"
+      },
+      {
+        "start": 323.52,
+        "duration": 3.36,
+        "text": "mean that the partition will store all"
+      },
+      {
+        "start": 325.28,
+        "duration": 4.16,
+        "text": "user interactions that occurred"
+      },
+      {
+        "start": 326.88,
+        "duration": 3.92,
+        "text": "at that specific point in time this may"
+      },
+      {
+        "start": 329.44,
+        "duration": 3.039,
+        "text": "not make too much sense though"
+      },
+      {
+        "start": 330.8,
+        "duration": 3.44,
+        "text": "since it is unlikely to have more than"
+      },
+      {
+        "start": 332.479,
+        "duration": 2.641,
+        "text": "one interaction occurring within the"
+      },
+      {
+        "start": 334.24,
+        "duration": 3.36,
+        "text": "same second"
+      },
+      {
+        "start": 335.12,
+        "duration": 4.639,
+        "text": "the next clustering column video id just"
+      },
+      {
+        "start": 337.6,
+        "duration": 4.0,
+        "text": "so happens to be a good candidate"
+      },
+      {
+        "start": 339.759,
+        "duration": 3.361,
+        "text": "instead of defining each partition to"
+      },
+      {
+        "start": 341.6,
+        "duration": 4.0,
+        "text": "store all the interactions"
+      },
+      {
+        "start": 343.12,
+        "duration": 4.56,
+        "text": "for all videos that a user has done it"
+      },
+      {
+        "start": 345.6,
+        "duration": 3.2,
+        "text": "will instead represent all interactions"
+      },
+      {
+        "start": 347.68,
+        "duration": 3.68,
+        "text": "by that user"
+      },
+      {
+        "start": 348.8,
+        "duration": 4.399,
+        "text": "for a specific video all you need to do"
+      },
+      {
+        "start": 351.36,
+        "duration": 2.88,
+        "text": "is to move the video id column in the"
+      },
+      {
+        "start": 353.199,
+        "duration": 2.72,
+        "text": "primary key"
+      },
+      {
+        "start": 354.24,
+        "duration": 3.76,
+        "text": "so that it becomes part of the partition"
+      },
+      {
+        "start": 355.919,
+        "duration": 3.84,
+        "text": "key in this way you optimize the table"
+      },
+      {
+        "start": 358.0,
+        "duration": 3.12,
+        "text": "to better control the size of each"
+      },
+      {
+        "start": 359.759,
+        "duration": 2.961,
+        "text": "partition"
+      },
+      {
+        "start": 361.12,
+        "duration": 3.919,
+        "text": "let's now take a look at using an"
+      },
+      {
+        "start": 362.72,
+        "duration": 4.0,
+        "text": "artificial column to split the partition"
+      },
+      {
+        "start": 365.039,
+        "duration": 3.121,
+        "text": "here we need to come up with some sort"
+      },
+      {
+        "start": 366.72,
+        "duration": 2.479,
+        "text": "of column that can split up the"
+      },
+      {
+        "start": 368.16,
+        "duration": 2.56,
+        "text": "partition"
+      },
+      {
+        "start": 369.199,
+        "duration": 3.601,
+        "text": "although we have previously ruled out"
+      },
+      {
+        "start": 370.72,
+        "duration": 3.919,
+        "text": "event timestamp what if we were able to"
+      },
+      {
+        "start": 372.8,
+        "duration": 4.0,
+        "text": "make that value less granular"
+      },
+      {
+        "start": 374.639,
+        "duration": 3.68,
+        "text": "for example we can split the partition"
+      },
+      {
+        "start": 376.8,
+        "duration": 4.32,
+        "text": "by the date of the event"
+      },
+      {
+        "start": 378.319,
+        "duration": 4.561,
+        "text": "rather than exact timestamp this way all"
+      },
+      {
+        "start": 381.12,
+        "duration": 2.32,
+        "text": "interactions for a user on a particular"
+      },
+      {
+        "start": 382.88,
+        "duration": 2.8,
+        "text": "date"
+      },
+      {
+        "start": 383.44,
+        "duration": 3.84,
+        "text": "would be stored in one partition even"
+      },
+      {
+        "start": 385.68,
+        "duration": 2.32,
+        "text": "taking into account our highly active"
+      },
+      {
+        "start": 387.28,
+        "duration": 2.08,
+        "text": "user"
+      },
+      {
+        "start": 388.0,
+        "duration": 3.6,
+        "text": "this should still make the partition"
+      },
+      {
+        "start": 389.36,
+        "duration": 3.92,
+        "text": "quite manageable therefore we create a"
+      },
+      {
+        "start": 391.6,
+        "duration": 3.84,
+        "text": "new column called event date"
+      },
+      {
+        "start": 393.28,
+        "duration": 3.919,
+        "text": "that will be a part of the partition key"
+      },
+      {
+        "start": 395.44,
+        "duration": 2.96,
+        "text": "the application will then need to handle"
+      },
+      {
+        "start": 397.199,
+        "duration": 3.761,
+        "text": "populating that column"
+      },
+      {
+        "start": 398.4,
+        "duration": 4.72,
+        "text": "using the value from the event timestamp"
+      },
+      {
+        "start": 400.96,
+        "duration": 3.44,
+        "text": "it is also possible to split a partition"
+      },
+      {
+        "start": 403.12,
+        "duration": 2.72,
+        "text": "using a bucket column"
+      },
+      {
+        "start": 404.4,
+        "duration": 2.96,
+        "text": "where you and the application can"
+      },
+      {
+        "start": 405.84,
+        "duration": 2.88,
+        "text": "manually control how much of the"
+      },
+      {
+        "start": 407.36,
+        "duration": 2.959,
+        "text": "partition is split"
+      },
+      {
+        "start": 408.72,
+        "duration": 3.599,
+        "text": "you basically control the max bucket"
+      },
+      {
+        "start": 410.319,
+        "duration": 2.88,
+        "text": "value and the application will then need"
+      },
+      {
+        "start": 412.319,
+        "duration": 3.44,
+        "text": "to ensure"
+      },
+      {
+        "start": 413.199,
+        "duration": 3.361,
+        "text": "that each split partition is uniform for"
+      },
+      {
+        "start": 415.759,
+        "duration": 3.041,
+        "text": "example"
+      },
+      {
+        "start": 416.56,
+        "duration": 3.759,
+        "text": "maybe we want to store 1000 interactions"
+      },
+      {
+        "start": 418.8,
+        "duration": 2.959,
+        "text": "in each partition"
+      },
+      {
+        "start": 420.319,
+        "duration": 3.201,
+        "text": "as the user has more and more"
+      },
+      {
+        "start": 421.759,
+        "duration": 2.481,
+        "text": "interactions it'll fill up the first"
+      },
+      {
+        "start": 423.52,
+        "duration": 2.64,
+        "text": "partition"
+      },
+      {
+        "start": 424.24,
+        "duration": 3.359,
+        "text": "which would have a bucket value of zero"
+      },
+      {
+        "start": 426.16,
+        "duration": 2.08,
+        "text": "and then proceed to write to the next"
+      },
+      {
+        "start": 427.599,
+        "duration": 3.121,
+        "text": "partition"
+      },
+      {
+        "start": 428.24,
+        "duration": 3.92,
+        "text": "with a bucket value of one and so forth"
+      },
+      {
+        "start": 430.72,
+        "duration": 3.84,
+        "text": "another technique that we'll talk about"
+      },
+      {
+        "start": 432.16,
+        "duration": 4.08,
+        "text": "here is a way to split up the table"
+      },
+      {
+        "start": 434.56,
+        "duration": 4.0,
+        "text": "instead of storing all the data into a"
+      },
+      {
+        "start": 436.24,
+        "duration": 3.2,
+        "text": "single table it may make sense to split"
+      },
+      {
+        "start": 438.56,
+        "duration": 2.8,
+        "text": "up the table"
+      },
+      {
+        "start": 439.44,
+        "duration": 3.36,
+        "text": "basically the columns in the table into"
+      },
+      {
+        "start": 441.36,
+        "duration": 3.2,
+        "text": "separate tables"
+      },
+      {
+        "start": 442.8,
+        "duration": 3.76,
+        "text": "this will allow some queries to perform"
+      },
+      {
+        "start": 444.56,
+        "duration": 2.56,
+        "text": "faster if they do not necessarily need"
+      },
+      {
+        "start": 446.56,
+        "duration": 2.56,
+        "text": "to read"
+      },
+      {
+        "start": 447.12,
+        "duration": 3.84,
+        "text": "all the columns in the original table"
+      },
+      {
+        "start": 449.12,
+        "duration": 3.28,
+        "text": "table partitions will also be smaller"
+      },
+      {
+        "start": 450.96,
+        "duration": 3.04,
+        "text": "when split"
+      },
+      {
+        "start": 452.4,
+        "duration": 3.68,
+        "text": "finally because the partitions are"
+      },
+      {
+        "start": 454.0,
+        "duration": 3.039,
+        "text": "smaller it may allow more of them to be"
+      },
+      {
+        "start": 456.08,
+        "duration": 3.36,
+        "text": "cached in memory"
+      },
+      {
+        "start": 457.039,
+        "duration": 3.44,
+        "text": "and thus making the cache more useful in"
+      },
+      {
+        "start": 459.44,
+        "duration": 3.28,
+        "text": "this example"
+      },
+      {
+        "start": 460.479,
+        "duration": 4.0,
+        "text": "users will query for video metadata more"
+      },
+      {
+        "start": 462.72,
+        "duration": 3.599,
+        "text": "often than watching the video itself"
+      },
+      {
+        "start": 464.479,
+        "duration": 4.0,
+        "text": "we split the video streaming data to its"
+      },
+      {
+        "start": 466.319,
+        "duration": 3.921,
+        "text": "own table so our application does not"
+      },
+      {
+        "start": 468.479,
+        "duration": 2.72,
+        "text": "unnecessarily pull it when displaying"
+      },
+      {
+        "start": 470.24,
+        "duration": 3.28,
+        "text": "just the title"
+      },
+      {
+        "start": 471.199,
+        "duration": 3.84,
+        "text": "tags and other columns depending on your"
+      },
+      {
+        "start": 473.52,
+        "duration": 3.6,
+        "text": "queries you may need to adjust the"
+      },
+      {
+        "start": 475.039,
+        "duration": 3.921,
+        "text": "primary key when you split a table"
+      },
+      {
+        "start": 477.12,
+        "duration": 3.919,
+        "text": "be careful to ensure that you don't lose"
+      },
+      {
+        "start": 478.96,
+        "duration": 3.679,
+        "text": "or orphan records in either table while"
+      },
+      {
+        "start": 481.039,
+        "duration": 3.6,
+        "text": "performing the split"
+      },
+      {
+        "start": 482.639,
+        "duration": 4.321,
+        "text": "for example if we are not careful in our"
+      },
+      {
+        "start": 484.639,
+        "duration": 3.12,
+        "text": "application we can store interstellar's"
+      },
+      {
+        "start": 486.96,
+        "duration": 2.48,
+        "text": "metadata"
+      },
+      {
+        "start": 487.759,
+        "duration": 3.361,
+        "text": "but fail to also store its streaming"
+      },
+      {
+        "start": 489.44,
+        "duration": 3.36,
+        "text": "blob or vice versa"
+      },
+      {
+        "start": 491.12,
+        "duration": 4.24,
+        "text": "also ensure that you don't require"
+      },
+      {
+        "start": 492.8,
+        "duration": 4.56,
+        "text": "client-side joins when splitting a table"
+      },
+      {
+        "start": 495.36,
+        "duration": 3.6,
+        "text": "for example splitting the stream blob"
+      },
+      {
+        "start": 497.36,
+        "duration": 3.44,
+        "text": "here seems like a good choice"
+      },
+      {
+        "start": 498.96,
+        "duration": 3.44,
+        "text": "but if we never allow users to view"
+      },
+      {
+        "start": 500.8,
+        "duration": 3.2,
+        "text": "video metadata without watching the"
+      },
+      {
+        "start": 502.4,
+        "duration": 3.359,
+        "text": "video in the same action"
+      },
+      {
+        "start": 504.0,
+        "duration": 3.919,
+        "text": "we forced our application to do two"
+      },
+      {
+        "start": 505.759,
+        "duration": 4.0,
+        "text": "queries now instead of one"
+      },
+      {
+        "start": 507.919,
+        "duration": 3.441,
+        "text": "if you can split table and partitions"
+      },
+      {
+        "start": 509.759,
+        "duration": 2.801,
+        "text": "you can also do the reverse which is"
+      },
+      {
+        "start": 511.36,
+        "duration": 3.039,
+        "text": "merging them together"
+      },
+      {
+        "start": 512.56,
+        "duration": 4.32,
+        "text": "this may be helpful in eliminating"
+      },
+      {
+        "start": 514.399,
+        "duration": 4.161,
+        "text": "duplication which reduces complexity"
+      },
+      {
+        "start": 516.88,
+        "duration": 3.519,
+        "text": "but may come at the expense of having"
+      },
+      {
+        "start": 518.56,
+        "duration": 2.8,
+        "text": "queries run slower when merging"
+      },
+      {
+        "start": 520.399,
+        "duration": 2.88,
+        "text": "partitions"
+      },
+      {
+        "start": 521.36,
+        "duration": 3.28,
+        "text": "the general strategy is to introduce a"
+      },
+      {
+        "start": 523.279,
+        "duration": 3.521,
+        "text": "new partition key"
+      },
+      {
+        "start": 524.64,
+        "duration": 3.68,
+        "text": "and nest objects in the new partition"
+      },
+      {
+        "start": 526.8,
+        "duration": 3.599,
+        "text": "the new key can use either"
+      },
+      {
+        "start": 528.32,
+        "duration": 4.079,
+        "text": "existing columns or a new artificial"
+      },
+      {
+        "start": 530.399,
+        "duration": 4.401,
+        "text": "column in our example below"
+      },
+      {
+        "start": 532.399,
+        "duration": 3.921,
+        "text": "we have a table users which defines each"
+      },
+      {
+        "start": 534.8,
+        "duration": 4.159,
+        "text": "partition as a single row"
+      },
+      {
+        "start": 536.32,
+        "duration": 4.16,
+        "text": "or a single user our goal is to merge"
+      },
+      {
+        "start": 538.959,
+        "duration": 3.681,
+        "text": "users together so that there are"
+      },
+      {
+        "start": 540.48,
+        "duration": 3.52,
+        "text": "multiple users in a single partition"
+      },
+      {
+        "start": 542.64,
+        "duration": 3.6,
+        "text": "there are many different ways this can"
+      },
+      {
+        "start": 544.0,
+        "duration": 2.8,
+        "text": "be done with three possible tables shown"
+      },
+      {
+        "start": 546.24,
+        "duration": 2.4,
+        "text": "here"
+      },
+      {
+        "start": 546.8,
+        "duration": 3.2,
+        "text": "one merges users based on their first"
+      },
+      {
+        "start": 548.64,
+        "duration": 3.199,
+        "text": "name and their last name"
+      },
+      {
+        "start": 550.0,
+        "duration": 4.32,
+        "text": "using a new name column as a partition"
+      },
+      {
+        "start": 551.839,
+        "duration": 4.161,
+        "text": "key another merges users based on a"
+      },
+      {
+        "start": 554.32,
+        "duration": 3.76,
+        "text": "related attribute called symbol"
+      },
+      {
+        "start": 556.0,
+        "duration": 4.88,
+        "text": "the final one uses an arbitrary bucket"
+      },
+      {
+        "start": 558.08,
+        "duration": 4.319,
+        "text": "column to merge users together"
+      },
+      {
+        "start": 560.88,
+        "duration": 3.84,
+        "text": "in this case what do you think would be"
+      },
+      {
+        "start": 562.399,
+        "duration": 4.721,
+        "text": "the best choice the answer of course"
+      },
+      {
+        "start": 564.72,
+        "duration": 4.32,
+        "text": "is that it depends each one has certain"
+      },
+      {
+        "start": 567.12,
+        "duration": 3.839,
+        "text": "advantages and disadvantages"
+      },
+      {
+        "start": 569.04,
+        "duration": 3.04,
+        "text": "so it is really up to you to decide what"
+      },
+      {
+        "start": 570.959,
+        "duration": 2.88,
+        "text": "works best"
+      },
+      {
+        "start": 572.08,
+        "duration": 3.04,
+        "text": "finally let's take a look at adding new"
+      },
+      {
+        "start": 573.839,
+        "duration": 2.721,
+        "text": "columns to a table"
+      },
+      {
+        "start": 575.12,
+        "duration": 3.279,
+        "text": "this is pretty straightforward since you"
+      },
+      {
+        "start": 576.56,
+        "duration": 4.08,
+        "text": "just need to alter the current table"
+      },
+      {
+        "start": 578.399,
+        "duration": 3.841,
+        "text": "to include your new columns so long as"
+      },
+      {
+        "start": 580.64,
+        "duration": 2.56,
+        "text": "the new columns do not need to be in the"
+      },
+      {
+        "start": 582.24,
+        "duration": 2.96,
+        "text": "primary key"
+      },
+      {
+        "start": 583.2,
+        "duration": 3.68,
+        "text": "if you take a look at our example this"
+      },
+      {
+        "start": 585.2,
+        "duration": 2.24,
+        "text": "is a scenario we've seen in a different"
+      },
+      {
+        "start": 586.88,
+        "duration": 2.16,
+        "text": "video"
+      },
+      {
+        "start": 587.44,
+        "duration": 3.68,
+        "text": "where we want to compute and save the"
+      },
+      {
+        "start": 589.04,
+        "duration": 4.08,
+        "text": "average rating of a video"
+      },
+      {
+        "start": 591.12,
+        "duration": 4.08,
+        "text": "we have the original videos table as"
+      },
+      {
+        "start": 593.12,
+        "duration": 3.6,
+        "text": "well as a ratings by video table"
+      },
+      {
+        "start": 595.2,
+        "duration": 3.04,
+        "text": "with the count and some of the ratings"
+      },
+      {
+        "start": 596.72,
+        "duration": 3.44,
+        "text": "for each video"
+      },
+      {
+        "start": 598.24,
+        "duration": 3.52,
+        "text": "all we need to do then is to alter the"
+      },
+      {
+        "start": 600.16,
+        "duration": 2.32,
+        "text": "table to include our new average rating"
+      },
+      {
+        "start": 601.76,
+        "duration": 2.319,
+        "text": "column"
+      },
+      {
+        "start": 602.48,
+        "duration": 4.32,
+        "text": "so that the calculated average rating"
+      },
+      {
+        "start": 604.079,
+        "duration": 4.241,
+        "text": "can then be updated for the video"
+      },
+      {
+        "start": 606.8,
+        "duration": 3.52,
+        "text": "this is quite a lot of information to"
+      },
+      {
+        "start": 608.32,
+        "duration": 3.6,
+        "text": "absorb so why don't we try applying some"
+      },
+      {
+        "start": 610.32,
+        "duration": 2.959,
+        "text": "of these optimization techniques that we"
+      },
+      {
+        "start": 611.92,
+        "duration": 3.44,
+        "text": "covered in this video"
+      },
+      {
+        "start": 613.279,
+        "duration": 6.56,
+        "text": "give that a try and once you finish you"
+      },
+      {
+        "start": 615.36,
+        "duration": 4.479,
+        "text": "can come back and go to the next module"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:40:01.576284+00:00"
+}

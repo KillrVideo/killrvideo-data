@@ -1,0 +1,1410 @@
+{
+  "video_id": "uWMUjpWVaVM",
+  "title": "DS310.18 JSON Search Query | DataStax Enterprise 6 Search",
+  "description": "#DataStaxAcademy #DS310\nDS310.18 JSON Search Query\nIn this section, we will see the option for specifying our search logic in a more structured way using JSON notation.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-15T20:52:30Z",
+  "thumbnail": "https://i.ytimg.com/vi/uWMUjpWVaVM/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "search",
+    "tutorial",
+    "apache_cassandra",
+    "query",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=uWMUjpWVaVM",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] hi i'm jim hatcher and today we're going to talk about advanced search and some of the things you can do with advanced search and dse search earlier in this course we learned how to use the solar query field as a means of specifying search queries via cql this is a simple way to integrate our search logic with cql queries it lets us specify the basic query we want to run however there are more advanced things that can be done in search and to be able to harness these additional features we need a more expressive interface for those occasions we have the option of specifying our search logic in a more structured way using json notation when we pass a json object into the solar query field cql will automatically detect that we are doing so and it will adjust to using that interface at a minimum we need to make sure we pass the queue parameter which is our basic query some of the more advanced features that we can specify in our searches include whether or not to enable the field cache how to sort and paginate our search results and what time zone to use for date-based math we will cover these features in the following segment then we'll do a deeper dive on two very powerful and useful features faceting and filter queries we know that when we're setting up the schema for our search indices that we can specify whether doc values should be enabled for each field being indexed two common reasons for enabling doc values is to support sorting or fastening on that field however it is possible to sort or facet on a field without doc values being enabled by using the field cache on a search by search basis using json notation we can indicate to dsc search that we want the field cache enabled for a given search operation however there's a reason that the field cache is disabled by default namely that it can result in memory spikes and out of memory exceptions and so we don't recommend using this option in your production applications however it can be a handy tool to keep in your bag of tricks during development or when you're doing some basic data exploration here you can see an example of enabling the field cache on a search we haven't yet covered how to indicate sorting or fastening options which are the two cases where enabling the field cache will benefit you but we'll get to those soon we know that one of the big benefits of using a search system to give us our query results is that in addition to effectively filtering the data it also tells us the relevancy of our results in terms of a score in dc search results are sorted by this relevancy score by default however sometimes we need to get our results back in a different order to instruct esu search to sort differently we specify those instructions in a json-based request using this sort parameter we need to indicate not only what field or fields to sort on but also the direction in which to sort either ascending or descending for a field to be eligible to be sorted on it needs to be included in the search index have doc values enabled and not be multi-valued or tokenized into multiple tokens sometimes you run into cases where you need a field to be tokenized and you need to be able to sort on it if you run into this situation create a copy field in your schema where one copy of the field is tokenized and the other copy is not tokenized and has doc values enabled we cover copy field in other parts of this course here is what our sort instruction looks like in our json request object in this example we are telling search to sort results first by the release year field in ascending order then by the release date field in descending order here's an example of what happens if you attempt to sort by a tokenized field in this case title you won't get an error but the results will probably not be what you'd expect if you needed to sort on a tokenize field you need to apply our copy field technique you could create a non-tokenized doc values enabled field called title sortable for instance and when you sorted by that field you'd get the output you need in the dse world we're often dealing with big data volumes and so it stands to reason that our searches can yield some big result sets there are plenty of times when it makes sense to only look at a slice or a subset of our results and so we need a way to page through our data when we're paging through our data we often want to also specify how the data should be sorted so that our page result sets will come back in a predictable and repeatable order in dsc search we have two flavors of paging basic pagination and based paging let's dig into each of those a little more basic pagination as the name suggests is the simplest means of paging through results to use basic paging we simply supply the start parameter and our search request this start value represents the offset of results from the previous result set we also typically use the cql limit clause to indicate the size of each page when using basic pagination for the first page we don't need to specify a start value we just ask for the first three records however on every subsequent request we want to get an offset of the previous records and so we specify the start parameter this is a simple and effective way of paging through data however that simplicity comes at the cost of performance as you page deeper and deeper into your results we'll talk about that in a minute but first let's walk through an example using basic pagination we asked dsc search to give us three records we get rio lobo chisholm and mckenna's gold on our next request we specify a start value of three and in our results we get the next three movies and on the subsequent request we specify a start value of six and get the final three movies when you're just peeking into your results a few levels deep this approach is effective however on each subsequent retrieval the response times will be slightly slower because internally for dsc to be able to get to your nth page it still has to retrieve all the previous pages before that even though it doesn't send them to you for cases where deeper paging is required we have an alternative approach cursor-based paging let's look at that now in cursor-based paging a cursor is employed which marks the place from which the last result set was returned and this cursor mark can be used to resume the next operation this cursor represents application state and so it has to involve another layer of the stack namely the datastax drivers to instruct the asu search to employ cursor-based paging in the driver we add a paging parameter to our request with the hard-coded value of driver notice that when using cursor-based paging that we do not need to specify a start parameter in fact you'll get an error if you do we're letting the driver keep up with where the cursor is so we don't want to give conflicting information by specifying our own offset and cql as an alternative to passing the paging parameter on a statement by statement basis we can also enable it by default on every statement by adjusting a setting in the dsc yaml but the default is to handle it per statement here's a handy feature that you can use when working with date fields in search date values are stored in coordinated universal time however if you're working with application logic that assumes another time zone it can become complex to have to constantly convert from the local time to utc time on every interaction with the data layer enter the tz parameter with the tz or time zone parameter the local time zone can be specified and we effectively push the work of handling all the time zone conversion logic down into the data layer where we don't have to worry about it the potential values that can be passed into the tz parameter are any value supported by the java time zone object there are hundreds to choose from and you can get these from the online java documentation there's even a list on wikipedia the now function complements the use of the tz parameter so you'll often see them used together here's an example where we want to see a list of movies released in the last month using the now syntax we're asking search to give us everything between the current month and one month ago you'll notice that in the first query we specify that we want to reason about our dates using new york city time and we don't get any results in the second query we do the exact same thing except that we asked for results relative to the time in kolkata and in this case we do get a result back it turns out that the time zone difference from one side of the planet to the other had a big enough gap in this case that it affected our result set so this is a good habit to get into when using date-based logic in searches",
+    "segments": [
+      {
+        "start": 2.11,
+        "duration": 1.809,
+        "text": "[Music]"
+      },
+      {
+        "start": 3.6,
+        "duration": 2.08,
+        "text": "hi"
+      },
+      {
+        "start": 3.919,
+        "duration": 3.601,
+        "text": "i'm jim hatcher and today we're going to"
+      },
+      {
+        "start": 5.68,
+        "duration": 3.2,
+        "text": "talk about advanced search and some of"
+      },
+      {
+        "start": 7.52,
+        "duration": 1.84,
+        "text": "the things you can do with advanced"
+      },
+      {
+        "start": 8.88,
+        "duration": 2.879,
+        "text": "search"
+      },
+      {
+        "start": 9.36,
+        "duration": 4.239,
+        "text": "and dse search earlier in this course we"
+      },
+      {
+        "start": 11.759,
+        "duration": 3.92,
+        "text": "learned how to use the solar query field"
+      },
+      {
+        "start": 13.599,
+        "duration": 3.121,
+        "text": "as a means of specifying search queries"
+      },
+      {
+        "start": 15.679,
+        "duration": 2.641,
+        "text": "via cql"
+      },
+      {
+        "start": 16.72,
+        "duration": 3.68,
+        "text": "this is a simple way to integrate our"
+      },
+      {
+        "start": 18.32,
+        "duration": 4.0,
+        "text": "search logic with cql queries"
+      },
+      {
+        "start": 20.4,
+        "duration": 3.6,
+        "text": "it lets us specify the basic query we"
+      },
+      {
+        "start": 22.32,
+        "duration": 3.199,
+        "text": "want to run however"
+      },
+      {
+        "start": 24.0,
+        "duration": 3.359,
+        "text": "there are more advanced things that can"
+      },
+      {
+        "start": 25.519,
+        "duration": 3.52,
+        "text": "be done in search and to be able to"
+      },
+      {
+        "start": 27.359,
+        "duration": 3.84,
+        "text": "harness these additional features"
+      },
+      {
+        "start": 29.039,
+        "duration": 3.281,
+        "text": "we need a more expressive interface for"
+      },
+      {
+        "start": 31.199,
+        "duration": 2.801,
+        "text": "those occasions"
+      },
+      {
+        "start": 32.32,
+        "duration": 3.44,
+        "text": "we have the option of specifying our"
+      },
+      {
+        "start": 34.0,
+        "duration": 3.12,
+        "text": "search logic in a more structured way"
+      },
+      {
+        "start": 35.76,
+        "duration": 3.2,
+        "text": "using json notation"
+      },
+      {
+        "start": 37.12,
+        "duration": 3.36,
+        "text": "when we pass a json object into the"
+      },
+      {
+        "start": 38.96,
+        "duration": 3.52,
+        "text": "solar query field"
+      },
+      {
+        "start": 40.48,
+        "duration": 3.04,
+        "text": "cql will automatically detect that we"
+      },
+      {
+        "start": 42.48,
+        "duration": 2.559,
+        "text": "are doing so"
+      },
+      {
+        "start": 43.52,
+        "duration": 3.12,
+        "text": "and it will adjust to using that"
+      },
+      {
+        "start": 45.039,
+        "duration": 3.36,
+        "text": "interface at a minimum"
+      },
+      {
+        "start": 46.64,
+        "duration": 4.079,
+        "text": "we need to make sure we pass the queue"
+      },
+      {
+        "start": 48.399,
+        "duration": 3.601,
+        "text": "parameter which is our basic query"
+      },
+      {
+        "start": 50.719,
+        "duration": 3.601,
+        "text": "some of the more advanced features that"
+      },
+      {
+        "start": 52.0,
+        "duration": 4.64,
+        "text": "we can specify in our searches include"
+      },
+      {
+        "start": 54.32,
+        "duration": 3.68,
+        "text": "whether or not to enable the field cache"
+      },
+      {
+        "start": 56.64,
+        "duration": 3.68,
+        "text": "how to sort and paginate"
+      },
+      {
+        "start": 58.0,
+        "duration": 4.239,
+        "text": "our search results and what time zone to"
+      },
+      {
+        "start": 60.32,
+        "duration": 3.36,
+        "text": "use for date-based math"
+      },
+      {
+        "start": 62.239,
+        "duration": 3.28,
+        "text": "we will cover these features in the"
+      },
+      {
+        "start": 63.68,
+        "duration": 3.68,
+        "text": "following segment then"
+      },
+      {
+        "start": 65.519,
+        "duration": 3.6,
+        "text": "we'll do a deeper dive on two very"
+      },
+      {
+        "start": 67.36,
+        "duration": 4.16,
+        "text": "powerful and useful features"
+      },
+      {
+        "start": 69.119,
+        "duration": 4.241,
+        "text": "faceting and filter queries we know that"
+      },
+      {
+        "start": 71.52,
+        "duration": 3.68,
+        "text": "when we're setting up the schema for our"
+      },
+      {
+        "start": 73.36,
+        "duration": 3.92,
+        "text": "search indices that we can specify"
+      },
+      {
+        "start": 75.2,
+        "duration": 4.32,
+        "text": "whether doc values should be enabled"
+      },
+      {
+        "start": 77.28,
+        "duration": 4.08,
+        "text": "for each field being indexed two common"
+      },
+      {
+        "start": 79.52,
+        "duration": 3.76,
+        "text": "reasons for enabling doc values is to"
+      },
+      {
+        "start": 81.36,
+        "duration": 2.48,
+        "text": "support sorting or fastening on that"
+      },
+      {
+        "start": 83.28,
+        "duration": 3.04,
+        "text": "field"
+      },
+      {
+        "start": 83.84,
+        "duration": 4.56,
+        "text": "however it is possible to sort or facet"
+      },
+      {
+        "start": 86.32,
+        "duration": 2.88,
+        "text": "on a field without doc values being"
+      },
+      {
+        "start": 88.4,
+        "duration": 3.12,
+        "text": "enabled"
+      },
+      {
+        "start": 89.2,
+        "duration": 3.44,
+        "text": "by using the field cache on a search by"
+      },
+      {
+        "start": 91.52,
+        "duration": 3.2,
+        "text": "search basis"
+      },
+      {
+        "start": 92.64,
+        "duration": 4.159,
+        "text": "using json notation we can indicate to"
+      },
+      {
+        "start": 94.72,
+        "duration": 4.079,
+        "text": "dsc search that we want the field cache"
+      },
+      {
+        "start": 96.799,
+        "duration": 3.601,
+        "text": "enabled for a given search operation"
+      },
+      {
+        "start": 98.799,
+        "duration": 3.6,
+        "text": "however there's a reason that the field"
+      },
+      {
+        "start": 100.4,
+        "duration": 3.679,
+        "text": "cache is disabled by default"
+      },
+      {
+        "start": 102.399,
+        "duration": 3.76,
+        "text": "namely that it can result in memory"
+      },
+      {
+        "start": 104.079,
+        "duration": 3.761,
+        "text": "spikes and out of memory exceptions"
+      },
+      {
+        "start": 106.159,
+        "duration": 3.841,
+        "text": "and so we don't recommend using this"
+      },
+      {
+        "start": 107.84,
+        "duration": 4.239,
+        "text": "option in your production applications"
+      },
+      {
+        "start": 110.0,
+        "duration": 3.84,
+        "text": "however it can be a handy tool to keep"
+      },
+      {
+        "start": 112.079,
+        "duration": 3.281,
+        "text": "in your bag of tricks during development"
+      },
+      {
+        "start": 113.84,
+        "duration": 2.639,
+        "text": "or when you're doing some basic data"
+      },
+      {
+        "start": 115.36,
+        "duration": 2.96,
+        "text": "exploration"
+      },
+      {
+        "start": 116.479,
+        "duration": 3.68,
+        "text": "here you can see an example of enabling"
+      },
+      {
+        "start": 118.32,
+        "duration": 3.439,
+        "text": "the field cache on a search"
+      },
+      {
+        "start": 120.159,
+        "duration": 3.361,
+        "text": "we haven't yet covered how to indicate"
+      },
+      {
+        "start": 121.759,
+        "duration": 3.36,
+        "text": "sorting or fastening options which are"
+      },
+      {
+        "start": 123.52,
+        "duration": 3.68,
+        "text": "the two cases where enabling"
+      },
+      {
+        "start": 125.119,
+        "duration": 3.28,
+        "text": "the field cache will benefit you but"
+      },
+      {
+        "start": 127.2,
+        "duration": 2.88,
+        "text": "we'll get to those soon"
+      },
+      {
+        "start": 128.399,
+        "duration": 3.361,
+        "text": "we know that one of the big benefits of"
+      },
+      {
+        "start": 130.08,
+        "duration": 3.6,
+        "text": "using a search system to give us our"
+      },
+      {
+        "start": 131.76,
+        "duration": 3.839,
+        "text": "query results is that in addition to"
+      },
+      {
+        "start": 133.68,
+        "duration": 3.919,
+        "text": "effectively filtering the data"
+      },
+      {
+        "start": 135.599,
+        "duration": 3.761,
+        "text": "it also tells us the relevancy of our"
+      },
+      {
+        "start": 137.599,
+        "duration": 4.0,
+        "text": "results in terms of a score"
+      },
+      {
+        "start": 139.36,
+        "duration": 4.08,
+        "text": "in dc search results are sorted by this"
+      },
+      {
+        "start": 141.599,
+        "duration": 3.681,
+        "text": "relevancy score by default"
+      },
+      {
+        "start": 143.44,
+        "duration": 3.439,
+        "text": "however sometimes we need to get our"
+      },
+      {
+        "start": 145.28,
+        "duration": 3.76,
+        "text": "results back in a different order to"
+      },
+      {
+        "start": 146.879,
+        "duration": 4.0,
+        "text": "instruct esu search to sort differently"
+      },
+      {
+        "start": 149.04,
+        "duration": 3.6,
+        "text": "we specify those instructions in a"
+      },
+      {
+        "start": 150.879,
+        "duration": 3.681,
+        "text": "json-based request"
+      },
+      {
+        "start": 152.64,
+        "duration": 3.92,
+        "text": "using this sort parameter we need to"
+      },
+      {
+        "start": 154.56,
+        "duration": 3.12,
+        "text": "indicate not only what field or fields"
+      },
+      {
+        "start": 156.56,
+        "duration": 3.12,
+        "text": "to sort on"
+      },
+      {
+        "start": 157.68,
+        "duration": 3.839,
+        "text": "but also the direction in which to sort"
+      },
+      {
+        "start": 159.68,
+        "duration": 3.839,
+        "text": "either ascending or descending"
+      },
+      {
+        "start": 161.519,
+        "duration": 3.201,
+        "text": "for a field to be eligible to be sorted"
+      },
+      {
+        "start": 163.519,
+        "duration": 3.601,
+        "text": "on it needs to be"
+      },
+      {
+        "start": 164.72,
+        "duration": 3.84,
+        "text": "included in the search index have doc"
+      },
+      {
+        "start": 167.12,
+        "duration": 3.759,
+        "text": "values enabled"
+      },
+      {
+        "start": 168.56,
+        "duration": 3.92,
+        "text": "and not be multi-valued or tokenized"
+      },
+      {
+        "start": 170.879,
+        "duration": 3.44,
+        "text": "into multiple tokens"
+      },
+      {
+        "start": 172.48,
+        "duration": 3.44,
+        "text": "sometimes you run into cases where you"
+      },
+      {
+        "start": 174.319,
+        "duration": 4.0,
+        "text": "need a field to be tokenized"
+      },
+      {
+        "start": 175.92,
+        "duration": 3.679,
+        "text": "and you need to be able to sort on it if"
+      },
+      {
+        "start": 178.319,
+        "duration": 3.28,
+        "text": "you run into this situation"
+      },
+      {
+        "start": 179.599,
+        "duration": 4.161,
+        "text": "create a copy field in your schema where"
+      },
+      {
+        "start": 181.599,
+        "duration": 4.64,
+        "text": "one copy of the field is tokenized"
+      },
+      {
+        "start": 183.76,
+        "duration": 4.08,
+        "text": "and the other copy is not tokenized and"
+      },
+      {
+        "start": 186.239,
+        "duration": 3.201,
+        "text": "has doc values enabled"
+      },
+      {
+        "start": 187.84,
+        "duration": 3.44,
+        "text": "we cover copy field in other parts of"
+      },
+      {
+        "start": 189.44,
+        "duration": 3.439,
+        "text": "this course here is what our sort"
+      },
+      {
+        "start": 191.28,
+        "duration": 2.8,
+        "text": "instruction looks like in our json"
+      },
+      {
+        "start": 192.879,
+        "duration": 3.041,
+        "text": "request object"
+      },
+      {
+        "start": 194.08,
+        "duration": 4.079,
+        "text": "in this example we are telling search to"
+      },
+      {
+        "start": 195.92,
+        "duration": 2.959,
+        "text": "sort results first by the release year"
+      },
+      {
+        "start": 198.159,
+        "duration": 3.36,
+        "text": "field"
+      },
+      {
+        "start": 198.879,
+        "duration": 4.481,
+        "text": "in ascending order then by the release"
+      },
+      {
+        "start": 201.519,
+        "duration": 3.681,
+        "text": "date field in descending order"
+      },
+      {
+        "start": 203.36,
+        "duration": 4.0,
+        "text": "here's an example of what happens if you"
+      },
+      {
+        "start": 205.2,
+        "duration": 4.24,
+        "text": "attempt to sort by a tokenized field"
+      },
+      {
+        "start": 207.36,
+        "duration": 3.84,
+        "text": "in this case title you won't get an"
+      },
+      {
+        "start": 209.44,
+        "duration": 3.04,
+        "text": "error but the results will probably not"
+      },
+      {
+        "start": 211.2,
+        "duration": 2.959,
+        "text": "be what you'd expect"
+      },
+      {
+        "start": 212.48,
+        "duration": 3.6,
+        "text": "if you needed to sort on a tokenize"
+      },
+      {
+        "start": 214.159,
+        "duration": 2.561,
+        "text": "field you need to apply our copy field"
+      },
+      {
+        "start": 216.08,
+        "duration": 2.719,
+        "text": "technique"
+      },
+      {
+        "start": 216.72,
+        "duration": 4.159,
+        "text": "you could create a non-tokenized doc"
+      },
+      {
+        "start": 218.799,
+        "duration": 2.881,
+        "text": "values enabled field called title"
+      },
+      {
+        "start": 220.879,
+        "duration": 2.801,
+        "text": "sortable"
+      },
+      {
+        "start": 221.68,
+        "duration": 4.0,
+        "text": "for instance and when you sorted by that"
+      },
+      {
+        "start": 223.68,
+        "duration": 3.52,
+        "text": "field you'd get the output you need"
+      },
+      {
+        "start": 225.68,
+        "duration": 3.6,
+        "text": "in the dse world we're often dealing"
+      },
+      {
+        "start": 227.2,
+        "duration": 3.759,
+        "text": "with big data volumes and so it stands"
+      },
+      {
+        "start": 229.28,
+        "duration": 3.039,
+        "text": "to reason that our searches can yield"
+      },
+      {
+        "start": 230.959,
+        "duration": 2.64,
+        "text": "some big result sets"
+      },
+      {
+        "start": 232.319,
+        "duration": 3.12,
+        "text": "there are plenty of times when it makes"
+      },
+      {
+        "start": 233.599,
+        "duration": 3.681,
+        "text": "sense to only look at a slice or a"
+      },
+      {
+        "start": 235.439,
+        "duration": 3.921,
+        "text": "subset of our results"
+      },
+      {
+        "start": 237.28,
+        "duration": 4.0,
+        "text": "and so we need a way to page through our"
+      },
+      {
+        "start": 239.36,
+        "duration": 3.76,
+        "text": "data when we're paging through our data"
+      },
+      {
+        "start": 241.28,
+        "duration": 3.36,
+        "text": "we often want to also specify how the"
+      },
+      {
+        "start": 243.12,
+        "duration": 3.28,
+        "text": "data should be sorted"
+      },
+      {
+        "start": 244.64,
+        "duration": 3.519,
+        "text": "so that our page result sets will come"
+      },
+      {
+        "start": 246.4,
+        "duration": 2.24,
+        "text": "back in a predictable and repeatable"
+      },
+      {
+        "start": 248.159,
+        "duration": 2.401,
+        "text": "order"
+      },
+      {
+        "start": 248.64,
+        "duration": 3.92,
+        "text": "in dsc search we have two flavors of"
+      },
+      {
+        "start": 250.56,
+        "duration": 4.72,
+        "text": "paging basic pagination"
+      },
+      {
+        "start": 252.56,
+        "duration": 3.84,
+        "text": "and based paging let's dig into each of"
+      },
+      {
+        "start": 255.28,
+        "duration": 3.519,
+        "text": "those a little more"
+      },
+      {
+        "start": 256.4,
+        "duration": 3.92,
+        "text": "basic pagination as the name suggests is"
+      },
+      {
+        "start": 258.799,
+        "duration": 2.241,
+        "text": "the simplest means of paging through"
+      },
+      {
+        "start": 260.32,
+        "duration": 3.04,
+        "text": "results"
+      },
+      {
+        "start": 261.04,
+        "duration": 4.4,
+        "text": "to use basic paging we simply supply the"
+      },
+      {
+        "start": 263.36,
+        "duration": 4.08,
+        "text": "start parameter and our search request"
+      },
+      {
+        "start": 265.44,
+        "duration": 4.64,
+        "text": "this start value represents the offset"
+      },
+      {
+        "start": 267.44,
+        "duration": 4.56,
+        "text": "of results from the previous result set"
+      },
+      {
+        "start": 270.08,
+        "duration": 4.32,
+        "text": "we also typically use the cql limit"
+      },
+      {
+        "start": 272.0,
+        "duration": 4.56,
+        "text": "clause to indicate the size of each page"
+      },
+      {
+        "start": 274.4,
+        "duration": 4.16,
+        "text": "when using basic pagination for the"
+      },
+      {
+        "start": 276.56,
+        "duration": 3.04,
+        "text": "first page we don't need to specify a"
+      },
+      {
+        "start": 278.56,
+        "duration": 3.12,
+        "text": "start value"
+      },
+      {
+        "start": 279.6,
+        "duration": 4.08,
+        "text": "we just ask for the first three records"
+      },
+      {
+        "start": 281.68,
+        "duration": 2.64,
+        "text": "however on every subsequent request we"
+      },
+      {
+        "start": 283.68,
+        "duration": 2.72,
+        "text": "want to get an"
+      },
+      {
+        "start": 284.32,
+        "duration": 3.68,
+        "text": "offset of the previous records and so we"
+      },
+      {
+        "start": 286.4,
+        "duration": 3.12,
+        "text": "specify the start parameter"
+      },
+      {
+        "start": 288.0,
+        "duration": 3.199,
+        "text": "this is a simple and effective way of"
+      },
+      {
+        "start": 289.52,
+        "duration": 3.2,
+        "text": "paging through data however that"
+      },
+      {
+        "start": 291.199,
+        "duration": 2.481,
+        "text": "simplicity comes at the cost of"
+      },
+      {
+        "start": 292.72,
+        "duration": 3.12,
+        "text": "performance"
+      },
+      {
+        "start": 293.68,
+        "duration": 3.2,
+        "text": "as you page deeper and deeper into your"
+      },
+      {
+        "start": 295.84,
+        "duration": 2.799,
+        "text": "results"
+      },
+      {
+        "start": 296.88,
+        "duration": 3.599,
+        "text": "we'll talk about that in a minute but"
+      },
+      {
+        "start": 298.639,
+        "duration": 4.321,
+        "text": "first let's walk through an example"
+      },
+      {
+        "start": 300.479,
+        "duration": 4.0,
+        "text": "using basic pagination we asked dsc"
+      },
+      {
+        "start": 302.96,
+        "duration": 4.16,
+        "text": "search to give us three records"
+      },
+      {
+        "start": 304.479,
+        "duration": 3.601,
+        "text": "we get rio lobo chisholm and mckenna's"
+      },
+      {
+        "start": 307.12,
+        "duration": 3.12,
+        "text": "gold"
+      },
+      {
+        "start": 308.08,
+        "duration": 3.28,
+        "text": "on our next request we specify a start"
+      },
+      {
+        "start": 310.24,
+        "duration": 2.799,
+        "text": "value of three"
+      },
+      {
+        "start": 311.36,
+        "duration": 4.32,
+        "text": "and in our results we get the next three"
+      },
+      {
+        "start": 313.039,
+        "duration": 4.481,
+        "text": "movies and on the subsequent request we"
+      },
+      {
+        "start": 315.68,
+        "duration": 3.519,
+        "text": "specify a start value of six"
+      },
+      {
+        "start": 317.52,
+        "duration": 3.119,
+        "text": "and get the final three movies when"
+      },
+      {
+        "start": 319.199,
+        "duration": 2.481,
+        "text": "you're just peeking into your results a"
+      },
+      {
+        "start": 320.639,
+        "duration": 3.441,
+        "text": "few levels deep"
+      },
+      {
+        "start": 321.68,
+        "duration": 4.32,
+        "text": "this approach is effective however on"
+      },
+      {
+        "start": 324.08,
+        "duration": 3.76,
+        "text": "each subsequent retrieval the response"
+      },
+      {
+        "start": 326.0,
+        "duration": 4.0,
+        "text": "times will be slightly slower"
+      },
+      {
+        "start": 327.84,
+        "duration": 3.919,
+        "text": "because internally for dsc to be able to"
+      },
+      {
+        "start": 330.0,
+        "duration": 3.039,
+        "text": "get to your nth page"
+      },
+      {
+        "start": 331.759,
+        "duration": 3.121,
+        "text": "it still has to retrieve all the"
+      },
+      {
+        "start": 333.039,
+        "duration": 3.521,
+        "text": "previous pages before that"
+      },
+      {
+        "start": 334.88,
+        "duration": 3.36,
+        "text": "even though it doesn't send them to you"
+      },
+      {
+        "start": 336.56,
+        "duration": 2.4,
+        "text": "for cases where deeper paging is"
+      },
+      {
+        "start": 338.24,
+        "duration": 2.56,
+        "text": "required"
+      },
+      {
+        "start": 338.96,
+        "duration": 3.36,
+        "text": "we have an alternative approach"
+      },
+      {
+        "start": 340.8,
+        "duration": 3.6,
+        "text": "cursor-based paging"
+      },
+      {
+        "start": 342.32,
+        "duration": 4.08,
+        "text": "let's look at that now in cursor-based"
+      },
+      {
+        "start": 344.4,
+        "duration": 3.6,
+        "text": "paging a cursor is employed"
+      },
+      {
+        "start": 346.4,
+        "duration": 3.76,
+        "text": "which marks the place from which the"
+      },
+      {
+        "start": 348.0,
+        "duration": 3.68,
+        "text": "last result set was returned"
+      },
+      {
+        "start": 350.16,
+        "duration": 3.599,
+        "text": "and this cursor mark can be used to"
+      },
+      {
+        "start": 351.68,
+        "duration": 3.359,
+        "text": "resume the next operation this cursor"
+      },
+      {
+        "start": 353.759,
+        "duration": 3.28,
+        "text": "represents application"
+      },
+      {
+        "start": 355.039,
+        "duration": 3.041,
+        "text": "state and so it has to involve another"
+      },
+      {
+        "start": 357.039,
+        "duration": 3.201,
+        "text": "layer of the stack"
+      },
+      {
+        "start": 358.08,
+        "duration": 4.0,
+        "text": "namely the datastax drivers to instruct"
+      },
+      {
+        "start": 360.24,
+        "duration": 3.28,
+        "text": "the asu search to employ cursor-based"
+      },
+      {
+        "start": 362.08,
+        "duration": 3.44,
+        "text": "paging in the driver"
+      },
+      {
+        "start": 363.52,
+        "duration": 4.0,
+        "text": "we add a paging parameter to our request"
+      },
+      {
+        "start": 365.52,
+        "duration": 3.6,
+        "text": "with the hard-coded value of driver"
+      },
+      {
+        "start": 367.52,
+        "duration": 3.6,
+        "text": "notice that when using cursor-based"
+      },
+      {
+        "start": 369.12,
+        "duration": 3.199,
+        "text": "paging that we do not need to specify a"
+      },
+      {
+        "start": 371.12,
+        "duration": 3.44,
+        "text": "start parameter"
+      },
+      {
+        "start": 372.319,
+        "duration": 3.6,
+        "text": "in fact you'll get an error if you do"
+      },
+      {
+        "start": 374.56,
+        "duration": 3.44,
+        "text": "we're letting the driver keep up with"
+      },
+      {
+        "start": 375.919,
+        "duration": 3.681,
+        "text": "where the cursor is so we don't want to"
+      },
+      {
+        "start": 378.0,
+        "duration": 3.039,
+        "text": "give conflicting information by"
+      },
+      {
+        "start": 379.6,
+        "duration": 3.76,
+        "text": "specifying our own offset"
+      },
+      {
+        "start": 381.039,
+        "duration": 4.0,
+        "text": "and cql as an alternative to passing the"
+      },
+      {
+        "start": 383.36,
+        "duration": 2.8,
+        "text": "paging parameter on a statement by"
+      },
+      {
+        "start": 385.039,
+        "duration": 3.121,
+        "text": "statement basis"
+      },
+      {
+        "start": 386.16,
+        "duration": 3.92,
+        "text": "we can also enable it by default on"
+      },
+      {
+        "start": 388.16,
+        "duration": 3.599,
+        "text": "every statement by adjusting a setting"
+      },
+      {
+        "start": 390.08,
+        "duration": 3.44,
+        "text": "in the dsc yaml"
+      },
+      {
+        "start": 391.759,
+        "duration": 3.601,
+        "text": "but the default is to handle it per"
+      },
+      {
+        "start": 393.52,
+        "duration": 3.119,
+        "text": "statement here's a handy feature that"
+      },
+      {
+        "start": 395.36,
+        "duration": 2.08,
+        "text": "you can use when working with date"
+      },
+      {
+        "start": 396.639,
+        "duration": 2.961,
+        "text": "fields"
+      },
+      {
+        "start": 397.44,
+        "duration": 4.08,
+        "text": "in search date values are stored in"
+      },
+      {
+        "start": 399.6,
+        "duration": 3.12,
+        "text": "coordinated universal time"
+      },
+      {
+        "start": 401.52,
+        "duration": 3.04,
+        "text": "however if you're working with"
+      },
+      {
+        "start": 402.72,
+        "duration": 2.88,
+        "text": "application logic that assumes another"
+      },
+      {
+        "start": 404.56,
+        "duration": 2.639,
+        "text": "time zone"
+      },
+      {
+        "start": 405.6,
+        "duration": 3.599,
+        "text": "it can become complex to have to"
+      },
+      {
+        "start": 407.199,
+        "duration": 4.321,
+        "text": "constantly convert from the local time"
+      },
+      {
+        "start": 409.199,
+        "duration": 3.44,
+        "text": "to utc time on every interaction with"
+      },
+      {
+        "start": 411.52,
+        "duration": 4.079,
+        "text": "the data layer"
+      },
+      {
+        "start": 412.639,
+        "duration": 4.321,
+        "text": "enter the tz parameter with the tz or"
+      },
+      {
+        "start": 415.599,
+        "duration": 3.681,
+        "text": "time zone parameter"
+      },
+      {
+        "start": 416.96,
+        "duration": 4.16,
+        "text": "the local time zone can be specified and"
+      },
+      {
+        "start": 419.28,
+        "duration": 3.84,
+        "text": "we effectively push the work of handling"
+      },
+      {
+        "start": 421.12,
+        "duration": 3.6,
+        "text": "all the time zone conversion logic"
+      },
+      {
+        "start": 423.12,
+        "duration": 3.28,
+        "text": "down into the data layer where we don't"
+      },
+      {
+        "start": 424.72,
+        "duration": 3.36,
+        "text": "have to worry about it the potential"
+      },
+      {
+        "start": 426.4,
+        "duration": 3.68,
+        "text": "values that can be passed into the tz"
+      },
+      {
+        "start": 428.08,
+        "duration": 4.0,
+        "text": "parameter are any value supported by the"
+      },
+      {
+        "start": 430.08,
+        "duration": 3.519,
+        "text": "java time zone object"
+      },
+      {
+        "start": 432.08,
+        "duration": 3.04,
+        "text": "there are hundreds to choose from and"
+      },
+      {
+        "start": 433.599,
+        "duration": 2.641,
+        "text": "you can get these from the online java"
+      },
+      {
+        "start": 435.12,
+        "duration": 3.44,
+        "text": "documentation"
+      },
+      {
+        "start": 436.24,
+        "duration": 4.399,
+        "text": "there's even a list on wikipedia the now"
+      },
+      {
+        "start": 438.56,
+        "duration": 2.88,
+        "text": "function complements the use of the tz"
+      },
+      {
+        "start": 440.639,
+        "duration": 2.881,
+        "text": "parameter"
+      },
+      {
+        "start": 441.44,
+        "duration": 3.68,
+        "text": "so you'll often see them used together"
+      },
+      {
+        "start": 443.52,
+        "duration": 3.119,
+        "text": "here's an example where we want to see a"
+      },
+      {
+        "start": 445.12,
+        "duration": 1.919,
+        "text": "list of movies released in the last"
+      },
+      {
+        "start": 446.639,
+        "duration": 2.481,
+        "text": "month"
+      },
+      {
+        "start": 447.039,
+        "duration": 3.44,
+        "text": "using the now syntax we're asking search"
+      },
+      {
+        "start": 449.12,
+        "duration": 2.079,
+        "text": "to give us everything between the"
+      },
+      {
+        "start": 450.479,
+        "duration": 2.56,
+        "text": "current month"
+      },
+      {
+        "start": 451.199,
+        "duration": 3.681,
+        "text": "and one month ago you'll notice that in"
+      },
+      {
+        "start": 453.039,
+        "duration": 3.761,
+        "text": "the first query we specify that we want"
+      },
+      {
+        "start": 454.88,
+        "duration": 2.719,
+        "text": "to reason about our dates using new york"
+      },
+      {
+        "start": 456.8,
+        "duration": 3.04,
+        "text": "city time"
+      },
+      {
+        "start": 457.599,
+        "duration": 3.201,
+        "text": "and we don't get any results in the"
+      },
+      {
+        "start": 459.84,
+        "duration": 2.96,
+        "text": "second query"
+      },
+      {
+        "start": 460.8,
+        "duration": 3.92,
+        "text": "we do the exact same thing except that"
+      },
+      {
+        "start": 462.8,
+        "duration": 3.36,
+        "text": "we asked for results relative to the"
+      },
+      {
+        "start": 464.72,
+        "duration": 3.68,
+        "text": "time in kolkata"
+      },
+      {
+        "start": 466.16,
+        "duration": 3.52,
+        "text": "and in this case we do get a result back"
+      },
+      {
+        "start": 468.4,
+        "duration": 2.72,
+        "text": "it turns out that the time zone"
+      },
+      {
+        "start": 469.68,
+        "duration": 2.239,
+        "text": "difference from one side of the planet"
+      },
+      {
+        "start": 471.12,
+        "duration": 2.72,
+        "text": "to the other"
+      },
+      {
+        "start": 471.919,
+        "duration": 3.84,
+        "text": "had a big enough gap in this case that"
+      },
+      {
+        "start": 473.84,
+        "duration": 3.759,
+        "text": "it affected our result set"
+      },
+      {
+        "start": 475.759,
+        "duration": 3.12,
+        "text": "so this is a good habit to get into when"
+      },
+      {
+        "start": 477.599,
+        "duration": 7.6,
+        "text": "using date-based logic"
+      },
+      {
+        "start": 478.879,
+        "duration": 6.32,
+        "text": "in searches"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:15:49.856490+00:00"
+}

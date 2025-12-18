@@ -1,0 +1,1433 @@
+{
+  "video_id": "KCK4jNbsT2w",
+  "title": "Distributed Data Show Episode 47: NodeSync with Sylvain Lebresne",
+  "description": "Sylvain Lebresne joins host Cedric Lunven introduce NodeSync, a new approach to anti-entropy repair in DSE 6. They discuss the simplicity NodeSync brings to operational operations, improvements in performance for repair and how well it is integrated with DSE through CQL and OpsCenter.\nHighlights\n0:15 - Cedrick welcomes Sylvain to the show. Sylvain a longtime member of the DataStax core DB team and an Apache Cassandra PMC member\n1:10 - Explaining the concepts of anti-entropy repair in Apache Cassandra, including Merkle trees and streaming\n3:39 - Limitations of anti-entropy repair include performance impacts, over-streaming of data and the complexity of managing repairs\n6:11 - NodeSync is a replacement in DSE for the traditional Cassandra repair process. It leverages Cassandra’s architecture to make repairs highly available\n7:45 - NodeSync is enabled/disabled on a per table basis. You can enable it and watch metrics in OpsCenter to see it working\n9:12 - You can control the prioritization of tables in NodeSync by setting the target deadline for completing repairs per table\n10:50 - Testing a feature like NodeSync includes testing on large clusters, simulating data loss, and stress testing\n12:23 - Wrapping up\n\n\nABOUT DATASTAX ENTERPRISE 6\nDataStax  powers  the  Right-Now  Enterprise  with  the  always-on,  distributed  cloud  database  built  on  Apache  Cassandra™  and designed for hybrid cloud. DataStax Enterprise 6 (DSE 6) includes industry-leading performance, self-driving operational simplicity, and robust analytics.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://www.datastax.com/products/datastax-enterprise-6\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax | https://twitter.com/datastax-academy\nLinkedin: https://www.linkedin.com/company/datastax\nhttp://feeds.feedburner.com/datastax \nhttps:",
+  "published_at": "2018-05-15T15:00:02Z",
+  "thumbnail": "https://i.ytimg.com/vi/KCK4jNbsT2w/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cql",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "performance",
+    "architecture",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=KCK4jNbsT2w",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems hey welcome to another episode of the distributed data show I'm Sarah clean Vern your host and today I have the pleasure to be with one of the guests our longtime contributor of Apache Cassandra silvano behind on and we will discuss about pretty exciting stuff introduced in the SE 6 which is called not sink but before we dig into too much spicy details please could you please introduce yourself sure hello I'm Savannah bland and I'm a longtime member of a terrorist acts Corps DBT I know also as you said a long time tube to the Apache Center project we're talking 0-5 numbers and so I'm come here and a PMC member on the project oh that's a long time indeed justice takes a better sex we used to say that Dec 6 2014 ow I think we already spoke about performance but few times now especially with the tpc episode and today it will be more about simplicity and removing complexity so silver could you remind us what is the audience replica sort of mechanism oh yeah so Katherine Ryan so DSC which is Bill and Cassandra are distributed database which replication that replication is often done as synchronously what that mean is that not can get out of thing can getting existent and so you need you need mechanism to fix those inconsistency between that when they appear there's by the way of special case of inconsistency which is that of us where some neural news data and so is inconsistent with his peers so that kitchen has a couple of mechanism the first two first one are like ins and really repair both of which helps with fixing insistency when they appear but they are optimization they are not guaranteed to always kick in and and so there's case we just don't don't work in especially for data loss typically it just cannot fix that actually repair can but okay anyway so the wall point is that we need a mechanism for kind of force finding to this consistency or fix it and that's what them th P is doing okay and basically how does it works yes so so the way it works in Cassandra is you use what is called miracle tree that is the one of the node will ask for the miracle tree of the replica so basically we're taking a range we're splitting in small small ranges and we ash the content of those ranges and we send all those ashes back the coordinator compared to ash and if if they have to first able to say like this range is not consistent between the two replicas so then it will stream the data you know between the replicas it'd be okay um I think this until repair mechanism as been introduced quite a lot of time now it's works quite well it has some no limitation about this mechanism sure so just we have two buckets of problem with the entropy repair as it exists the first one is is performance impact on performance kind of thing the first one is that repair tend to over stream a lot of data so as we say we we have the ash of those ranges when we have an image when we detect an inconsistency all we know is that for some range that can be fairly large there is something that defer but that means we may we may stream a couple of megabytes of that up just because there's just one small very tiny inconsistency that that's in and there's this reason why we over stream too much those are ones that it tends to be pretty bursty it's not historically it's not very well traveled for your club the second bucket of problem is just the way it's managed you do require quite a bit of expertise and and and it's pretty complex to manage repairing a cluster one of the things that that goes into that is so people in consumer know that if you don't if you if you don't repair often enough there's a risk of resurrecting data and that has to do with the the way delation is and old in central tome stones so you basically need to make sure don't stone make it to every node so you're going to make sure they replicate it before what we call TC grace and so that means you need to make sure repair is run within those kind of windows otherwise you may have resurrecting data and it can be challenging to make sure that this happened or personally and you know if there's a problem where the problem was or can you restart the process so there are actually easy external processes that do that there is one enough Center for exam the repair service but the experience shows that there's it's usually a little bit fragile and it doesn't work that well because there's stuff you can do better if you do them server-side those our external tool that do it kind of client-side and so yeah okay so I can see it's the kind of trade off if you don't need to often you will build this huge metal tree and make a lot of streaming and of course you can lose some data but you cannot also make it too often because it's bit complex to handle so I think this is where notes in come into play right yes so can you basically explain us what is no thinkin what before sure so nothing is really a replacement of that interior pair which which that we aim to solve those two problem dimensions so it's also split ranges into small smaller ranges which repair small ranges but the ranges repair are smaller in general and it's also is it's more incrementally in a way that doesn't have this problem of a streaming and and more importantly it's a pretty self managed system so it's distributed if we know these repairing ISM data and and so there's four points that is basically the same as scenario the same kind of folklore is that that you would have for anything else and and it's it's pretty end off so it's running all the time and it's total automatically and any the idea is that you set it on and you don't really have to to you know watch it and it should make sure that is up to date as fast as it can ask it to go it sounds like the big of magic you know it's always ready always doing what what you need but do you have to enable it or make it focusing on some tables against owners on for instance sure so so the way it works is that you decide which table are I've nothing enable on which table it runs so so for that it's a table property so if you have a table and you say I want to try not think on my table I just do an outer table and you know we do not think equal true okay and and from that point on nothing will start repairing it and you can you can check the metrics and see if it works op Center as nice visualization to see where it's at and when parts are we third and I should mention as well that so if you want to enable many table we also ship with some kind of common light tool there's nothing to that all to enable multiple table so you can do things like you know not thinking able on you know star and all the table will get enabled it's just it's just a UI over Delta table but it just you know a little bit simpler and you can do that in up Center as well of course you can get your table and you have a switch that you can manually toggle for just getting out of nothing okay it sounds so simple I really like the idea to enable that stuff through sequela I think it's very nice way to to help users to get a grid of notes in here but you know some tables are bigger than others some in some there's a lot of tombstones and some are on your ride only so I think we should be able to prioritize the note sink on sub tables against another is this something we can do yes so there's so so the one thing you can you can configure on that thing is something I've been the deadline target and it's very much its target more than a deadline and and that's really saying so getting back to this tungsten Resurrection and GC grace there was this notion that you have to repair every every two weeks you make sure that everything is repaired every two weeks so I window of two weeks and that's configured that value so that value actually so you don't have to configure it because it default to GC grace but you can actually change it and make it more aggressive so independent of GC grace and nothing will prioritize table based on that value so if that's belief every table of the same deadline target they will get the same priority you will repair them fairly over time but if one irritable has half of that deadline it will be more aggressive it we better group try to synchronize it twice as fast well pretty much nice nice okay so notes Inc is pretty new features now what kind of test did you make to make it rock solid yeah we just run into our internal testing and you know traditional the multiple DCD nodes and introduced fake loss of data basically or for saying I think you think that I make sure it it's repaired that we also make tests around so the good thing is that nothing will fix any inconsistencies so you can use it if you increase the replication factor for instance and you can just wait for it and make sure it does replicate that I in the new data center and or data loss or things like that so there's a pretty pretty standard testing you would imagine for the kind of feature yeah yeah some single test to the limit if something goes wrong can he don't we lose anything stuff like yeah test as well yeah yeah making sure we don't we don't do anything that's what we expect is repair and we have we check we basically use the old repair as well that you can use to make sure that when does think has run nothing else is is so it's a double check of you know it's Tony's work at it as it would be as good as we there would be which is pretty well yeah nice well I think there's quite a lot of information to get you should go and try it busy very easy to do it it's all there just have to enable it so welcome to be with us with another episode of the data show and thank you simple to be with us today and let's add a pleasure to meet you again you thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data stacks Academy and tell us what you think you can also find us on the data stacks Academy YouTube channel or find our podcast on iTunes Google Play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode you [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.37,
+        "duration": 4.11,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.48,
+        "duration": 4.17,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 7.86,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 7.83,
+        "text": "large-scale distributed systems hey"
+      },
+      {
+        "start": 16.32,
+        "duration": 4.65,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 18.48,
+        "duration": 4.5,
+        "text": "distributed data show I'm Sarah clean"
+      },
+      {
+        "start": 20.97,
+        "duration": 4.92,
+        "text": "Vern your host and today I have the"
+      },
+      {
+        "start": 22.98,
+        "duration": 6.0,
+        "text": "pleasure to be with one of the guests"
+      },
+      {
+        "start": 25.89,
+        "duration": 3.539,
+        "text": "our longtime contributor of Apache"
+      },
+      {
+        "start": 28.98,
+        "duration": 3.36,
+        "text": "Cassandra"
+      },
+      {
+        "start": 29.429,
+        "duration": 6.181,
+        "text": "silvano behind on and we will discuss"
+      },
+      {
+        "start": 32.34,
+        "duration": 8.309,
+        "text": "about pretty exciting stuff introduced"
+      },
+      {
+        "start": 35.61,
+        "duration": 7.199,
+        "text": "in the SE 6 which is called not sink but"
+      },
+      {
+        "start": 40.649,
+        "duration": 5.011,
+        "text": "before we dig into too much spicy"
+      },
+      {
+        "start": 42.809,
+        "duration": 5.34,
+        "text": "details please could you please"
+      },
+      {
+        "start": 45.66,
+        "duration": 5.46,
+        "text": "introduce yourself sure"
+      },
+      {
+        "start": 48.149,
+        "duration": 5.07,
+        "text": "hello I'm Savannah bland and I'm a"
+      },
+      {
+        "start": 51.12,
+        "duration": 5.4,
+        "text": "longtime member of a terrorist acts"
+      },
+      {
+        "start": 53.219,
+        "duration": 5.73,
+        "text": "Corps DBT I know also as you said a long"
+      },
+      {
+        "start": 56.52,
+        "duration": 8.16,
+        "text": "time tube to the Apache Center project"
+      },
+      {
+        "start": 58.949,
+        "duration": 7.681,
+        "text": "we're talking 0-5 numbers and so I'm"
+      },
+      {
+        "start": 64.68,
+        "duration": 5.84,
+        "text": "come here and a PMC member on the"
+      },
+      {
+        "start": 66.63,
+        "duration": 6.63,
+        "text": "project oh that's a long time indeed"
+      },
+      {
+        "start": 70.52,
+        "duration": 3.43,
+        "text": "justice takes a better sex we used to"
+      },
+      {
+        "start": 73.26,
+        "duration": 7.2,
+        "text": "say that"
+      },
+      {
+        "start": 73.95,
+        "duration": 9.84,
+        "text": "Dec 6 2014 ow I think we already spoke"
+      },
+      {
+        "start": 80.46,
+        "duration": 6.29,
+        "text": "about performance but few times now"
+      },
+      {
+        "start": 83.79,
+        "duration": 6.09,
+        "text": "especially with the tpc episode and"
+      },
+      {
+        "start": 86.75,
+        "duration": 7.81,
+        "text": "today it will be more about simplicity"
+      },
+      {
+        "start": 89.88,
+        "duration": 8.129,
+        "text": "and removing complexity so silver could"
+      },
+      {
+        "start": 94.56,
+        "duration": 7.37,
+        "text": "you remind us what is the audience"
+      },
+      {
+        "start": 98.009,
+        "duration": 6.421,
+        "text": "replica sort of mechanism oh yeah so"
+      },
+      {
+        "start": 101.93,
+        "duration": 5.439,
+        "text": "Katherine Ryan so DSC which is Bill and"
+      },
+      {
+        "start": 104.43,
+        "duration": 7.259,
+        "text": "Cassandra are distributed database which"
+      },
+      {
+        "start": 107.369,
+        "duration": 6.18,
+        "text": "replication that replication is often"
+      },
+      {
+        "start": 111.689,
+        "duration": 5.341,
+        "text": "done as synchronously"
+      },
+      {
+        "start": 113.549,
+        "duration": 7.68,
+        "text": "what that mean is that not can get out"
+      },
+      {
+        "start": 117.03,
+        "duration": 6.36,
+        "text": "of thing can getting existent and so you"
+      },
+      {
+        "start": 121.229,
+        "duration": 3.75,
+        "text": "need you need mechanism to fix those"
+      },
+      {
+        "start": 123.39,
+        "duration": 2.1,
+        "text": "inconsistency between that when they"
+      },
+      {
+        "start": 124.979,
+        "duration": 2.551,
+        "text": "appear"
+      },
+      {
+        "start": 125.49,
+        "duration": 4.109,
+        "text": "there's by the way of special case of"
+      },
+      {
+        "start": 127.53,
+        "duration": 3.959,
+        "text": "inconsistency which is that of us where"
+      },
+      {
+        "start": 129.599,
+        "duration": 4.771,
+        "text": "some neural news data and so is"
+      },
+      {
+        "start": 131.489,
+        "duration": 4.681,
+        "text": "inconsistent with his peers so"
+      },
+      {
+        "start": 134.37,
+        "duration": 5.25,
+        "text": "that kitchen has a couple of mechanism"
+      },
+      {
+        "start": 136.17,
+        "duration": 7.08,
+        "text": "the first two first one are like ins and"
+      },
+      {
+        "start": 139.62,
+        "duration": 5.91,
+        "text": "really repair both of which helps with"
+      },
+      {
+        "start": 143.25,
+        "duration": 3.989,
+        "text": "fixing insistency when they appear but"
+      },
+      {
+        "start": 145.53,
+        "duration": 5.819,
+        "text": "they are optimization they are not"
+      },
+      {
+        "start": 147.239,
+        "duration": 6.36,
+        "text": "guaranteed to always kick in and and so"
+      },
+      {
+        "start": 151.349,
+        "duration": 7.711,
+        "text": "there's case we just don't don't work in"
+      },
+      {
+        "start": 153.599,
+        "duration": 8.97,
+        "text": "especially for data loss typically it"
+      },
+      {
+        "start": 159.06,
+        "duration": 6.84,
+        "text": "just cannot fix that actually repair can"
+      },
+      {
+        "start": 162.569,
+        "duration": 5.611,
+        "text": "but okay anyway so the wall point is"
+      },
+      {
+        "start": 165.9,
+        "duration": 5.28,
+        "text": "that we need a mechanism for kind of"
+      },
+      {
+        "start": 168.18,
+        "duration": 5.54,
+        "text": "force finding to this consistency or fix"
+      },
+      {
+        "start": 171.18,
+        "duration": 7.02,
+        "text": "it and that's what them th P is doing"
+      },
+      {
+        "start": 173.72,
+        "duration": 7.049,
+        "text": "okay and basically how does it works yes"
+      },
+      {
+        "start": 178.2,
+        "duration": 6.209,
+        "text": "so so the way it works in Cassandra is"
+      },
+      {
+        "start": 180.769,
+        "duration": 6.401,
+        "text": "you use what is called miracle tree that"
+      },
+      {
+        "start": 184.409,
+        "duration": 6.871,
+        "text": "is the one of the node will ask for the"
+      },
+      {
+        "start": 187.17,
+        "duration": 5.67,
+        "text": "miracle tree of the replica so basically"
+      },
+      {
+        "start": 191.28,
+        "duration": 3.959,
+        "text": "we're taking a range we're splitting in"
+      },
+      {
+        "start": 192.84,
+        "duration": 5.34,
+        "text": "small small ranges and we ash the"
+      },
+      {
+        "start": 195.239,
+        "duration": 5.301,
+        "text": "content of those ranges and we send all"
+      },
+      {
+        "start": 198.18,
+        "duration": 7.26,
+        "text": "those ashes back the coordinator"
+      },
+      {
+        "start": 200.54,
+        "duration": 8.319,
+        "text": "compared to ash and if if they have to"
+      },
+      {
+        "start": 205.44,
+        "duration": 7.199,
+        "text": "first able to say like this range is not"
+      },
+      {
+        "start": 208.859,
+        "duration": 6.841,
+        "text": "consistent between the two replicas so"
+      },
+      {
+        "start": 212.639,
+        "duration": 6.63,
+        "text": "then it will stream the data you know"
+      },
+      {
+        "start": 215.7,
+        "duration": 6.149,
+        "text": "between the replicas it'd be okay um I"
+      },
+      {
+        "start": 219.269,
+        "duration": 5.131,
+        "text": "think this until repair mechanism as"
+      },
+      {
+        "start": 221.849,
+        "duration": 5.01,
+        "text": "been introduced quite a lot of time now"
+      },
+      {
+        "start": 224.4,
+        "duration": 6.149,
+        "text": "it's works quite well it has some no"
+      },
+      {
+        "start": 226.859,
+        "duration": 6.301,
+        "text": "limitation about this mechanism sure so"
+      },
+      {
+        "start": 230.549,
+        "duration": 6.361,
+        "text": "just we have two buckets of problem with"
+      },
+      {
+        "start": 233.16,
+        "duration": 8.009,
+        "text": "the entropy repair as it exists the"
+      },
+      {
+        "start": 236.91,
+        "duration": 6.719,
+        "text": "first one is is performance impact on"
+      },
+      {
+        "start": 241.169,
+        "duration": 5.88,
+        "text": "performance kind of thing the first one"
+      },
+      {
+        "start": 243.629,
+        "duration": 7.711,
+        "text": "is that repair tend to over stream a lot"
+      },
+      {
+        "start": 247.049,
+        "duration": 6.481,
+        "text": "of data so as we say we we have the ash"
+      },
+      {
+        "start": 251.34,
+        "duration": 4.38,
+        "text": "of those ranges when we have an image"
+      },
+      {
+        "start": 253.53,
+        "duration": 4.35,
+        "text": "when we detect an inconsistency all we"
+      },
+      {
+        "start": 255.72,
+        "duration": 4.259,
+        "text": "know is that for some range that can be"
+      },
+      {
+        "start": 257.88,
+        "duration": 4.409,
+        "text": "fairly large there is something that"
+      },
+      {
+        "start": 259.979,
+        "duration": 4.801,
+        "text": "defer but that means we may we may"
+      },
+      {
+        "start": 262.289,
+        "duration": 5.131,
+        "text": "stream a couple of megabytes of that up"
+      },
+      {
+        "start": 264.78,
+        "duration": 5.34,
+        "text": "just because there's just one small very"
+      },
+      {
+        "start": 267.42,
+        "duration": 5.07,
+        "text": "tiny inconsistency that that's in and"
+      },
+      {
+        "start": 270.12,
+        "duration": 5.46,
+        "text": "there's this reason why we over stream"
+      },
+      {
+        "start": 272.49,
+        "duration": 5.1,
+        "text": "too much those are ones that it tends to"
+      },
+      {
+        "start": 275.58,
+        "duration": 5.28,
+        "text": "be pretty bursty it's not historically"
+      },
+      {
+        "start": 277.59,
+        "duration": 6.72,
+        "text": "it's not very well traveled for your"
+      },
+      {
+        "start": 280.86,
+        "duration": 7.89,
+        "text": "club the second bucket of problem is"
+      },
+      {
+        "start": 284.31,
+        "duration": 6.93,
+        "text": "just the way it's managed you do require"
+      },
+      {
+        "start": 288.75,
+        "duration": 5.28,
+        "text": "quite a bit of expertise and and and"
+      },
+      {
+        "start": 291.24,
+        "duration": 6.27,
+        "text": "it's pretty complex to manage repairing"
+      },
+      {
+        "start": 294.03,
+        "duration": 6.63,
+        "text": "a cluster one of the things that that"
+      },
+      {
+        "start": 297.51,
+        "duration": 6.27,
+        "text": "goes into that is so people in consumer"
+      },
+      {
+        "start": 300.66,
+        "duration": 5.58,
+        "text": "know that if you don't if you if you"
+      },
+      {
+        "start": 303.78,
+        "duration": 5.16,
+        "text": "don't repair often enough there's a risk"
+      },
+      {
+        "start": 306.24,
+        "duration": 7.22,
+        "text": "of resurrecting data and that has to do"
+      },
+      {
+        "start": 308.94,
+        "duration": 6.6,
+        "text": "with the the way delation is and old in"
+      },
+      {
+        "start": 313.46,
+        "duration": 4.18,
+        "text": "central tome stones"
+      },
+      {
+        "start": 315.54,
+        "duration": 4.02,
+        "text": "so you basically need to make sure don't"
+      },
+      {
+        "start": 317.64,
+        "duration": 3.92,
+        "text": "stone make it to every node so you're"
+      },
+      {
+        "start": 319.56,
+        "duration": 5.94,
+        "text": "going to make sure they replicate it"
+      },
+      {
+        "start": 321.56,
+        "duration": 6.4,
+        "text": "before what we call TC grace and so that"
+      },
+      {
+        "start": 325.5,
+        "duration": 4.29,
+        "text": "means you need to make sure repair is"
+      },
+      {
+        "start": 327.96,
+        "duration": 4.05,
+        "text": "run within those kind of windows"
+      },
+      {
+        "start": 329.79,
+        "duration": 5.07,
+        "text": "otherwise you may have resurrecting data"
+      },
+      {
+        "start": 332.01,
+        "duration": 6.6,
+        "text": "and it can be challenging to make sure"
+      },
+      {
+        "start": 334.86,
+        "duration": 6.39,
+        "text": "that this happened or personally and you"
+      },
+      {
+        "start": 338.61,
+        "duration": 4.77,
+        "text": "know if there's a problem where the"
+      },
+      {
+        "start": 341.25,
+        "duration": 4.44,
+        "text": "problem was or can you restart the"
+      },
+      {
+        "start": 343.38,
+        "duration": 6.09,
+        "text": "process so there are actually easy"
+      },
+      {
+        "start": 345.69,
+        "duration": 5.55,
+        "text": "external processes that do that there is"
+      },
+      {
+        "start": 349.47,
+        "duration": 4.7,
+        "text": "one enough Center for exam the repair"
+      },
+      {
+        "start": 351.24,
+        "duration": 5.76,
+        "text": "service but the experience shows that"
+      },
+      {
+        "start": 354.17,
+        "duration": 7.72,
+        "text": "there's it's usually a little bit"
+      },
+      {
+        "start": 357.0,
+        "duration": 7.08,
+        "text": "fragile and it doesn't work that well"
+      },
+      {
+        "start": 361.89,
+        "duration": 3.9,
+        "text": "because there's stuff you can do better"
+      },
+      {
+        "start": 364.08,
+        "duration": 4.5,
+        "text": "if you do them server-side those our"
+      },
+      {
+        "start": 365.79,
+        "duration": 6.93,
+        "text": "external tool that do it kind of"
+      },
+      {
+        "start": 368.58,
+        "duration": 6.93,
+        "text": "client-side and so yeah okay so I can"
+      },
+      {
+        "start": 372.72,
+        "duration": 5.55,
+        "text": "see it's the kind of trade off if you"
+      },
+      {
+        "start": 375.51,
+        "duration": 4.86,
+        "text": "don't need to often you will build this"
+      },
+      {
+        "start": 378.27,
+        "duration": 5.28,
+        "text": "huge metal tree and make a lot of"
+      },
+      {
+        "start": 380.37,
+        "duration": 6.36,
+        "text": "streaming and of course you can lose"
+      },
+      {
+        "start": 383.55,
+        "duration": 6.24,
+        "text": "some data but you cannot also make it"
+      },
+      {
+        "start": 386.73,
+        "duration": 7.02,
+        "text": "too often because it's bit complex to"
+      },
+      {
+        "start": 389.79,
+        "duration": 7.53,
+        "text": "handle so I think this is where notes in"
+      },
+      {
+        "start": 393.75,
+        "duration": 6.09,
+        "text": "come into play right yes so can you"
+      },
+      {
+        "start": 397.32,
+        "duration": 4.19,
+        "text": "basically explain us what is no thinkin"
+      },
+      {
+        "start": 399.84,
+        "duration": 5.28,
+        "text": "what"
+      },
+      {
+        "start": 401.51,
+        "duration": 7.3,
+        "text": "before sure so nothing is really a"
+      },
+      {
+        "start": 405.12,
+        "duration": 5.91,
+        "text": "replacement of that interior pair which"
+      },
+      {
+        "start": 408.81,
+        "duration": 5.04,
+        "text": "which that we aim to solve those two"
+      },
+      {
+        "start": 411.03,
+        "duration": 6.21,
+        "text": "problem dimensions so it's also split"
+      },
+      {
+        "start": 413.85,
+        "duration": 6.78,
+        "text": "ranges into small smaller ranges which"
+      },
+      {
+        "start": 417.24,
+        "duration": 6.03,
+        "text": "repair small ranges but the ranges"
+      },
+      {
+        "start": 420.63,
+        "duration": 5.97,
+        "text": "repair are smaller in general and it's"
+      },
+      {
+        "start": 423.27,
+        "duration": 5.13,
+        "text": "also is it's more incrementally in a way"
+      },
+      {
+        "start": 426.6,
+        "duration": 4.56,
+        "text": "that doesn't have this problem of a"
+      },
+      {
+        "start": 428.4,
+        "duration": 5.88,
+        "text": "streaming and and more importantly it's"
+      },
+      {
+        "start": 431.16,
+        "duration": 5.19,
+        "text": "a pretty self managed system so it's"
+      },
+      {
+        "start": 434.28,
+        "duration": 6.18,
+        "text": "distributed if we know these repairing"
+      },
+      {
+        "start": 436.35,
+        "duration": 5.79,
+        "text": "ISM data and and so there's four points"
+      },
+      {
+        "start": 440.46,
+        "duration": 3.42,
+        "text": "that is basically the same as scenario"
+      },
+      {
+        "start": 442.14,
+        "duration": 4.47,
+        "text": "the same kind of folklore is that that"
+      },
+      {
+        "start": 443.88,
+        "duration": 4.8,
+        "text": "you would have for anything else and and"
+      },
+      {
+        "start": 446.61,
+        "duration": 4.23,
+        "text": "it's it's pretty end off so it's running"
+      },
+      {
+        "start": 448.68,
+        "duration": 5.97,
+        "text": "all the time and it's total"
+      },
+      {
+        "start": 450.84,
+        "duration": 5.82,
+        "text": "automatically and any the idea is that"
+      },
+      {
+        "start": 454.65,
+        "duration": 4.019,
+        "text": "you set it on and you don't really have"
+      },
+      {
+        "start": 456.66,
+        "duration": 6.0,
+        "text": "to to you know watch it and it should"
+      },
+      {
+        "start": 458.669,
+        "duration": 6.991,
+        "text": "make sure that is up to date as fast as"
+      },
+      {
+        "start": 462.66,
+        "duration": 4.77,
+        "text": "it can ask it to go it sounds like the"
+      },
+      {
+        "start": 465.66,
+        "duration": 5.7,
+        "text": "big of magic you know it's always ready"
+      },
+      {
+        "start": 467.43,
+        "duration": 6.11,
+        "text": "always doing what what you need but do"
+      },
+      {
+        "start": 471.36,
+        "duration": 5.52,
+        "text": "you have to enable it or make it"
+      },
+      {
+        "start": 473.54,
+        "duration": 6.189,
+        "text": "focusing on some tables against owners"
+      },
+      {
+        "start": 476.88,
+        "duration": 6.18,
+        "text": "on for instance sure so so the way it"
+      },
+      {
+        "start": 479.729,
+        "duration": 5.611,
+        "text": "works is that you decide which table are"
+      },
+      {
+        "start": 483.06,
+        "duration": 7.29,
+        "text": "I've nothing enable on which table it"
+      },
+      {
+        "start": 485.34,
+        "duration": 6.96,
+        "text": "runs so so for that it's a table"
+      },
+      {
+        "start": 490.35,
+        "duration": 3.66,
+        "text": "property so if you have a table and you"
+      },
+      {
+        "start": 492.3,
+        "duration": 4.05,
+        "text": "say I want to try not think on my table"
+      },
+      {
+        "start": 494.01,
+        "duration": 6.78,
+        "text": "I just do an outer table and you know we"
+      },
+      {
+        "start": 496.35,
+        "duration": 7.14,
+        "text": "do not think equal true okay and and"
+      },
+      {
+        "start": 500.79,
+        "duration": 5.25,
+        "text": "from that point on nothing will start"
+      },
+      {
+        "start": 503.49,
+        "duration": 4.47,
+        "text": "repairing it and you can you can check"
+      },
+      {
+        "start": 506.04,
+        "duration": 4.89,
+        "text": "the metrics and see if it works"
+      },
+      {
+        "start": 507.96,
+        "duration": 7.079,
+        "text": "op Center as nice visualization to see"
+      },
+      {
+        "start": 510.93,
+        "duration": 8.51,
+        "text": "where it's at and when parts are we"
+      },
+      {
+        "start": 515.039,
+        "duration": 7.291,
+        "text": "third and I should mention as well that"
+      },
+      {
+        "start": 519.44,
+        "duration": 4.69,
+        "text": "so if you want to enable many table we"
+      },
+      {
+        "start": 522.33,
+        "duration": 5.25,
+        "text": "also ship with some kind of common light"
+      },
+      {
+        "start": 524.13,
+        "duration": 4.21,
+        "text": "tool there's nothing to that all to"
+      },
+      {
+        "start": 527.58,
+        "duration": 4.18,
+        "text": "enable"
+      },
+      {
+        "start": 528.34,
+        "duration": 6.39,
+        "text": "multiple table so you can do things like"
+      },
+      {
+        "start": 531.76,
+        "duration": 5.58,
+        "text": "you know not thinking able on you know"
+      },
+      {
+        "start": 534.73,
+        "duration": 6.51,
+        "text": "star and all the table will get enabled"
+      },
+      {
+        "start": 537.34,
+        "duration": 6.75,
+        "text": "it's just it's just a UI over Delta"
+      },
+      {
+        "start": 541.24,
+        "duration": 4.56,
+        "text": "table but it just you know a little bit"
+      },
+      {
+        "start": 544.09,
+        "duration": 3.36,
+        "text": "simpler and you can do that in up Center"
+      },
+      {
+        "start": 545.8,
+        "duration": 3.36,
+        "text": "as well of course you can get your table"
+      },
+      {
+        "start": 547.45,
+        "duration": 4.23,
+        "text": "and you have a switch that you can"
+      },
+      {
+        "start": 549.16,
+        "duration": 5.1,
+        "text": "manually toggle for just getting out of"
+      },
+      {
+        "start": 551.68,
+        "duration": 4.17,
+        "text": "nothing okay it sounds so simple I"
+      },
+      {
+        "start": 554.26,
+        "duration": 3.63,
+        "text": "really like the idea to enable that"
+      },
+      {
+        "start": 555.85,
+        "duration": 5.34,
+        "text": "stuff through sequela I think it's very"
+      },
+      {
+        "start": 557.89,
+        "duration": 7.65,
+        "text": "nice way to to help users to get a grid"
+      },
+      {
+        "start": 561.19,
+        "duration": 7.65,
+        "text": "of notes in here but you know some"
+      },
+      {
+        "start": 565.54,
+        "duration": 5.1,
+        "text": "tables are bigger than others some in"
+      },
+      {
+        "start": 568.84,
+        "duration": 5.37,
+        "text": "some there's a lot of tombstones and"
+      },
+      {
+        "start": 570.64,
+        "duration": 6.03,
+        "text": "some are on your ride only so I think we"
+      },
+      {
+        "start": 574.21,
+        "duration": 4.74,
+        "text": "should be able to prioritize the note"
+      },
+      {
+        "start": 576.67,
+        "duration": 6.81,
+        "text": "sink on sub tables against another"
+      },
+      {
+        "start": 578.95,
+        "duration": 8.28,
+        "text": "is this something we can do yes so"
+      },
+      {
+        "start": 583.48,
+        "duration": 6.93,
+        "text": "there's so so the one thing you can you"
+      },
+      {
+        "start": 587.23,
+        "duration": 5.16,
+        "text": "can configure on that thing is something"
+      },
+      {
+        "start": 590.41,
+        "duration": 4.47,
+        "text": "I've been the deadline target and it's"
+      },
+      {
+        "start": 592.39,
+        "duration": 6.87,
+        "text": "very much its target more than a"
+      },
+      {
+        "start": 594.88,
+        "duration": 6.36,
+        "text": "deadline and and that's really saying so"
+      },
+      {
+        "start": 599.26,
+        "duration": 6.99,
+        "text": "getting back to this tungsten"
+      },
+      {
+        "start": 601.24,
+        "duration": 7.17,
+        "text": "Resurrection and GC grace there was this"
+      },
+      {
+        "start": 606.25,
+        "duration": 3.72,
+        "text": "notion that you have to repair every"
+      },
+      {
+        "start": 608.41,
+        "duration": 3.18,
+        "text": "every two weeks you make sure that"
+      },
+      {
+        "start": 609.97,
+        "duration": 3.51,
+        "text": "everything is repaired every two weeks"
+      },
+      {
+        "start": 611.59,
+        "duration": 3.87,
+        "text": "so I window of two weeks and that's"
+      },
+      {
+        "start": 613.48,
+        "duration": 3.69,
+        "text": "configured that value so that value"
+      },
+      {
+        "start": 615.46,
+        "duration": 4.08,
+        "text": "actually so you don't have to configure"
+      },
+      {
+        "start": 617.17,
+        "duration": 3.93,
+        "text": "it because it default to GC grace but"
+      },
+      {
+        "start": 619.54,
+        "duration": 4.02,
+        "text": "you can actually change it and make it"
+      },
+      {
+        "start": 621.1,
+        "duration": 6.18,
+        "text": "more aggressive so independent of GC"
+      },
+      {
+        "start": 623.56,
+        "duration": 6.48,
+        "text": "grace and nothing will prioritize table"
+      },
+      {
+        "start": 627.28,
+        "duration": 6.15,
+        "text": "based on that value so if that's belief"
+      },
+      {
+        "start": 630.04,
+        "duration": 5.13,
+        "text": "every table of the same deadline target"
+      },
+      {
+        "start": 633.43,
+        "duration": 5.04,
+        "text": "they will get the same priority you will"
+      },
+      {
+        "start": 635.17,
+        "duration": 7.29,
+        "text": "repair them fairly over time but if one"
+      },
+      {
+        "start": 638.47,
+        "duration": 5.55,
+        "text": "irritable has half of that deadline it"
+      },
+      {
+        "start": 642.46,
+        "duration": 4.29,
+        "text": "will be more aggressive it we better"
+      },
+      {
+        "start": 644.02,
+        "duration": 6.42,
+        "text": "group try to synchronize it twice as"
+      },
+      {
+        "start": 646.75,
+        "duration": 7.59,
+        "text": "fast well pretty much nice nice"
+      },
+      {
+        "start": 650.44,
+        "duration": 6.9,
+        "text": "okay so notes Inc is pretty new features"
+      },
+      {
+        "start": 654.34,
+        "duration": 6.8,
+        "text": "now what kind of test did you make to"
+      },
+      {
+        "start": 657.34,
+        "duration": 3.8,
+        "text": "make it rock solid"
+      },
+      {
+        "start": 661.38,
+        "duration": 9.45,
+        "text": "yeah we just run into our internal"
+      },
+      {
+        "start": 665.56,
+        "duration": 9.68,
+        "text": "testing and you know traditional the"
+      },
+      {
+        "start": 670.83,
+        "duration": 8.23,
+        "text": "multiple DCD nodes and introduced fake"
+      },
+      {
+        "start": 675.24,
+        "duration": 7.18,
+        "text": "loss of data basically or for saying I"
+      },
+      {
+        "start": 679.06,
+        "duration": 5.33,
+        "text": "think you think that I make sure it it's"
+      },
+      {
+        "start": 682.42,
+        "duration": 4.53,
+        "text": "repaired that we also make tests around"
+      },
+      {
+        "start": 684.39,
+        "duration": 4.39,
+        "text": "so the good thing is that nothing will"
+      },
+      {
+        "start": 686.95,
+        "duration": 4.29,
+        "text": "fix any inconsistencies so you can use"
+      },
+      {
+        "start": 688.78,
+        "duration": 4.17,
+        "text": "it if you increase the replication"
+      },
+      {
+        "start": 691.24,
+        "duration": 4.37,
+        "text": "factor for instance and you can just"
+      },
+      {
+        "start": 692.95,
+        "duration": 5.93,
+        "text": "wait for it and make sure it does"
+      },
+      {
+        "start": 695.61,
+        "duration": 7.41,
+        "text": "replicate that I in the new data center"
+      },
+      {
+        "start": 698.88,
+        "duration": 7.39,
+        "text": "and or data loss or things like that so"
+      },
+      {
+        "start": 703.02,
+        "duration": 4.48,
+        "text": "there's a pretty pretty standard testing"
+      },
+      {
+        "start": 706.27,
+        "duration": 5.55,
+        "text": "you would imagine for the kind of"
+      },
+      {
+        "start": 707.5,
+        "duration": 6.42,
+        "text": "feature yeah yeah some single test to"
+      },
+      {
+        "start": 711.82,
+        "duration": 5.07,
+        "text": "the limit if something goes wrong"
+      },
+      {
+        "start": 713.92,
+        "duration": 5.79,
+        "text": "can he don't we lose anything stuff like"
+      },
+      {
+        "start": 716.89,
+        "duration": 6.0,
+        "text": "yeah test as well yeah yeah making sure"
+      },
+      {
+        "start": 719.71,
+        "duration": 5.27,
+        "text": "we don't we don't do anything that's"
+      },
+      {
+        "start": 722.89,
+        "duration": 5.4,
+        "text": "what we expect is repair and we have we"
+      },
+      {
+        "start": 724.98,
+        "duration": 5.47,
+        "text": "check we basically use the old repair as"
+      },
+      {
+        "start": 728.29,
+        "duration": 5.46,
+        "text": "well that you can use to make sure that"
+      },
+      {
+        "start": 730.45,
+        "duration": 5.22,
+        "text": "when does think has run nothing else is"
+      },
+      {
+        "start": 733.75,
+        "duration": 4.23,
+        "text": "is so it's a double check of you know"
+      },
+      {
+        "start": 735.67,
+        "duration": 4.56,
+        "text": "it's Tony's work at it as it would be as"
+      },
+      {
+        "start": 737.98,
+        "duration": 4.79,
+        "text": "good as we there would be which is"
+      },
+      {
+        "start": 740.23,
+        "duration": 6.12,
+        "text": "pretty well"
+      },
+      {
+        "start": 742.77,
+        "duration": 6.85,
+        "text": "yeah nice well I think there's quite a"
+      },
+      {
+        "start": 746.35,
+        "duration": 5.64,
+        "text": "lot of information to get you should go"
+      },
+      {
+        "start": 749.62,
+        "duration": 4.89,
+        "text": "and try it busy very easy to do it it's"
+      },
+      {
+        "start": 751.99,
+        "duration": 4.68,
+        "text": "all there just have to enable it so"
+      },
+      {
+        "start": 754.51,
+        "duration": 4.95,
+        "text": "welcome to be with us with another"
+      },
+      {
+        "start": 756.67,
+        "duration": 6.12,
+        "text": "episode of the data show and thank you"
+      },
+      {
+        "start": 759.46,
+        "duration": 6.81,
+        "text": "simple to be with us today and let's add"
+      },
+      {
+        "start": 762.79,
+        "duration": 4.77,
+        "text": "a pleasure to meet you again you thank"
+      },
+      {
+        "start": 766.27,
+        "duration": 3.27,
+        "text": "you for joining us again for the"
+      },
+      {
+        "start": 767.56,
+        "duration": 3.69,
+        "text": "distributed data show we love your"
+      },
+      {
+        "start": 769.54,
+        "duration": 3.54,
+        "text": "feedback so go to the distributed data"
+      },
+      {
+        "start": 771.25,
+        "duration": 3.69,
+        "text": "show page on data stacks Academy and"
+      },
+      {
+        "start": 773.08,
+        "duration": 3.33,
+        "text": "tell us what you think you can also find"
+      },
+      {
+        "start": 774.94,
+        "duration": 4.32,
+        "text": "us on the data stacks Academy YouTube"
+      },
+      {
+        "start": 776.41,
+        "duration": 4.89,
+        "text": "channel or find our podcast on iTunes"
+      },
+      {
+        "start": 779.26,
+        "duration": 4.5,
+        "text": "Google Play or wherever you get great"
+      },
+      {
+        "start": 781.3,
+        "duration": 3.93,
+        "text": "podcast while you're there make sure and"
+      },
+      {
+        "start": 783.76,
+        "duration": 2.84,
+        "text": "subscribe so you don't miss a single"
+      },
+      {
+        "start": 785.23,
+        "duration": 2.1,
+        "text": "episode"
+      },
+      {
+        "start": 786.6,
+        "duration": 3.85,
+        "text": "you"
+      },
+      {
+        "start": 787.33,
+        "duration": 3.12,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T06:37:23.458782+00:00"
+}

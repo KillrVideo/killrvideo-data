@@ -1,0 +1,1689 @@
+{
+  "video_id": "FJeTJlPtjdI",
+  "title": "DS220.20 Write Techniques | Data Modeling with Apache Cassandra",
+  "description": "#DataStaxAcademy #DS220\nDS220.20 Write Techniques\nUsing Apache Cassandra, write operations are designed to be as efficient as possible. But there are some techniques that can be used in terms of data modeling for dealing with specific challenges. We discuss this further in this unit, with a focus on batches and lightweight transactions.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-14T09:28:25Z",
+  "thumbnail": "https://i.ytimg.com/vi/FJeTJlPtjdI/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "data_modeling",
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=FJeTJlPtjdI",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] as we continue along this discussion of data modeling with datasets enterprise you might have noticed that there hasn't really been any significant data modeling topics in regards to writes using apache casandra as the core write operations in dse are designed to be as efficient as possible as such there really isn't too much you need to plan ahead of time with your right workloads however there are some techniques that can be useful for solving specific challenges which we'll be covering in this video one specific challenge that we run into when data modeling in data sex enterprise is how we can maintain data consistency across duplicated data with the usage of denormalized tables it's possible attributes for the same entity to appear across multiple tables in this case how can we make sure that the data stays the same it's possible that different parts of your application may read the same data from different tables and you wouldn't want the data to be different would you therefore it's important that your data stays consistent how does that happen normally in a simple model let's say you have some sort of entity whose attributes are in multiple tables when you are adding or updating an entity you would then use insert or update statements to update all of those tables this should work fine in most situations but what happens if one of those insert or update statements happen to fail that means that the data may no longer be consistent across all of the tables used in your application you'll find that because of these types of situations you'll need some way of tracking if your rights fail and have an appropriate way to handle these errors when they occur this could mean building application logic to handle that there's also a way that datastack enterprise can handle these type of writes as well using something called a batch specifically a logged batch similar to batches in a relational database a logged batch is combining the right operations written in the batch and sending them all at once to a coordinator node rather than executing the operations one by one however once the batch is accepted by the coordinator dsc will manage its execution and ensures that all the right operations will eventually be successfully completed this is one useful way that can help divert the burden of managing data consistency across tables to the database itself in our example here we have two tables in our killer video application a videos table and a videos by title table you can also see that we have certain duplicated columns such as title uploaded timestamp description and more a simple example of adding a new video to these tables then would be by using two insert statements one for each of these tables you can see that the video id of 1 should be the same for both of these insert statements and we'll assume that the rest of the columns all have the same value when making changes to a video we'll need to make the same changes to both of the tables for the videos table we can use an update to modify the column with a new value in this case the title of the video is being changed from jaw to jaws with the video by title table the procedure is a bit different since the column we are changing title is actually part of the primary key as you can see in our tobacco diagram if we were to do an update in this case the write operation would either create a new row with the title column value of jaws or update an existing one with the same title and video id the original row with the title draw and the video id of 1 would still exist it is because of this we'll actually need to do two operations an insert so that there's a row with the updated information and then a delete to remove the original row in videos by title although it doesn't show it you'll need to add values for all the columns that you have data for in the new insert operation note that the statements shown here would be executed individually it is possible that one statement could succeed and the other fail meaning that we have an inconsistency for the data for the videos in the videos and videos by title table in this kind of situation the application would need to handle the error in some way so that the tables stay consistent with log batches you would need to worry about individual write operations failing all we need to do here is to use the syntax for a log batch starting with begin batch writing the operations that should be included in the batch and then finishing it with the keywords apply batch in this case the write operations are all sent together to a coordinator node if the batch is accepted by the coordinator then it is then up to the database to ensure that the statements in the batch are executed successfully when a client sends a batch to a coordinator node the first thing that the node does is to save the batch into a special log both on that coordinator node as well as on several replica nodes this ensures that if the coordinator fails during execution of the batch it can replay the batch again when the coordinator is available to do so if for some reason the coordinator is not able to replay the batch then one of the replicas will take over the responsibilities of executing the batch instead once saved in the batch log the coordinator will then attempt to execute the write operations the batch operation only succeeds once all the right operations succeeds with the changes either being applied or hints being saved for the replica nodes this is a very useful technique to help manage data consistency in datastax enterprise and makes it possible to have acid-like properties however what the batch cannot do is to allow for batch isolation ultimately the write operations are still executed individually meaning that there may be a window in which it is possible to read both old and new data while the batch is running there are some caveats to be aware of when using matches for one it is not necessarily a good way to bulk load data as it's used in relational databases log batches actually require more work to be done compared to normal writes so it will always be slower there is also an unlocked batch that can be used in datasack enterprise but even then if you're creating huge batches this may be generating a lot of work on coordinator nodes causing resource contention and possibly performance bottlenecks this isn't to say that batches cannot be used as a way to book load data but it only makes sense in specific scenarios this may be a topic that you can visit again once you become more familiar with the way dlc works another important point is that batches do not necessarily execute and complete in the order written generally when you execute multiple statements each write may have a slightly different time stamp depending on how fast and close together those statements were executed with batches all of the right operations uses the same timestamp therefore there isn't a concept of bordering this will cause issues if you are thinking about using batches to make changes to the same row multiple times let's say that you are inserting a row and then modifying some columns for that row then deleting the row and then finally inserting a new row with the same primary key again all in the same batch since all these writes will be executed with the same time stamp you may not get the results you expect when you try to read the row one other useful feature that's available in data stacks enterprise is lightweight transactions this is a special type of write operation that is performed by first checking some sort of condition in the table and then executing the right only if that condition is met this can be used with any of the right operations insert update or delete this essentially is a way to perform an asset transaction though it works with one write operation at a time it is more expensive than a normal write which basically means that it takes longer to complete due to the additional internal operations that also needs to be done in addition to the right itself in the diagram here we are showing a lightweight transaction or an insert operation which is identified with the keywords if not exist at the end of the statement when executing the request goes to a coordinator node and then is routed to the corresponding replica node the replica will then check if there is already an existing partition with the same primary key if there is an existing partition then the replica node will respond saying that the partition exists without attempting the write however if there is no partition then the replica will go ahead and write that partition here we'll show you two different lightweight transactions one using an insert statement and the other using an update the first one is an insert statement where we're trying to create a new user in our users table in the chebako diagram you can see that the primary key is the user id column our actual insert statement then is adding this new user with the user id pmc fadin and includes the first name last name and so forth again note the keywords if not exist which makes this a lightweight transaction instead of a normal insert what this allows us to do is to make sure that there isn't already a pmc fadin user in our table already and avoids accidentally overwriting that user's data if he already does exist now assuming that the user creation succeeded let's take a look at an example of an update statement using a lightweight transaction one possibility is with a procedure to allow users to reset their password if they forget it the procedure may be that if a user requests for their password to be reset then they need to use a reset token which is provided through some secure channel the lightweight transaction here will be helpful since it allows us to check the value of a specific column and only executes the update if the column matches the value provided in the lightweight transaction therefore this first update statement is setting up a reset password token made up as a uuid for the username pmc paten the actual update statement will then set the password only at the value stored in the reset token column matches what is provided here in this lightweight transaction which is identified by that ips keyword any column can be checked for the lightweight transaction with the limitation being that it must be a column in the same row that's being updated in this way we can enforce that the password is changed only with the appropriate reset password token",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 5.32,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.279,
+        "duration": 4.081,
+        "text": "as we continue along this discussion of"
+      },
+      {
+        "start": 9.2,
+        "duration": 3.68,
+        "text": "data modeling with datasets enterprise"
+      },
+      {
+        "start": 11.36,
+        "duration": 2.96,
+        "text": "you might have noticed that there hasn't"
+      },
+      {
+        "start": 12.88,
+        "duration": 2.48,
+        "text": "really been any significant data"
+      },
+      {
+        "start": 14.32,
+        "duration": 3.36,
+        "text": "modeling topics"
+      },
+      {
+        "start": 15.36,
+        "duration": 3.679,
+        "text": "in regards to writes using apache"
+      },
+      {
+        "start": 17.68,
+        "duration": 3.519,
+        "text": "casandra as the core"
+      },
+      {
+        "start": 19.039,
+        "duration": 3.841,
+        "text": "write operations in dse are designed to"
+      },
+      {
+        "start": 21.199,
+        "duration": 3.521,
+        "text": "be as efficient as possible"
+      },
+      {
+        "start": 22.88,
+        "duration": 3.2,
+        "text": "as such there really isn't too much you"
+      },
+      {
+        "start": 24.72,
+        "duration": 3.52,
+        "text": "need to plan ahead of time"
+      },
+      {
+        "start": 26.08,
+        "duration": 3.84,
+        "text": "with your right workloads however there"
+      },
+      {
+        "start": 28.24,
+        "duration": 3.279,
+        "text": "are some techniques that can be useful"
+      },
+      {
+        "start": 29.92,
+        "duration": 3.92,
+        "text": "for solving specific challenges"
+      },
+      {
+        "start": 31.519,
+        "duration": 4.321,
+        "text": "which we'll be covering in this video"
+      },
+      {
+        "start": 33.84,
+        "duration": 3.44,
+        "text": "one specific challenge that we run into"
+      },
+      {
+        "start": 35.84,
+        "duration": 2.16,
+        "text": "when data modeling in data sex"
+      },
+      {
+        "start": 37.28,
+        "duration": 2.959,
+        "text": "enterprise"
+      },
+      {
+        "start": 38.0,
+        "duration": 3.76,
+        "text": "is how we can maintain data consistency"
+      },
+      {
+        "start": 40.239,
+        "duration": 3.601,
+        "text": "across duplicated data"
+      },
+      {
+        "start": 41.76,
+        "duration": 3.84,
+        "text": "with the usage of denormalized tables"
+      },
+      {
+        "start": 43.84,
+        "duration": 4.48,
+        "text": "it's possible attributes for the same"
+      },
+      {
+        "start": 45.6,
+        "duration": 4.4,
+        "text": "entity to appear across multiple tables"
+      },
+      {
+        "start": 48.32,
+        "duration": 3.44,
+        "text": "in this case how can we make sure that"
+      },
+      {
+        "start": 50.0,
+        "duration": 3.199,
+        "text": "the data stays the same"
+      },
+      {
+        "start": 51.76,
+        "duration": 3.52,
+        "text": "it's possible that different parts of"
+      },
+      {
+        "start": 53.199,
+        "duration": 3.36,
+        "text": "your application may read the same data"
+      },
+      {
+        "start": 55.28,
+        "duration": 2.799,
+        "text": "from different tables"
+      },
+      {
+        "start": 56.559,
+        "duration": 3.121,
+        "text": "and you wouldn't want the data to be"
+      },
+      {
+        "start": 58.079,
+        "duration": 3.12,
+        "text": "different would you"
+      },
+      {
+        "start": 59.68,
+        "duration": 3.519,
+        "text": "therefore it's important that your data"
+      },
+      {
+        "start": 61.199,
+        "duration": 2.721,
+        "text": "stays consistent how does that happen"
+      },
+      {
+        "start": 63.199,
+        "duration": 2.561,
+        "text": "normally"
+      },
+      {
+        "start": 63.92,
+        "duration": 3.76,
+        "text": "in a simple model let's say you have"
+      },
+      {
+        "start": 65.76,
+        "duration": 3.12,
+        "text": "some sort of entity whose attributes are"
+      },
+      {
+        "start": 67.68,
+        "duration": 2.88,
+        "text": "in multiple tables"
+      },
+      {
+        "start": 68.88,
+        "duration": 3.84,
+        "text": "when you are adding or updating an"
+      },
+      {
+        "start": 70.56,
+        "duration": 3.12,
+        "text": "entity you would then use insert or"
+      },
+      {
+        "start": 72.72,
+        "duration": 3.039,
+        "text": "update statements"
+      },
+      {
+        "start": 73.68,
+        "duration": 4.0,
+        "text": "to update all of those tables this"
+      },
+      {
+        "start": 75.759,
+        "duration": 3.68,
+        "text": "should work fine in most situations"
+      },
+      {
+        "start": 77.68,
+        "duration": 4.0,
+        "text": "but what happens if one of those insert"
+      },
+      {
+        "start": 79.439,
+        "duration": 3.921,
+        "text": "or update statements happen to fail"
+      },
+      {
+        "start": 81.68,
+        "duration": 3.68,
+        "text": "that means that the data may no longer"
+      },
+      {
+        "start": 83.36,
+        "duration": 2.64,
+        "text": "be consistent across all of the tables"
+      },
+      {
+        "start": 85.36,
+        "duration": 3.28,
+        "text": "used in your"
+      },
+      {
+        "start": 86.0,
+        "duration": 4.079,
+        "text": "application you'll find that because of"
+      },
+      {
+        "start": 88.64,
+        "duration": 3.04,
+        "text": "these types of situations"
+      },
+      {
+        "start": 90.079,
+        "duration": 3.601,
+        "text": "you'll need some way of tracking if your"
+      },
+      {
+        "start": 91.68,
+        "duration": 3.119,
+        "text": "rights fail and have an appropriate way"
+      },
+      {
+        "start": 93.68,
+        "duration": 3.439,
+        "text": "to handle these errors"
+      },
+      {
+        "start": 94.799,
+        "duration": 4.0,
+        "text": "when they occur this could mean building"
+      },
+      {
+        "start": 97.119,
+        "duration": 3.201,
+        "text": "application logic to handle that"
+      },
+      {
+        "start": 98.799,
+        "duration": 2.96,
+        "text": "there's also a way that datastack"
+      },
+      {
+        "start": 100.32,
+        "duration": 2.32,
+        "text": "enterprise can handle these type of"
+      },
+      {
+        "start": 101.759,
+        "duration": 2.4,
+        "text": "writes as well"
+      },
+      {
+        "start": 102.64,
+        "duration": 3.439,
+        "text": "using something called a batch"
+      },
+      {
+        "start": 104.159,
+        "duration": 3.521,
+        "text": "specifically a logged batch"
+      },
+      {
+        "start": 106.079,
+        "duration": 3.841,
+        "text": "similar to batches in a relational"
+      },
+      {
+        "start": 107.68,
+        "duration": 3.2,
+        "text": "database a logged batch is combining the"
+      },
+      {
+        "start": 109.92,
+        "duration": 2.72,
+        "text": "right operations"
+      },
+      {
+        "start": 110.88,
+        "duration": 3.12,
+        "text": "written in the batch and sending them"
+      },
+      {
+        "start": 112.64,
+        "duration": 3.2,
+        "text": "all at once to a coordinator"
+      },
+      {
+        "start": 114.0,
+        "duration": 3.68,
+        "text": "node rather than executing the"
+      },
+      {
+        "start": 115.84,
+        "duration": 3.68,
+        "text": "operations one by one"
+      },
+      {
+        "start": 117.68,
+        "duration": 4.079,
+        "text": "however once the batch is accepted by"
+      },
+      {
+        "start": 119.52,
+        "duration": 3.04,
+        "text": "the coordinator dsc will manage its"
+      },
+      {
+        "start": 121.759,
+        "duration": 2.241,
+        "text": "execution"
+      },
+      {
+        "start": 122.56,
+        "duration": 2.879,
+        "text": "and ensures that all the right"
+      },
+      {
+        "start": 124.0,
+        "duration": 3.28,
+        "text": "operations will eventually be"
+      },
+      {
+        "start": 125.439,
+        "duration": 3.44,
+        "text": "successfully completed"
+      },
+      {
+        "start": 127.28,
+        "duration": 3.36,
+        "text": "this is one useful way that can help"
+      },
+      {
+        "start": 128.879,
+        "duration": 3.201,
+        "text": "divert the burden of managing data"
+      },
+      {
+        "start": 130.64,
+        "duration": 3.84,
+        "text": "consistency across tables"
+      },
+      {
+        "start": 132.08,
+        "duration": 4.239,
+        "text": "to the database itself in our example"
+      },
+      {
+        "start": 134.48,
+        "duration": 3.04,
+        "text": "here we have two tables in our killer"
+      },
+      {
+        "start": 136.319,
+        "duration": 3.28,
+        "text": "video application"
+      },
+      {
+        "start": 137.52,
+        "duration": 3.04,
+        "text": "a videos table and a videos by title"
+      },
+      {
+        "start": 139.599,
+        "duration": 2.481,
+        "text": "table"
+      },
+      {
+        "start": 140.56,
+        "duration": 3.6,
+        "text": "you can also see that we have certain"
+      },
+      {
+        "start": 142.08,
+        "duration": 4.64,
+        "text": "duplicated columns such as title"
+      },
+      {
+        "start": 144.16,
+        "duration": 4.4,
+        "text": "uploaded timestamp description and more"
+      },
+      {
+        "start": 146.72,
+        "duration": 3.12,
+        "text": "a simple example of adding a new video"
+      },
+      {
+        "start": 148.56,
+        "duration": 3.36,
+        "text": "to these tables then"
+      },
+      {
+        "start": 149.84,
+        "duration": 3.92,
+        "text": "would be by using two insert statements"
+      },
+      {
+        "start": 151.92,
+        "duration": 3.92,
+        "text": "one for each of these tables"
+      },
+      {
+        "start": 153.76,
+        "duration": 3.44,
+        "text": "you can see that the video id of 1"
+      },
+      {
+        "start": 155.84,
+        "duration": 2.399,
+        "text": "should be the same for both of these"
+      },
+      {
+        "start": 157.2,
+        "duration": 2.399,
+        "text": "insert statements"
+      },
+      {
+        "start": 158.239,
+        "duration": 3.121,
+        "text": "and we'll assume that the rest of the"
+      },
+      {
+        "start": 159.599,
+        "duration": 3.761,
+        "text": "columns all have the same value"
+      },
+      {
+        "start": 161.36,
+        "duration": 3.599,
+        "text": "when making changes to a video we'll"
+      },
+      {
+        "start": 163.36,
+        "duration": 2.56,
+        "text": "need to make the same changes to both of"
+      },
+      {
+        "start": 164.959,
+        "duration": 2.961,
+        "text": "the tables"
+      },
+      {
+        "start": 165.92,
+        "duration": 3.92,
+        "text": "for the videos table we can use an"
+      },
+      {
+        "start": 167.92,
+        "duration": 2.64,
+        "text": "update to modify the column with a new"
+      },
+      {
+        "start": 169.84,
+        "duration": 2.56,
+        "text": "value"
+      },
+      {
+        "start": 170.56,
+        "duration": 3.2,
+        "text": "in this case the title of the video is"
+      },
+      {
+        "start": 172.4,
+        "duration": 4.4,
+        "text": "being changed from jaw"
+      },
+      {
+        "start": 173.76,
+        "duration": 4.8,
+        "text": "to jaws with the video by title table"
+      },
+      {
+        "start": 176.8,
+        "duration": 3.04,
+        "text": "the procedure is a bit different since"
+      },
+      {
+        "start": 178.56,
+        "duration": 3.44,
+        "text": "the column we are changing"
+      },
+      {
+        "start": 179.84,
+        "duration": 3.84,
+        "text": "title is actually part of the primary"
+      },
+      {
+        "start": 182.0,
+        "duration": 2.72,
+        "text": "key as you can see in our tobacco"
+      },
+      {
+        "start": 183.68,
+        "duration": 3.199,
+        "text": "diagram"
+      },
+      {
+        "start": 184.72,
+        "duration": 3.68,
+        "text": "if we were to do an update in this case"
+      },
+      {
+        "start": 186.879,
+        "duration": 3.201,
+        "text": "the write operation would either create"
+      },
+      {
+        "start": 188.4,
+        "duration": 2.559,
+        "text": "a new row with the title column value of"
+      },
+      {
+        "start": 190.08,
+        "duration": 2.72,
+        "text": "jaws"
+      },
+      {
+        "start": 190.959,
+        "duration": 3.92,
+        "text": "or update an existing one with the same"
+      },
+      {
+        "start": 192.8,
+        "duration": 4.24,
+        "text": "title and video id"
+      },
+      {
+        "start": 194.879,
+        "duration": 4.401,
+        "text": "the original row with the title draw and"
+      },
+      {
+        "start": 197.04,
+        "duration": 3.919,
+        "text": "the video id of 1 would still exist"
+      },
+      {
+        "start": 199.28,
+        "duration": 3.28,
+        "text": "it is because of this we'll actually"
+      },
+      {
+        "start": 200.959,
+        "duration": 3.521,
+        "text": "need to do two operations"
+      },
+      {
+        "start": 202.56,
+        "duration": 3.36,
+        "text": "an insert so that there's a row with the"
+      },
+      {
+        "start": 204.48,
+        "duration": 3.52,
+        "text": "updated information"
+      },
+      {
+        "start": 205.92,
+        "duration": 4.239,
+        "text": "and then a delete to remove the original"
+      },
+      {
+        "start": 208.0,
+        "duration": 3.92,
+        "text": "row in videos by title"
+      },
+      {
+        "start": 210.159,
+        "duration": 3.36,
+        "text": "although it doesn't show it you'll need"
+      },
+      {
+        "start": 211.92,
+        "duration": 2.879,
+        "text": "to add values for all the columns that"
+      },
+      {
+        "start": 213.519,
+        "duration": 4.321,
+        "text": "you have data for"
+      },
+      {
+        "start": 214.799,
+        "duration": 3.761,
+        "text": "in the new insert operation note that"
+      },
+      {
+        "start": 217.84,
+        "duration": 2.16,
+        "text": "the statements"
+      },
+      {
+        "start": 218.56,
+        "duration": 4.0,
+        "text": "shown here would be executed"
+      },
+      {
+        "start": 220.0,
+        "duration": 3.76,
+        "text": "individually it is possible that one"
+      },
+      {
+        "start": 222.56,
+        "duration": 3.599,
+        "text": "statement could succeed"
+      },
+      {
+        "start": 223.76,
+        "duration": 4.16,
+        "text": "and the other fail meaning that we have"
+      },
+      {
+        "start": 226.159,
+        "duration": 2.401,
+        "text": "an inconsistency for the data for the"
+      },
+      {
+        "start": 227.92,
+        "duration": 3.36,
+        "text": "videos"
+      },
+      {
+        "start": 228.56,
+        "duration": 4.16,
+        "text": "in the videos and videos by title table"
+      },
+      {
+        "start": 231.28,
+        "duration": 2.959,
+        "text": "in this kind of situation"
+      },
+      {
+        "start": 232.72,
+        "duration": 3.36,
+        "text": "the application would need to handle the"
+      },
+      {
+        "start": 234.239,
+        "duration": 2.961,
+        "text": "error in some way so that the tables"
+      },
+      {
+        "start": 236.08,
+        "duration": 3.28,
+        "text": "stay consistent"
+      },
+      {
+        "start": 237.2,
+        "duration": 3.039,
+        "text": "with log batches you would need to worry"
+      },
+      {
+        "start": 239.36,
+        "duration": 3.12,
+        "text": "about individual"
+      },
+      {
+        "start": 240.239,
+        "duration": 4.401,
+        "text": "write operations failing all we need to"
+      },
+      {
+        "start": 242.48,
+        "duration": 2.72,
+        "text": "do here is to use the syntax for a log"
+      },
+      {
+        "start": 244.64,
+        "duration": 2.879,
+        "text": "batch"
+      },
+      {
+        "start": 245.2,
+        "duration": 3.92,
+        "text": "starting with begin batch writing the"
+      },
+      {
+        "start": 247.519,
+        "duration": 3.761,
+        "text": "operations that should be included"
+      },
+      {
+        "start": 249.12,
+        "duration": 4.56,
+        "text": "in the batch and then finishing it with"
+      },
+      {
+        "start": 251.28,
+        "duration": 4.72,
+        "text": "the keywords apply batch"
+      },
+      {
+        "start": 253.68,
+        "duration": 4.48,
+        "text": "in this case the write operations are"
+      },
+      {
+        "start": 256.0,
+        "duration": 3.519,
+        "text": "all sent together to a coordinator node"
+      },
+      {
+        "start": 258.16,
+        "duration": 3.039,
+        "text": "if the batch is accepted by the"
+      },
+      {
+        "start": 259.519,
+        "duration": 3.441,
+        "text": "coordinator then it is then"
+      },
+      {
+        "start": 261.199,
+        "duration": 3.44,
+        "text": "up to the database to ensure that the"
+      },
+      {
+        "start": 262.96,
+        "duration": 3.04,
+        "text": "statements in the batch are executed"
+      },
+      {
+        "start": 264.639,
+        "duration": 2.881,
+        "text": "successfully"
+      },
+      {
+        "start": 266.0,
+        "duration": 3.36,
+        "text": "when a client sends a batch to a"
+      },
+      {
+        "start": 267.52,
+        "duration": 2.64,
+        "text": "coordinator node the first thing that"
+      },
+      {
+        "start": 269.36,
+        "duration": 3.119,
+        "text": "the node does"
+      },
+      {
+        "start": 270.16,
+        "duration": 4.0,
+        "text": "is to save the batch into a special log"
+      },
+      {
+        "start": 272.479,
+        "duration": 4.801,
+        "text": "both on that coordinator node"
+      },
+      {
+        "start": 274.16,
+        "duration": 4.72,
+        "text": "as well as on several replica nodes this"
+      },
+      {
+        "start": 277.28,
+        "duration": 3.359,
+        "text": "ensures that if the coordinator fails"
+      },
+      {
+        "start": 278.88,
+        "duration": 3.599,
+        "text": "during execution of the batch"
+      },
+      {
+        "start": 280.639,
+        "duration": 3.601,
+        "text": "it can replay the batch again when the"
+      },
+      {
+        "start": 282.479,
+        "duration": 3.521,
+        "text": "coordinator is available to do so"
+      },
+      {
+        "start": 284.24,
+        "duration": 3.36,
+        "text": "if for some reason the coordinator is"
+      },
+      {
+        "start": 286.0,
+        "duration": 3.44,
+        "text": "not able to replay the batch"
+      },
+      {
+        "start": 287.6,
+        "duration": 3.68,
+        "text": "then one of the replicas will take over"
+      },
+      {
+        "start": 289.44,
+        "duration": 3.12,
+        "text": "the responsibilities of executing the"
+      },
+      {
+        "start": 291.28,
+        "duration": 2.96,
+        "text": "batch instead"
+      },
+      {
+        "start": 292.56,
+        "duration": 3.359,
+        "text": "once saved in the batch log the"
+      },
+      {
+        "start": 294.24,
+        "duration": 3.2,
+        "text": "coordinator will then attempt to execute"
+      },
+      {
+        "start": 295.919,
+        "duration": 4.0,
+        "text": "the write operations"
+      },
+      {
+        "start": 297.44,
+        "duration": 4.24,
+        "text": "the batch operation only succeeds once"
+      },
+      {
+        "start": 299.919,
+        "duration": 3.921,
+        "text": "all the right operations succeeds"
+      },
+      {
+        "start": 301.68,
+        "duration": 4.959,
+        "text": "with the changes either being applied or"
+      },
+      {
+        "start": 303.84,
+        "duration": 4.639,
+        "text": "hints being saved for the replica nodes"
+      },
+      {
+        "start": 306.639,
+        "duration": 4.0,
+        "text": "this is a very useful technique to help"
+      },
+      {
+        "start": 308.479,
+        "duration": 2.961,
+        "text": "manage data consistency in datastax"
+      },
+      {
+        "start": 310.639,
+        "duration": 2.801,
+        "text": "enterprise"
+      },
+      {
+        "start": 311.44,
+        "duration": 3.12,
+        "text": "and makes it possible to have acid-like"
+      },
+      {
+        "start": 313.44,
+        "duration": 3.28,
+        "text": "properties"
+      },
+      {
+        "start": 314.56,
+        "duration": 4.24,
+        "text": "however what the batch cannot do is to"
+      },
+      {
+        "start": 316.72,
+        "duration": 3.84,
+        "text": "allow for batch isolation"
+      },
+      {
+        "start": 318.8,
+        "duration": 3.52,
+        "text": "ultimately the write operations are"
+      },
+      {
+        "start": 320.56,
+        "duration": 3.44,
+        "text": "still executed individually"
+      },
+      {
+        "start": 322.32,
+        "duration": 3.76,
+        "text": "meaning that there may be a window in"
+      },
+      {
+        "start": 324.0,
+        "duration": 3.12,
+        "text": "which it is possible to read both old"
+      },
+      {
+        "start": 326.08,
+        "duration": 2.8,
+        "text": "and new data"
+      },
+      {
+        "start": 327.12,
+        "duration": 3.76,
+        "text": "while the batch is running there are"
+      },
+      {
+        "start": 328.88,
+        "duration": 2.8,
+        "text": "some caveats to be aware of when using"
+      },
+      {
+        "start": 330.88,
+        "duration": 3.2,
+        "text": "matches"
+      },
+      {
+        "start": 331.68,
+        "duration": 3.44,
+        "text": "for one it is not necessarily a good way"
+      },
+      {
+        "start": 334.08,
+        "duration": 3.679,
+        "text": "to bulk load data"
+      },
+      {
+        "start": 335.12,
+        "duration": 4.56,
+        "text": "as it's used in relational databases log"
+      },
+      {
+        "start": 337.759,
+        "duration": 3.601,
+        "text": "batches actually require more work to be"
+      },
+      {
+        "start": 339.68,
+        "duration": 4.16,
+        "text": "done compared to normal writes"
+      },
+      {
+        "start": 341.36,
+        "duration": 3.119,
+        "text": "so it will always be slower there is"
+      },
+      {
+        "start": 343.84,
+        "duration": 2.079,
+        "text": "also an"
+      },
+      {
+        "start": 344.479,
+        "duration": 3.601,
+        "text": "unlocked batch that can be used in"
+      },
+      {
+        "start": 345.919,
+        "duration": 4.161,
+        "text": "datasack enterprise but even then"
+      },
+      {
+        "start": 348.08,
+        "duration": 3.28,
+        "text": "if you're creating huge batches this may"
+      },
+      {
+        "start": 350.08,
+        "duration": 2.24,
+        "text": "be generating a lot of work on"
+      },
+      {
+        "start": 351.36,
+        "duration": 2.96,
+        "text": "coordinator nodes"
+      },
+      {
+        "start": 352.32,
+        "duration": 3.84,
+        "text": "causing resource contention and possibly"
+      },
+      {
+        "start": 354.32,
+        "duration": 3.76,
+        "text": "performance bottlenecks"
+      },
+      {
+        "start": 356.16,
+        "duration": 3.599,
+        "text": "this isn't to say that batches cannot be"
+      },
+      {
+        "start": 358.08,
+        "duration": 3.28,
+        "text": "used as a way to book load data"
+      },
+      {
+        "start": 359.759,
+        "duration": 4.401,
+        "text": "but it only makes sense in specific"
+      },
+      {
+        "start": 361.36,
+        "duration": 4.48,
+        "text": "scenarios this may be a topic that you"
+      },
+      {
+        "start": 364.16,
+        "duration": 3.92,
+        "text": "can visit again once you become more"
+      },
+      {
+        "start": 365.84,
+        "duration": 4.24,
+        "text": "familiar with the way dlc works"
+      },
+      {
+        "start": 368.08,
+        "duration": 4.08,
+        "text": "another important point is that batches"
+      },
+      {
+        "start": 370.08,
+        "duration": 3.679,
+        "text": "do not necessarily execute and complete"
+      },
+      {
+        "start": 372.16,
+        "duration": 3.039,
+        "text": "in the order written"
+      },
+      {
+        "start": 373.759,
+        "duration": 3.201,
+        "text": "generally when you execute multiple"
+      },
+      {
+        "start": 375.199,
+        "duration": 3.12,
+        "text": "statements each write may have a"
+      },
+      {
+        "start": 376.96,
+        "duration": 3.679,
+        "text": "slightly different time stamp"
+      },
+      {
+        "start": 378.319,
+        "duration": 3.841,
+        "text": "depending on how fast and close together"
+      },
+      {
+        "start": 380.639,
+        "duration": 3.84,
+        "text": "those statements were executed"
+      },
+      {
+        "start": 382.16,
+        "duration": 4.0,
+        "text": "with batches all of the right operations"
+      },
+      {
+        "start": 384.479,
+        "duration": 3.28,
+        "text": "uses the same timestamp"
+      },
+      {
+        "start": 386.16,
+        "duration": 3.44,
+        "text": "therefore there isn't a concept of"
+      },
+      {
+        "start": 387.759,
+        "duration": 3.601,
+        "text": "bordering this will cause"
+      },
+      {
+        "start": 389.6,
+        "duration": 3.2,
+        "text": "issues if you are thinking about using"
+      },
+      {
+        "start": 391.36,
+        "duration": 4.16,
+        "text": "batches to make changes"
+      },
+      {
+        "start": 392.8,
+        "duration": 4.16,
+        "text": "to the same row multiple times let's say"
+      },
+      {
+        "start": 395.52,
+        "duration": 3.04,
+        "text": "that you are inserting a row"
+      },
+      {
+        "start": 396.96,
+        "duration": 3.44,
+        "text": "and then modifying some columns for that"
+      },
+      {
+        "start": 398.56,
+        "duration": 3.6,
+        "text": "row then deleting the row"
+      },
+      {
+        "start": 400.4,
+        "duration": 3.519,
+        "text": "and then finally inserting a new row"
+      },
+      {
+        "start": 402.16,
+        "duration": 3.84,
+        "text": "with the same primary key again"
+      },
+      {
+        "start": 403.919,
+        "duration": 3.601,
+        "text": "all in the same batch since all these"
+      },
+      {
+        "start": 406.0,
+        "duration": 2.4,
+        "text": "writes will be executed with the same"
+      },
+      {
+        "start": 407.52,
+        "duration": 2.799,
+        "text": "time stamp"
+      },
+      {
+        "start": 408.4,
+        "duration": 3.76,
+        "text": "you may not get the results you expect"
+      },
+      {
+        "start": 410.319,
+        "duration": 3.201,
+        "text": "when you try to read the row"
+      },
+      {
+        "start": 412.16,
+        "duration": 3.12,
+        "text": "one other useful feature that's"
+      },
+      {
+        "start": 413.52,
+        "duration": 3.2,
+        "text": "available in data stacks enterprise is"
+      },
+      {
+        "start": 415.28,
+        "duration": 2.8,
+        "text": "lightweight transactions"
+      },
+      {
+        "start": 416.72,
+        "duration": 3.12,
+        "text": "this is a special type of write"
+      },
+      {
+        "start": 418.08,
+        "duration": 3.36,
+        "text": "operation that is performed by first"
+      },
+      {
+        "start": 419.84,
+        "duration": 2.24,
+        "text": "checking some sort of condition in the"
+      },
+      {
+        "start": 421.44,
+        "duration": 2.72,
+        "text": "table"
+      },
+      {
+        "start": 422.08,
+        "duration": 3.28,
+        "text": "and then executing the right only if"
+      },
+      {
+        "start": 424.16,
+        "duration": 2.64,
+        "text": "that condition is met"
+      },
+      {
+        "start": 425.36,
+        "duration": 4.48,
+        "text": "this can be used with any of the right"
+      },
+      {
+        "start": 426.8,
+        "duration": 4.72,
+        "text": "operations insert update or delete"
+      },
+      {
+        "start": 429.84,
+        "duration": 3.04,
+        "text": "this essentially is a way to perform an"
+      },
+      {
+        "start": 431.52,
+        "duration": 3.119,
+        "text": "asset transaction"
+      },
+      {
+        "start": 432.88,
+        "duration": 3.84,
+        "text": "though it works with one write operation"
+      },
+      {
+        "start": 434.639,
+        "duration": 3.041,
+        "text": "at a time it is more expensive than a"
+      },
+      {
+        "start": 436.72,
+        "duration": 2.4,
+        "text": "normal write"
+      },
+      {
+        "start": 437.68,
+        "duration": 3.44,
+        "text": "which basically means that it takes"
+      },
+      {
+        "start": 439.12,
+        "duration": 3.28,
+        "text": "longer to complete due to the additional"
+      },
+      {
+        "start": 441.12,
+        "duration": 3.12,
+        "text": "internal operations"
+      },
+      {
+        "start": 442.4,
+        "duration": 3.44,
+        "text": "that also needs to be done in addition"
+      },
+      {
+        "start": 444.24,
+        "duration": 3.519,
+        "text": "to the right itself"
+      },
+      {
+        "start": 445.84,
+        "duration": 3.68,
+        "text": "in the diagram here we are showing a"
+      },
+      {
+        "start": 447.759,
+        "duration": 2.641,
+        "text": "lightweight transaction or an insert"
+      },
+      {
+        "start": 449.52,
+        "duration": 2.799,
+        "text": "operation"
+      },
+      {
+        "start": 450.4,
+        "duration": 4.0,
+        "text": "which is identified with the keywords if"
+      },
+      {
+        "start": 452.319,
+        "duration": 4.32,
+        "text": "not exist at the end of the statement"
+      },
+      {
+        "start": 454.4,
+        "duration": 3.359,
+        "text": "when executing the request goes to a"
+      },
+      {
+        "start": 456.639,
+        "duration": 3.041,
+        "text": "coordinator node"
+      },
+      {
+        "start": 457.759,
+        "duration": 3.041,
+        "text": "and then is routed to the corresponding"
+      },
+      {
+        "start": 459.68,
+        "duration": 2.959,
+        "text": "replica node"
+      },
+      {
+        "start": 460.8,
+        "duration": 3.36,
+        "text": "the replica will then check if there is"
+      },
+      {
+        "start": 462.639,
+        "duration": 3.761,
+        "text": "already an existing partition"
+      },
+      {
+        "start": 464.16,
+        "duration": 3.599,
+        "text": "with the same primary key if there is an"
+      },
+      {
+        "start": 466.4,
+        "duration": 2.88,
+        "text": "existing partition"
+      },
+      {
+        "start": 467.759,
+        "duration": 3.041,
+        "text": "then the replica node will respond"
+      },
+      {
+        "start": 469.28,
+        "duration": 4.16,
+        "text": "saying that the partition exists"
+      },
+      {
+        "start": 470.8,
+        "duration": 3.92,
+        "text": "without attempting the write however if"
+      },
+      {
+        "start": 473.44,
+        "duration": 2.96,
+        "text": "there is no partition"
+      },
+      {
+        "start": 474.72,
+        "duration": 3.68,
+        "text": "then the replica will go ahead and write"
+      },
+      {
+        "start": 476.4,
+        "duration": 3.519,
+        "text": "that partition here we'll show you two"
+      },
+      {
+        "start": 478.4,
+        "duration": 3.359,
+        "text": "different lightweight transactions"
+      },
+      {
+        "start": 479.919,
+        "duration": 3.601,
+        "text": "one using an insert statement and the"
+      },
+      {
+        "start": 481.759,
+        "duration": 3.361,
+        "text": "other using an update"
+      },
+      {
+        "start": 483.52,
+        "duration": 3.519,
+        "text": "the first one is an insert statement"
+      },
+      {
+        "start": 485.12,
+        "duration": 3.359,
+        "text": "where we're trying to create a new user"
+      },
+      {
+        "start": 487.039,
+        "duration": 3.44,
+        "text": "in our users table"
+      },
+      {
+        "start": 488.479,
+        "duration": 4.641,
+        "text": "in the chebako diagram you can see that"
+      },
+      {
+        "start": 490.479,
+        "duration": 4.481,
+        "text": "the primary key is the user id column"
+      },
+      {
+        "start": 493.12,
+        "duration": 3.919,
+        "text": "our actual insert statement then is"
+      },
+      {
+        "start": 494.96,
+        "duration": 4.72,
+        "text": "adding this new user with the user id"
+      },
+      {
+        "start": 497.039,
+        "duration": 4.401,
+        "text": "pmc fadin and includes the first name"
+      },
+      {
+        "start": 499.68,
+        "duration": 4.32,
+        "text": "last name and so forth"
+      },
+      {
+        "start": 501.44,
+        "duration": 3.68,
+        "text": "again note the keywords if not exist"
+      },
+      {
+        "start": 504.0,
+        "duration": 4.0,
+        "text": "which makes this a lightweight"
+      },
+      {
+        "start": 505.12,
+        "duration": 4.799,
+        "text": "transaction instead of a normal insert"
+      },
+      {
+        "start": 508.0,
+        "duration": 3.919,
+        "text": "what this allows us to do is to make"
+      },
+      {
+        "start": 509.919,
+        "duration": 2.961,
+        "text": "sure that there isn't already a pmc"
+      },
+      {
+        "start": 511.919,
+        "duration": 2.881,
+        "text": "fadin user"
+      },
+      {
+        "start": 512.88,
+        "duration": 3.519,
+        "text": "in our table already and avoids"
+      },
+      {
+        "start": 514.8,
+        "duration": 2.239,
+        "text": "accidentally overwriting that user's"
+      },
+      {
+        "start": 516.399,
+        "duration": 2.801,
+        "text": "data"
+      },
+      {
+        "start": 517.039,
+        "duration": 3.92,
+        "text": "if he already does exist now assuming"
+      },
+      {
+        "start": 519.2,
+        "duration": 3.6,
+        "text": "that the user creation succeeded"
+      },
+      {
+        "start": 520.959,
+        "duration": 3.361,
+        "text": "let's take a look at an example of an"
+      },
+      {
+        "start": 522.8,
+        "duration": 2.8,
+        "text": "update statement using a lightweight"
+      },
+      {
+        "start": 524.32,
+        "duration": 3.519,
+        "text": "transaction"
+      },
+      {
+        "start": 525.6,
+        "duration": 4.4,
+        "text": "one possibility is with a procedure to"
+      },
+      {
+        "start": 527.839,
+        "duration": 4.241,
+        "text": "allow users to reset their password"
+      },
+      {
+        "start": 530.0,
+        "duration": 3.6,
+        "text": "if they forget it the procedure may be"
+      },
+      {
+        "start": 532.08,
+        "duration": 1.92,
+        "text": "that if a user requests for their"
+      },
+      {
+        "start": 533.6,
+        "duration": 2.4,
+        "text": "password"
+      },
+      {
+        "start": 534.0,
+        "duration": 3.839,
+        "text": "to be reset then they need to use a"
+      },
+      {
+        "start": 536.0,
+        "duration": 2.959,
+        "text": "reset token which is provided through"
+      },
+      {
+        "start": 537.839,
+        "duration": 3.12,
+        "text": "some secure channel"
+      },
+      {
+        "start": 538.959,
+        "duration": 3.921,
+        "text": "the lightweight transaction here will be"
+      },
+      {
+        "start": 540.959,
+        "duration": 3.681,
+        "text": "helpful since it allows us to check the"
+      },
+      {
+        "start": 542.88,
+        "duration": 3.84,
+        "text": "value of a specific column"
+      },
+      {
+        "start": 544.64,
+        "duration": 3.84,
+        "text": "and only executes the update if the"
+      },
+      {
+        "start": 546.72,
+        "duration": 4.0,
+        "text": "column matches the value provided"
+      },
+      {
+        "start": 548.48,
+        "duration": 3.6,
+        "text": "in the lightweight transaction therefore"
+      },
+      {
+        "start": 550.72,
+        "duration": 3.44,
+        "text": "this first update statement"
+      },
+      {
+        "start": 552.08,
+        "duration": 3.439,
+        "text": "is setting up a reset password token"
+      },
+      {
+        "start": 554.16,
+        "duration": 4.08,
+        "text": "made up as a uuid"
+      },
+      {
+        "start": 555.519,
+        "duration": 4.32,
+        "text": "for the username pmc paten the actual"
+      },
+      {
+        "start": 558.24,
+        "duration": 2.24,
+        "text": "update statement will then set the"
+      },
+      {
+        "start": 559.839,
+        "duration": 2.321,
+        "text": "password"
+      },
+      {
+        "start": 560.48,
+        "duration": 3.919,
+        "text": "only at the value stored in the reset"
+      },
+      {
+        "start": 562.16,
+        "duration": 4.0,
+        "text": "token column matches what is provided"
+      },
+      {
+        "start": 564.399,
+        "duration": 4.321,
+        "text": "here in this lightweight transaction"
+      },
+      {
+        "start": 566.16,
+        "duration": 3.92,
+        "text": "which is identified by that ips keyword"
+      },
+      {
+        "start": 568.72,
+        "duration": 2.559,
+        "text": "any column can be checked for the"
+      },
+      {
+        "start": 570.08,
+        "duration": 2.8,
+        "text": "lightweight transaction"
+      },
+      {
+        "start": 571.279,
+        "duration": 3.281,
+        "text": "with the limitation being that it must"
+      },
+      {
+        "start": 572.88,
+        "duration": 2.48,
+        "text": "be a column in the same row that's being"
+      },
+      {
+        "start": 574.56,
+        "duration": 2.399,
+        "text": "updated"
+      },
+      {
+        "start": 575.36,
+        "duration": 3.44,
+        "text": "in this way we can enforce that the"
+      },
+      {
+        "start": 576.959,
+        "duration": 8.641,
+        "text": "password is changed only with the"
+      },
+      {
+        "start": 578.8,
+        "duration": 6.8,
+        "text": "appropriate reset password token"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:44:03.359616+00:00"
+}

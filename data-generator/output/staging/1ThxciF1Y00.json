@@ -1,0 +1,1093 @@
+{
+  "video_id": "1ThxciF1Y00",
+  "title": "Scaling Apache Cassandra with Kubernetes",
+  "description": "Scaling distributed systems can be a pain. From the orchestration of DevOps scripts to scheduling maintenance windows. Let's change that with Apache Cassandra on Kubernetes. Watch as we double our cluster to deal with increased traffic demands and scale back down to minimize costs with a simple YAML change. Bring K8ssandra to your DevOps pipeline and completely change how you manage your data infrastructure.\n\nStay in the loop on all things K8ssandra at:\nK8ssandra - https://k8ssandra.io/\nTwitter - https://twitter.com/k8ssandra\nGitHub - https://github.com/k8ssandra \n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs?sub_confirmation=1 \nTwitter: https://twitter.com/datastaxdevs\nTwitch: https://www.twitch.tv/datastaxdevs\n\nAbout DataStax:\nDataStax is the company behind the massively scalable, highly available, cloud-native NoSQL data platform built on Apache Cassandra™. DataStax gives developers and enterprises the freedom to run data in any cloud, Kubernetes, hybrid or bare metal at global scale with zero downtime and zero lock-in. More than 450 of the world’s leading enterprises including Capital One, Cisco, Comcast, Delta Airlines, Macy’s, McDonald’s, Safeway, Sony, and Walmart use DataStax to build transformational data architectures for real-world outcomes. For more, visit DataStax.com and @DataStax.\n\nAbout DataStax Developer:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2021-10-25T21:38:10Z",
+  "thumbnail": "https://i.ytimg.com/vi/1ThxciF1Y00/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "scalable",
+    "distributed",
+    "workshop",
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "nosql",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=1ThxciF1Y00",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "hello and welcome to the kate sandra scaling demo in this demo we're going to cover how i keep standard cluster support scaling up and down resources to meet your needs in this scenario our application is supporting a retail shopping cart experience we're approaching the holiday season and want to scale up our cluster to provide for greater availability and higher performance during this critical traffic time to get started let's review our environment here we already have a kate sander cluster up and running it's composed of three apache cassandra nodes each node is running on a separate cloud managed kubernetes worker one node per az in a regional deployment to meet our capacity goals during this peak season we want to double the size of our cluster from three to six let's take a look at our current deployments helm chart values and see what the shape of this looks like so here we can see our running cluster if we go here into our our yaml file we can see the size is three we're spread across our three racks and these are the azs that they align to so we want to make this six nodes there we go we're going to save switch over here go to our terminal and run the helm upgrade command so the helm upgrade command handles templating out all of our kubernetes resources uh it'll then push those resources into the kubernetes cluster uh via the the api so while this is running we can go over to our custom resources the definitions look at our cast dc's look at dc1 and let's see if this has already been updated since we haven't had the text update here it's not quite yet but we can go in close the metadata and status fields go into the spec skip over the config management api inspect there we go racks and then finally size is six so we we've received the update here and we can see immediately that the uh the cas operator has taken the updates from our cast dc and translated those into changes within the kubernetes api so it said hey staple sets you need to have two nodes per uh per stable set instead of one and then the staple set controller within kubernetes said okay well we need to turn those into pods it's created the pods we can see all these pods have already had their uh init containers run and they've actually started the cassandra container now inside of that cassandra container we have a management api which actually handles the the bootstrapping process and forking off the cassandra process so here we can actually see this one has already received that start command and return to 201 so if we go over here to the server system logger we can see it's gossiping with the existing nodes in the cluster it'll wait a few seconds between rounds make sure everything looks looks good it'll figure out what part of the cluster it's going to take ownership of start to stream the replica from existing nodes and then start accepting client connections so we'll give this just a moment here we can see these are the new token ranges that it's taking ownership of it's sent that out to the cluster it's waiting for a little while just to let that settle with the cluster say okay that's yours fine and then we will start accepting connections from from clients it's already gossiping with all the other notes in the cluster and we should see it turn green here in just a second yep streaming data finish joining the ring you can see connections from the other nodes here in the cluster connection timeout that's something in the world keep going and there we go it's now finished joining the cluster so we're just going to let this run for a minute let all six nodes come up and then we'll move on to the next section the second node has already started the bootstrap process the second node is complete moving on to the third and it's worth noting that it takes about two minutes per node for this bootstrap process to complete all right startup is complete and all of our nodes are green so with the cluster in the state we're ready for our peak load and can safely support our customers and application needs after peak season though we want to control our cloud spending so from here we want to scale our cluster back down to three nodes without any data loss or manual intervention so just like before we're going to take a look at our values.yaml change this from six to three save the file go back over here into our helm or run our home upgrade command we can see kubernetes had to restart this pod again it's automatically reconciling we haven't had to do anything i'm just to template out all the config files kubernetes resources sarcasdc will be updated from six down to three there's our racks there's our resources so the size is still six but we'll see it switch out here momentarily oh and looks like this just updated nope size is still six but we've updated here so if we go one more time status spec close the config close the pod templates back look at racks resources size is now three that's what we expect it to be we go back up here to the pod view uh we can see it's already going through the process well that that node is getting restarted so what we'll start to see happen is uh individual pods will be uh terminated but we're going to do that in the following best practices so we'll actually drain the node of client connections inform the rest of the cluster that this node is leaving other replicas will take ownership start streaming the pieces of data that they're responsible for now that one of these nodes is leaving and move forward so here we can see this node is already failing its status checks which is indicating that it's terminating and we will see it go away so our third rack is already down to one node we're gonna see probably the second rack kickoff next and if we look at the management api logs we can probably see we can see the readiness the liveness checks but you'll see the actual call command to terminate this node so wait a moment and let this finish it's scale down operation pod id 1 and rack 2 is terminating right now and in just a moment we will see pod id 1 and rack 1 follow that same path in this demo we've covered scaling a kate sander cluster up and down to meet your deployment requirements teams can integrate this workflow with git ops for stable peer reviewed deployment of operations to cassandra workloads the process of interacting with each individual node is handled through automation and that frees your team to focus on more on things that are a bit more interesting so thank you for attending this dental be sure to check out all of our other demos and join us at kate sanders",
+    "segments": [
+      {
+        "start": 0.08,
+        "duration": 3.839,
+        "text": "hello and welcome to the kate sandra"
+      },
+      {
+        "start": 1.839,
+        "duration": 3.44,
+        "text": "scaling demo in this demo we're going to"
+      },
+      {
+        "start": 3.919,
+        "duration": 4.241,
+        "text": "cover how i keep standard cluster"
+      },
+      {
+        "start": 5.279,
+        "duration": 4.24,
+        "text": "support scaling up and down resources to"
+      },
+      {
+        "start": 8.16,
+        "duration": 3.04,
+        "text": "meet your needs"
+      },
+      {
+        "start": 9.519,
+        "duration": 3.04,
+        "text": "in this scenario our application is"
+      },
+      {
+        "start": 11.2,
+        "duration": 2.64,
+        "text": "supporting a retail shopping cart"
+      },
+      {
+        "start": 12.559,
+        "duration": 2.881,
+        "text": "experience"
+      },
+      {
+        "start": 13.84,
+        "duration": 3.199,
+        "text": "we're approaching the holiday season and"
+      },
+      {
+        "start": 15.44,
+        "duration": 3.2,
+        "text": "want to scale up our cluster to provide"
+      },
+      {
+        "start": 17.039,
+        "duration": 3.441,
+        "text": "for greater availability and higher"
+      },
+      {
+        "start": 18.64,
+        "duration": 2.799,
+        "text": "performance during this critical traffic"
+      },
+      {
+        "start": 20.48,
+        "duration": 2.08,
+        "text": "time"
+      },
+      {
+        "start": 21.439,
+        "duration": 2.161,
+        "text": "to get started let's review our"
+      },
+      {
+        "start": 22.56,
+        "duration": 2.4,
+        "text": "environment"
+      },
+      {
+        "start": 23.6,
+        "duration": 3.12,
+        "text": "here we already have a kate sander"
+      },
+      {
+        "start": 24.96,
+        "duration": 4.319,
+        "text": "cluster up and running it's composed of"
+      },
+      {
+        "start": 26.72,
+        "duration": 4.559,
+        "text": "three apache cassandra nodes"
+      },
+      {
+        "start": 29.279,
+        "duration": 4.321,
+        "text": "each node is running on a separate cloud"
+      },
+      {
+        "start": 31.279,
+        "duration": 5.041,
+        "text": "managed kubernetes worker one node per"
+      },
+      {
+        "start": 33.6,
+        "duration": 4.4,
+        "text": "az in a regional deployment"
+      },
+      {
+        "start": 36.32,
+        "duration": 3.36,
+        "text": "to meet our capacity goals during this"
+      },
+      {
+        "start": 38.0,
+        "duration": 4.239,
+        "text": "peak season we want to double the size"
+      },
+      {
+        "start": 39.68,
+        "duration": 3.44,
+        "text": "of our cluster from three to six"
+      },
+      {
+        "start": 42.239,
+        "duration": 3.281,
+        "text": "let's take a look at our current"
+      },
+      {
+        "start": 43.12,
+        "duration": 3.599,
+        "text": "deployments helm chart values and see"
+      },
+      {
+        "start": 45.52,
+        "duration": 3.359,
+        "text": "what the shape of this looks like so"
+      },
+      {
+        "start": 46.719,
+        "duration": 4.641,
+        "text": "here we can see our running cluster"
+      },
+      {
+        "start": 48.879,
+        "duration": 4.961,
+        "text": "if we go here into our our"
+      },
+      {
+        "start": 51.36,
+        "duration": 3.92,
+        "text": "yaml file we can see the size is three"
+      },
+      {
+        "start": 53.84,
+        "duration": 4.48,
+        "text": "we're spread across our three racks and"
+      },
+      {
+        "start": 55.28,
+        "duration": 4.48,
+        "text": "these are the azs that they align to"
+      },
+      {
+        "start": 58.32,
+        "duration": 3.6,
+        "text": "so we want to make this"
+      },
+      {
+        "start": 59.76,
+        "duration": 4.08,
+        "text": "six nodes"
+      },
+      {
+        "start": 61.92,
+        "duration": 4.239,
+        "text": "there we go we're going to save"
+      },
+      {
+        "start": 63.84,
+        "duration": 4.16,
+        "text": "switch over here go to our terminal and"
+      },
+      {
+        "start": 66.159,
+        "duration": 5.041,
+        "text": "run the helm upgrade command"
+      },
+      {
+        "start": 68.0,
+        "duration": 3.2,
+        "text": "so the helm upgrade command"
+      },
+      {
+        "start": 71.76,
+        "duration": 5.2,
+        "text": "handles templating out all of our"
+      },
+      {
+        "start": 74.159,
+        "duration": 4.561,
+        "text": "kubernetes resources uh it'll then push"
+      },
+      {
+        "start": 76.96,
+        "duration": 2.88,
+        "text": "those resources into the kubernetes"
+      },
+      {
+        "start": 78.72,
+        "duration": 3.6,
+        "text": "cluster"
+      },
+      {
+        "start": 79.84,
+        "duration": 4.639,
+        "text": "uh via the the api"
+      },
+      {
+        "start": 82.32,
+        "duration": 4.159,
+        "text": "so while this is running we can go over"
+      },
+      {
+        "start": 84.479,
+        "duration": 3.921,
+        "text": "to our custom resources"
+      },
+      {
+        "start": 86.479,
+        "duration": 4.081,
+        "text": "the definitions look at our cast dc's"
+      },
+      {
+        "start": 88.4,
+        "duration": 3.679,
+        "text": "look at dc1"
+      },
+      {
+        "start": 90.56,
+        "duration": 3.28,
+        "text": "and let's see if this has already been"
+      },
+      {
+        "start": 92.079,
+        "duration": 4.481,
+        "text": "updated since we haven't had the text"
+      },
+      {
+        "start": 93.84,
+        "duration": 4.639,
+        "text": "update here it's not quite yet"
+      },
+      {
+        "start": 96.56,
+        "duration": 4.0,
+        "text": "but we can go in"
+      },
+      {
+        "start": 98.479,
+        "duration": 4.32,
+        "text": "close the metadata and status fields go"
+      },
+      {
+        "start": 100.56,
+        "duration": 4.239,
+        "text": "into the spec"
+      },
+      {
+        "start": 102.799,
+        "duration": 3.521,
+        "text": "skip over the config"
+      },
+      {
+        "start": 104.799,
+        "duration": 3.121,
+        "text": "management api"
+      },
+      {
+        "start": 106.32,
+        "duration": 2.56,
+        "text": "inspect there we go racks and then"
+      },
+      {
+        "start": 107.92,
+        "duration": 3.36,
+        "text": "finally"
+      },
+      {
+        "start": 108.88,
+        "duration": 3.919,
+        "text": "size is six so we we've received the"
+      },
+      {
+        "start": 111.28,
+        "duration": 4.56,
+        "text": "update here"
+      },
+      {
+        "start": 112.799,
+        "duration": 5.521,
+        "text": "and we can see immediately"
+      },
+      {
+        "start": 115.84,
+        "duration": 4.0,
+        "text": "that the uh the cas operator has taken"
+      },
+      {
+        "start": 118.32,
+        "duration": 3.68,
+        "text": "the updates from our cast dc and"
+      },
+      {
+        "start": 119.84,
+        "duration": 3.76,
+        "text": "translated those into changes within the"
+      },
+      {
+        "start": 122.0,
+        "duration": 3.6,
+        "text": "kubernetes api"
+      },
+      {
+        "start": 123.6,
+        "duration": 4.56,
+        "text": "so it said hey staple sets you need to"
+      },
+      {
+        "start": 125.6,
+        "duration": 3.92,
+        "text": "have two nodes per uh per stable set"
+      },
+      {
+        "start": 128.16,
+        "duration": 2.48,
+        "text": "instead of one"
+      },
+      {
+        "start": 129.52,
+        "duration": 2.88,
+        "text": "and then the staple set controller"
+      },
+      {
+        "start": 130.64,
+        "duration": 3.599,
+        "text": "within kubernetes said okay well we need"
+      },
+      {
+        "start": 132.4,
+        "duration": 3.44,
+        "text": "to turn those into pods it's created the"
+      },
+      {
+        "start": 134.239,
+        "duration": 3.041,
+        "text": "pods we can see all these pods have"
+      },
+      {
+        "start": 135.84,
+        "duration": 3.68,
+        "text": "already had their"
+      },
+      {
+        "start": 137.28,
+        "duration": 3.44,
+        "text": "uh init containers run"
+      },
+      {
+        "start": 139.52,
+        "duration": 3.76,
+        "text": "and they've actually started the"
+      },
+      {
+        "start": 140.72,
+        "duration": 4.32,
+        "text": "cassandra container now inside of that"
+      },
+      {
+        "start": 143.28,
+        "duration": 4.08,
+        "text": "cassandra container we have"
+      },
+      {
+        "start": 145.04,
+        "duration": 4.96,
+        "text": "a management api"
+      },
+      {
+        "start": 147.36,
+        "duration": 4.879,
+        "text": "which actually handles the"
+      },
+      {
+        "start": 150.0,
+        "duration": 3.68,
+        "text": "the bootstrapping process and forking"
+      },
+      {
+        "start": 152.239,
+        "duration": 2.401,
+        "text": "off the cassandra process so here we can"
+      },
+      {
+        "start": 153.68,
+        "duration": 2.08,
+        "text": "actually see this one has already"
+      },
+      {
+        "start": 154.64,
+        "duration": 4.0,
+        "text": "received"
+      },
+      {
+        "start": 155.76,
+        "duration": 4.32,
+        "text": "that start command and return to 201 so"
+      },
+      {
+        "start": 158.64,
+        "duration": 2.4,
+        "text": "if we go over here to the server system"
+      },
+      {
+        "start": 160.08,
+        "duration": 2.799,
+        "text": "logger"
+      },
+      {
+        "start": 161.04,
+        "duration": 4.64,
+        "text": "we can see it's gossiping with the"
+      },
+      {
+        "start": 162.879,
+        "duration": 4.72,
+        "text": "existing nodes in the cluster"
+      },
+      {
+        "start": 165.68,
+        "duration": 3.839,
+        "text": "it'll wait a few seconds between rounds"
+      },
+      {
+        "start": 167.599,
+        "duration": 3.521,
+        "text": "make sure everything looks looks good"
+      },
+      {
+        "start": 169.519,
+        "duration": 3.841,
+        "text": "it'll figure out what part of the"
+      },
+      {
+        "start": 171.12,
+        "duration": 3.6,
+        "text": "cluster it's going to take ownership of"
+      },
+      {
+        "start": 173.36,
+        "duration": 3.84,
+        "text": "start to stream the replica from"
+      },
+      {
+        "start": 174.72,
+        "duration": 3.68,
+        "text": "existing nodes"
+      },
+      {
+        "start": 177.2,
+        "duration": 3.28,
+        "text": "and then start accepting client"
+      },
+      {
+        "start": 178.4,
+        "duration": 3.68,
+        "text": "connections so we'll give this just a"
+      },
+      {
+        "start": 180.48,
+        "duration": 3.119,
+        "text": "moment here we can see these are the new"
+      },
+      {
+        "start": 182.08,
+        "duration": 2.879,
+        "text": "token ranges that it's taking ownership"
+      },
+      {
+        "start": 183.599,
+        "duration": 3.201,
+        "text": "of"
+      },
+      {
+        "start": 184.959,
+        "duration": 3.36,
+        "text": "it's sent that out to the cluster it's"
+      },
+      {
+        "start": 186.8,
+        "duration": 3.68,
+        "text": "waiting for a little while just to let"
+      },
+      {
+        "start": 188.319,
+        "duration": 4.401,
+        "text": "that settle with the cluster say okay"
+      },
+      {
+        "start": 190.48,
+        "duration": 3.52,
+        "text": "that's yours fine"
+      },
+      {
+        "start": 192.72,
+        "duration": 2.4,
+        "text": "and then we will start accepting"
+      },
+      {
+        "start": 194.0,
+        "duration": 2.959,
+        "text": "connections"
+      },
+      {
+        "start": 195.12,
+        "duration": 3.44,
+        "text": "from from clients it's already gossiping"
+      },
+      {
+        "start": 196.959,
+        "duration": 3.521,
+        "text": "with all the other notes in the cluster"
+      },
+      {
+        "start": 198.56,
+        "duration": 4.8,
+        "text": "and we should see it turn green here in"
+      },
+      {
+        "start": 200.48,
+        "duration": 4.16,
+        "text": "just a second yep streaming data finish"
+      },
+      {
+        "start": 203.36,
+        "duration": 2.56,
+        "text": "joining the ring"
+      },
+      {
+        "start": 204.64,
+        "duration": 2.8,
+        "text": "you can see connections from the other"
+      },
+      {
+        "start": 205.92,
+        "duration": 2.879,
+        "text": "nodes here in the cluster"
+      },
+      {
+        "start": 207.44,
+        "duration": 3.439,
+        "text": "connection timeout that's something in"
+      },
+      {
+        "start": 208.799,
+        "duration": 3.601,
+        "text": "the world keep going and there we go"
+      },
+      {
+        "start": 210.879,
+        "duration": 2.481,
+        "text": "it's now finished joining the cluster so"
+      },
+      {
+        "start": 212.4,
+        "duration": 3.52,
+        "text": "we're just going to let this run for a"
+      },
+      {
+        "start": 213.36,
+        "duration": 3.68,
+        "text": "minute let all six nodes come up"
+      },
+      {
+        "start": 215.92,
+        "duration": 3.039,
+        "text": "and then we'll move on to the next"
+      },
+      {
+        "start": 217.04,
+        "duration": 4.08,
+        "text": "section the second node has already"
+      },
+      {
+        "start": 218.959,
+        "duration": 3.92,
+        "text": "started the bootstrap process"
+      },
+      {
+        "start": 221.12,
+        "duration": 2.72,
+        "text": "the second node is complete moving on to"
+      },
+      {
+        "start": 222.879,
+        "duration": 2.241,
+        "text": "the third"
+      },
+      {
+        "start": 223.84,
+        "duration": 2.72,
+        "text": "and it's worth noting that it takes"
+      },
+      {
+        "start": 225.12,
+        "duration": 3.36,
+        "text": "about two minutes per node for this"
+      },
+      {
+        "start": 226.56,
+        "duration": 3.679,
+        "text": "bootstrap process to complete"
+      },
+      {
+        "start": 228.48,
+        "duration": 3.679,
+        "text": "all right startup is complete and all of"
+      },
+      {
+        "start": 230.239,
+        "duration": 3.761,
+        "text": "our nodes are green"
+      },
+      {
+        "start": 232.159,
+        "duration": 3.44,
+        "text": "so with the cluster in the state we're"
+      },
+      {
+        "start": 234.0,
+        "duration": 3.2,
+        "text": "ready for our peak load and can safely"
+      },
+      {
+        "start": 235.599,
+        "duration": 2.961,
+        "text": "support our customers and application"
+      },
+      {
+        "start": 237.2,
+        "duration": 3.28,
+        "text": "needs"
+      },
+      {
+        "start": 238.56,
+        "duration": 4.0,
+        "text": "after peak season though we want to"
+      },
+      {
+        "start": 240.48,
+        "duration": 3.52,
+        "text": "control our cloud spending so from here"
+      },
+      {
+        "start": 242.56,
+        "duration": 3.52,
+        "text": "we want to scale our cluster back down"
+      },
+      {
+        "start": 244.0,
+        "duration": 4.0,
+        "text": "to three nodes without any data loss or"
+      },
+      {
+        "start": 246.08,
+        "duration": 4.239,
+        "text": "manual intervention so just like before"
+      },
+      {
+        "start": 248.0,
+        "duration": 4.239,
+        "text": "we're going to take a look at our"
+      },
+      {
+        "start": 250.319,
+        "duration": 4.241,
+        "text": "values.yaml"
+      },
+      {
+        "start": 252.239,
+        "duration": 3.36,
+        "text": "change this from six to three save the"
+      },
+      {
+        "start": 254.56,
+        "duration": 3.76,
+        "text": "file"
+      },
+      {
+        "start": 255.599,
+        "duration": 4.88,
+        "text": "go back over here into our helm"
+      },
+      {
+        "start": 258.32,
+        "duration": 4.64,
+        "text": "or run our home upgrade command we can"
+      },
+      {
+        "start": 260.479,
+        "duration": 4.881,
+        "text": "see kubernetes had to restart this pod"
+      },
+      {
+        "start": 262.96,
+        "duration": 4.08,
+        "text": "again it's automatically reconciling we"
+      },
+      {
+        "start": 265.36,
+        "duration": 4.72,
+        "text": "haven't had to do anything i'm just to"
+      },
+      {
+        "start": 267.04,
+        "duration": 5.12,
+        "text": "template out all the config files"
+      },
+      {
+        "start": 270.08,
+        "duration": 3.679,
+        "text": "kubernetes resources"
+      },
+      {
+        "start": 272.16,
+        "duration": 4.479,
+        "text": "sarcasdc"
+      },
+      {
+        "start": 273.759,
+        "duration": 5.44,
+        "text": "will be updated from six down to three"
+      },
+      {
+        "start": 276.639,
+        "duration": 4.161,
+        "text": "there's our racks there's our resources"
+      },
+      {
+        "start": 279.199,
+        "duration": 3.201,
+        "text": "so the size is still six but we'll see"
+      },
+      {
+        "start": 280.8,
+        "duration": 3.2,
+        "text": "it switch out here"
+      },
+      {
+        "start": 282.4,
+        "duration": 4.799,
+        "text": "momentarily"
+      },
+      {
+        "start": 284.0,
+        "duration": 4.8,
+        "text": "oh and looks like this just updated nope"
+      },
+      {
+        "start": 287.199,
+        "duration": 4.241,
+        "text": "size is still six"
+      },
+      {
+        "start": 288.8,
+        "duration": 3.92,
+        "text": "but we've updated here so if we go"
+      },
+      {
+        "start": 291.44,
+        "duration": 3.92,
+        "text": "one more time"
+      },
+      {
+        "start": 292.72,
+        "duration": 4.24,
+        "text": "status spec close the config close the"
+      },
+      {
+        "start": 295.36,
+        "duration": 3.36,
+        "text": "pod templates back look at racks"
+      },
+      {
+        "start": 296.96,
+        "duration": 4.0,
+        "text": "resources size is now three that's what"
+      },
+      {
+        "start": 298.72,
+        "duration": 3.52,
+        "text": "we expect it to be we go back up here to"
+      },
+      {
+        "start": 300.96,
+        "duration": 3.04,
+        "text": "the pod view"
+      },
+      {
+        "start": 302.24,
+        "duration": 3.12,
+        "text": "uh we can see"
+      },
+      {
+        "start": 304.0,
+        "duration": 4.24,
+        "text": "it's already going through the process"
+      },
+      {
+        "start": 305.36,
+        "duration": 5.279,
+        "text": "well that that node is getting restarted"
+      },
+      {
+        "start": 308.24,
+        "duration": 5.6,
+        "text": "so what we'll start to see happen"
+      },
+      {
+        "start": 310.639,
+        "duration": 4.881,
+        "text": "is uh individual pods will be"
+      },
+      {
+        "start": 313.84,
+        "duration": 3.28,
+        "text": "uh terminated"
+      },
+      {
+        "start": 315.52,
+        "duration": 2.8,
+        "text": "but we're going to do that in the"
+      },
+      {
+        "start": 317.12,
+        "duration": 2.32,
+        "text": "following best practices so we'll"
+      },
+      {
+        "start": 318.32,
+        "duration": 2.24,
+        "text": "actually drain the node of client"
+      },
+      {
+        "start": 319.44,
+        "duration": 2.4,
+        "text": "connections"
+      },
+      {
+        "start": 320.56,
+        "duration": 2.639,
+        "text": "inform the rest of the cluster that this"
+      },
+      {
+        "start": 321.84,
+        "duration": 3.44,
+        "text": "node is leaving"
+      },
+      {
+        "start": 323.199,
+        "duration": 3.521,
+        "text": "other replicas will take ownership start"
+      },
+      {
+        "start": 325.28,
+        "duration": 3.6,
+        "text": "streaming the pieces of data that"
+      },
+      {
+        "start": 326.72,
+        "duration": 4.319,
+        "text": "they're responsible for now that one of"
+      },
+      {
+        "start": 328.88,
+        "duration": 3.52,
+        "text": "these nodes is leaving"
+      },
+      {
+        "start": 331.039,
+        "duration": 4.081,
+        "text": "and move forward so here we can see this"
+      },
+      {
+        "start": 332.4,
+        "duration": 2.72,
+        "text": "node is already"
+      },
+      {
+        "start": 335.759,
+        "duration": 4.081,
+        "text": "failing its status checks which is"
+      },
+      {
+        "start": 337.68,
+        "duration": 4.799,
+        "text": "indicating that it's terminating"
+      },
+      {
+        "start": 339.84,
+        "duration": 4.48,
+        "text": "and we will see it go away"
+      },
+      {
+        "start": 342.479,
+        "duration": 2.961,
+        "text": "so our third rack is already down to one"
+      },
+      {
+        "start": 344.32,
+        "duration": 2.96,
+        "text": "node"
+      },
+      {
+        "start": 345.44,
+        "duration": 3.68,
+        "text": "we're gonna see probably the second rack"
+      },
+      {
+        "start": 347.28,
+        "duration": 5.199,
+        "text": "kickoff next and if we look at the"
+      },
+      {
+        "start": 349.12,
+        "duration": 4.799,
+        "text": "management api logs we can probably see"
+      },
+      {
+        "start": 352.479,
+        "duration": 3.201,
+        "text": "we can see the readiness the liveness"
+      },
+      {
+        "start": 353.919,
+        "duration": 2.72,
+        "text": "checks"
+      },
+      {
+        "start": 355.68,
+        "duration": 4.32,
+        "text": "but"
+      },
+      {
+        "start": 356.639,
+        "duration": 4.881,
+        "text": "you'll see the actual call command to"
+      },
+      {
+        "start": 360.0,
+        "duration": 3.84,
+        "text": "terminate this node"
+      },
+      {
+        "start": 361.52,
+        "duration": 4.239,
+        "text": "so wait a moment and let this finish"
+      },
+      {
+        "start": 363.84,
+        "duration": 5.199,
+        "text": "it's"
+      },
+      {
+        "start": 365.759,
+        "duration": 5.521,
+        "text": "scale down operation pod id 1 and rack 2"
+      },
+      {
+        "start": 369.039,
+        "duration": 5.361,
+        "text": "is terminating right now and in just a"
+      },
+      {
+        "start": 371.28,
+        "duration": 5.28,
+        "text": "moment we will see pod id 1 and rack 1"
+      },
+      {
+        "start": 374.4,
+        "duration": 4.16,
+        "text": "follow that same path in this demo we've"
+      },
+      {
+        "start": 376.56,
+        "duration": 3.199,
+        "text": "covered scaling a kate sander cluster up"
+      },
+      {
+        "start": 378.56,
+        "duration": 3.12,
+        "text": "and down to meet your deployment"
+      },
+      {
+        "start": 379.759,
+        "duration": 3.921,
+        "text": "requirements teams can integrate this"
+      },
+      {
+        "start": 381.68,
+        "duration": 3.84,
+        "text": "workflow with git ops for stable peer"
+      },
+      {
+        "start": 383.68,
+        "duration": 3.44,
+        "text": "reviewed deployment of operations to"
+      },
+      {
+        "start": 385.52,
+        "duration": 2.88,
+        "text": "cassandra workloads"
+      },
+      {
+        "start": 387.12,
+        "duration": 3.519,
+        "text": "the process of interacting with each"
+      },
+      {
+        "start": 388.4,
+        "duration": 4.32,
+        "text": "individual node is handled through"
+      },
+      {
+        "start": 390.639,
+        "duration": 3.921,
+        "text": "automation and that frees your team to"
+      },
+      {
+        "start": 392.72,
+        "duration": 3.759,
+        "text": "focus on more on things that are a bit"
+      },
+      {
+        "start": 394.56,
+        "duration": 3.04,
+        "text": "more interesting so thank you for"
+      },
+      {
+        "start": 396.479,
+        "duration": 2.401,
+        "text": "attending this dental be sure to check"
+      },
+      {
+        "start": 397.6,
+        "duration": 4.599,
+        "text": "out all of our other demos and join us"
+      },
+      {
+        "start": 398.88,
+        "duration": 3.319,
+        "text": "at kate sanders"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T19:40:36.375046+00:00"
+}

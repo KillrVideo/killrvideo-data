@@ -1,0 +1,901 @@
+{
+  "video_id": "z7_TErDkxss",
+  "title": "Hybrid Cluster Deployments and External Data Centers with DataStax Mission Control",
+  "description": "In this video, Aaron Ploetz demonstrates how to use Mission Control to add a new data center to an existing, self-managed Apache Cassandra ® cluster. First we cover creating a new cluster in Mission Control, taking care to match-up the cluster name and version of Cassandra. We also show how to specify the existing cluster's data center and seed nodes. Once the new nodes in Mission Control have joined the existing cluster, we then show how to modify the keyspace's replication factor and demonstrate two ways to run repair, ensuring data consistency.\n\nYou don't want to miss our next RAG++ event in London on Sept. 24, 2024. Register today! https://www.datastax.com/events/rag-p...\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs... \nTwitter:   / datastaxdevs  \nTwitch:   / datastaxdevs  \n\nABOUT DATASTAX\n➡️DataStax is the company that helps Developers and Companies successfully create a bold new world through GenAI. We offer a One-stop Generative AI Stack with everything needed for a faster, easier, path to production for relevant and responsive GenAI apps. \n➡️DataStax delivers a RAG-first developer experience, with first-class integrations into leading AI ecosystem partners, so we work out with developers’ existing stacks of choice. \n➡️With DataStax, anyone can quickly build smart, high-growth AI applications at unlimited scale, on any cloud. Hundreds of the world’s leading enterprises, including Audi, Bud Financial, Capital One, SkyPoint Cloud, and many more rely on DataStax.\n\n✅ Sign up to try DataStax Astra DB https://dtsx.io/3W4My1H\n\nAbout DataStax Developer:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2024-09-10T01:25:22Z",
+  "thumbnail": "https://i.ytimg.com/vi/z7_TErDkxss/hqdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "tutorial",
+    "astra",
+    "demo",
+    "datastax",
+    "apache_cassandra",
+    "cassandra",
+    "workshop"
+  ],
+  "url": "https://www.youtube.com/watch?v=z7_TErDkxss",
+  "transcript": {
+    "available": true,
+    "language": "English",
+    "language_code": "en",
+    "is_generated": false,
+    "text": "Hello, everyone. I'm Aaron from DataStax, and today I'm going to take you through adding an external data center to your existing Cassandra \ncluster with mission control. All right, let's go. So out here I have a simple Cassandra cluster that I've created just a three node cluster out on just three empty vms on Google Cloud. I can have a look at it. You can see it's running on Cassandra 4.1.6. I say node tool status. You can see again. Yeah, I have three nodes. I don't have a whole lot of data out there, but there actually is some. You know, we can do a node tool, describe cluster, you know. Yeah, it walks through. Yep. So cluster name, power windows. We're using gossiping property file snitch. We're all in the same schema version here. We have three live nodes. Data centers in marathon has \nthree nodes, node nodes down, and all three are on the same database version. So yeah, we are in really good shape here. If I fire up CQl shell and do a use ecommerce, we can describe tables and we can say, hey, select star from \nfeatured product groups. And yep, there's, there's \ndefinitely data out there. I can do a select count \nstar from product, and yep, we have 65 rows out there in the product table. So, okay, there is indeed data out there in this cluster. So let's get to work by \nextending this cluster with a new data center managed \ninside of mission control. All right, so inside of mission control, I'm going to create a new project, and we'll just call it Aaron's proj. All right, got it. Now I'll hit the create cluster button to match up with our existing cluster. We are going to call this power windows. We're going to go with Apache Cassandra, and we're going to go with version four, 1.6, because all those things need to match. All right, our new data centers name is going to be territories. Yeah, that's okay. And we're going to make this our 30. And let's go three nodes per rack. All right, we'll go with just six gigs of ram. Default storage, we'll just say ten gigs for now, get a superuser password. Now, our existing cluster does \nnot have Internet encryption enabled, so I'm going to disable that for now prefix, we'll just say power for power windows. For heap size, we'll go with half of ram, which is three gigs. External data center. We are going to entertain \nthe external data centers name or the existing datacenter's \nname, which is marathon. Alright, and we're going to give it a seed of 10.128.0.68 and that is all we should need to do. Let's give this a shot and hit the create cluster button. All right, let's go in and see. Let's go in and monitor our progress here. All right, two of our nodes have IP addresses. Oh, and there's a third one. All right, so all three now \nhave a status of starting. Oh, and just like that we \nhave a node that's running. Look at that. Power Windows territories r30sts0 at 10 128057 has moved to a status of running. That's a really good sign. We can actually kind of check this out. If we ssh out to one of the nodes, I can cd into my Cassandra directory \nand say bin node tool status. All right, look at that. So here's marathon. Our existing data center that we looked at before here's territory is our new data center that we added from within mission control. You can see that we have one node which has attained a status of up and normal, and a second node which is currently up and joining. So hey, we're starting to get there. Oh, and just like that, the second node is joined. So if I refresh this node tool status, alright, you can see ten 128011 has indeed joined and is now up in normal. Just waiting on that last node, that ten come up. All right, our last node has moved to a status of running. Okay, let's refresh our node tool status. And sure enough, we have all six nodes up and running here across two data centers. And one data center is running on kubernetes, managed inside of mission control. And the other data center is made up of just straight up Google virtual machines not managed inside of mission control. Which again is why you don't see those Google nodes here, because \nmission control, well, can only manage things that are run on kubernetes. Now let's go inside of our cluster here, and those of you who have added a data center before inside of Cassandra \nknow that, yeah, we've added the nodes, but our data's not over there. We're not quite done yet, so let's go ahead and take care of that. First of all, let's go ahead and have a look at our system auth key space. All right, and if we have a look at this key space, as you can see, our system auth key space already has an entry for three replicas for the territories data center. So mission control kind of \ntook care of that for us. Let's try. Let's have a look at ecommerce. Now, e commerce has quite a few tables in it. Okay, there we go. So, you can see that our ecommerce key space only has a replication definition \nfor the marathon data center. So we're going to need to adjust that. So I'll copy that, and then we'll say alter ecommerce with replication \nequals network topology strategy. Marathon. Three territories. Three. There we go. Now, of course, when you do this, you get this warning saying, hey, we've \nupdated the replication factor. And those of you who've used Cassandra before know, hey, this means that any future writes that happen are going to go to both data centers, but any existing data is not. So we need to force that. So let's go ahead and exit out of here. So, to get our data consistent across both data centers, we can kick off repair from inside of mission control. So we'll just go to the repairs tab and then click the run repair button here. You know, we see we have our cluster, our windows. We can go ahead and select our key space. We can leave the defaults and then just hit run. Remember, if you want, you can also run node tool repair from the command line of one of your pre existing nodes here. That will go ahead and also sync up the data and make sure that all of the \nrows in our ecommerce key space tables are fully replicated \nover to both data centers. Okay? So, in theory, if all we wanted to do was to extend our cluster with a new data center managed by mission control, \nwe've officially done that. If we wanted to have one data center that ran on pure vms or bare metal or whatever, but then another data center \nfrom within that cluster managed inside of mission \ncontrol, we could have this. There are a lot of companies out there that do things like that that will \nhave data centers out available in the cloud to serve their \ncustomers, but then also have a data center on Prem or that's self managed that they can use just for data loading. So they load data in one data center and then read it in another. That's a very common use case, actually. All right, that should do it. For more information on \nDataStax mission control, just head on out to \ndatastax.com/products/mission-control. There you can find all the information you need, including downloads and documentation. Thank you and have a great day.",
+    "segments": [
+      {
+        "start": 0.4,
+        "duration": 0.88,
+        "text": "Hello, everyone."
+      },
+      {
+        "start": 1.28,
+        "duration": 2.96,
+        "text": "I'm Aaron from DataStax, and today I'm going to"
+      },
+      {
+        "start": 4.24,
+        "duration": 2.96,
+        "text": "take you through adding an external data center to"
+      },
+      {
+        "start": 7.2,
+        "duration": 3.96,
+        "text": "your existing Cassandra \ncluster with mission control."
+      },
+      {
+        "start": 11.16,
+        "duration": 1.44,
+        "text": "All right, let's go."
+      },
+      {
+        "start": 12.6,
+        "duration": 2.92,
+        "text": "So out here I have a simple Cassandra cluster"
+      },
+      {
+        "start": 15.52,
+        "duration": 3.36,
+        "text": "that I've created just a three node cluster out"
+      },
+      {
+        "start": 18.88,
+        "duration": 4.24,
+        "text": "on just three empty vms on Google Cloud."
+      },
+      {
+        "start": 23.12,
+        "duration": 1.96,
+        "text": "I can have a look at it."
+      },
+      {
+        "start": 25.08,
+        "duration": 3.4,
+        "text": "You can see it's running on Cassandra 4.1.6."
+      },
+      {
+        "start": 28.48,
+        "duration": 4.48,
+        "text": "I say node tool status."
+      },
+      {
+        "start": 32.96,
+        "duration": 0.96,
+        "text": "You can see again."
+      },
+      {
+        "start": 33.92,
+        "duration": 1.6,
+        "text": "Yeah, I have three nodes."
+      },
+      {
+        "start": 35.52,
+        "duration": 1.56,
+        "text": "I don't have a whole lot of data"
+      },
+      {
+        "start": 37.08,
+        "duration": 3.04,
+        "text": "out there, but there actually is some."
+      },
+      {
+        "start": 40.12,
+        "duration": 0.72,
+        "text": "You know, we can do a"
+      },
+      {
+        "start": 40.84,
+        "duration": 6.32,
+        "text": "node tool, describe cluster, you know."
+      },
+      {
+        "start": 47.16,
+        "duration": 2.44,
+        "text": "Yeah, it walks through. Yep."
+      },
+      {
+        "start": 49.6,
+        "duration": 1.8,
+        "text": "So cluster name, power windows."
+      },
+      {
+        "start": 51.4,
+        "duration": 3.4,
+        "text": "We're using gossiping property file snitch."
+      },
+      {
+        "start": 54.8,
+        "duration": 2.6,
+        "text": "We're all in the same schema version here."
+      },
+      {
+        "start": 57.4,
+        "duration": 1.84,
+        "text": "We have three live nodes."
+      },
+      {
+        "start": 59.24,
+        "duration": 4.48,
+        "text": "Data centers in marathon has \nthree nodes, node nodes down,"
+      },
+      {
+        "start": 63.72,
+        "duration": 2.84,
+        "text": "and all three are on the same database version."
+      },
+      {
+        "start": 66.56,
+        "duration": 5.24,
+        "text": "So yeah, we are in really good shape here."
+      },
+      {
+        "start": 71.8,
+        "duration": 3.0,
+        "text": "If I fire up CQl shell and do a"
+      },
+      {
+        "start": 74.8,
+        "duration": 5.32,
+        "text": "use ecommerce, we can describe tables and we can"
+      },
+      {
+        "start": 80.12,
+        "duration": 5.0,
+        "text": "say, hey, select star from \nfeatured product groups."
+      },
+      {
+        "start": 85.12,
+        "duration": 2.92,
+        "text": "And yep, there's, there's \ndefinitely data out there."
+      },
+      {
+        "start": 88.04,
+        "duration": 5.92,
+        "text": "I can do a select count \nstar from product, and yep,"
+      },
+      {
+        "start": 93.96,
+        "duration": 2.0,
+        "text": "we have 65 rows out there in the product table."
+      },
+      {
+        "start": 95.96,
+        "duration": 2.48,
+        "text": "So, okay, there is indeed data"
+      },
+      {
+        "start": 98.44,
+        "duration": 1.6,
+        "text": "out there in this cluster."
+      },
+      {
+        "start": 100.04,
+        "duration": 3.8,
+        "text": "So let's get to work by \nextending this cluster with"
+      },
+      {
+        "start": 103.84,
+        "duration": 3.6,
+        "text": "a new data center managed \ninside of mission control."
+      },
+      {
+        "start": 107.44,
+        "duration": 2.24,
+        "text": "All right, so inside of mission control,"
+      },
+      {
+        "start": 109.68,
+        "duration": 5.32,
+        "text": "I'm going to create a new project,"
+      },
+      {
+        "start": 115.0,
+        "duration": 2.88,
+        "text": "and we'll just call it Aaron's proj."
+      },
+      {
+        "start": 117.88,
+        "duration": 2.4,
+        "text": "All right, got it."
+      },
+      {
+        "start": 120.28,
+        "duration": 3.36,
+        "text": "Now I'll hit the create cluster button"
+      },
+      {
+        "start": 123.64,
+        "duration": 2.16,
+        "text": "to match up with our existing cluster."
+      },
+      {
+        "start": 125.8,
+        "duration": 4.32,
+        "text": "We are going to call this power windows."
+      },
+      {
+        "start": 130.12,
+        "duration": 2.32,
+        "text": "We're going to go with Apache Cassandra, and"
+      },
+      {
+        "start": 132.44,
+        "duration": 2.56,
+        "text": "we're going to go with version four, 1.6,"
+      },
+      {
+        "start": 135.0,
+        "duration": 3.0,
+        "text": "because all those things need to match."
+      },
+      {
+        "start": 138.0,
+        "duration": 1.56,
+        "text": "All right, our new data centers"
+      },
+      {
+        "start": 139.56,
+        "duration": 5.2,
+        "text": "name is going to be territories."
+      },
+      {
+        "start": 145.32,
+        "duration": 1.8,
+        "text": "Yeah, that's okay."
+      },
+      {
+        "start": 147.12,
+        "duration": 2.72,
+        "text": "And we're going to make this our 30."
+      },
+      {
+        "start": 150.96,
+        "duration": 4.56,
+        "text": "And let's go three nodes per rack."
+      },
+      {
+        "start": 155.52,
+        "duration": 5.92,
+        "text": "All right, we'll go with just six gigs of ram."
+      },
+      {
+        "start": 161.44,
+        "duration": 3.48,
+        "text": "Default storage, we'll just say ten gigs"
+      },
+      {
+        "start": 164.92,
+        "duration": 7.0,
+        "text": "for now, get a superuser password."
+      },
+      {
+        "start": 171.92,
+        "duration": 4.4,
+        "text": "Now, our existing cluster does \nnot have Internet encryption"
+      },
+      {
+        "start": 176.32,
+        "duration": 3.64,
+        "text": "enabled, so I'm going to disable that for now"
+      },
+      {
+        "start": 179.96,
+        "duration": 3.72,
+        "text": "prefix, we'll just say power for power windows."
+      },
+      {
+        "start": 183.68,
+        "duration": 1.64,
+        "text": "For heap size, we'll go with half"
+      },
+      {
+        "start": 185.32,
+        "duration": 2.88,
+        "text": "of ram, which is three gigs."
+      },
+      {
+        "start": 188.2,
+        "duration": 1.16,
+        "text": "External data center."
+      },
+      {
+        "start": 189.36,
+        "duration": 5.0,
+        "text": "We are going to entertain \nthe external data centers"
+      },
+      {
+        "start": 194.36,
+        "duration": 4.36,
+        "text": "name or the existing datacenter's \nname, which is marathon."
+      },
+      {
+        "start": 198.72,
+        "duration": 2.2,
+        "text": "Alright, and we're going to give it a seed of"
+      },
+      {
+        "start": 201.56,
+        "duration": 5.8,
+        "text": "10.128.0.68 and that is all we should need to do."
+      },
+      {
+        "start": 207.36,
+        "duration": 1.32,
+        "text": "Let's give this a shot and"
+      },
+      {
+        "start": 208.68,
+        "duration": 6.6,
+        "text": "hit the create cluster button."
+      },
+      {
+        "start": 215.28,
+        "duration": 5.96,
+        "text": "All right, let's go in and see."
+      },
+      {
+        "start": 221.24,
+        "duration": 7.76,
+        "text": "Let's go in and monitor our progress here."
+      },
+      {
+        "start": 229.0,
+        "duration": 4.52,
+        "text": "All right, two of our nodes have IP addresses."
+      },
+      {
+        "start": 233.52,
+        "duration": 1.16,
+        "text": "Oh, and there's a third one."
+      },
+      {
+        "start": 234.68,
+        "duration": 5.04,
+        "text": "All right, so all three now \nhave a status of starting."
+      },
+      {
+        "start": 249.44,
+        "duration": 2.84,
+        "text": "Oh, and just like that we \nhave a node that's running."
+      },
+      {
+        "start": 252.28,
+        "duration": 1.68,
+        "text": "Look at that."
+      },
+      {
+        "start": 253.96,
+        "duration": 4.24,
+        "text": "Power Windows territories r30sts0 at 10"
+      },
+      {
+        "start": 258.2,
+        "duration": 3.44,
+        "text": "128057 has moved to a status of running."
+      },
+      {
+        "start": 261.64,
+        "duration": 2.76,
+        "text": "That's a really good sign."
+      },
+      {
+        "start": 264.4,
+        "duration": 2.56,
+        "text": "We can actually kind of check this out."
+      },
+      {
+        "start": 266.96,
+        "duration": 3.48,
+        "text": "If we ssh out to one of the nodes, I can"
+      },
+      {
+        "start": 270.44,
+        "duration": 7.0,
+        "text": "cd into my Cassandra directory \nand say bin node tool status."
+      },
+      {
+        "start": 277.44,
+        "duration": 1.32,
+        "text": "All right, look at that."
+      },
+      {
+        "start": 278.76,
+        "duration": 1.12,
+        "text": "So here's marathon."
+      },
+      {
+        "start": 279.88,
+        "duration": 3.04,
+        "text": "Our existing data center that we looked at"
+      },
+      {
+        "start": 282.92,
+        "duration": 2.8,
+        "text": "before here's territory is our new data center"
+      },
+      {
+        "start": 285.72,
+        "duration": 2.48,
+        "text": "that we added from within mission control."
+      },
+      {
+        "start": 288.2,
+        "duration": 3.04,
+        "text": "You can see that we have one node which"
+      },
+      {
+        "start": 291.24,
+        "duration": 3.64,
+        "text": "has attained a status of up and normal, and"
+      },
+      {
+        "start": 294.88,
+        "duration": 3.4,
+        "text": "a second node which is currently up and joining."
+      },
+      {
+        "start": 298.28,
+        "duration": 5.32,
+        "text": "So hey, we're starting to get there."
+      },
+      {
+        "start": 303.6,
+        "duration": 3.36,
+        "text": "Oh, and just like that, the second node is joined."
+      },
+      {
+        "start": 306.96,
+        "duration": 3.92,
+        "text": "So if I refresh this node tool status,"
+      },
+      {
+        "start": 310.88,
+        "duration": 4.16,
+        "text": "alright, you can see ten 128011 has indeed"
+      },
+      {
+        "start": 315.04,
+        "duration": 4.36,
+        "text": "joined and is now up in normal."
+      },
+      {
+        "start": 319.4,
+        "duration": 10.72,
+        "text": "Just waiting on that last node, that ten come up."
+      },
+      {
+        "start": 330.12,
+        "duration": 2.04,
+        "text": "All right, our last node has"
+      },
+      {
+        "start": 332.16,
+        "duration": 3.92,
+        "text": "moved to a status of running."
+      },
+      {
+        "start": 336.08,
+        "duration": 4.32,
+        "text": "Okay, let's refresh our node tool status."
+      },
+      {
+        "start": 340.4,
+        "duration": 4.2,
+        "text": "And sure enough, we have all six nodes"
+      },
+      {
+        "start": 344.6,
+        "duration": 2.92,
+        "text": "up and running here across two data centers."
+      },
+      {
+        "start": 347.52,
+        "duration": 2.0,
+        "text": "And one data center is running on"
+      },
+      {
+        "start": 349.52,
+        "duration": 3.76,
+        "text": "kubernetes, managed inside of mission control."
+      },
+      {
+        "start": 353.28,
+        "duration": 1.76,
+        "text": "And the other data center is made"
+      },
+      {
+        "start": 355.04,
+        "duration": 3.2,
+        "text": "up of just straight up Google virtual"
+      },
+      {
+        "start": 358.24,
+        "duration": 3.52,
+        "text": "machines not managed inside of mission control."
+      },
+      {
+        "start": 361.76,
+        "duration": 2.16,
+        "text": "Which again is why you don't see those"
+      },
+      {
+        "start": 363.92,
+        "duration": 2.92,
+        "text": "Google nodes here, because \nmission control, well, can"
+      },
+      {
+        "start": 366.84,
+        "duration": 2.56,
+        "text": "only manage things that are run on kubernetes."
+      },
+      {
+        "start": 369.92,
+        "duration": 4.2,
+        "text": "Now let's go inside of our cluster here, and"
+      },
+      {
+        "start": 374.12,
+        "duration": 2.44,
+        "text": "those of you who have added a data center"
+      },
+      {
+        "start": 376.56,
+        "duration": 2.68,
+        "text": "before inside of Cassandra \nknow that, yeah, we've added"
+      },
+      {
+        "start": 379.24,
+        "duration": 2.64,
+        "text": "the nodes, but our data's not over there."
+      },
+      {
+        "start": 381.88,
+        "duration": 2.76,
+        "text": "We're not quite done yet, so let's"
+      },
+      {
+        "start": 384.64,
+        "duration": 2.76,
+        "text": "go ahead and take care of that."
+      },
+      {
+        "start": 387.4,
+        "duration": 2.56,
+        "text": "First of all, let's go ahead and have"
+      },
+      {
+        "start": 389.96,
+        "duration": 11.36,
+        "text": "a look at our system auth key space."
+      },
+      {
+        "start": 401.32,
+        "duration": 1.72,
+        "text": "All right, and if we have a look at"
+      },
+      {
+        "start": 403.04,
+        "duration": 3.56,
+        "text": "this key space, as you can see, our system"
+      },
+      {
+        "start": 406.6,
+        "duration": 3.52,
+        "text": "auth key space already has an entry for three"
+      },
+      {
+        "start": 410.12,
+        "duration": 2.96,
+        "text": "replicas for the territories data center."
+      },
+      {
+        "start": 413.08,
+        "duration": 3.28,
+        "text": "So mission control kind of \ntook care of that for us."
+      },
+      {
+        "start": 416.36,
+        "duration": 0.48,
+        "text": "Let's try."
+      },
+      {
+        "start": 416.84,
+        "duration": 2.68,
+        "text": "Let's have a look at ecommerce."
+      },
+      {
+        "start": 422.12,
+        "duration": 8.2,
+        "text": "Now, e commerce has quite a few tables in it."
+      },
+      {
+        "start": 430.32,
+        "duration": 1.92,
+        "text": "Okay, there we go."
+      },
+      {
+        "start": 432.24,
+        "duration": 5.92,
+        "text": "So, you can see that our ecommerce key space only"
+      },
+      {
+        "start": 438.16,
+        "duration": 3.72,
+        "text": "has a replication definition \nfor the marathon data center."
+      },
+      {
+        "start": 441.88,
+        "duration": 3.44,
+        "text": "So we're going to need to adjust that."
+      },
+      {
+        "start": 445.32,
+        "duration": 2.48,
+        "text": "So I'll copy that, and then we'll say"
+      },
+      {
+        "start": 447.8,
+        "duration": 6.48,
+        "text": "alter ecommerce with replication \nequals network topology strategy."
+      },
+      {
+        "start": 454.28,
+        "duration": 0.6,
+        "text": "Marathon."
+      },
+      {
+        "start": 454.88,
+        "duration": 9.8,
+        "text": "Three territories. Three."
+      },
+      {
+        "start": 464.68,
+        "duration": 0.92,
+        "text": "There we go."
+      },
+      {
+        "start": 465.6,
+        "duration": 2.24,
+        "text": "Now, of course, when you do this, you get"
+      },
+      {
+        "start": 467.84,
+        "duration": 5.48,
+        "text": "this warning saying, hey, we've \nupdated the replication factor."
+      },
+      {
+        "start": 473.32,
+        "duration": 1.76,
+        "text": "And those of you who've used Cassandra before"
+      },
+      {
+        "start": 475.08,
+        "duration": 2.0,
+        "text": "know, hey, this means that any future writes"
+      },
+      {
+        "start": 477.08,
+        "duration": 1.8,
+        "text": "that happen are going to go to both"
+      },
+      {
+        "start": 478.88,
+        "duration": 3.52,
+        "text": "data centers, but any existing data is not."
+      },
+      {
+        "start": 482.4,
+        "duration": 1.96,
+        "text": "So we need to force that."
+      },
+      {
+        "start": 484.36,
+        "duration": 3.2,
+        "text": "So let's go ahead and exit out of here."
+      },
+      {
+        "start": 487.56,
+        "duration": 1.96,
+        "text": "So, to get our data consistent across"
+      },
+      {
+        "start": 489.52,
+        "duration": 1.6,
+        "text": "both data centers, we can kick off"
+      },
+      {
+        "start": 491.12,
+        "duration": 2.84,
+        "text": "repair from inside of mission control."
+      },
+      {
+        "start": 493.96,
+        "duration": 3.0,
+        "text": "So we'll just go to the repairs tab"
+      },
+      {
+        "start": 496.96,
+        "duration": 2.64,
+        "text": "and then click the run repair button here."
+      },
+      {
+        "start": 499.6,
+        "duration": 2.32,
+        "text": "You know, we see we have our cluster, our windows."
+      },
+      {
+        "start": 501.92,
+        "duration": 3.08,
+        "text": "We can go ahead and select our key space."
+      },
+      {
+        "start": 505.0,
+        "duration": 4.44,
+        "text": "We can leave the defaults and then just hit run."
+      },
+      {
+        "start": 510.56,
+        "duration": 2.96,
+        "text": "Remember, if you want, you can also run"
+      },
+      {
+        "start": 513.52,
+        "duration": 2.68,
+        "text": "node tool repair from the command line of"
+      },
+      {
+        "start": 516.2,
+        "duration": 2.6,
+        "text": "one of your pre existing nodes here."
+      },
+      {
+        "start": 518.8,
+        "duration": 3.24,
+        "text": "That will go ahead and also sync up the data and"
+      },
+      {
+        "start": 522.04,
+        "duration": 3.56,
+        "text": "make sure that all of the \nrows in our ecommerce key"
+      },
+      {
+        "start": 525.6,
+        "duration": 5.76,
+        "text": "space tables are fully replicated \nover to both data centers."
+      },
+      {
+        "start": 531.36,
+        "duration": 0.28,
+        "text": "Okay?"
+      },
+      {
+        "start": 531.64,
+        "duration": 3.4,
+        "text": "So, in theory, if all we wanted to do"
+      },
+      {
+        "start": 535.04,
+        "duration": 2.68,
+        "text": "was to extend our cluster with a new data"
+      },
+      {
+        "start": 537.72,
+        "duration": 5.56,
+        "text": "center managed by mission control, \nwe've officially done that."
+      },
+      {
+        "start": 543.96,
+        "duration": 1.84,
+        "text": "If we wanted to have one data center that"
+      },
+      {
+        "start": 545.8,
+        "duration": 2.92,
+        "text": "ran on pure vms or bare metal or whatever,"
+      },
+      {
+        "start": 548.72,
+        "duration": 2.72,
+        "text": "but then another data center \nfrom within that cluster"
+      },
+      {
+        "start": 551.44,
+        "duration": 4.48,
+        "text": "managed inside of mission \ncontrol, we could have this."
+      },
+      {
+        "start": 555.92,
+        "duration": 1.6,
+        "text": "There are a lot of companies out there that do"
+      },
+      {
+        "start": 557.52,
+        "duration": 3.8,
+        "text": "things like that that will \nhave data centers out available"
+      },
+      {
+        "start": 561.32,
+        "duration": 3.16,
+        "text": "in the cloud to serve their \ncustomers, but then also"
+      },
+      {
+        "start": 564.48,
+        "duration": 3.28,
+        "text": "have a data center on Prem or that's self managed"
+      },
+      {
+        "start": 567.76,
+        "duration": 1.6,
+        "text": "that they can use just for data loading."
+      },
+      {
+        "start": 570.32,
+        "duration": 1.32,
+        "text": "So they load data in one data"
+      },
+      {
+        "start": 571.64,
+        "duration": 2.4,
+        "text": "center and then read it in another."
+      },
+      {
+        "start": 574.04,
+        "duration": 2.92,
+        "text": "That's a very common use case, actually."
+      },
+      {
+        "start": 576.96,
+        "duration": 2.52,
+        "text": "All right, that should do it."
+      },
+      {
+        "start": 579.48,
+        "duration": 4.04,
+        "text": "For more information on \nDataStax mission control, just"
+      },
+      {
+        "start": 583.52,
+        "duration": 5.28,
+        "text": "head on out to \ndatastax.com/products/mission-control."
+      },
+      {
+        "start": 588.8,
+        "duration": 1.76,
+        "text": "There you can find all the information"
+      },
+      {
+        "start": 590.56,
+        "duration": 3.64,
+        "text": "you need, including downloads and documentation."
+      },
+      {
+        "start": 594.2,
+        "duration": 5.12,
+        "text": "Thank you and have a great day."
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-11T21:38:40.675062+00:00"
+}

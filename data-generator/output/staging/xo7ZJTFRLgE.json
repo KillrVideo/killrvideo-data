@@ -1,0 +1,2490 @@
+{
+  "video_id": "xo7ZJTFRLgE",
+  "title": "How to Build Applications with Langflow and Enterprise Cassandra",
+  "description": "In this video, Aaron Ploetz shows you how to build with Langflow on top of DataStax Enterprise. First, he takes you through deploying Langflow inside your AWS cloud, and then walks you through building a simple RAG pipeline for an AI shopping assistant!\n\n00:00:16 1. Creating a new DSE cluster\n00:04:12 2. Pull down Langflow Docker image\n00:05:06 3. Re-tag Langflow Docker image\n00:07:11 4. Push Langflow Docker image to AWS ECR\n00:08:18 5. Create a Langflow ECS Task in AWS\n00:08:18 6. Create a Langflow ECS Service in AWS\n00:11:32 7. Create a project in Langflow\n\nExplore next steps for your Apache Cassandra® deployment: https://dtsx.io/3CKSdSR\n\nAdditional Resources:\n- DataStax Developer Hub: https://dtsx.io/devhub\n- DataStax Blog: https://dtsx.io/howto\n- Try Langflow: https://dtsx.io/trylangflow\n- Try Astra DB: https://dtsx.io/40kQpI6\n____________________\n\nStay in touch:\n- Join our Discord Community: https://discord.gg/datastax\n- Follow us on X: https://x.com/DataStaxDevs\n\nChapters:\n00:00:00 Introduction\n_________",
+  "published_at": "2024-12-30T19:21:01Z",
+  "thumbnail": "https://i.ytimg.com/vi/xo7ZJTFRLgE/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "introduction",
+    "apache_cassandra",
+    "astra",
+    "datastax",
+    "dse",
+    "cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=xo7ZJTFRLgE",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "hello everyone I'm Erin from datax and today I'm going to take you through building applications with Lang flow on Enterprise Cassandra all right let's go so real quick to support the work that we're going to be doing on langlow let's build a dsse cluster on the background here I'm going to call this cluster test or Echo and it's going to be a data Stacks Enterprise cluster uh we will use version uh 69.2 uh that should be fine for a data center name uh let's just call it [Music] driven and yep control plane is fine rack name we'll say R30 uh let's go no Affinity label of um Mission Control data.com roll and we're going to enter a value of database to make sure it ends up on our database nodes in our kubernetes cluster and we want three nodes per rack 4 gigs of RAM is fine we'll go on gp2 storage uh with 20 gigs of dis that should be fine give it a super user password all right uh four gigs of RAM so we'll go two gigs on the Heap and we will in fact deploy the data API because that's how we're going to work with our cluster and Lang flow and we'll create and then we'll wait for the nodes to come up okay all three nodes in our cluster are up and running so we do have a small three node uh dsse 69.2 cluster let's have a look at it so I'll say Cube control get pods and then for my name space and sure enough we have our test for Echo driven R30 cluster right here so everything looks like it's looks like it's running well um let's do actually just up arrow that and say get okay so the services in our test for Echo cluster we have uh our data API service right here that we're going to want to expose let's go ahead and do Cube control Expose and then we'll say test for Echo driven data API service and paste that in there going to expose that as a type of load balancer and we're just going to call that uh- lb and let's get our name space in there as well 811 and also a Target Port of 8181 oh H you know what I forgot I I forgot the word service there there we go now when I go ahead and do a coup control get Services again all right there we go so we have our end point for the data API right here and of course don't forget that's on Port 8181 so let's copy that off and hang on to that first SEC okay now we're pretty much done with our dsse cluster so let's shift gears here over to langlow so the first thing that I'll need to do is pull down uh the langlow docker container and that's going to be Lang flow AI Lang flow just like that that should grab the latest version of that image okay we have that container image so now okay so now as you can see inside um my Docker desktop here um I do have this uh langlow AI Lang flow um image here and you can see that it was created 29 days ago but uh you know that must be in there from when I uh when I originally like tested this all out so what we have to do next is retag our local image of langlow so that we can send it to our Amazon ECR or elastic container registry so let's go ahead and do that so I'm going to well let's clear that let's do a uh Docker tag and we're going to want to use the uh the current ID for that Docker image I'll just paste that there and then I'm also going to paste in the uh URI of my ECR cluster or ECR repository I should say um and then we want to do a colon Lang flow just like that okay so so now if I have a look at Docker desktop again yeah we have this is the one we had before and now we've retagged it so that it'll go to our ECR registry before we do that though we need to make sure that we're logged into AWS so let's do an AWS ECR get login password and we want us West 2 and we'll do a Docker login username of AWS password standard in oh no dash there and then we'll also paste in our ECR URI again and then just backspace over the name of our repository let's see if this gets us a login and it does outstanding Okay so we've pulled the Lang flow Docker image down we've retagged it and now we've logged in to AWS so now let's just go ahead and do a Docker push and we want to paste that again and then we're just going to say Lang flow that should do it okay the docker image for Leng flow has been pushed to our AWS ECR repository so let's go have a lookout here jump over to ECR and we'll use the uh reinvent repository that I'd created and oh look at that we have Lang flow just like that okay so with that image out there what I'm going to do is copy that image URI because I'm going to need that in a little bit here now let's go back to the uh elastic container service or ECS and into the reinvent 2024 cluster um and what we're going to do is create a new task so I'm going to call this langlow just like that um and we'll keep it on AWS fargate all right we'll just leave it on Linux x86 um yeah one CPU 3 gigs of RAM and maybe we'll bump that to uh to four huh okay for container we're just going to call this Lang flow and here's where we paste in our image URI this is indeed an essential container now langlow requires that you have a specific Port mapped and that is the port 7860 see we shouldn't need any environment variables or anything yeah I think the rest of this is okay okay so we have a new task and now what we can do is we can deploy this task as a new service so we'll say create service here under deploy yep it's going to go in our in that cluster yep yep yep yep yep it is a service not a task there's the task definition we're just going to call this langlow and I'm going to go down to networking um and my default Security Group does not have 7860 open so I will need to grab a security group that does um and this specific one that I created for um our demos at AWS reinvent does have 7860 open and that should do it all right let's hit create all right so now I can watch the langlow service deployment take place here inside of ECS can go into that service itself I can have a look at the [Music] task there we go our task is out there it is provisioning okay there you have it our Lang flow task is indeed running as a service so let's go click into it you can see that it does have a public IP address here so I'm going to copy that and then we're going to say HTP SL slash there's our address and then we can say 786 and if we did this right we should see Lang flow come up all right there it is look at that um we have Lang flow running um out in our AWS account um in US West 2 so that has both our dsse cluster and it has Lang flow so now let's go ahead and start building so I can hit this new flow button right here right in the middle and I want to go with a template of vector store rag so let me click that okay and you'll see what it does is it creates um two separate flows inside this uh this Lang flow project here for Vector store rag uh first of all let's rename this uh I'm just going to call this um an AI shopping assistant just like that and we'll go ahead and save so on the top here we have the chat flow but the chat flow is really only going to work once we have data and once we have Vector embeddings in place uh we don't have that just yet so let's have a look at the data loading flow to uh to get started here so I'm going to start by um using a file here for my uh for my data and I have this uh this product data file products 2. CSV and it's from a a webinar Workshop we used to do on uh building an e-commerce site a couple years ago anyway so I have all the product data out there so let's go ahead and use that um text splitter is fine you know maybe we'll lower the uh chunk overlap by a little bit Now the default Vector store component ends up out here is data Stacks astb uh but that's not going to work so for us what we want is we want to go to Vector stores and since we're using dsse we want to go to data Stacks hyperon converged database uh this is going to allow us to connect to our DSE cluster using the data API which is what we want to do so let's go ahead and get rid of the astb connector uh we want our chunks going into inest Data maybe we'll even slide that over a little bit um for our collection name uh for those of you have used Cassandra and DSC before collection is analogous to a uh to a table we'll say shopping assistant Vector data just like that remember back earlier in the video when we created a load balancer on the data API here is where we're going to paste in that endpoint so I'm going to go back to my notes and copy that and then paste that endpoint right there and then I'll even hit the um you know the view button here so so you can see yep there's my API endpoint and yep and it goes for my load balancer and it goes to that um you know uswest 2 elb um Amazon aws.com just like that okay now if you remember the name of our super user is test for Echo super user all right and then we can use the same password that I had uh generated at cluster creation time all right so that's all in there next we need to generate our vector embeddings and to do this we could use open AI but uh you know since we're kind of sticking with um with Amazon here let's go ahead and get rid of open Ai and then grab uh Amazon Bedrock instead I am going to paste in my secret access key and then I'm also going to paste in my access key ID just like that um I shouldn't need to worry about session token I will however specify Us West 2 as the region um that's actually where I've gone ahead and enabled axis on the uh the Titan embeding text V1 model um and we're all working in US West 2 anyway uh but now what I'm going to do is connect this embeddings node to this other embedding or asra vectorized node right just like that okay now we have our data loading flow so before I test this out let's actually jump back to Mission Control and have a look and just just kind of verify that that um that it's empty so we can kind of watch this happen in real time here all right so I'll go to Mission Control I'll say cql console and then we'll say test or ah Echo super [Music] user okay we're connected uh let me do a desk key spaces okay so as you can see we really only have the default system key spaces in here right now so if I go back to langlow and I click the Run component button on my um DS hcd um Vector store component this should go through everything and load our data oh don't forget on the end of the load balancer endpoint for the data API we need Port here 8181 and we need HTTP on the front let's try that again oh and we're missing our default namespace we have to create that first so let's go back to Mission Control let's have a look at the system off keyspace all right and if I scroll back up here you'll see how we've created the system o keyspace um with the network topology strategy and three replicas in the driven data center so let me copy that and then we'll say create keyspace and it was asking for it to be named um default namespace that's what we want to name this so let's say default namespace and then we'll paste there we go now we can say use default namespace then describe keyspace and there we go okay now we can jump back to here and now we can rerun our data loading flow okay that completed successfully so now we're here and we can say desk table or actually I can just redo the desk keyspace command and you'll see it has created this new table called shopping assistant Vector data um which through the data API is known as a collection you'll notice it has all of these custom indexes on it to kind of help it through the uh the vector search um functionality and then if you look here you can see that we have our query Vector value which is a vector float 1536 to match with our um Titan V V1 embedding model um so now if I select star from and shopping assistant Vector data you can see that we have 24 rows out here so our data is indeed loaded all right this this totally worked so now let's go back to langlow and what we're going to want to do now is go to our chat flow next so some things to note here first of all you notice we still have a vector store component for astr DB and we still have an embeddings component for open AI so let's replace those right off the bat here we'll go delete there [Music] and go delete here just like that now if I go back down to my data Stacks hcd component I can say duplicate and then we can grab this and oh go back up here now let's go ahead and run message to search input and then search results to data just like that um now of course we also need our embedding model we're not going to get far without that so let's go back to Amazon Bedrock same thing we'll say duplicate and then grab this component going to go put that right here and then we can go down to embeddings and connect up our Vector store component just like that um we can make our way through uh inside the prompt uh we're going to want to add a little bit here so let's say um you are a shopping assistant for the Astra Astra apparel online store you may only use the data from the provided context and you let's see here you must format your responses like this and we'll say um product ID description and image okay um so hopefully these are good enough guard rails to uh to keep our AI shopping assistant on task and providing consistent responses so let's do a check and save okay um next we have um we have to we have to modify our model here because right now our llm chat model is using uh open AI so let's get rid of this and then for models we'll grab Amazon Bedrock okay so prompt message we'll go to input and text to text just like that um let's see here let's go to Claude 3 sonnet and then we'll also put my um oh let's pick the right region Us West 2 and then let's also make sure that we have my um AWS access key ID and secret access key in there as well so let me go get those okay um we should be all set now um but just for testing let's start out with uh with chat input here um normally normally you want a good seed question for testing and what is this document about isn't going to be that good so we'll say can you oh help me find a purple shirt perfect just like that so let's go ahead and adjust our prompt one more time here um case in point we going to want to make sure that we have this context uh variable here in brace yeah braces between the context and the guard rails that we've provided this should do it here so now if I say check and save you'll notice that we have a connection node here for context um so now what I can do is go from text to context just like that that and now we should be able to run our playground here and see this build okay built successful let's check the playground oh look at that can you help me find a hoodie and it actually brought back this data right here you know so then we could say um can you help me find a Cassandra shirt yeah here we go Cassandra shirts available well okay so it's it found one with a bunch of different sizes but you could you could certainly uh trim this down on your own um yep 2023 Cassandra Summit you know here here's another one that's the uh Cassandra 30 contributor t-shirt so you can totally uh shop for products conversationally here um so yeah that is how to build with langlow on top of data Stacks Enterprise um out in AWS all right that should do it want more information on modernizing your self-managed Cassandra deployments head on out to data stacks.com /m modernize aache dcand ra- workloads and you'll find all the information you need on keeping your self-managed Cassandra cluster updated and in top running form thank you and have a great day",
+    "segments": [
+      {
+        "start": 4.64,
+        "duration": 4.64,
+        "text": "hello everyone I'm Erin from datax and"
+      },
+      {
+        "start": 6.96,
+        "duration": 5.719,
+        "text": "today I'm going to take you through"
+      },
+      {
+        "start": 9.28,
+        "duration": 7.2,
+        "text": "building applications with Lang flow on"
+      },
+      {
+        "start": 12.679,
+        "duration": 6.241,
+        "text": "Enterprise Cassandra all right let's go"
+      },
+      {
+        "start": 16.48,
+        "duration": 5.28,
+        "text": "so real quick to support the work that"
+      },
+      {
+        "start": 18.92,
+        "duration": 6.599,
+        "text": "we're going to be doing on langlow let's"
+      },
+      {
+        "start": 21.76,
+        "duration": 8.72,
+        "text": "build a dsse cluster on the background"
+      },
+      {
+        "start": 25.519,
+        "duration": 7.401,
+        "text": "here I'm going to call this cluster test"
+      },
+      {
+        "start": 30.48,
+        "duration": 5.0,
+        "text": "or"
+      },
+      {
+        "start": 32.92,
+        "duration": 5.24,
+        "text": "Echo and it's going to be a data Stacks"
+      },
+      {
+        "start": 35.48,
+        "duration": 5.36,
+        "text": "Enterprise cluster uh we will use"
+      },
+      {
+        "start": 38.16,
+        "duration": 2.68,
+        "text": "version uh"
+      },
+      {
+        "start": 40.96,
+        "duration": 6.599,
+        "text": "69.2 uh that should be"
+      },
+      {
+        "start": 43.92,
+        "duration": 5.34,
+        "text": "fine for a data center name uh let's"
+      },
+      {
+        "start": 47.559,
+        "duration": 3.64,
+        "text": "just call it"
+      },
+      {
+        "start": 49.26,
+        "duration": 5.939,
+        "text": "[Music]"
+      },
+      {
+        "start": 51.199,
+        "duration": 6.961,
+        "text": "driven and yep control plane is fine"
+      },
+      {
+        "start": 55.199,
+        "duration": 6.721,
+        "text": "rack name we'll say"
+      },
+      {
+        "start": 58.16,
+        "duration": 5.279,
+        "text": "R30 uh let's go no Affinity label of um"
+      },
+      {
+        "start": 61.92,
+        "duration": 3.16,
+        "text": "Mission Control"
+      },
+      {
+        "start": 63.439,
+        "duration": 4.04,
+        "text": "data.com"
+      },
+      {
+        "start": 65.08,
+        "duration": 4.84,
+        "text": "roll and we're going to enter a value of"
+      },
+      {
+        "start": 67.479,
+        "duration": 5.64,
+        "text": "database to make sure it ends up on our"
+      },
+      {
+        "start": 69.92,
+        "duration": 5.4,
+        "text": "database nodes in our kubernetes cluster"
+      },
+      {
+        "start": 73.119,
+        "duration": 6.241,
+        "text": "and we want three nodes per"
+      },
+      {
+        "start": 75.32,
+        "duration": 5.52,
+        "text": "rack 4 gigs of RAM is fine we'll go on"
+      },
+      {
+        "start": 79.36,
+        "duration": 4.32,
+        "text": "gp2"
+      },
+      {
+        "start": 80.84,
+        "duration": 6.0,
+        "text": "storage uh with 20 gigs of dis that"
+      },
+      {
+        "start": 83.68,
+        "duration": 6.16,
+        "text": "should be fine give it a super user"
+      },
+      {
+        "start": 86.84,
+        "duration": 3.0,
+        "text": "password"
+      },
+      {
+        "start": 93.079,
+        "duration": 4.601,
+        "text": "all right uh four gigs of RAM so we'll"
+      },
+      {
+        "start": 95.56,
+        "duration": 6.519,
+        "text": "go two gigs on the"
+      },
+      {
+        "start": 97.68,
+        "duration": 6.759,
+        "text": "Heap and we will in fact deploy the data"
+      },
+      {
+        "start": 102.079,
+        "duration": 5.961,
+        "text": "API because that's how we're going to"
+      },
+      {
+        "start": 104.439,
+        "duration": 7.04,
+        "text": "work with our cluster and Lang"
+      },
+      {
+        "start": 108.04,
+        "duration": 3.439,
+        "text": "flow and we'll"
+      },
+      {
+        "start": 114.84,
+        "duration": 6.0,
+        "text": "create and then we'll wait for the nodes"
+      },
+      {
+        "start": 117.439,
+        "duration": 3.401,
+        "text": "to come up"
+      },
+      {
+        "start": 121.64,
+        "duration": 4.159,
+        "text": "okay all three nodes in our cluster are"
+      },
+      {
+        "start": 123.92,
+        "duration": 5.72,
+        "text": "up and running so we do have a small"
+      },
+      {
+        "start": 125.799,
+        "duration": 6.361,
+        "text": "three node uh dsse 69.2"
+      },
+      {
+        "start": 129.64,
+        "duration": 4.92,
+        "text": "cluster let's have a look at"
+      },
+      {
+        "start": 132.16,
+        "duration": 7.04,
+        "text": "it so I'll say Cube"
+      },
+      {
+        "start": 134.56,
+        "duration": 7.399,
+        "text": "control get pods and then for my name"
+      },
+      {
+        "start": 139.2,
+        "duration": 7.319,
+        "text": "space and sure enough we have our test"
+      },
+      {
+        "start": 141.959,
+        "duration": 6.481,
+        "text": "for Echo driven R30 cluster right here"
+      },
+      {
+        "start": 146.519,
+        "duration": 3.841,
+        "text": "so everything looks like it's looks like"
+      },
+      {
+        "start": 148.44,
+        "duration": 3.879,
+        "text": "it's running well"
+      },
+      {
+        "start": 150.36,
+        "duration": 6.92,
+        "text": "um let's"
+      },
+      {
+        "start": 152.319,
+        "duration": 9.121,
+        "text": "do actually just up arrow that and say"
+      },
+      {
+        "start": 157.28,
+        "duration": 8.36,
+        "text": "get okay so the services in our test for"
+      },
+      {
+        "start": 161.44,
+        "duration": 8.28,
+        "text": "Echo cluster we have uh our data API"
+      },
+      {
+        "start": 165.64,
+        "duration": 7.04,
+        "text": "service right here that we're going to"
+      },
+      {
+        "start": 169.72,
+        "duration": 5.439,
+        "text": "want to expose let's go ahead and do"
+      },
+      {
+        "start": 172.68,
+        "duration": 6.24,
+        "text": "Cube control"
+      },
+      {
+        "start": 175.159,
+        "duration": 6.841,
+        "text": "Expose and then we'll say test for Echo"
+      },
+      {
+        "start": 178.92,
+        "duration": 3.92,
+        "text": "driven data API service and paste that"
+      },
+      {
+        "start": 182.0,
+        "duration": 4.879,
+        "text": "in"
+      },
+      {
+        "start": 182.84,
+        "duration": 5.92,
+        "text": "there going to expose that as a type of"
+      },
+      {
+        "start": 186.879,
+        "duration": 4.041,
+        "text": "load"
+      },
+      {
+        "start": 188.76,
+        "duration": 5.6,
+        "text": "balancer and we're just going to call"
+      },
+      {
+        "start": 190.92,
+        "duration": 3.44,
+        "text": "that uh-"
+      },
+      {
+        "start": 194.56,
+        "duration": 6.959,
+        "text": "lb and let's get our name space in there"
+      },
+      {
+        "start": 199.72,
+        "duration": 4.799,
+        "text": "as"
+      },
+      {
+        "start": 201.519,
+        "duration": 3.0,
+        "text": "well"
+      },
+      {
+        "start": 204.64,
+        "duration": 8.159,
+        "text": "811 and also a Target Port of"
+      },
+      {
+        "start": 208.76,
+        "duration": 7.0,
+        "text": "8181 oh H you know what I forgot I I"
+      },
+      {
+        "start": 212.799,
+        "duration": 6.601,
+        "text": "forgot the word service"
+      },
+      {
+        "start": 215.76,
+        "duration": 7.119,
+        "text": "there there we go now when I go ahead"
+      },
+      {
+        "start": 219.4,
+        "duration": 7.52,
+        "text": "and do a coup control get Services"
+      },
+      {
+        "start": 222.879,
+        "duration": 8.121,
+        "text": "again all right there we go so we have"
+      },
+      {
+        "start": 226.92,
+        "duration": 6.48,
+        "text": "our end point for the data API right"
+      },
+      {
+        "start": 231.0,
+        "duration": 4.64,
+        "text": "here and of course don't forget that's"
+      },
+      {
+        "start": 233.4,
+        "duration": 5.64,
+        "text": "on Port"
+      },
+      {
+        "start": 235.64,
+        "duration": 6.08,
+        "text": "8181 so let's copy that off and hang on"
+      },
+      {
+        "start": 239.04,
+        "duration": 2.68,
+        "text": "to that first"
+      },
+      {
+        "start": 241.799,
+        "duration": 7.321,
+        "text": "SEC okay now we're pretty much done with"
+      },
+      {
+        "start": 245.64,
+        "duration": 5.56,
+        "text": "our dsse cluster so let's shift gears"
+      },
+      {
+        "start": 249.12,
+        "duration": 4.839,
+        "text": "here over to"
+      },
+      {
+        "start": 251.2,
+        "duration": 6.719,
+        "text": "langlow so the first thing that I'll"
+      },
+      {
+        "start": 253.959,
+        "duration": 6.441,
+        "text": "need to do is pull down uh the langlow"
+      },
+      {
+        "start": 257.919,
+        "duration": 2.481,
+        "text": "docker"
+      },
+      {
+        "start": 262.44,
+        "duration": 4.199,
+        "text": "container and that's going to be Lang"
+      },
+      {
+        "start": 265.04,
+        "duration": 6.68,
+        "text": "flow"
+      },
+      {
+        "start": 266.639,
+        "duration": 5.081,
+        "text": "AI Lang flow just like that"
+      },
+      {
+        "start": 272.6,
+        "duration": 6.879,
+        "text": "that should grab the latest version of"
+      },
+      {
+        "start": 277.28,
+        "duration": 2.199,
+        "text": "that"
+      },
+      {
+        "start": 280.16,
+        "duration": 6.28,
+        "text": "image"
+      },
+      {
+        "start": 281.68,
+        "duration": 9.0,
+        "text": "okay we have that container image so"
+      },
+      {
+        "start": 286.44,
+        "duration": 7.8,
+        "text": "now okay so now as you can see inside um"
+      },
+      {
+        "start": 290.68,
+        "duration": 8.239,
+        "text": "my Docker desktop here um I do have this"
+      },
+      {
+        "start": 294.24,
+        "duration": 6.959,
+        "text": "uh langlow AI Lang flow um image here"
+      },
+      {
+        "start": 298.919,
+        "duration": 4.321,
+        "text": "and you can see that it was created 29"
+      },
+      {
+        "start": 301.199,
+        "duration": 4.081,
+        "text": "days ago but uh you know that must be in"
+      },
+      {
+        "start": 303.24,
+        "duration": 4.36,
+        "text": "there from when I uh when I originally"
+      },
+      {
+        "start": 305.28,
+        "duration": 7.52,
+        "text": "like tested this all out so what we have"
+      },
+      {
+        "start": 307.6,
+        "duration": 8.36,
+        "text": "to do next is retag our local image of"
+      },
+      {
+        "start": 312.8,
+        "duration": 7.239,
+        "text": "langlow so that we can send it to our"
+      },
+      {
+        "start": 315.96,
+        "duration": 7.32,
+        "text": "Amazon ECR or elastic container registry"
+      },
+      {
+        "start": 320.039,
+        "duration": 5.561,
+        "text": "so let's go ahead and do that so I'm"
+      },
+      {
+        "start": 323.28,
+        "duration": 6.84,
+        "text": "going to well let's clear that let's do"
+      },
+      {
+        "start": 325.6,
+        "duration": 8.12,
+        "text": "a uh Docker tag and we're going to want"
+      },
+      {
+        "start": 330.12,
+        "duration": 5.48,
+        "text": "to use the uh the current ID for that"
+      },
+      {
+        "start": 333.72,
+        "duration": 5.44,
+        "text": "Docker"
+      },
+      {
+        "start": 335.6,
+        "duration": 8.68,
+        "text": "image I'll just paste that there and"
+      },
+      {
+        "start": 339.16,
+        "duration": 7.8,
+        "text": "then I'm also going to paste in the uh"
+      },
+      {
+        "start": 344.28,
+        "duration": 6.56,
+        "text": "URI of my"
+      },
+      {
+        "start": 346.96,
+        "duration": 6.88,
+        "text": "ECR cluster or ECR repository I should"
+      },
+      {
+        "start": 350.84,
+        "duration": 7.199,
+        "text": "say um and then we want to do a"
+      },
+      {
+        "start": 353.84,
+        "duration": 6.72,
+        "text": "colon Lang flow just like"
+      },
+      {
+        "start": 358.039,
+        "duration": 5.241,
+        "text": "that okay so so now if I have a look at"
+      },
+      {
+        "start": 360.56,
+        "duration": 5.4,
+        "text": "Docker desktop again yeah we have this"
+      },
+      {
+        "start": 363.28,
+        "duration": 10.039,
+        "text": "is the one we had before and now we've"
+      },
+      {
+        "start": 365.96,
+        "duration": 9.639,
+        "text": "retagged it so that it'll go to our ECR"
+      },
+      {
+        "start": 373.319,
+        "duration": 3.681,
+        "text": "registry before we do that though we"
+      },
+      {
+        "start": 375.599,
+        "duration": 5.6,
+        "text": "need to make sure that we're logged into"
+      },
+      {
+        "start": 377.0,
+        "duration": 6.52,
+        "text": "AWS so let's do an AWS"
+      },
+      {
+        "start": 381.199,
+        "duration": 4.481,
+        "text": "ECR get"
+      },
+      {
+        "start": 383.52,
+        "duration": 7.119,
+        "text": "login"
+      },
+      {
+        "start": 385.68,
+        "duration": 10.12,
+        "text": "password and we want us West 2"
+      },
+      {
+        "start": 390.639,
+        "duration": 8.521,
+        "text": "and we'll do a Docker login username of"
+      },
+      {
+        "start": 395.8,
+        "duration": 7.76,
+        "text": "AWS password"
+      },
+      {
+        "start": 399.16,
+        "duration": 9.28,
+        "text": "standard in oh no dash there and then"
+      },
+      {
+        "start": 403.56,
+        "duration": 7.88,
+        "text": "we'll also paste in our ECR URI again"
+      },
+      {
+        "start": 408.44,
+        "duration": 5.599,
+        "text": "and then just backspace over the name of"
+      },
+      {
+        "start": 411.44,
+        "duration": 4.8,
+        "text": "our repository let's see if this gets us"
+      },
+      {
+        "start": 414.039,
+        "duration": 2.201,
+        "text": "a"
+      },
+      {
+        "start": 416.36,
+        "duration": 6.2,
+        "text": "login and it does outstanding"
+      },
+      {
+        "start": 419.759,
+        "duration": 6.12,
+        "text": "Okay so we've pulled the Lang flow"
+      },
+      {
+        "start": 422.56,
+        "duration": 5.16,
+        "text": "Docker image down we've retagged it and"
+      },
+      {
+        "start": 425.879,
+        "duration": 5.44,
+        "text": "now we've logged in to"
+      },
+      {
+        "start": 427.72,
+        "duration": 8.4,
+        "text": "AWS so now let's just go ahead and do"
+      },
+      {
+        "start": 431.319,
+        "duration": 7.16,
+        "text": "a Docker push and we want to paste that"
+      },
+      {
+        "start": 436.12,
+        "duration": 3.44,
+        "text": "again and then we're just going to say"
+      },
+      {
+        "start": 438.479,
+        "duration": 4.601,
+        "text": "Lang"
+      },
+      {
+        "start": 439.56,
+        "duration": 3.52,
+        "text": "flow that should do"
+      },
+      {
+        "start": 444.199,
+        "duration": 6.041,
+        "text": "it"
+      },
+      {
+        "start": 446.44,
+        "duration": 7.4,
+        "text": "okay the docker image for Leng flow has"
+      },
+      {
+        "start": 450.24,
+        "duration": 7.239,
+        "text": "been pushed to our AWS ECR"
+      },
+      {
+        "start": 453.84,
+        "duration": 7.28,
+        "text": "repository so let's go have a lookout"
+      },
+      {
+        "start": 457.479,
+        "duration": 3.641,
+        "text": "here jump over to"
+      },
+      {
+        "start": 462.4,
+        "duration": 6.519,
+        "text": "ECR and we'll use the uh reinvent"
+      },
+      {
+        "start": 466.28,
+        "duration": 5.639,
+        "text": "repository that I'd created and oh look"
+      },
+      {
+        "start": 468.919,
+        "duration": 4.521,
+        "text": "at that we have Lang flow just like"
+      },
+      {
+        "start": 471.919,
+        "duration": 5.161,
+        "text": "that"
+      },
+      {
+        "start": 473.44,
+        "duration": 7.8,
+        "text": "okay so with that image out there what"
+      },
+      {
+        "start": 477.08,
+        "duration": 7.04,
+        "text": "I'm going to do is copy that image URI"
+      },
+      {
+        "start": 481.24,
+        "duration": 4.72,
+        "text": "because I'm going to need that in a"
+      },
+      {
+        "start": 484.12,
+        "duration": 5.24,
+        "text": "little bit"
+      },
+      {
+        "start": 485.96,
+        "duration": 6.519,
+        "text": "here now let's go back to the uh elastic"
+      },
+      {
+        "start": 489.36,
+        "duration": 5.0,
+        "text": "container service or ECS and into the"
+      },
+      {
+        "start": 492.479,
+        "duration": 4.041,
+        "text": "reinvent 2024"
+      },
+      {
+        "start": 494.36,
+        "duration": 5.04,
+        "text": "cluster um and what we're going to do is"
+      },
+      {
+        "start": 496.52,
+        "duration": 2.88,
+        "text": "create a new"
+      },
+      {
+        "start": 499.8,
+        "duration": 7.359,
+        "text": "task so I'm going to call this langlow"
+      },
+      {
+        "start": 504.28,
+        "duration": 5.28,
+        "text": "just like that um and we'll keep it on"
+      },
+      {
+        "start": 507.159,
+        "duration": 5.24,
+        "text": "AWS fargate"
+      },
+      {
+        "start": 509.56,
+        "duration": 4.359,
+        "text": "all right we'll just leave it on Linux"
+      },
+      {
+        "start": 512.399,
+        "duration": 5.841,
+        "text": "x86"
+      },
+      {
+        "start": 513.919,
+        "duration": 8.0,
+        "text": "um yeah one CPU 3 gigs of RAM and maybe"
+      },
+      {
+        "start": 518.24,
+        "duration": 5.4,
+        "text": "we'll bump that to uh to four huh okay"
+      },
+      {
+        "start": 521.919,
+        "duration": 4.201,
+        "text": "for container we're just going to call"
+      },
+      {
+        "start": 523.64,
+        "duration": 4.68,
+        "text": "this Lang flow and here's where we paste"
+      },
+      {
+        "start": 526.12,
+        "duration": 5.0,
+        "text": "in our image"
+      },
+      {
+        "start": 528.32,
+        "duration": 4.84,
+        "text": "URI this is indeed an essential"
+      },
+      {
+        "start": 531.12,
+        "duration": 4.64,
+        "text": "container now"
+      },
+      {
+        "start": 533.16,
+        "duration": 5.88,
+        "text": "langlow requires that you have a"
+      },
+      {
+        "start": 535.76,
+        "duration": 5.68,
+        "text": "specific Port mapped and that is the"
+      },
+      {
+        "start": 539.04,
+        "duration": 2.4,
+        "text": "port"
+      },
+      {
+        "start": 543.48,
+        "duration": 5.599,
+        "text": "7860 see we shouldn't need any"
+      },
+      {
+        "start": 545.839,
+        "duration": 5.521,
+        "text": "environment variables or"
+      },
+      {
+        "start": 549.079,
+        "duration": 4.641,
+        "text": "anything yeah I think the rest of this"
+      },
+      {
+        "start": 551.36,
+        "duration": 2.36,
+        "text": "is"
+      },
+      {
+        "start": 554.56,
+        "duration": 5.68,
+        "text": "okay okay so we have a new"
+      },
+      {
+        "start": 557.72,
+        "duration": 5.2,
+        "text": "task and now what we can do is we can"
+      },
+      {
+        "start": 560.24,
+        "duration": 5.12,
+        "text": "deploy this task as a new service so"
+      },
+      {
+        "start": 562.92,
+        "duration": 5.2,
+        "text": "we'll say create service here under"
+      },
+      {
+        "start": 565.36,
+        "duration": 5.28,
+        "text": "deploy yep it's going to go in our in"
+      },
+      {
+        "start": 568.12,
+        "duration": 4.959,
+        "text": "that cluster"
+      },
+      {
+        "start": 570.64,
+        "duration": 5.96,
+        "text": "yep yep yep yep yep it is a service not"
+      },
+      {
+        "start": 573.079,
+        "duration": 5.521,
+        "text": "a task there's the task definition we're"
+      },
+      {
+        "start": 576.6,
+        "duration": 5.96,
+        "text": "just going to call this"
+      },
+      {
+        "start": 578.6,
+        "duration": 6.76,
+        "text": "langlow and I'm going to go down to"
+      },
+      {
+        "start": 582.56,
+        "duration": 6.64,
+        "text": "networking um and my default Security"
+      },
+      {
+        "start": 585.36,
+        "duration": 9.56,
+        "text": "Group does not have 7860 open so I will"
+      },
+      {
+        "start": 589.2,
+        "duration": 8.199,
+        "text": "need to grab a security group that does"
+      },
+      {
+        "start": 594.92,
+        "duration": 5.359,
+        "text": "um and this specific one that I created"
+      },
+      {
+        "start": 597.399,
+        "duration": 4.761,
+        "text": "for um our demos at AWS reinvent does"
+      },
+      {
+        "start": 600.279,
+        "duration": 4.841,
+        "text": "have 7860"
+      },
+      {
+        "start": 602.16,
+        "duration": 5.4,
+        "text": "open and that should do it all right"
+      },
+      {
+        "start": 605.12,
+        "duration": 2.44,
+        "text": "let's hit"
+      },
+      {
+        "start": 610.48,
+        "duration": 5.84,
+        "text": "create all right so now I can watch the"
+      },
+      {
+        "start": 613.399,
+        "duration": 4.281,
+        "text": "langlow service deployment take place"
+      },
+      {
+        "start": 616.32,
+        "duration": 4.56,
+        "text": "here inside of"
+      },
+      {
+        "start": 617.68,
+        "duration": 4.64,
+        "text": "ECS can go into that service itself I"
+      },
+      {
+        "start": 620.88,
+        "duration": 2.92,
+        "text": "can have a look at the"
+      },
+      {
+        "start": 622.32,
+        "duration": 4.8,
+        "text": "[Music]"
+      },
+      {
+        "start": 623.8,
+        "duration": 6.8,
+        "text": "task there we go our task is out there"
+      },
+      {
+        "start": 627.12,
+        "duration": 3.48,
+        "text": "it is provisioning"
+      },
+      {
+        "start": 634.0,
+        "duration": 5.68,
+        "text": "okay there you have it our Lang flow"
+      },
+      {
+        "start": 636.56,
+        "duration": 6.839,
+        "text": "task is indeed running as a"
+      },
+      {
+        "start": 639.68,
+        "duration": 6.599,
+        "text": "service so let's go click into it you"
+      },
+      {
+        "start": 643.399,
+        "duration": 7.041,
+        "text": "can see that it does have a public IP"
+      },
+      {
+        "start": 646.279,
+        "duration": 6.441,
+        "text": "address here so I'm going to copy that"
+      },
+      {
+        "start": 650.44,
+        "duration": 6.8,
+        "text": "and then we're going to say"
+      },
+      {
+        "start": 652.72,
+        "duration": 7.08,
+        "text": "HTP SL slash there's our address and"
+      },
+      {
+        "start": 657.24,
+        "duration": 4.44,
+        "text": "then we can say 786"
+      },
+      {
+        "start": 659.8,
+        "duration": 4.88,
+        "text": "and if we did this right we should see"
+      },
+      {
+        "start": 661.68,
+        "duration": 3.0,
+        "text": "Lang flow come"
+      },
+      {
+        "start": 668.279,
+        "duration": 8.68,
+        "text": "up all right there it is look at that um"
+      },
+      {
+        "start": 673.24,
+        "duration": 8.24,
+        "text": "we have Lang flow running um out in our"
+      },
+      {
+        "start": 676.959,
+        "duration": 8.201,
+        "text": "AWS account um in US West 2 so that has"
+      },
+      {
+        "start": 681.48,
+        "duration": 6.919,
+        "text": "both our dsse cluster and it has Lang"
+      },
+      {
+        "start": 685.16,
+        "duration": 5.52,
+        "text": "flow so now let's go ahead and start"
+      },
+      {
+        "start": 688.399,
+        "duration": 4.481,
+        "text": "building so I can hit this new flow"
+      },
+      {
+        "start": 690.68,
+        "duration": 4.8,
+        "text": "button right here right in the middle"
+      },
+      {
+        "start": 692.88,
+        "duration": 4.28,
+        "text": "and I want to go with a template of"
+      },
+      {
+        "start": 695.48,
+        "duration": 5.799,
+        "text": "vector store"
+      },
+      {
+        "start": 697.16,
+        "duration": 7.799,
+        "text": "rag so let me click that okay and you'll"
+      },
+      {
+        "start": 701.279,
+        "duration": 6.041,
+        "text": "see what it does is it creates um two"
+      },
+      {
+        "start": 704.959,
+        "duration": 4.921,
+        "text": "separate flows inside this uh this Lang"
+      },
+      {
+        "start": 707.32,
+        "duration": 6.88,
+        "text": "flow project here for Vector store"
+      },
+      {
+        "start": 709.88,
+        "duration": 6.44,
+        "text": "rag uh first of all let's rename this uh"
+      },
+      {
+        "start": 714.2,
+        "duration": 6.56,
+        "text": "I'm just going to call this"
+      },
+      {
+        "start": 716.32,
+        "duration": 4.44,
+        "text": "um an AI"
+      },
+      {
+        "start": 720.839,
+        "duration": 6.961,
+        "text": "shopping assistant just like"
+      },
+      {
+        "start": 723.44,
+        "duration": 7.079,
+        "text": "that and we'll go ahead and"
+      },
+      {
+        "start": 727.8,
+        "duration": 4.44,
+        "text": "save so on the top here we have the chat"
+      },
+      {
+        "start": 730.519,
+        "duration": 3.961,
+        "text": "flow but the chat flow is really only"
+      },
+      {
+        "start": 732.24,
+        "duration": 4.68,
+        "text": "going to work once we have data and once"
+      },
+      {
+        "start": 734.48,
+        "duration": 4.88,
+        "text": "we have Vector embeddings in place uh we"
+      },
+      {
+        "start": 736.92,
+        "duration": 5.44,
+        "text": "don't have that just yet so let's have a"
+      },
+      {
+        "start": 739.36,
+        "duration": 7.08,
+        "text": "look at the data loading flow to uh to"
+      },
+      {
+        "start": 742.36,
+        "duration": 9.08,
+        "text": "get started here so I'm going to start"
+      },
+      {
+        "start": 746.44,
+        "duration": 7.6,
+        "text": "by um using a file here for my uh for my"
+      },
+      {
+        "start": 751.44,
+        "duration": 6.639,
+        "text": "data and I have this uh this product"
+      },
+      {
+        "start": 754.04,
+        "duration": 7.4,
+        "text": "data file products 2. CSV and it's from"
+      },
+      {
+        "start": 758.079,
+        "duration": 4.961,
+        "text": "a a webinar Workshop we used to do on uh"
+      },
+      {
+        "start": 761.44,
+        "duration": 3.32,
+        "text": "building an e-commerce site a couple"
+      },
+      {
+        "start": 763.04,
+        "duration": 4.28,
+        "text": "years ago anyway so I have all the"
+      },
+      {
+        "start": 764.76,
+        "duration": 3.84,
+        "text": "product data out there so let's go ahead"
+      },
+      {
+        "start": 767.32,
+        "duration": 4.48,
+        "text": "and use"
+      },
+      {
+        "start": 768.6,
+        "duration": 5.76,
+        "text": "that um text splitter is fine you know"
+      },
+      {
+        "start": 771.8,
+        "duration": 6.279,
+        "text": "maybe we'll lower the uh chunk overlap"
+      },
+      {
+        "start": 774.36,
+        "duration": 6.76,
+        "text": "by a little bit Now the default Vector"
+      },
+      {
+        "start": 778.079,
+        "duration": 6.12,
+        "text": "store component ends up out here is data"
+      },
+      {
+        "start": 781.12,
+        "duration": 6.68,
+        "text": "Stacks astb uh but that's not going to"
+      },
+      {
+        "start": 784.199,
+        "duration": 5.961,
+        "text": "work so for us what we want is we want"
+      },
+      {
+        "start": 787.8,
+        "duration": 6.24,
+        "text": "to go to Vector stores and since we're"
+      },
+      {
+        "start": 790.16,
+        "duration": 5.919,
+        "text": "using dsse we want to go to data Stacks"
+      },
+      {
+        "start": 794.04,
+        "duration": 5.2,
+        "text": "hyperon converged"
+      },
+      {
+        "start": 796.079,
+        "duration": 5.961,
+        "text": "database uh this is going to allow us to"
+      },
+      {
+        "start": 799.24,
+        "duration": 7.12,
+        "text": "connect to our DSE cluster using the"
+      },
+      {
+        "start": 802.04,
+        "duration": 9.359,
+        "text": "data API which is what we want to do so"
+      },
+      {
+        "start": 806.36,
+        "duration": 8.159,
+        "text": "let's go ahead and get rid of the astb"
+      },
+      {
+        "start": 811.399,
+        "duration": 5.201,
+        "text": "connector uh we want our chunks going"
+      },
+      {
+        "start": 814.519,
+        "duration": 5.201,
+        "text": "into inest"
+      },
+      {
+        "start": 816.6,
+        "duration": 3.88,
+        "text": "Data maybe we'll even slide that over a"
+      },
+      {
+        "start": 819.72,
+        "duration": 4.16,
+        "text": "little"
+      },
+      {
+        "start": 820.48,
+        "duration": 5.2,
+        "text": "bit um for our collection name uh for"
+      },
+      {
+        "start": 823.88,
+        "duration": 4.519,
+        "text": "those of you have used Cassandra and DSC"
+      },
+      {
+        "start": 825.68,
+        "duration": 4.839,
+        "text": "before collection is analogous to a uh"
+      },
+      {
+        "start": 828.399,
+        "duration": 5.041,
+        "text": "to a table we'll"
+      },
+      {
+        "start": 830.519,
+        "duration": 5.56,
+        "text": "say"
+      },
+      {
+        "start": 833.44,
+        "duration": 6.199,
+        "text": "shopping"
+      },
+      {
+        "start": 836.079,
+        "duration": 6.801,
+        "text": "assistant Vector data"
+      },
+      {
+        "start": 839.639,
+        "duration": 5.081,
+        "text": "just like that remember back earlier in"
+      },
+      {
+        "start": 842.88,
+        "duration": 5.759,
+        "text": "the video when we created a load"
+      },
+      {
+        "start": 844.72,
+        "duration": 7.96,
+        "text": "balancer on the data API here is where"
+      },
+      {
+        "start": 848.639,
+        "duration": 6.12,
+        "text": "we're going to paste in that"
+      },
+      {
+        "start": 852.68,
+        "duration": 5.399,
+        "text": "endpoint so I'm going to go back to my"
+      },
+      {
+        "start": 854.759,
+        "duration": 6.241,
+        "text": "notes and copy that and then paste that"
+      },
+      {
+        "start": 858.079,
+        "duration": 5.2,
+        "text": "endpoint right there and then I'll even"
+      },
+      {
+        "start": 861.0,
+        "duration": 5.32,
+        "text": "hit the um you know the view button here"
+      },
+      {
+        "start": 863.279,
+        "duration": 5.841,
+        "text": "so so you can see yep there's my API"
+      },
+      {
+        "start": 866.32,
+        "duration": 5.6,
+        "text": "endpoint and yep and it goes for my load"
+      },
+      {
+        "start": 869.12,
+        "duration": 5.079,
+        "text": "balancer and it goes to that um you know"
+      },
+      {
+        "start": 871.92,
+        "duration": 7.24,
+        "text": "uswest 2"
+      },
+      {
+        "start": 874.199,
+        "duration": 8.041,
+        "text": "elb um Amazon aws.com just like"
+      },
+      {
+        "start": 879.16,
+        "duration": 8.679,
+        "text": "that okay now if you remember the name"
+      },
+      {
+        "start": 882.24,
+        "duration": 10.2,
+        "text": "of our super user is test"
+      },
+      {
+        "start": 887.839,
+        "duration": 7.68,
+        "text": "for Echo super user all right and then"
+      },
+      {
+        "start": 892.44,
+        "duration": 7.88,
+        "text": "we can use the same password that I had"
+      },
+      {
+        "start": 895.519,
+        "duration": 4.801,
+        "text": "uh generated at cluster creation time"
+      },
+      {
+        "start": 901.04,
+        "duration": 3.76,
+        "text": "all right so that's all in"
+      },
+      {
+        "start": 906.0,
+        "duration": 5.639,
+        "text": "there next we need to generate our"
+      },
+      {
+        "start": 908.36,
+        "duration": 6.279,
+        "text": "vector embeddings and to do this we"
+      },
+      {
+        "start": 911.639,
+        "duration": 5.64,
+        "text": "could use open AI but uh you know since"
+      },
+      {
+        "start": 914.639,
+        "duration": 6.241,
+        "text": "we're kind of sticking with um with"
+      },
+      {
+        "start": 917.279,
+        "duration": 7.281,
+        "text": "Amazon here let's go ahead and get rid"
+      },
+      {
+        "start": 920.88,
+        "duration": 5.24,
+        "text": "of open Ai and then grab uh Amazon"
+      },
+      {
+        "start": 924.56,
+        "duration": 4.959,
+        "text": "Bedrock"
+      },
+      {
+        "start": 926.12,
+        "duration": 8.32,
+        "text": "instead I am going to paste"
+      },
+      {
+        "start": 929.519,
+        "duration": 9.68,
+        "text": "in my secret access"
+      },
+      {
+        "start": 934.44,
+        "duration": 9.079,
+        "text": "key and then I'm also going to paste in"
+      },
+      {
+        "start": 939.199,
+        "duration": 7.2,
+        "text": "my access key ID just like that um I"
+      },
+      {
+        "start": 943.519,
+        "duration": 7.44,
+        "text": "shouldn't need to worry about session"
+      },
+      {
+        "start": 946.399,
+        "duration": 7.281,
+        "text": "token I will however specify Us West 2"
+      },
+      {
+        "start": 950.959,
+        "duration": 5.56,
+        "text": "as the region um that's actually where"
+      },
+      {
+        "start": 953.68,
+        "duration": 6.76,
+        "text": "I've gone ahead and enabled axis on the"
+      },
+      {
+        "start": 956.519,
+        "duration": 5.641,
+        "text": "uh the Titan embeding text V1 model um"
+      },
+      {
+        "start": 960.44,
+        "duration": 4.759,
+        "text": "and we're all working in US West 2"
+      },
+      {
+        "start": 962.16,
+        "duration": 7.56,
+        "text": "anyway uh but now what I'm going to do"
+      },
+      {
+        "start": 965.199,
+        "duration": 7.2,
+        "text": "is connect this embeddings node to this"
+      },
+      {
+        "start": 969.72,
+        "duration": 6.32,
+        "text": "other embedding or asra vectorized node"
+      },
+      {
+        "start": 972.399,
+        "duration": 5.281,
+        "text": "right just like that okay now we have"
+      },
+      {
+        "start": 976.04,
+        "duration": 5.719,
+        "text": "our data loading"
+      },
+      {
+        "start": 977.68,
+        "duration": 6.36,
+        "text": "flow so before I test this out let's"
+      },
+      {
+        "start": 981.759,
+        "duration": 5.601,
+        "text": "actually jump back to Mission"
+      },
+      {
+        "start": 984.04,
+        "duration": 5.719,
+        "text": "Control and have a look and just just"
+      },
+      {
+        "start": 987.36,
+        "duration": 3.88,
+        "text": "kind of verify that that um that it's"
+      },
+      {
+        "start": 989.759,
+        "duration": 3.401,
+        "text": "empty so we can kind of watch this"
+      },
+      {
+        "start": 991.24,
+        "duration": 4.279,
+        "text": "happen in real time"
+      },
+      {
+        "start": 993.16,
+        "duration": 5.599,
+        "text": "here all right so I'll go to Mission"
+      },
+      {
+        "start": 995.519,
+        "duration": 7.281,
+        "text": "Control I'll say cql"
+      },
+      {
+        "start": 998.759,
+        "duration": 6.401,
+        "text": "console and then we'll say test"
+      },
+      {
+        "start": 1002.8,
+        "duration": 3.95,
+        "text": "or ah"
+      },
+      {
+        "start": 1005.16,
+        "duration": 4.759,
+        "text": "Echo super"
+      },
+      {
+        "start": 1006.75,
+        "duration": 3.169,
+        "text": "[Music]"
+      },
+      {
+        "start": 1010.36,
+        "duration": 5.0,
+        "text": "user okay we're connected uh let me do a"
+      },
+      {
+        "start": 1013.6,
+        "duration": 5.359,
+        "text": "desk key"
+      },
+      {
+        "start": 1015.36,
+        "duration": 6.599,
+        "text": "spaces okay so as you can see we really"
+      },
+      {
+        "start": 1018.959,
+        "duration": 6.521,
+        "text": "only have the default system key spaces"
+      },
+      {
+        "start": 1021.959,
+        "duration": 6.6,
+        "text": "in here right now so if I go back to"
+      },
+      {
+        "start": 1025.48,
+        "duration": 9.24,
+        "text": "langlow and I click the Run component"
+      },
+      {
+        "start": 1028.559,
+        "duration": 9.561,
+        "text": "button on my um DS hcd um Vector store"
+      },
+      {
+        "start": 1034.72,
+        "duration": 6.199,
+        "text": "component this should go through"
+      },
+      {
+        "start": 1038.12,
+        "duration": 6.199,
+        "text": "everything and load our"
+      },
+      {
+        "start": 1040.919,
+        "duration": 6.64,
+        "text": "data oh don't forget on the end of the"
+      },
+      {
+        "start": 1044.319,
+        "duration": 5.401,
+        "text": "load balancer endpoint for the data API"
+      },
+      {
+        "start": 1047.559,
+        "duration": 5.521,
+        "text": "we need Port here"
+      },
+      {
+        "start": 1049.72,
+        "duration": 6.959,
+        "text": "8181 and we need HTTP on the"
+      },
+      {
+        "start": 1053.08,
+        "duration": 6.64,
+        "text": "front let's try that"
+      },
+      {
+        "start": 1056.679,
+        "duration": 7.401,
+        "text": "again oh and we're missing our default"
+      },
+      {
+        "start": 1059.72,
+        "duration": 7.24,
+        "text": "namespace we have to create that first"
+      },
+      {
+        "start": 1064.08,
+        "duration": 4.599,
+        "text": "so let's go back to Mission Control"
+      },
+      {
+        "start": 1066.96,
+        "duration": 4.719,
+        "text": "let's have a look at the system off"
+      },
+      {
+        "start": 1068.679,
+        "duration": 3.0,
+        "text": "keyspace"
+      },
+      {
+        "start": 1079.24,
+        "duration": 6.24,
+        "text": "all right and if I scroll back up here"
+      },
+      {
+        "start": 1082.2,
+        "duration": 6.599,
+        "text": "you'll see how we've created the system"
+      },
+      {
+        "start": 1085.48,
+        "duration": 5.559,
+        "text": "o keyspace um with the network topology"
+      },
+      {
+        "start": 1088.799,
+        "duration": 5.521,
+        "text": "strategy and three replicas in the"
+      },
+      {
+        "start": 1091.039,
+        "duration": 6.401,
+        "text": "driven data center so let me copy that"
+      },
+      {
+        "start": 1094.32,
+        "duration": 6.88,
+        "text": "and then we'll say create"
+      },
+      {
+        "start": 1097.44,
+        "duration": 7.239,
+        "text": "keyspace and it was asking for it to be"
+      },
+      {
+        "start": 1101.2,
+        "duration": 5.8,
+        "text": "named um default namespace that's what"
+      },
+      {
+        "start": 1104.679,
+        "duration": 4.88,
+        "text": "we want to name this so let's say"
+      },
+      {
+        "start": 1107.0,
+        "duration": 4.24,
+        "text": "default namespace"
+      },
+      {
+        "start": 1109.559,
+        "duration": 5.641,
+        "text": "and then we'll"
+      },
+      {
+        "start": 1111.24,
+        "duration": 6.559,
+        "text": "paste there we go now we can say use"
+      },
+      {
+        "start": 1115.2,
+        "duration": 5.719,
+        "text": "default"
+      },
+      {
+        "start": 1117.799,
+        "duration": 5.88,
+        "text": "namespace then describe keyspace and"
+      },
+      {
+        "start": 1120.919,
+        "duration": 6.041,
+        "text": "there we go okay now we can jump back to"
+      },
+      {
+        "start": 1123.679,
+        "duration": 5.681,
+        "text": "here and now we can rerun our data"
+      },
+      {
+        "start": 1126.96,
+        "duration": 2.4,
+        "text": "loading"
+      },
+      {
+        "start": 1132.52,
+        "duration": 6.96,
+        "text": "flow okay that completed successfully so"
+      },
+      {
+        "start": 1135.799,
+        "duration": 6.24,
+        "text": "now we're here and we can say desk table"
+      },
+      {
+        "start": 1139.48,
+        "duration": 5.4,
+        "text": "or actually I can just redo the desk"
+      },
+      {
+        "start": 1142.039,
+        "duration": 4.921,
+        "text": "keyspace command and you'll see it has"
+      },
+      {
+        "start": 1144.88,
+        "duration": 4.6,
+        "text": "created this new table called shopping"
+      },
+      {
+        "start": 1146.96,
+        "duration": 5.92,
+        "text": "assistant Vector data um which through"
+      },
+      {
+        "start": 1149.48,
+        "duration": 5.0,
+        "text": "the data API is known as a collection"
+      },
+      {
+        "start": 1152.88,
+        "duration": 4.039,
+        "text": "you'll notice it has all of these custom"
+      },
+      {
+        "start": 1154.48,
+        "duration": 5.76,
+        "text": "indexes on it to kind of help it through"
+      },
+      {
+        "start": 1156.919,
+        "duration": 5.64,
+        "text": "the uh the vector search um"
+      },
+      {
+        "start": 1160.24,
+        "duration": 4.08,
+        "text": "functionality and then if you look here"
+      },
+      {
+        "start": 1162.559,
+        "duration": 4.321,
+        "text": "you can see that we have our query"
+      },
+      {
+        "start": 1164.32,
+        "duration": 6.52,
+        "text": "Vector value which is a vector float"
+      },
+      {
+        "start": 1166.88,
+        "duration": 7.52,
+        "text": "1536 to match with our um Titan V V1"
+      },
+      {
+        "start": 1170.84,
+        "duration": 8.959,
+        "text": "embedding model um so now if I select"
+      },
+      {
+        "start": 1174.4,
+        "duration": 8.56,
+        "text": "star from and shopping assistant Vector"
+      },
+      {
+        "start": 1179.799,
+        "duration": 6.681,
+        "text": "data you can see that we have 24 rows"
+      },
+      {
+        "start": 1182.96,
+        "duration": 6.76,
+        "text": "out here so our data is indeed"
+      },
+      {
+        "start": 1186.48,
+        "duration": 7.52,
+        "text": "loaded all right this this totally"
+      },
+      {
+        "start": 1189.72,
+        "duration": 6.199,
+        "text": "worked so now let's go back to"
+      },
+      {
+        "start": 1194.0,
+        "duration": 6.12,
+        "text": "langlow and what we're going to want to"
+      },
+      {
+        "start": 1195.919,
+        "duration": 7.361,
+        "text": "do now is go to our chat flow"
+      },
+      {
+        "start": 1200.12,
+        "duration": 3.919,
+        "text": "next so some things to note here first"
+      },
+      {
+        "start": 1203.28,
+        "duration": 3.12,
+        "text": "of"
+      },
+      {
+        "start": 1204.039,
+        "duration": 4.88,
+        "text": "all you notice we still have a vector"
+      },
+      {
+        "start": 1206.4,
+        "duration": 4.759,
+        "text": "store component for astr DB and we still"
+      },
+      {
+        "start": 1208.919,
+        "duration": 4.801,
+        "text": "have an embeddings component for open AI"
+      },
+      {
+        "start": 1211.159,
+        "duration": 5.601,
+        "text": "so let's replace those right off the bat"
+      },
+      {
+        "start": 1213.72,
+        "duration": 4.08,
+        "text": "here we'll go delete"
+      },
+      {
+        "start": 1216.76,
+        "duration": 2.399,
+        "text": "there"
+      },
+      {
+        "start": 1217.8,
+        "duration": 3.64,
+        "text": "[Music]"
+      },
+      {
+        "start": 1219.159,
+        "duration": 6.4,
+        "text": "and go"
+      },
+      {
+        "start": 1221.44,
+        "duration": 6.76,
+        "text": "delete here just like that now if I go"
+      },
+      {
+        "start": 1225.559,
+        "duration": 3.921,
+        "text": "back down to my data Stacks hcd"
+      },
+      {
+        "start": 1228.2,
+        "duration": 3.32,
+        "text": "component"
+      },
+      {
+        "start": 1229.48,
+        "duration": 5.6,
+        "text": "I can say"
+      },
+      {
+        "start": 1231.52,
+        "duration": 7.92,
+        "text": "duplicate and then we can grab this"
+      },
+      {
+        "start": 1235.08,
+        "duration": 7.8,
+        "text": "and oh go back up here now let's go"
+      },
+      {
+        "start": 1239.44,
+        "duration": 7.28,
+        "text": "ahead and run message to search"
+      },
+      {
+        "start": 1242.88,
+        "duration": 6.2,
+        "text": "input and then search results to data"
+      },
+      {
+        "start": 1246.72,
+        "duration": 4.319,
+        "text": "just like that um now of course we also"
+      },
+      {
+        "start": 1249.08,
+        "duration": 4.24,
+        "text": "need our embedding model we're not going"
+      },
+      {
+        "start": 1251.039,
+        "duration": 6.0,
+        "text": "to get far without that so let's go back"
+      },
+      {
+        "start": 1253.32,
+        "duration": 6.8,
+        "text": "to Amazon Bedrock same thing we'll say"
+      },
+      {
+        "start": 1257.039,
+        "duration": 5.921,
+        "text": "duplicate and then grab this"
+      },
+      {
+        "start": 1260.12,
+        "duration": 5.039,
+        "text": "component going to go put that right"
+      },
+      {
+        "start": 1262.96,
+        "duration": 4.64,
+        "text": "here and then we can go down to"
+      },
+      {
+        "start": 1265.159,
+        "duration": 4.441,
+        "text": "embeddings and connect up our Vector"
+      },
+      {
+        "start": 1267.6,
+        "duration": 5.52,
+        "text": "store component just like"
+      },
+      {
+        "start": 1269.6,
+        "duration": 7.12,
+        "text": "that um we can make our way"
+      },
+      {
+        "start": 1273.12,
+        "duration": 6.52,
+        "text": "through uh inside the prompt uh we're"
+      },
+      {
+        "start": 1276.72,
+        "duration": 8.6,
+        "text": "going to want to add a little bit here"
+      },
+      {
+        "start": 1279.64,
+        "duration": 10.44,
+        "text": "so let's say um you are a shopping"
+      },
+      {
+        "start": 1285.32,
+        "duration": 4.76,
+        "text": "assistant for the Astra"
+      },
+      {
+        "start": 1292.72,
+        "duration": 4.52,
+        "text": "Astra"
+      },
+      {
+        "start": 1293.919,
+        "duration": 6.12,
+        "text": "apparel online"
+      },
+      {
+        "start": 1297.24,
+        "duration": 8.559,
+        "text": "store"
+      },
+      {
+        "start": 1300.039,
+        "duration": 8.601,
+        "text": "you may only use the data from the"
+      },
+      {
+        "start": 1305.799,
+        "duration": 8.281,
+        "text": "provided"
+      },
+      {
+        "start": 1308.64,
+        "duration": 8.32,
+        "text": "context and you let's see here you must"
+      },
+      {
+        "start": 1314.08,
+        "duration": 5.16,
+        "text": "format your"
+      },
+      {
+        "start": 1316.96,
+        "duration": 8.719,
+        "text": "responses like"
+      },
+      {
+        "start": 1319.24,
+        "duration": 6.439,
+        "text": "this and we'll say um product"
+      },
+      {
+        "start": 1325.76,
+        "duration": 6.08,
+        "text": "ID"
+      },
+      {
+        "start": 1328.4,
+        "duration": 6.36,
+        "text": "description and"
+      },
+      {
+        "start": 1331.84,
+        "duration": 4.92,
+        "text": "image okay um so hopefully these are"
+      },
+      {
+        "start": 1334.76,
+        "duration": 4.64,
+        "text": "good enough guard rails to uh to keep"
+      },
+      {
+        "start": 1336.76,
+        "duration": 5.519,
+        "text": "our AI shopping assistant on task and"
+      },
+      {
+        "start": 1339.4,
+        "duration": 5.759,
+        "text": "providing consistent responses so let's"
+      },
+      {
+        "start": 1342.279,
+        "duration": 2.88,
+        "text": "do a check and"
+      },
+      {
+        "start": 1345.6,
+        "duration": 7.24,
+        "text": "save okay um next"
+      },
+      {
+        "start": 1349.64,
+        "duration": 6.519,
+        "text": "we have um we have to we have to modify"
+      },
+      {
+        "start": 1352.84,
+        "duration": 7.76,
+        "text": "our model here because right now our llm"
+      },
+      {
+        "start": 1356.159,
+        "duration": 6.321,
+        "text": "chat model is using uh open AI so let's"
+      },
+      {
+        "start": 1360.6,
+        "duration": 5.24,
+        "text": "get rid of"
+      },
+      {
+        "start": 1362.48,
+        "duration": 5.84,
+        "text": "this and then for models we'll grab"
+      },
+      {
+        "start": 1365.84,
+        "duration": 2.48,
+        "text": "Amazon"
+      },
+      {
+        "start": 1369.6,
+        "duration": 9.6,
+        "text": "Bedrock okay so prompt message we'll go"
+      },
+      {
+        "start": 1373.2,
+        "duration": 8.64,
+        "text": "to input and text to text just like that"
+      },
+      {
+        "start": 1379.2,
+        "duration": 8.52,
+        "text": "um let's see"
+      },
+      {
+        "start": 1381.84,
+        "duration": 5.88,
+        "text": "here let's go to Claude 3"
+      },
+      {
+        "start": 1388.0,
+        "duration": 7.4,
+        "text": "sonnet and then we'll also put my um oh"
+      },
+      {
+        "start": 1392.4,
+        "duration": 4.879,
+        "text": "let's pick the right region Us West 2"
+      },
+      {
+        "start": 1395.4,
+        "duration": 5.08,
+        "text": "and then let's also make sure that we"
+      },
+      {
+        "start": 1397.279,
+        "duration": 7.361,
+        "text": "have my um AWS access"
+      },
+      {
+        "start": 1400.48,
+        "duration": 8.679,
+        "text": "key ID and secret access key in there as"
+      },
+      {
+        "start": 1404.64,
+        "duration": 7.68,
+        "text": "well so let me go get those okay um we"
+      },
+      {
+        "start": 1409.159,
+        "duration": 5.481,
+        "text": "should be all set now um but just for"
+      },
+      {
+        "start": 1412.32,
+        "duration": 7.28,
+        "text": "testing let's start out with uh with"
+      },
+      {
+        "start": 1414.64,
+        "duration": 7.68,
+        "text": "chat input here um normally normally you"
+      },
+      {
+        "start": 1419.6,
+        "duration": 4.439,
+        "text": "want a good seed question for testing"
+      },
+      {
+        "start": 1422.32,
+        "duration": 4.16,
+        "text": "and what is this document about isn't"
+      },
+      {
+        "start": 1424.039,
+        "duration": 5.0,
+        "text": "going to be that good so we'll say can"
+      },
+      {
+        "start": 1426.48,
+        "duration": 5.52,
+        "text": "you oh help me find a purple shirt"
+      },
+      {
+        "start": 1429.039,
+        "duration": 2.961,
+        "text": "perfect just like"
+      },
+      {
+        "start": 1432.039,
+        "duration": 6.961,
+        "text": "that so let's go ahead and adjust our"
+      },
+      {
+        "start": 1435.039,
+        "duration": 5.961,
+        "text": "prompt one more time here um"
+      },
+      {
+        "start": 1439.0,
+        "duration": 5.24,
+        "text": "case in"
+      },
+      {
+        "start": 1441.0,
+        "duration": 6.559,
+        "text": "point we going to want to make sure that"
+      },
+      {
+        "start": 1444.24,
+        "duration": 6.4,
+        "text": "we have this context uh variable here in"
+      },
+      {
+        "start": 1447.559,
+        "duration": 5.041,
+        "text": "brace yeah braces between the context"
+      },
+      {
+        "start": 1450.64,
+        "duration": 4.56,
+        "text": "and the guard rails that we've provided"
+      },
+      {
+        "start": 1452.6,
+        "duration": 5.199,
+        "text": "this should do it here so now if I say"
+      },
+      {
+        "start": 1455.2,
+        "duration": 5.959,
+        "text": "check and save you'll notice that we"
+      },
+      {
+        "start": 1457.799,
+        "duration": 6.201,
+        "text": "have a connection node here for"
+      },
+      {
+        "start": 1461.159,
+        "duration": 5.321,
+        "text": "context um so now what I can do is go"
+      },
+      {
+        "start": 1464.0,
+        "duration": 6.84,
+        "text": "from text to"
+      },
+      {
+        "start": 1466.48,
+        "duration": 6.04,
+        "text": "context just like that that and now we"
+      },
+      {
+        "start": 1470.84,
+        "duration": 6.88,
+        "text": "should be able"
+      },
+      {
+        "start": 1472.52,
+        "duration": 5.2,
+        "text": "to run our playground here and see this"
+      },
+      {
+        "start": 1489.24,
+        "duration": 6.52,
+        "text": "build okay built successful let's check"
+      },
+      {
+        "start": 1492.559,
+        "duration": 4.801,
+        "text": "the playground oh look at that can you"
+      },
+      {
+        "start": 1495.76,
+        "duration": 4.2,
+        "text": "help me find a hoodie and it actually"
+      },
+      {
+        "start": 1497.36,
+        "duration": 4.799,
+        "text": "brought back this data right here you"
+      },
+      {
+        "start": 1499.96,
+        "duration": 9.16,
+        "text": "know so then we could say"
+      },
+      {
+        "start": 1502.159,
+        "duration": 6.961,
+        "text": "um can you help me find a Cassandra"
+      },
+      {
+        "start": 1513.12,
+        "duration": 5.4,
+        "text": "shirt yeah here we go Cassandra shirts"
+      },
+      {
+        "start": 1516.039,
+        "duration": 4.041,
+        "text": "available well okay so it's it found one"
+      },
+      {
+        "start": 1518.52,
+        "duration": 3.6,
+        "text": "with a bunch of different sizes but you"
+      },
+      {
+        "start": 1520.08,
+        "duration": 6.88,
+        "text": "could you could certainly uh trim this"
+      },
+      {
+        "start": 1522.12,
+        "duration": 7.24,
+        "text": "down on your own um yep 2023 Cassandra"
+      },
+      {
+        "start": 1526.96,
+        "duration": 4.92,
+        "text": "Summit you know here here's another one"
+      },
+      {
+        "start": 1529.36,
+        "duration": 5.52,
+        "text": "that's the uh Cassandra 30 contributor"
+      },
+      {
+        "start": 1531.88,
+        "duration": 7.159,
+        "text": "t-shirt so you can totally uh shop for"
+      },
+      {
+        "start": 1534.88,
+        "duration": 8.039,
+        "text": "products conversationally here um so"
+      },
+      {
+        "start": 1539.039,
+        "duration": 6.441,
+        "text": "yeah that is how to build with langlow"
+      },
+      {
+        "start": 1542.919,
+        "duration": 5.0,
+        "text": "on top of data Stacks"
+      },
+      {
+        "start": 1545.48,
+        "duration": 5.16,
+        "text": "Enterprise um out in"
+      },
+      {
+        "start": 1547.919,
+        "duration": 5.721,
+        "text": "AWS all right that should do it want"
+      },
+      {
+        "start": 1550.64,
+        "duration": 6.08,
+        "text": "more information on modernizing your"
+      },
+      {
+        "start": 1553.64,
+        "duration": 6.72,
+        "text": "self-managed Cassandra deployments head"
+      },
+      {
+        "start": 1556.72,
+        "duration": 7.64,
+        "text": "on out to data stacks.com /m modernize"
+      },
+      {
+        "start": 1560.36,
+        "duration": 6.36,
+        "text": "aache dcand ra- workloads and you'll"
+      },
+      {
+        "start": 1564.36,
+        "duration": 5.0,
+        "text": "find all the information you need on"
+      },
+      {
+        "start": 1566.72,
+        "duration": 6.64,
+        "text": "keeping your self-managed Cassandra"
+      },
+      {
+        "start": 1569.36,
+        "duration": 7.96,
+        "text": "cluster updated and in top running form"
+      },
+      {
+        "start": 1573.36,
+        "duration": 3.96,
+        "text": "thank you and have a great day"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-10T23:49:00.265180+00:00"
+}

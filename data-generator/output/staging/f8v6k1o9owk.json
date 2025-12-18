@@ -1,0 +1,2362 @@
+{
+  "video_id": "f8v6k1o9owk",
+  "title": "Cassandra Forward - Real time data pipelines with Flink and Cassandra | Netflix",
+  "description": "Netflix uses a lot of Cassandra to power our services. Come learn how and why\nwe capture change data events in Cassandra using Flink for use in other\nsystems.\nSatyajit Thadeshwar | Netflix\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs?sub_confirmation=1 \nTwitter: https://twitter.com/datastaxdevs\nTwitch: https://www.twitch.tv/datastaxdevs\n\nAbout DataStax:\nDataStax is the company behind the massively scalable, highly available, cloud-native NoSQL data platform built on Apache Cassandra™. DataStax gives developers and enterprises the freedom to run data in any cloud, Kubernetes, hybrid or bare metal at global scale with zero downtime and zero lock-in. More than 450 of the world’s leading enterprises including Capital One, Cisco, Comcast, Delta Airlines, Macy’s, McDonald’s, Safeway, Sony, and Walmart use DataStax to build transformational data architectures for real-world outcomes. For more, visit DataStax.com and @DataStax.\n\nAbout DataStax Developer:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2023-03-14T19:00:15Z",
+  "thumbnail": "https://i.ytimg.com/vi/f8v6k1o9owk/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "scalable",
+    "workshop",
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "nosql",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=f8v6k1o9owk",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "hello everyone my name is satijit tadeshwar and I'll be talking about extracting change data capture events from Cassandra using Flink so let's jump straight into the problems Slash use cases at Netflix many services use Cassandra as the primary data store and for many of these Services the data that is stored in these column families is the source of Truth for folks who are familiar with Cassandra's architecture might be aware that the data that is organized in these column families is optimized for query patterns that the application is expected to run and it's not suitable for running ad hoc queries for Analytics Also let's say if your column family schema allows to run a subset of analytical queries you don't want to run them on a live cluster taking production traffic so this is the first problem there were other set of use cases wherein some teams wanted to run some business logic or some offline online workflows based on the updates happening for a given partition or a primary key so both of these use cases fall into two separate buckets mainly replication and event processing use cases and apparently it seems like both these use cases can leverage CDC and that's what I will be talking about in this presentation so today I'll talk about what is a change data capture stream and how to leverage that stream in a typical data pipeline I'll talk about the CDC connector that we built for Cassandra at Netflix I'll talk about its operation I'll dive it I'll dive into its architecture I'll talk about some of the design decisions that we took and the three dots and the trade-offs that were factored in for those design decisions so what is a CDC stream Jasper Wikipedia in databases CDC is a set of software design patterns used to determine and track the data that has changed so that action can be taken using the change data in many databases like postgres and MySQL there is something called as a right head log which is present on a leader instance which is used for replication let's write the head log can also be used to leverage CDC stream now to explain what is a CDC stream let's take an example so let's assume that you have an imaginary payments table for your customers wherein you have customer ID as the partition key and you chose let's say region as the clustering column and you have a bunch of other regular columns now if you run this insert SQL statement which inserts a new row for a given primary key the corresponding CDC event would look like something like this so at Netflix we had a specific spec for the CDC event and the example shown here does not show all the attributes it shows some of the important attributes which is an ID which uniquely identifies the CDC event the operation type which indicates what kind of mutation it was and in this case since it was a newly created Row the operation is create it has an event timestamp which is in this case is the coordinator timestamp and the payload is the full view of the row in the form of an error record now let's say you updated the same Row the payment status as processed the corresponding CDC event would look something very similar with the operation type as update again it will have the timestamp when the update was made and it will have the payload including the row the column that that was changed so you could imagine a series of these mutations happening on this column family which would generate a series of CDC events and that constitutes a CDC stream so let's see how the CDC stream can be leveraged in a data pipeline so this diagram shows a typical data Pipeline with its fundamental building blocks usually there is a producer which sends data to a source and in case of a CDC pipeline the producer is a database the next component is a source connector Source connector is responsible for extracting the mutation information from the database and converting into a corresponding CDC events now the source code connector could be deployed as a standalone component or it could be running as part of a database instance it depends on the implementation Source connected then sends these events to a dedicated Kafka topic Kafka because at Netflix Kafka is the chosen mode of Transport for these events now this Kafka topic on a dedicated Kafka cluster becomes a reusable CDC Event Source which can be leveraged by Key by different data Pipelines the data pipeline here which is shown as a dag comprising of multiple processing patterns or processors the processors could be filter projection enrichment Etc eventually the data is being sent to a sync and in case of a data replication use case the sync could be let's say Warehouse an elasticsearch or another database and in case of the event processing use case data could be sent to another Kafka topic wherein it's further consumed by a downstream component so let's talk about the Cassandra CDC connector that we built at Netflix the connector is responsible for processing mutations happening on a configured column family and when I say processing mutation it involves extracting the mutation information from the storage layer in Cassandra identifying whether the operation was insert update or delete deduping the data because the connector is receiving these mutations from all the replicas in a ring and eventually converting this mutation into into a CVC event and sending it to a Kafka sync the connector is deployed as a standalone component and one deployment Maps one connector deployment maps to one column family in a cluster it is implemented as a fling job with a stateful process function performing most of the business logic it uses roxdb state within Flink for State Management and it relies on other existing infrastructure running in Netflix which I will dive into deeper when we talk about the architecture so before jumping into the connector architecture let's talk about its operation the connector operates in three modes which are called bootstrap real time and backfill so whenever a new connector is provisioned for a column family bootstrap is automatically triggered and as the name Implement implies bootstrap mode is to bootstrap the sync with the source table data for a newly created connector for this mode the connector relies on a snapshot which comprises of a list of accessible files for folks who are not familiar with this what an accessible file is I'll talk about a little I'll talk about it later in the slides the next mode is real-time mode so once the bootstrap is complete the connector switches into real-time mode to process the real-time mutations happening on a table for this mode the connector relies on a specific feature in Cassandra which is the incremental backups so whenever incremental backups are enabled at the cluster level Cassandra creates these access table files for incremental mutations and these incremental accessible files are not impacted by regular View compactions we'll talk about this more when we talk dive into the architecture and lastly there is a backfill mode which is very similar to bootstrap mode except for its regard by end users to do a backflip all right so this diagram shows the CDC connector architecture at a very high level let's walk through each components one by one so on the left hand side for Simplicity I've shown a three ring a three node cluster in single region each node identified by its token range so you can imagine that the column family for which this connector is provisioned is constantly receiving insert update and delete mutations for folks who are not familiar with Cassandra's internals Cassandra uses log structured merge tree also known as LSM tree for its storage layer so whenever a write happens in Cassandra the the node which is X which is handling the right request writes the mutation into an in-memory data structure called as memory the right is also written into a commit log on disk for durability based on a multitude of configurable parameters Cassandra flushes this mem table into an immutable file called access table file also known as sorted string tables this access table files form the core of the storage layering Cassandra now at Netflix for all the Cassandra clusters a sidecar component is deployed along with each Cassandra node instance this sidecar was developed many years ago at Netflix and for the purpose of simplifying many of the administrative tasks for Cassandra operators so along with the administrative tasks this site car also serves an important purpose of doing backups for these access stable files so let's see a cluster at Netflix is scheduled to do backups every four hours in that in that scenario the sidecar will trigger a snapshot every four hours and that snapshot would comprise of a list of accessible files uh that are needed to recreate that instance it will then upload these snapshot as well as the accessible files mentioned in the snapshot to S3 for as a backup for clusters in which the incremental backups are also enabled the incremental access table files are also uploaded to S3 on every successful file upload the sidecar also sends an SNS notification to a dedicated topic so this infrastructure has been running at Netflix for many years now so the CDC Source connector for Cassandra leverages this existing infrastructure it Taps into this SMS notifications and routes them to a dedicated queue which is provision for each connected deployment the most important information in this notification is the S3 path to the access table files or the Manifest files slash snapshot files which the connector is supposed to consume in order to extract the mutation information and there are two types of notification one for snapshot and one for incremental so in the bootstrap mode snapshot notification is utilized and in case of real-time processing incremental notifications are utilized so let's talk about the elephant in the room which is the CDC connector implementation which is shown in this box here let's zoom into that component so as I mentioned earlier the CDC connector is implemented as a fling job we chose to use Flink because it provides certain consistency guarantees and some which were that were needed for the connector it also provides apis and operators for stream processing that were needed for the connector business logic it also provides inbuilt mechanism for for managing State locally for faster access using rocksdb and it also provides durability guarantee for the Same by checkpointing it at regular intervals foreign so if you notice in this block there is a small component called custom Cassandra fling source so in order to implement this a fling job we had to implement a custom Flink Source the reason being Flink has many inbuilt sources for example Kafka Source a file Source but it has no inbuilt source for reading accessible files that took directly from S3 so we built this Flink Source by implementing the Flink source apis for folks who are curious and want to know more about the link Source apis they can go to the Apache Flink website for the documentation for folks who are more curious about the Uplink source apis they can read up the documentation on their passive link website the fling Source did two important things first one was listening for these snapshot notifications which would point to the S3 path for the access table files which served as an input split in fling terminology a split is a unit of work and in case of this connector the unit of work was a single accessible file the second job that the link source does is the complex orchestration of assigning these splits to task managers slash workers for reading that way it can distribute the work among the task managers so once the task manager has read the mutation or the SS table file it is Then followed by an operator which does the complex business logic of processing the mutation information and when I say processing it is looking at the local state to identify whether it was an insert update or a delete it is deduping the information sorry it is deduping the the it is deduping the mutation information from different replicas by looking at the state and eventually it is converting this mutation information into a CDC event and sending it to a Kafka sync and as I mentioned earlier the input splits discovery which is done at the job manager slash blink Source level is done using the snapshot and incremental notifications by isqs and then as I mentioned in the generic data pipelines like the Kafka Source now is populated with the CDC events which can serve or which can be leveraged in other data pipelines and that's what the teams at Netflix did with this Kafka source so this is this is the architecture in a nutshell and it is at a very high level let's talk about the trade-offs that we made in this architecture design first and foremost most of the use cases in Netflix were okay with few minutes propagation delay and when I say propagation delay it's the delay between the mutation happening in the source column family and the corresponding CDC event landing at a Kafka source so this delay the connector has this propagation delay in the order of seconds two minutes several minutes and this depends on the cluster depending on the right throughput and many other configuration parameters the next trade-off was build versus buy slash reuse like in any organization this is a classic dilemma whether you should build or whether we should buy and at the time of this implementation we looked at open source and couldn't find any uh CDC uh uh connector being used at production especially at Netflix scale we looked at some sidecar implementations both open source and homegrown but the Cassandra database team at Netflix were not comfortable running those processes along with the Cassandra instances the next trade-off is the bootstrap backfill time which could be several hours for large column families and the fact that bootstrap and slashback fill used the same Flink tag in the source connector as the real time mode the backfill the bootstrap has to happen before the source connector can start processing real-time events last but not the least proxdb state inflink for large column families comes at its cost and it also has certain disadvantages when it comes to fling scaling mainly downscaling so just to summarize the CDC Source connect direct networks allowed us to handle use cases that were previously not possible using existing bad Solutions it also allowed us to reduce the propagation delay from several hours the bad solution to few minutes that's about it thank you",
+    "segments": [
+      {
+        "start": 5.04,
+        "duration": 3.84,
+        "text": "hello everyone my name is satijit"
+      },
+      {
+        "start": 7.259,
+        "duration": 3.481,
+        "text": "tadeshwar and I'll be talking about"
+      },
+      {
+        "start": 8.88,
+        "duration": 5.06,
+        "text": "extracting change data capture events"
+      },
+      {
+        "start": 10.74,
+        "duration": 3.2,
+        "text": "from Cassandra using Flink"
+      },
+      {
+        "start": 14.58,
+        "duration": 4.5,
+        "text": "so let's jump straight into the problems"
+      },
+      {
+        "start": 16.74,
+        "duration": 5.28,
+        "text": "Slash use cases"
+      },
+      {
+        "start": 19.08,
+        "duration": 4.68,
+        "text": "at Netflix many services use Cassandra"
+      },
+      {
+        "start": 22.02,
+        "duration": 3.839,
+        "text": "as the primary data store"
+      },
+      {
+        "start": 23.76,
+        "duration": 3.599,
+        "text": "and for many of these Services the data"
+      },
+      {
+        "start": 25.859,
+        "duration": 4.5,
+        "text": "that is stored in these column families"
+      },
+      {
+        "start": 27.359,
+        "duration": 4.141,
+        "text": "is the source of Truth"
+      },
+      {
+        "start": 30.359,
+        "duration": 2.88,
+        "text": "for folks who are familiar with"
+      },
+      {
+        "start": 31.5,
+        "duration": 4.079,
+        "text": "Cassandra's architecture might be aware"
+      },
+      {
+        "start": 33.239,
+        "duration": 4.081,
+        "text": "that the data that is organized in these"
+      },
+      {
+        "start": 35.579,
+        "duration": 5.761,
+        "text": "column families"
+      },
+      {
+        "start": 37.32,
+        "duration": 6.239,
+        "text": "is optimized for query patterns that the"
+      },
+      {
+        "start": 41.34,
+        "duration": 3.899,
+        "text": "application is expected to run and it's"
+      },
+      {
+        "start": 43.559,
+        "duration": 4.02,
+        "text": "not suitable for running ad hoc queries"
+      },
+      {
+        "start": 45.239,
+        "duration": 5.701,
+        "text": "for Analytics"
+      },
+      {
+        "start": 47.579,
+        "duration": 5.221,
+        "text": "Also let's say if your column family"
+      },
+      {
+        "start": 50.94,
+        "duration": 3.84,
+        "text": "schema allows to run a subset of"
+      },
+      {
+        "start": 52.8,
+        "duration": 3.96,
+        "text": "analytical queries you don't want to run"
+      },
+      {
+        "start": 54.78,
+        "duration": 3.54,
+        "text": "them on a live cluster taking production"
+      },
+      {
+        "start": 56.76,
+        "duration": 4.26,
+        "text": "traffic"
+      },
+      {
+        "start": 58.32,
+        "duration": 4.919,
+        "text": "so this is the first problem"
+      },
+      {
+        "start": 61.02,
+        "duration": 5.04,
+        "text": "there were other set of use cases"
+      },
+      {
+        "start": 63.239,
+        "duration": 5.041,
+        "text": "wherein some teams wanted to run"
+      },
+      {
+        "start": 66.06,
+        "duration": 4.8,
+        "text": "some business logic or some offline"
+      },
+      {
+        "start": 68.28,
+        "duration": 4.62,
+        "text": "online workflows"
+      },
+      {
+        "start": 70.86,
+        "duration": 4.46,
+        "text": "based on the updates happening for a"
+      },
+      {
+        "start": 72.9,
+        "duration": 3.96,
+        "text": "given partition or a primary key"
+      },
+      {
+        "start": 75.32,
+        "duration": 4.54,
+        "text": "so"
+      },
+      {
+        "start": 76.86,
+        "duration": 5.82,
+        "text": "both of these use cases fall into"
+      },
+      {
+        "start": 79.86,
+        "duration": 5.16,
+        "text": "two separate buckets"
+      },
+      {
+        "start": 82.68,
+        "duration": 3.78,
+        "text": "mainly replication and event processing"
+      },
+      {
+        "start": 85.02,
+        "duration": 4.139,
+        "text": "use cases"
+      },
+      {
+        "start": 86.46,
+        "duration": 5.28,
+        "text": "and apparently it seems like both these"
+      },
+      {
+        "start": 89.159,
+        "duration": 4.621,
+        "text": "use cases can leverage CDC and that's"
+      },
+      {
+        "start": 91.74,
+        "duration": 3.9,
+        "text": "what I will be talking about in this"
+      },
+      {
+        "start": 93.78,
+        "duration": 3.839,
+        "text": "presentation"
+      },
+      {
+        "start": 95.64,
+        "duration": 4.619,
+        "text": "so today I'll talk about"
+      },
+      {
+        "start": 97.619,
+        "duration": 4.68,
+        "text": "what is a change data capture stream and"
+      },
+      {
+        "start": 100.259,
+        "duration": 3.54,
+        "text": "how to leverage that stream in a typical"
+      },
+      {
+        "start": 102.299,
+        "duration": 4.68,
+        "text": "data pipeline"
+      },
+      {
+        "start": 103.799,
+        "duration": 5.101,
+        "text": "I'll talk about the CDC connector that"
+      },
+      {
+        "start": 106.979,
+        "duration": 4.621,
+        "text": "we built for Cassandra at Netflix"
+      },
+      {
+        "start": 108.9,
+        "duration": 5.399,
+        "text": "I'll talk about its operation I'll dive"
+      },
+      {
+        "start": 111.6,
+        "duration": 4.799,
+        "text": "it I'll dive into its architecture"
+      },
+      {
+        "start": 114.299,
+        "duration": 3.78,
+        "text": "I'll talk about some of the design"
+      },
+      {
+        "start": 116.399,
+        "duration": 3.481,
+        "text": "decisions that we took and the three"
+      },
+      {
+        "start": 118.079,
+        "duration": 4.981,
+        "text": "dots"
+      },
+      {
+        "start": 119.88,
+        "duration": 6.62,
+        "text": "and the trade-offs that were factored in"
+      },
+      {
+        "start": 123.06,
+        "duration": 3.44,
+        "text": "for those design decisions"
+      },
+      {
+        "start": 127.28,
+        "duration": 6.94,
+        "text": "so what is a CDC stream"
+      },
+      {
+        "start": 129.899,
+        "duration": 6.06,
+        "text": "Jasper Wikipedia in databases CDC is a"
+      },
+      {
+        "start": 134.22,
+        "duration": 3.3,
+        "text": "set of software design patterns used to"
+      },
+      {
+        "start": 135.959,
+        "duration": 3.061,
+        "text": "determine and track the data that has"
+      },
+      {
+        "start": 137.52,
+        "duration": 4.439,
+        "text": "changed so that action can be taken"
+      },
+      {
+        "start": 139.02,
+        "duration": 5.4,
+        "text": "using the change data in many databases"
+      },
+      {
+        "start": 141.959,
+        "duration": 4.561,
+        "text": "like postgres and MySQL"
+      },
+      {
+        "start": 144.42,
+        "duration": 4.08,
+        "text": "there is something called as a right"
+      },
+      {
+        "start": 146.52,
+        "duration": 4.68,
+        "text": "head log which is present on a leader"
+      },
+      {
+        "start": 148.5,
+        "duration": 5.22,
+        "text": "instance which is used for replication"
+      },
+      {
+        "start": 151.2,
+        "duration": 6.38,
+        "text": "let's write the head log can also be"
+      },
+      {
+        "start": 153.72,
+        "duration": 3.86,
+        "text": "used to leverage CDC stream"
+      },
+      {
+        "start": 158.22,
+        "duration": 5.34,
+        "text": "now to explain"
+      },
+      {
+        "start": 160.26,
+        "duration": 5.6,
+        "text": "what is a CDC stream let's take an"
+      },
+      {
+        "start": 163.56,
+        "duration": 2.3,
+        "text": "example"
+      },
+      {
+        "start": 165.9,
+        "duration": 3.119,
+        "text": "so let's assume that you have an"
+      },
+      {
+        "start": 167.58,
+        "duration": 3.54,
+        "text": "imaginary payments table for your"
+      },
+      {
+        "start": 169.019,
+        "duration": 4.201,
+        "text": "customers wherein you have customer ID"
+      },
+      {
+        "start": 171.12,
+        "duration": 4.14,
+        "text": "as the partition key and you chose let's"
+      },
+      {
+        "start": 173.22,
+        "duration": 4.2,
+        "text": "say region as the clustering column and"
+      },
+      {
+        "start": 175.26,
+        "duration": 3.3,
+        "text": "you have a bunch of other regular"
+      },
+      {
+        "start": 177.42,
+        "duration": 5.459,
+        "text": "columns"
+      },
+      {
+        "start": 178.56,
+        "duration": 7.259,
+        "text": "now if you run this insert SQL statement"
+      },
+      {
+        "start": 182.879,
+        "duration": 4.381,
+        "text": "which inserts a new row for a given"
+      },
+      {
+        "start": 185.819,
+        "duration": 3.721,
+        "text": "primary key"
+      },
+      {
+        "start": 187.26,
+        "duration": 3.839,
+        "text": "the corresponding CDC event would look"
+      },
+      {
+        "start": 189.54,
+        "duration": 3.24,
+        "text": "like something like this"
+      },
+      {
+        "start": 191.099,
+        "duration": 4.381,
+        "text": "so at Netflix"
+      },
+      {
+        "start": 192.78,
+        "duration": 5.64,
+        "text": "we had a specific spec for the CDC event"
+      },
+      {
+        "start": 195.48,
+        "duration": 4.979,
+        "text": "and the example shown here does not show"
+      },
+      {
+        "start": 198.42,
+        "duration": 4.5,
+        "text": "all the attributes it shows some of the"
+      },
+      {
+        "start": 200.459,
+        "duration": 5.821,
+        "text": "important attributes which is an ID"
+      },
+      {
+        "start": 202.92,
+        "duration": 5.459,
+        "text": "which uniquely identifies the CDC event"
+      },
+      {
+        "start": 206.28,
+        "duration": 3.84,
+        "text": "the operation type which indicates what"
+      },
+      {
+        "start": 208.379,
+        "duration": 3.601,
+        "text": "kind of mutation it was and in this case"
+      },
+      {
+        "start": 210.12,
+        "duration": 3.06,
+        "text": "since it was a newly created Row the"
+      },
+      {
+        "start": 211.98,
+        "duration": 4.2,
+        "text": "operation is create"
+      },
+      {
+        "start": 213.18,
+        "duration": 5.339,
+        "text": "it has an event timestamp which is in"
+      },
+      {
+        "start": 216.18,
+        "duration": 4.199,
+        "text": "this case is the coordinator timestamp"
+      },
+      {
+        "start": 218.519,
+        "duration": 2.521,
+        "text": "and the payload is the full view of the"
+      },
+      {
+        "start": 220.379,
+        "duration": 3.541,
+        "text": "row"
+      },
+      {
+        "start": 221.04,
+        "duration": 4.32,
+        "text": "in the form of an error record"
+      },
+      {
+        "start": 223.92,
+        "duration": 4.8,
+        "text": "now let's say"
+      },
+      {
+        "start": 225.36,
+        "duration": 6.12,
+        "text": "you updated the same Row the payment"
+      },
+      {
+        "start": 228.72,
+        "duration": 4.92,
+        "text": "status as processed"
+      },
+      {
+        "start": 231.48,
+        "duration": 3.96,
+        "text": "the corresponding CDC event would look"
+      },
+      {
+        "start": 233.64,
+        "duration": 4.019,
+        "text": "something very similar with the"
+      },
+      {
+        "start": 235.44,
+        "duration": 4.019,
+        "text": "operation type as update"
+      },
+      {
+        "start": 237.659,
+        "duration": 3.841,
+        "text": "again it will have"
+      },
+      {
+        "start": 239.459,
+        "duration": 3.901,
+        "text": "the timestamp when the update was made"
+      },
+      {
+        "start": 241.5,
+        "duration": 4.08,
+        "text": "and it will have the payload"
+      },
+      {
+        "start": 243.36,
+        "duration": 3.48,
+        "text": "including the row the column that that"
+      },
+      {
+        "start": 245.58,
+        "duration": 4.14,
+        "text": "was changed"
+      },
+      {
+        "start": 246.84,
+        "duration": 5.64,
+        "text": "so you could imagine"
+      },
+      {
+        "start": 249.72,
+        "duration": 4.62,
+        "text": "a series of these mutations happening on"
+      },
+      {
+        "start": 252.48,
+        "duration": 3.42,
+        "text": "this column family which would generate"
+      },
+      {
+        "start": 254.34,
+        "duration": 4.56,
+        "text": "a series of"
+      },
+      {
+        "start": 255.9,
+        "duration": 6.059,
+        "text": "CDC events and that constitutes a CDC"
+      },
+      {
+        "start": 258.9,
+        "duration": 6.62,
+        "text": "stream so let's see how the CDC stream"
+      },
+      {
+        "start": 261.959,
+        "duration": 3.561,
+        "text": "can be leveraged in a data pipeline"
+      },
+      {
+        "start": 265.919,
+        "duration": 4.5,
+        "text": "so this diagram shows"
+      },
+      {
+        "start": 268.139,
+        "duration": 4.921,
+        "text": "a typical data Pipeline with its"
+      },
+      {
+        "start": 270.419,
+        "duration": 4.981,
+        "text": "fundamental building blocks"
+      },
+      {
+        "start": 273.06,
+        "duration": 4.98,
+        "text": "usually there is a producer which sends"
+      },
+      {
+        "start": 275.4,
+        "duration": 5.94,
+        "text": "data to a source and in case of a CDC"
+      },
+      {
+        "start": 278.04,
+        "duration": 7.26,
+        "text": "pipeline the producer is a database"
+      },
+      {
+        "start": 281.34,
+        "duration": 6.06,
+        "text": "the next component is a source connector"
+      },
+      {
+        "start": 285.3,
+        "duration": 3.899,
+        "text": "Source connector is responsible for"
+      },
+      {
+        "start": 287.4,
+        "duration": 3.6,
+        "text": "extracting the mutation information from"
+      },
+      {
+        "start": 289.199,
+        "duration": 4.621,
+        "text": "the database and converting into a"
+      },
+      {
+        "start": 291.0,
+        "duration": 5.58,
+        "text": "corresponding CDC events now the source"
+      },
+      {
+        "start": 293.82,
+        "duration": 5.76,
+        "text": "code connector could be deployed"
+      },
+      {
+        "start": 296.58,
+        "duration": 7.2,
+        "text": "as a standalone component or it could be"
+      },
+      {
+        "start": 299.58,
+        "duration": 6.14,
+        "text": "running as part of a database instance"
+      },
+      {
+        "start": 303.78,
+        "duration": 4.44,
+        "text": "it depends on the implementation"
+      },
+      {
+        "start": 305.72,
+        "duration": 5.02,
+        "text": "Source connected then sends these events"
+      },
+      {
+        "start": 308.22,
+        "duration": 5.28,
+        "text": "to a dedicated Kafka topic"
+      },
+      {
+        "start": 310.74,
+        "duration": 4.739,
+        "text": "Kafka because at Netflix Kafka is the"
+      },
+      {
+        "start": 313.5,
+        "duration": 4.56,
+        "text": "chosen mode of Transport for these"
+      },
+      {
+        "start": 315.479,
+        "duration": 4.021,
+        "text": "events"
+      },
+      {
+        "start": 318.06,
+        "duration": 4.199,
+        "text": "now this"
+      },
+      {
+        "start": 319.5,
+        "duration": 3.9,
+        "text": "Kafka topic on a dedicated Kafka cluster"
+      },
+      {
+        "start": 322.259,
+        "duration": 3.72,
+        "text": "becomes"
+      },
+      {
+        "start": 323.4,
+        "duration": 5.28,
+        "text": "a reusable CDC Event Source which can be"
+      },
+      {
+        "start": 325.979,
+        "duration": 4.681,
+        "text": "leveraged by Key by different data"
+      },
+      {
+        "start": 328.68,
+        "duration": 6.48,
+        "text": "Pipelines"
+      },
+      {
+        "start": 330.66,
+        "duration": 7.56,
+        "text": "the data pipeline here which is shown as"
+      },
+      {
+        "start": 335.16,
+        "duration": 5.64,
+        "text": "a dag comprising of multiple processing"
+      },
+      {
+        "start": 338.22,
+        "duration": 4.8,
+        "text": "patterns or processors"
+      },
+      {
+        "start": 340.8,
+        "duration": 5.459,
+        "text": "the processors could be filter"
+      },
+      {
+        "start": 343.02,
+        "duration": 5.7,
+        "text": "projection enrichment Etc"
+      },
+      {
+        "start": 346.259,
+        "duration": 3.601,
+        "text": "eventually the data is being sent to a"
+      },
+      {
+        "start": 348.72,
+        "duration": 3.3,
+        "text": "sync"
+      },
+      {
+        "start": 349.86,
+        "duration": 4.02,
+        "text": "and in case of a data replication use"
+      },
+      {
+        "start": 352.02,
+        "duration": 3.239,
+        "text": "case the sync could be let's say"
+      },
+      {
+        "start": 353.88,
+        "duration": 4.14,
+        "text": "Warehouse"
+      },
+      {
+        "start": 355.259,
+        "duration": 4.681,
+        "text": "an elasticsearch or another database and"
+      },
+      {
+        "start": 358.02,
+        "duration": 4.019,
+        "text": "in case of the event processing use case"
+      },
+      {
+        "start": 359.94,
+        "duration": 5.28,
+        "text": "data could be sent to another Kafka"
+      },
+      {
+        "start": 362.039,
+        "duration": 6.021,
+        "text": "topic wherein it's further consumed by a"
+      },
+      {
+        "start": 365.22,
+        "duration": 2.84,
+        "text": "downstream component"
+      },
+      {
+        "start": 370.1,
+        "duration": 5.8,
+        "text": "so let's talk about the Cassandra CDC"
+      },
+      {
+        "start": 373.259,
+        "duration": 5.28,
+        "text": "connector that we built at Netflix"
+      },
+      {
+        "start": 375.9,
+        "duration": 4.38,
+        "text": "the connector is responsible for"
+      },
+      {
+        "start": 378.539,
+        "duration": 3.421,
+        "text": "processing mutations happening on a"
+      },
+      {
+        "start": 380.28,
+        "duration": 4.08,
+        "text": "configured column family"
+      },
+      {
+        "start": 381.96,
+        "duration": 3.78,
+        "text": "and when I say processing mutation it"
+      },
+      {
+        "start": 384.36,
+        "duration": 4.86,
+        "text": "involves"
+      },
+      {
+        "start": 385.74,
+        "duration": 7.16,
+        "text": "extracting the mutation information from"
+      },
+      {
+        "start": 389.22,
+        "duration": 3.68,
+        "text": "the storage layer in Cassandra"
+      },
+      {
+        "start": 393.36,
+        "duration": 3.959,
+        "text": "identifying whether the operation was"
+      },
+      {
+        "start": 395.28,
+        "duration": 4.08,
+        "text": "insert update or delete"
+      },
+      {
+        "start": 397.319,
+        "duration": 4.861,
+        "text": "deduping the data because the connector"
+      },
+      {
+        "start": 399.36,
+        "duration": 4.619,
+        "text": "is receiving these mutations from all"
+      },
+      {
+        "start": 402.18,
+        "duration": 4.139,
+        "text": "the replicas in a ring"
+      },
+      {
+        "start": 403.979,
+        "duration": 5.16,
+        "text": "and eventually converting this mutation"
+      },
+      {
+        "start": 406.319,
+        "duration": 5.541,
+        "text": "into into a CVC event and sending it to"
+      },
+      {
+        "start": 409.139,
+        "duration": 2.721,
+        "text": "a Kafka sync"
+      },
+      {
+        "start": 413.16,
+        "duration": 2.819,
+        "text": "the connector is deployed as a"
+      },
+      {
+        "start": 414.6,
+        "duration": 2.879,
+        "text": "standalone component"
+      },
+      {
+        "start": 415.979,
+        "duration": 3.301,
+        "text": "and one"
+      },
+      {
+        "start": 417.479,
+        "duration": 3.72,
+        "text": "deployment Maps"
+      },
+      {
+        "start": 419.28,
+        "duration": 4.88,
+        "text": "one connector deployment maps to one"
+      },
+      {
+        "start": 421.199,
+        "duration": 5.821,
+        "text": "column family in a cluster"
+      },
+      {
+        "start": 424.16,
+        "duration": 4.36,
+        "text": "it is implemented as a fling job with a"
+      },
+      {
+        "start": 427.02,
+        "duration": 3.48,
+        "text": "stateful process function performing"
+      },
+      {
+        "start": 428.52,
+        "duration": 4.38,
+        "text": "most of the business logic"
+      },
+      {
+        "start": 430.5,
+        "duration": 3.9,
+        "text": "it uses roxdb state within Flink for"
+      },
+      {
+        "start": 432.9,
+        "duration": 3.18,
+        "text": "State Management"
+      },
+      {
+        "start": 434.4,
+        "duration": 3.66,
+        "text": "and it relies on other existing"
+      },
+      {
+        "start": 436.08,
+        "duration": 3.66,
+        "text": "infrastructure running in Netflix which"
+      },
+      {
+        "start": 438.06,
+        "duration": 4.579,
+        "text": "I will dive into deeper when we talk"
+      },
+      {
+        "start": 439.74,
+        "duration": 2.899,
+        "text": "about the architecture"
+      },
+      {
+        "start": 443.3,
+        "duration": 4.42,
+        "text": "so before jumping into the connector"
+      },
+      {
+        "start": 446.34,
+        "duration": 3.68,
+        "text": "architecture let's talk about its"
+      },
+      {
+        "start": 447.72,
+        "duration": 2.3,
+        "text": "operation"
+      },
+      {
+        "start": 450.539,
+        "duration": 5.401,
+        "text": "the connector operates in three modes"
+      },
+      {
+        "start": 453.599,
+        "duration": 4.32,
+        "text": "which are called bootstrap real time and"
+      },
+      {
+        "start": 455.94,
+        "duration": 4.259,
+        "text": "backfill"
+      },
+      {
+        "start": 457.919,
+        "duration": 4.5,
+        "text": "so whenever a new connector is"
+      },
+      {
+        "start": 460.199,
+        "duration": 5.461,
+        "text": "provisioned for a column family"
+      },
+      {
+        "start": 462.419,
+        "duration": 6.241,
+        "text": "bootstrap is automatically triggered"
+      },
+      {
+        "start": 465.66,
+        "duration": 6.36,
+        "text": "and as the name Implement implies"
+      },
+      {
+        "start": 468.66,
+        "duration": 5.7,
+        "text": "bootstrap mode is to bootstrap the sync"
+      },
+      {
+        "start": 472.02,
+        "duration": 4.619,
+        "text": "with the source table data for a newly"
+      },
+      {
+        "start": 474.36,
+        "duration": 5.76,
+        "text": "created connector"
+      },
+      {
+        "start": 476.639,
+        "duration": 6.541,
+        "text": "for this mode the connector relies on a"
+      },
+      {
+        "start": 480.12,
+        "duration": 5.34,
+        "text": "snapshot which comprises of a list of"
+      },
+      {
+        "start": 483.18,
+        "duration": 3.9,
+        "text": "accessible files for folks who are not"
+      },
+      {
+        "start": 485.46,
+        "duration": 3.959,
+        "text": "familiar with this what an accessible"
+      },
+      {
+        "start": 487.08,
+        "duration": 6.119,
+        "text": "file is I'll talk about a little I'll"
+      },
+      {
+        "start": 489.419,
+        "duration": 6.601,
+        "text": "talk about it later in the slides"
+      },
+      {
+        "start": 493.199,
+        "duration": 5.28,
+        "text": "the next mode is real-time mode so once"
+      },
+      {
+        "start": 496.02,
+        "duration": 4.26,
+        "text": "the bootstrap is complete the connector"
+      },
+      {
+        "start": 498.479,
+        "duration": 3.601,
+        "text": "switches into real-time mode to process"
+      },
+      {
+        "start": 500.28,
+        "duration": 2.819,
+        "text": "the real-time mutations happening on a"
+      },
+      {
+        "start": 502.08,
+        "duration": 3.839,
+        "text": "table"
+      },
+      {
+        "start": 503.099,
+        "duration": 4.861,
+        "text": "for this mode the connector relies on a"
+      },
+      {
+        "start": 505.919,
+        "duration": 3.601,
+        "text": "specific feature"
+      },
+      {
+        "start": 507.96,
+        "duration": 4.259,
+        "text": "in Cassandra"
+      },
+      {
+        "start": 509.52,
+        "duration": 4.56,
+        "text": "which is the incremental backups so"
+      },
+      {
+        "start": 512.219,
+        "duration": 4.68,
+        "text": "whenever incremental backups are enabled"
+      },
+      {
+        "start": 514.08,
+        "duration": 5.399,
+        "text": "at the cluster level Cassandra"
+      },
+      {
+        "start": 516.899,
+        "duration": 4.26,
+        "text": "creates these access table files for"
+      },
+      {
+        "start": 519.479,
+        "duration": 3.48,
+        "text": "incremental mutations and these"
+      },
+      {
+        "start": 521.159,
+        "duration": 5.221,
+        "text": "incremental accessible files are not"
+      },
+      {
+        "start": 522.959,
+        "duration": 5.161,
+        "text": "impacted by regular View compactions"
+      },
+      {
+        "start": 526.38,
+        "duration": 3.54,
+        "text": "we'll talk about this more when we talk"
+      },
+      {
+        "start": 528.12,
+        "duration": 3.48,
+        "text": "dive into the architecture"
+      },
+      {
+        "start": 529.92,
+        "duration": 3.479,
+        "text": "and lastly there is a backfill mode"
+      },
+      {
+        "start": 531.6,
+        "duration": 4.919,
+        "text": "which is very similar to bootstrap mode"
+      },
+      {
+        "start": 533.399,
+        "duration": 5.781,
+        "text": "except for its regard by end users to do"
+      },
+      {
+        "start": 536.519,
+        "duration": 2.661,
+        "text": "a backflip"
+      },
+      {
+        "start": 540.26,
+        "duration": 4.54,
+        "text": "all right"
+      },
+      {
+        "start": 542.04,
+        "duration": 5.46,
+        "text": "so this diagram shows the CDC connector"
+      },
+      {
+        "start": 544.8,
+        "duration": 4.62,
+        "text": "architecture at a very high level"
+      },
+      {
+        "start": 547.5,
+        "duration": 2.94,
+        "text": "let's walk through each components one"
+      },
+      {
+        "start": 549.42,
+        "duration": 3.18,
+        "text": "by one"
+      },
+      {
+        "start": 550.44,
+        "duration": 5.04,
+        "text": "so on the left hand side"
+      },
+      {
+        "start": 552.6,
+        "duration": 5.88,
+        "text": "for Simplicity I've shown a three ring a"
+      },
+      {
+        "start": 555.48,
+        "duration": 8.06,
+        "text": "three node cluster in single region"
+      },
+      {
+        "start": 558.48,
+        "duration": 5.06,
+        "text": "each node identified by its token range"
+      },
+      {
+        "start": 563.82,
+        "duration": 3.72,
+        "text": "so you can imagine"
+      },
+      {
+        "start": 565.62,
+        "duration": 3.659,
+        "text": "that the column family for which this"
+      },
+      {
+        "start": 567.54,
+        "duration": 3.54,
+        "text": "connector is provisioned is constantly"
+      },
+      {
+        "start": 569.279,
+        "duration": 4.341,
+        "text": "receiving insert update and delete"
+      },
+      {
+        "start": 571.08,
+        "duration": 2.54,
+        "text": "mutations"
+      },
+      {
+        "start": 573.839,
+        "duration": 4.861,
+        "text": "for folks who are not familiar with"
+      },
+      {
+        "start": 575.7,
+        "duration": 5.4,
+        "text": "Cassandra's internals Cassandra uses log"
+      },
+      {
+        "start": 578.7,
+        "duration": 4.5,
+        "text": "structured merge tree also known as LSM"
+      },
+      {
+        "start": 581.1,
+        "duration": 5.46,
+        "text": "tree for its storage layer"
+      },
+      {
+        "start": 583.2,
+        "duration": 6.48,
+        "text": "so whenever a write happens in Cassandra"
+      },
+      {
+        "start": 586.56,
+        "duration": 6.0,
+        "text": "the the node which is X which is"
+      },
+      {
+        "start": 589.68,
+        "duration": 4.62,
+        "text": "handling the right request writes the"
+      },
+      {
+        "start": 592.56,
+        "duration": 4.08,
+        "text": "mutation into an in-memory data"
+      },
+      {
+        "start": 594.3,
+        "duration": 5.28,
+        "text": "structure called as memory the right is"
+      },
+      {
+        "start": 596.64,
+        "duration": 4.92,
+        "text": "also written into a commit log on disk"
+      },
+      {
+        "start": 599.58,
+        "duration": 3.96,
+        "text": "for durability"
+      },
+      {
+        "start": 601.56,
+        "duration": 4.5,
+        "text": "based on a multitude of configurable"
+      },
+      {
+        "start": 603.54,
+        "duration": 5.1,
+        "text": "parameters Cassandra flushes this mem"
+      },
+      {
+        "start": 606.06,
+        "duration": 4.38,
+        "text": "table into an immutable file called"
+      },
+      {
+        "start": 608.64,
+        "duration": 4.86,
+        "text": "access table file"
+      },
+      {
+        "start": 610.44,
+        "duration": 6.36,
+        "text": "also known as sorted string tables"
+      },
+      {
+        "start": 613.5,
+        "duration": 6.48,
+        "text": "this access table files form the core of"
+      },
+      {
+        "start": 616.8,
+        "duration": 4.74,
+        "text": "the storage layering Cassandra"
+      },
+      {
+        "start": 619.98,
+        "duration": 3.66,
+        "text": "now at Netflix"
+      },
+      {
+        "start": 621.54,
+        "duration": 4.68,
+        "text": "for all the Cassandra clusters"
+      },
+      {
+        "start": 623.64,
+        "duration": 4.74,
+        "text": "a sidecar component is"
+      },
+      {
+        "start": 626.22,
+        "duration": 3.299,
+        "text": "deployed along with each Cassandra node"
+      },
+      {
+        "start": 628.38,
+        "duration": 4.019,
+        "text": "instance"
+      },
+      {
+        "start": 629.519,
+        "duration": 5.541,
+        "text": "this sidecar was developed many years"
+      },
+      {
+        "start": 632.399,
+        "duration": 4.921,
+        "text": "ago at Netflix and for the purpose of"
+      },
+      {
+        "start": 635.06,
+        "duration": 5.08,
+        "text": "simplifying many of the administrative"
+      },
+      {
+        "start": 637.32,
+        "duration": 5.28,
+        "text": "tasks for Cassandra operators"
+      },
+      {
+        "start": 640.14,
+        "duration": 6.12,
+        "text": "so along with the administrative tasks"
+      },
+      {
+        "start": 642.6,
+        "duration": 5.76,
+        "text": "this site car also serves an important"
+      },
+      {
+        "start": 646.26,
+        "duration": 3.84,
+        "text": "purpose of"
+      },
+      {
+        "start": 648.36,
+        "duration": 3.18,
+        "text": "doing backups for these access stable"
+      },
+      {
+        "start": 650.1,
+        "duration": 3.419,
+        "text": "files"
+      },
+      {
+        "start": 651.54,
+        "duration": 5.16,
+        "text": "so let's see"
+      },
+      {
+        "start": 653.519,
+        "duration": 5.101,
+        "text": "a cluster at Netflix is scheduled to do"
+      },
+      {
+        "start": 656.7,
+        "duration": 4.56,
+        "text": "backups every four hours"
+      },
+      {
+        "start": 658.62,
+        "duration": 5.459,
+        "text": "in that in that scenario the sidecar"
+      },
+      {
+        "start": 661.26,
+        "duration": 5.699,
+        "text": "will trigger a snapshot every four hours"
+      },
+      {
+        "start": 664.079,
+        "duration": 4.681,
+        "text": "and that snapshot would comprise of a"
+      },
+      {
+        "start": 666.959,
+        "duration": 3.781,
+        "text": "list of accessible files"
+      },
+      {
+        "start": 668.76,
+        "duration": 4.259,
+        "text": "uh that are needed to recreate that"
+      },
+      {
+        "start": 670.74,
+        "duration": 4.14,
+        "text": "instance"
+      },
+      {
+        "start": 673.019,
+        "duration": 5.221,
+        "text": "it will then upload"
+      },
+      {
+        "start": 674.88,
+        "duration": 5.459,
+        "text": "these snapshot as well as the accessible"
+      },
+      {
+        "start": 678.24,
+        "duration": 3.659,
+        "text": "files mentioned in the snapshot to S3"
+      },
+      {
+        "start": 680.339,
+        "duration": 3.961,
+        "text": "for as a backup"
+      },
+      {
+        "start": 681.899,
+        "duration": 4.38,
+        "text": "for clusters"
+      },
+      {
+        "start": 684.3,
+        "duration": 4.68,
+        "text": "in which the incremental backups are"
+      },
+      {
+        "start": 686.279,
+        "duration": 5.961,
+        "text": "also enabled the incremental access"
+      },
+      {
+        "start": 688.98,
+        "duration": 6.0,
+        "text": "table files are also uploaded to S3"
+      },
+      {
+        "start": 692.24,
+        "duration": 5.14,
+        "text": "on every successful file upload the"
+      },
+      {
+        "start": 694.98,
+        "duration": 4.74,
+        "text": "sidecar also sends an SNS notification"
+      },
+      {
+        "start": 697.38,
+        "duration": 3.959,
+        "text": "to a dedicated topic"
+      },
+      {
+        "start": 699.72,
+        "duration": 3.66,
+        "text": "so this infrastructure has been running"
+      },
+      {
+        "start": 701.339,
+        "duration": 4.321,
+        "text": "at Netflix for many years now"
+      },
+      {
+        "start": 703.38,
+        "duration": 4.019,
+        "text": "so the CDC Source connector for"
+      },
+      {
+        "start": 705.66,
+        "duration": 3.48,
+        "text": "Cassandra leverages this existing"
+      },
+      {
+        "start": 707.399,
+        "duration": 5.281,
+        "text": "infrastructure"
+      },
+      {
+        "start": 709.14,
+        "duration": 7.02,
+        "text": "it Taps into this SMS notifications"
+      },
+      {
+        "start": 712.68,
+        "duration": 5.04,
+        "text": "and routes them to a dedicated queue"
+      },
+      {
+        "start": 716.16,
+        "duration": 3.96,
+        "text": "which is provision for each connected"
+      },
+      {
+        "start": 717.72,
+        "duration": 5.34,
+        "text": "deployment the most important"
+      },
+      {
+        "start": 720.12,
+        "duration": 5.159,
+        "text": "information in this notification is the"
+      },
+      {
+        "start": 723.06,
+        "duration": 5.82,
+        "text": "S3 path to the access table files or the"
+      },
+      {
+        "start": 725.279,
+        "duration": 5.221,
+        "text": "Manifest files slash snapshot files"
+      },
+      {
+        "start": 728.88,
+        "duration": 4.32,
+        "text": "which the connector is supposed to"
+      },
+      {
+        "start": 730.5,
+        "duration": 4.2,
+        "text": "consume in order to extract the mutation"
+      },
+      {
+        "start": 733.2,
+        "duration": 3.36,
+        "text": "information"
+      },
+      {
+        "start": 734.7,
+        "duration": 4.02,
+        "text": "and there are two types of notification"
+      },
+      {
+        "start": 736.56,
+        "duration": 5.18,
+        "text": "one for snapshot and one for incremental"
+      },
+      {
+        "start": 738.72,
+        "duration": 5.94,
+        "text": "so in the bootstrap mode snapshot"
+      },
+      {
+        "start": 741.74,
+        "duration": 4.36,
+        "text": "notification is utilized and in case of"
+      },
+      {
+        "start": 744.66,
+        "duration": 4.88,
+        "text": "real-time processing incremental"
+      },
+      {
+        "start": 746.1,
+        "duration": 3.44,
+        "text": "notifications are utilized"
+      },
+      {
+        "start": 750.899,
+        "duration": 3.541,
+        "text": "so let's talk about the elephant in the"
+      },
+      {
+        "start": 752.519,
+        "duration": 4.38,
+        "text": "room which is the"
+      },
+      {
+        "start": 754.44,
+        "duration": 5.88,
+        "text": "CDC connector implementation"
+      },
+      {
+        "start": 756.899,
+        "duration": 7.161,
+        "text": "which is shown in this box here"
+      },
+      {
+        "start": 760.32,
+        "duration": 3.74,
+        "text": "let's zoom into that component"
+      },
+      {
+        "start": 764.639,
+        "duration": 4.621,
+        "text": "so as I mentioned earlier"
+      },
+      {
+        "start": 767.16,
+        "duration": 3.6,
+        "text": "the CDC connector is implemented as a"
+      },
+      {
+        "start": 769.26,
+        "duration": 3.6,
+        "text": "fling job"
+      },
+      {
+        "start": 770.76,
+        "duration": 3.96,
+        "text": "we chose to use Flink because it"
+      },
+      {
+        "start": 772.86,
+        "duration": 4.14,
+        "text": "provides certain consistency guarantees"
+      },
+      {
+        "start": 774.72,
+        "duration": 3.84,
+        "text": "and some which were that were needed for"
+      },
+      {
+        "start": 777.0,
+        "duration": 4.86,
+        "text": "the connector"
+      },
+      {
+        "start": 778.56,
+        "duration": 4.74,
+        "text": "it also provides apis and operators for"
+      },
+      {
+        "start": 781.86,
+        "duration": 2.46,
+        "text": "stream processing that were needed for"
+      },
+      {
+        "start": 783.3,
+        "duration": 3.06,
+        "text": "the connector"
+      },
+      {
+        "start": 784.32,
+        "duration": 5.4,
+        "text": "business logic"
+      },
+      {
+        "start": 786.36,
+        "duration": 7.32,
+        "text": "it also provides inbuilt mechanism for"
+      },
+      {
+        "start": 789.72,
+        "duration": 6.72,
+        "text": "for managing State locally for faster"
+      },
+      {
+        "start": 793.68,
+        "duration": 4.62,
+        "text": "access using rocksdb and it also"
+      },
+      {
+        "start": 796.44,
+        "duration": 3.6,
+        "text": "provides durability guarantee for the"
+      },
+      {
+        "start": 798.3,
+        "duration": 3.839,
+        "text": "Same by checkpointing it at regular"
+      },
+      {
+        "start": 800.04,
+        "duration": 3.299,
+        "text": "intervals"
+      },
+      {
+        "start": 802.139,
+        "duration": 5.7,
+        "text": "foreign"
+      },
+      {
+        "start": 803.339,
+        "duration": 6.781,
+        "text": "so if you notice in this block there is"
+      },
+      {
+        "start": 807.839,
+        "duration": 5.461,
+        "text": "a small component called custom"
+      },
+      {
+        "start": 810.12,
+        "duration": 4.56,
+        "text": "Cassandra fling source so in order to"
+      },
+      {
+        "start": 813.3,
+        "duration": 4.38,
+        "text": "implement this"
+      },
+      {
+        "start": 814.68,
+        "duration": 5.76,
+        "text": "a fling job we had to implement a custom"
+      },
+      {
+        "start": 817.68,
+        "duration": 4.86,
+        "text": "Flink Source the reason being"
+      },
+      {
+        "start": 820.44,
+        "duration": 4.079,
+        "text": "Flink has many inbuilt sources for"
+      },
+      {
+        "start": 822.54,
+        "duration": 3.599,
+        "text": "example Kafka Source a file Source but"
+      },
+      {
+        "start": 824.519,
+        "duration": 3.661,
+        "text": "it has no inbuilt source for reading"
+      },
+      {
+        "start": 826.139,
+        "duration": 5.7,
+        "text": "accessible files that took directly from"
+      },
+      {
+        "start": 828.18,
+        "duration": 6.06,
+        "text": "S3 so we built this Flink Source by"
+      },
+      {
+        "start": 831.839,
+        "duration": 4.921,
+        "text": "implementing the Flink source apis"
+      },
+      {
+        "start": 834.24,
+        "duration": 4.14,
+        "text": "for folks who are curious and want to"
+      },
+      {
+        "start": 836.76,
+        "duration": 3.92,
+        "text": "know more about the link Source apis"
+      },
+      {
+        "start": 838.38,
+        "duration": 6.98,
+        "text": "they can go to the Apache"
+      },
+      {
+        "start": 840.68,
+        "duration": 4.68,
+        "text": "Flink website for the documentation"
+      },
+      {
+        "start": 846.36,
+        "duration": 4.979,
+        "text": "for folks who are more curious about the"
+      },
+      {
+        "start": 847.98,
+        "duration": 4.62,
+        "text": "Uplink source apis they can read up the"
+      },
+      {
+        "start": 851.339,
+        "duration": 3.12,
+        "text": "documentation on their passive link"
+      },
+      {
+        "start": 852.6,
+        "duration": 4.08,
+        "text": "website"
+      },
+      {
+        "start": 854.459,
+        "duration": 3.18,
+        "text": "the fling Source did two important"
+      },
+      {
+        "start": 856.68,
+        "duration": 3.839,
+        "text": "things"
+      },
+      {
+        "start": 857.639,
+        "duration": 5.94,
+        "text": "first one was listening for these"
+      },
+      {
+        "start": 860.519,
+        "duration": 5.76,
+        "text": "snapshot notifications which would point"
+      },
+      {
+        "start": 863.579,
+        "duration": 5.121,
+        "text": "to the S3 path for the access table"
+      },
+      {
+        "start": 866.279,
+        "duration": 2.421,
+        "text": "files"
+      },
+      {
+        "start": 868.74,
+        "duration": 4.92,
+        "text": "which served as an input split in fling"
+      },
+      {
+        "start": 871.62,
+        "duration": 4.26,
+        "text": "terminology a split is a unit of work"
+      },
+      {
+        "start": 873.66,
+        "duration": 5.82,
+        "text": "and in case of this connector the unit"
+      },
+      {
+        "start": 875.88,
+        "duration": 5.94,
+        "text": "of work was a single accessible file"
+      },
+      {
+        "start": 879.48,
+        "duration": 3.9,
+        "text": "the second job that the link source does"
+      },
+      {
+        "start": 881.82,
+        "duration": 3.66,
+        "text": "is the complex orchestration of"
+      },
+      {
+        "start": 883.38,
+        "duration": 4.98,
+        "text": "assigning these splits to task managers"
+      },
+      {
+        "start": 885.48,
+        "duration": 4.56,
+        "text": "slash workers for reading that way it"
+      },
+      {
+        "start": 888.36,
+        "duration": 3.539,
+        "text": "can distribute the work among the task"
+      },
+      {
+        "start": 890.04,
+        "duration": 4.2,
+        "text": "managers"
+      },
+      {
+        "start": 891.899,
+        "duration": 5.641,
+        "text": "so once the task manager has read the"
+      },
+      {
+        "start": 894.24,
+        "duration": 7.32,
+        "text": "mutation or the SS table file"
+      },
+      {
+        "start": 897.54,
+        "duration": 5.82,
+        "text": "it is Then followed by an operator which"
+      },
+      {
+        "start": 901.56,
+        "duration": 4.2,
+        "text": "does the complex business logic of"
+      },
+      {
+        "start": 903.36,
+        "duration": 4.86,
+        "text": "processing the mutation information and"
+      },
+      {
+        "start": 905.76,
+        "duration": 4.139,
+        "text": "when I say processing it is looking at"
+      },
+      {
+        "start": 908.22,
+        "duration": 3.78,
+        "text": "the local state to identify whether it"
+      },
+      {
+        "start": 909.899,
+        "duration": 6.421,
+        "text": "was an insert update or a delete"
+      },
+      {
+        "start": 912.0,
+        "duration": 4.32,
+        "text": "it is deduping the information sorry"
+      },
+      {
+        "start": 916.92,
+        "duration": 4.82,
+        "text": "it is deduping the"
+      },
+      {
+        "start": 919.32,
+        "duration": 2.42,
+        "text": "the"
+      },
+      {
+        "start": 924.12,
+        "duration": 4.32,
+        "text": "it is deduping the mutation information"
+      },
+      {
+        "start": 925.92,
+        "duration": 5.52,
+        "text": "from different replicas by looking at"
+      },
+      {
+        "start": 928.44,
+        "duration": 4.5,
+        "text": "the state and eventually it is"
+      },
+      {
+        "start": 931.44,
+        "duration": 3.66,
+        "text": "converting this mutation information"
+      },
+      {
+        "start": 932.94,
+        "duration": 4.82,
+        "text": "into a CDC event and sending it to a"
+      },
+      {
+        "start": 935.1,
+        "duration": 2.66,
+        "text": "Kafka sync"
+      },
+      {
+        "start": 939.3,
+        "duration": 3.96,
+        "text": "and as I mentioned earlier the input"
+      },
+      {
+        "start": 940.92,
+        "duration": 4.14,
+        "text": "splits discovery which is done at the"
+      },
+      {
+        "start": 943.26,
+        "duration": 4.56,
+        "text": "job manager slash"
+      },
+      {
+        "start": 945.06,
+        "duration": 4.5,
+        "text": "blink Source level is done using the"
+      },
+      {
+        "start": 947.82,
+        "duration": 4.759,
+        "text": "snapshot and incremental notifications"
+      },
+      {
+        "start": 949.56,
+        "duration": 3.019,
+        "text": "by isqs"
+      },
+      {
+        "start": 953.779,
+        "duration": 6.941,
+        "text": "and then as I mentioned in the"
+      },
+      {
+        "start": 957.24,
+        "duration": 6.36,
+        "text": "generic data pipelines like the Kafka"
+      },
+      {
+        "start": 960.72,
+        "duration": 5.1,
+        "text": "Source now is populated with the CDC"
+      },
+      {
+        "start": 963.6,
+        "duration": 3.78,
+        "text": "events which can serve or which can be"
+      },
+      {
+        "start": 965.82,
+        "duration": 2.879,
+        "text": "leveraged in other data pipelines and"
+      },
+      {
+        "start": 967.38,
+        "duration": 3.72,
+        "text": "that's what the"
+      },
+      {
+        "start": 968.699,
+        "duration": 4.76,
+        "text": "teams at Netflix did with this Kafka"
+      },
+      {
+        "start": 971.1,
+        "duration": 2.359,
+        "text": "source"
+      },
+      {
+        "start": 973.56,
+        "duration": 4.68,
+        "text": "so this is this is"
+      },
+      {
+        "start": 975.779,
+        "duration": 4.68,
+        "text": "the architecture in a nutshell and it is"
+      },
+      {
+        "start": 978.24,
+        "duration": 4.68,
+        "text": "at a very high level"
+      },
+      {
+        "start": 980.459,
+        "duration": 5.221,
+        "text": "let's talk about the"
+      },
+      {
+        "start": 982.92,
+        "duration": 6.68,
+        "text": "trade-offs that we made"
+      },
+      {
+        "start": 985.68,
+        "duration": 6.839,
+        "text": "in this architecture design"
+      },
+      {
+        "start": 989.6,
+        "duration": 4.9,
+        "text": "first and foremost"
+      },
+      {
+        "start": 992.519,
+        "duration": 3.06,
+        "text": "most of the use cases in Netflix were"
+      },
+      {
+        "start": 994.5,
+        "duration": 3.3,
+        "text": "okay with"
+      },
+      {
+        "start": 995.579,
+        "duration": 3.901,
+        "text": "few minutes propagation delay"
+      },
+      {
+        "start": 997.8,
+        "duration": 3.3,
+        "text": "and when I say propagation delay it's"
+      },
+      {
+        "start": 999.48,
+        "duration": 3.479,
+        "text": "the delay between"
+      },
+      {
+        "start": 1001.1,
+        "duration": 3.9,
+        "text": "the mutation happening in the source"
+      },
+      {
+        "start": 1002.959,
+        "duration": 6.481,
+        "text": "column family and"
+      },
+      {
+        "start": 1005.0,
+        "duration": 6.24,
+        "text": "the corresponding CDC event landing at a"
+      },
+      {
+        "start": 1009.44,
+        "duration": 4.68,
+        "text": "Kafka source"
+      },
+      {
+        "start": 1011.24,
+        "duration": 4.74,
+        "text": "so this delay the connector has this"
+      },
+      {
+        "start": 1014.12,
+        "duration": 4.079,
+        "text": "propagation delay in the order of"
+      },
+      {
+        "start": 1015.98,
+        "duration": 4.68,
+        "text": "seconds two minutes several minutes and"
+      },
+      {
+        "start": 1018.199,
+        "duration": 4.08,
+        "text": "this depends on the cluster depending on"
+      },
+      {
+        "start": 1020.66,
+        "duration": 3.44,
+        "text": "the right throughput and many other"
+      },
+      {
+        "start": 1022.279,
+        "duration": 5.341,
+        "text": "configuration parameters"
+      },
+      {
+        "start": 1024.1,
+        "duration": 5.5,
+        "text": "the next trade-off was build versus buy"
+      },
+      {
+        "start": 1027.62,
+        "duration": 4.14,
+        "text": "slash reuse like in any organization"
+      },
+      {
+        "start": 1029.6,
+        "duration": 3.359,
+        "text": "this is a classic dilemma whether you"
+      },
+      {
+        "start": 1031.76,
+        "duration": 3.36,
+        "text": "should build or whether we should buy"
+      },
+      {
+        "start": 1032.959,
+        "duration": 4.321,
+        "text": "and at the time of this implementation"
+      },
+      {
+        "start": 1035.12,
+        "duration": 5.819,
+        "text": "we looked at open source and couldn't"
+      },
+      {
+        "start": 1037.28,
+        "duration": 5.84,
+        "text": "find any uh CDC uh"
+      },
+      {
+        "start": 1040.939,
+        "duration": 4.681,
+        "text": "uh connector being used at production"
+      },
+      {
+        "start": 1043.12,
+        "duration": 4.6,
+        "text": "especially at Netflix scale"
+      },
+      {
+        "start": 1045.62,
+        "duration": 3.96,
+        "text": "we looked at some sidecar"
+      },
+      {
+        "start": 1047.72,
+        "duration": 4.74,
+        "text": "implementations both open source and"
+      },
+      {
+        "start": 1049.58,
+        "duration": 5.82,
+        "text": "homegrown but the Cassandra database"
+      },
+      {
+        "start": 1052.46,
+        "duration": 6.06,
+        "text": "team at Netflix were not comfortable"
+      },
+      {
+        "start": 1055.4,
+        "duration": 6.68,
+        "text": "running those processes along with the"
+      },
+      {
+        "start": 1058.52,
+        "duration": 3.56,
+        "text": "Cassandra instances"
+      },
+      {
+        "start": 1062.12,
+        "duration": 5.1,
+        "text": "the next trade-off is the bootstrap"
+      },
+      {
+        "start": 1064.48,
+        "duration": 5.92,
+        "text": "backfill time which could be several"
+      },
+      {
+        "start": 1067.22,
+        "duration": 5.819,
+        "text": "hours for large column families and the"
+      },
+      {
+        "start": 1070.4,
+        "duration": 4.98,
+        "text": "fact that bootstrap and slashback fill"
+      },
+      {
+        "start": 1073.039,
+        "duration": 7.26,
+        "text": "used the same Flink tag in the source"
+      },
+      {
+        "start": 1075.38,
+        "duration": 4.919,
+        "text": "connector as the real time mode"
+      },
+      {
+        "start": 1080.539,
+        "duration": 4.441,
+        "text": "the backfill the bootstrap has to happen"
+      },
+      {
+        "start": 1082.94,
+        "duration": 5.34,
+        "text": "before the source connector can start"
+      },
+      {
+        "start": 1084.98,
+        "duration": 5.3,
+        "text": "processing real-time events"
+      },
+      {
+        "start": 1088.28,
+        "duration": 5.04,
+        "text": "last but not the least"
+      },
+      {
+        "start": 1090.28,
+        "duration": 5.139,
+        "text": "proxdb state inflink for large column"
+      },
+      {
+        "start": 1093.32,
+        "duration": 4.38,
+        "text": "families comes at its cost"
+      },
+      {
+        "start": 1095.419,
+        "duration": 5.161,
+        "text": "and it also has certain disadvantages"
+      },
+      {
+        "start": 1097.7,
+        "duration": 6.08,
+        "text": "when it comes to fling scaling"
+      },
+      {
+        "start": 1100.58,
+        "duration": 3.2,
+        "text": "mainly downscaling"
+      },
+      {
+        "start": 1104.9,
+        "duration": 4.2,
+        "text": "so just to summarize"
+      },
+      {
+        "start": 1107.0,
+        "duration": 4.679,
+        "text": "the CDC Source connect direct networks"
+      },
+      {
+        "start": 1109.1,
+        "duration": 4.5,
+        "text": "allowed us to handle use cases that were"
+      },
+      {
+        "start": 1111.679,
+        "duration": 3.36,
+        "text": "previously not possible using existing"
+      },
+      {
+        "start": 1113.6,
+        "duration": 3.9,
+        "text": "bad Solutions"
+      },
+      {
+        "start": 1115.039,
+        "duration": 5.941,
+        "text": "it also allowed us to"
+      },
+      {
+        "start": 1117.5,
+        "duration": 5.34,
+        "text": "reduce the propagation delay"
+      },
+      {
+        "start": 1120.98,
+        "duration": 5.96,
+        "text": "from several hours"
+      },
+      {
+        "start": 1122.84,
+        "duration": 4.1,
+        "text": "the bad solution to few minutes"
+      },
+      {
+        "start": 1127.52,
+        "duration": 4.88,
+        "text": "that's about it"
+      },
+      {
+        "start": 1129.74,
+        "duration": 2.66,
+        "text": "thank you"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T18:01:50.573606+00:00"
+}

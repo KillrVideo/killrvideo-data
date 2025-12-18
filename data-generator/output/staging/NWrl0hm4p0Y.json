@@ -1,0 +1,2094 @@
+{
+  "video_id": "NWrl0hm4p0Y",
+  "title": "DS320.35 Spark Streaming: Window Transformations | DataStax Enterprise Analytics",
+  "description": "#DataStaxAcademy #DS320\nDS320.35 Spark Streaming: Window Transformations\nIn this course, you will learn how to effectively and efficiently solve analytical problems with Apache Spark™, Apache Cassandra™, and DataStax Enterprise. You will learn about the Spark API, Spark-Cassandra Connector, Spark SQL, Spark Streaming, and crucial performance optimization techniques.  You will also learn the basics of the productive and robust Scala programming language for data analysis and processing in Apache Spark™.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-16T00:32:19Z",
+  "thumbnail": "https://i.ytimg.com/vi/NWrl0hm4p0Y/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "performance",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=NWrl0hm4p0Y",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] recall in spark streaming there are two kinds of things we can do to a d stream there are transformations and output operations among transformations those are divided into the stateless transformations and the stateful transformations here we're going to zoom in on the window transformations a particular kind of stateful transformation that you can use to manipulate a d stream now let me tell you how window transformations work the idea is that you've got a discrete stream or a d stream coming in we're going to apply a window transformation to it and that is going to produce a new d stream as its output what we're going to do is we're going to look at the batches remember that a d stream is composed of these little rdds that are chiseled off out of the input stream every so many seconds we're going to slide a window over those chunks of the d stream and aggregate those pieces into a new rdd in the new d stream i think a little bit of an animation might help here so you see our d stream coming in in time it's composed in the diagram of rdd1 rdd2 rdd3 and rdd4 and those just have zeros and ones in them just some numbers in them that we're going to count then we're going to slide a window over that d stream like so that window is going to slide it's going to first encompass that first rdd and there's an aggregation function here we're counting the things in the window we're counting the number of data elements either ones or zeros that we see in that rdd so right now the window's got one we slide that window over again it'll have two pieces and that new rdd applying that count by window transformation will count all of the rdd chunks it sees in its window now in that case that's rdd1 and rdd2 there are six things a one a one a zero a zero a one and a zero as we keep sliding that window forward we'll keep counting now we see a zero a one a one a one a one and a zero in those two rdds and that is the new rdd we're outputting into the transformed d stream slide it along one more time and we see it happen again this time there are four data elements in rdd4 and three in rdd3 so we come up with a count of seven so makes sense now having seen that let's talk about a couple parameters that we have to define when we're doing a window transformation one is the window length or duration that's the number of d stream pieces or discrete rdds in the d stream that we're going to gather up in the transformation that we do we'll consider in this case 2 at a time the window sliding interval or sliding duration is how many discrete rdds the window will slide along each time it's evaluated in the case of our animation you saw that that was one we moved one rdd along at a time and each time we were considering two rdds of the input stream now how did we pick two and one well in this case it worked out awfully nicely for the animation and obviously that's always a key concern when you're trying to learn a technology like this but in your case you're going to have to think about a couple things now d streams are formed by collecting streaming input for a certain amount of time and so the window length in a window transformation is really manipulating that length of time it's as if you're changing the grain if you were to think of a time dimension in traditional analytics and what should the grain be in a sense that's up to you that's an engineering decision you have to make based on the kind of analysis you're trying to do now a time base that is seconds or minutes long is reasonable that's probably going to work well hours for a window length might not work so well it's going to take a long time to compute you're going to have a huge latency on updates to that d stream and in the case of failure recovery you've got lots more work to do lots more intermediate work has been persisted that you're going to have to recompute when you're recovering from a node failure so if you've got a grain like that obviously hours days months these are perfectly reasonable lengths of time to roll up numbers over but if you're doing that it's probably a better idea to discretize your transform d stream on the basis of maybe minutes and then have some other process that rolls those up to a larger grain of hours or days directly in a cassandra table so in other words that roll-up kind of gets done outside of spark streaming and you're letting spark streaming do roll-ups on the basis of minutes there's very little general to say about the sliding interval that really is going to be an application specific thing where you're going to have to think through the kind of transformation you're doing and often the sort of counting you're doing or if you're applying some sort of reducing function what's the nature of that reducing function really what's the computation you're doing you need to understand how the sliding interval works and then be able to make the decision about what it should be on your own be advised that a smaller interval will result in more computation the more of a jump you can take through the input discrete stream the less re-computation you're doing over the input rdd pieces so keep that in mind but in general that's your decision to make let's take a look at a little bit of the api that lets us do these window transformations remember these are functions that we're going to call on a d stream that are going to create a new d stream window is the simplest transformation we give it a window length which again tells us how many input discrete rdds we're going to gather up into a new one in our output d stream and the default slide interval is going to be the batch interval of the source d stream in other words we'll essentially slide along one input rdd at a time count by window is a way of counting up the number of elements we see in the input stream remember the discrete rdds in the input stream are sort of chiseled off on a time basis we'll cut one every say four seconds or five seconds or something like that and we don't know in general how many input elements how many tweets how many log entries how many clicks on our website whatever the thing is that we're streaming we don't know how many of those will end up in each rdd in the batch so count by window is a way of counting those things and we give it explicitly a window length and a slide interval and we get that count back count by value and window is a lot like count by window except we're counting discrete values so these discrete rdd pieces in the input d stream have things in them and this is going to look for uniqueness in those things and count the number of times unique things in the input happen in the window so if for example the input d stream contained just numbers then we get the number of times the number five occurred the number of times the number 42 occurred any unique values in the input d stream we're counting them uniquely and of course we can specify window length and slide interval as you'd expect reduce by window is doing the same thing it's gathering up input discrete rdds and batching them according to the window length and the slide interval but the batching is going to be done by applying a reducing function that's a function that we pass in so if we are just getting say counts coming in just raw numbers then we could add them up and the reducing function would then be addition so the resulting d stream contains that sum of the values in the input d stream whatever that reducing function needs to be we're able to pass that in so it can be anything as long as it's an associative function reduced by window has another interesting flavor we pass it two functions one is the reducing function the other is the inverse reducing function this is kind of cool so imagine the window sliding along the rdds on the input d stream and we're doing some kind of reduce function say we're doing a average now we could just do that we could have a global average overall time of that input d stream that's a valid window transformation imagine though if we wanted a moving average then we'd want a way of for each time an rdd falls off the edge of the world we want to say well let's take off those values so we have the reducing function and we have the inverse reducing function that takes away the effect of that rdd that's falling out of the window it's kind of a nifty thing and the most obvious application off the top of your head is probably something like a moving average although you can use it for anything that you have an inverse reducing function to play around with and here are examples of counting by window and reducing by window and reducing by window with the inverse reducing function that third example down there you can see those api calls play out about the way you'd expect from looking at the documentation that inverse reducing function is a little tricky i was describing it but just in case that didn't work let's look at a picture of that and just kind of watch the animation happen the way we did before so we're going to slide a window over the same four discrete rdds and we'll see things come in and go out by way of the reducing function and the inverse reducing function so as that window slides along the reducing function in this case it's addition adds up those three ones and gets a result you can check my math of three we move along and now we've got a second rdd inside the window we have three ones in this new rdd and we add those to the previous state of the window which remember was three so we get six now we have to let an rdd drop off the edge of the world so we have to use the inverse reducing function on that rdd to keep the window value honest now the fact that our inverse reducing function is subtraction is a consequence of the fact that our reducing function is addition it's the thing that undoes the operation of our reducing function so if we're doing a moving average instead of just a sum of course you'd have to apply a different kind of function to eliminate the effect of rdd1 on that average as the window moves forward and as we keep sliding along we'll now sum up all the ones in rdd4 with the new previous window state and we'll see we get a 7 and we'll subtract rdd2 from that summation so that's kind of an animated version of that interesting way to do reduce by window now if the stream has key value pair data in it in other words if these are pair rdds in the little discretized chunks inside the d stream we've got a few api methods that treat those specially there's reduce by key and window same thing is reduced by window we're sliding a window along window length slide interval they mean exactly the same thing and again we have a reducing function that we pass in here that's going to do that reducing it's just that the method will collect all of the values having the same key across the windowed batches and apply the reducing function to them and of course the output will still be a pair rdd so we'll see those keys grouped together reduced by key window also has the flavor where i pass it a reducing function and an inverse reducing function for the moving average case and of course i have a group by key and window method that's going to look for common keys in the rdds across the windowed batch in the input d stream according to our window length and slide interval and in the output rdd the resulting rdd all of the values of common keys will be collected together in the value of that pair rdd so it works just like you'd expect a group by to work find all the things that have the same key and make a collection of those values in the output d stream so if we wanted to do a reduced by key in window over a 60 second window that's a one minute window that moves along four seconds at a time now four seconds here just happens also to be our batch interval when we defined the stream that's not shown in the slide but that's the batch interval we're working with in all of our d stream examples this will slide along one discrete rdd at a time but reduce a whole minute's worth at once and the reduce operation as you can see is addition we also show the reduced by key in window with the inverse reducing function the reducing function being addition the inverse function being subtraction so this is the code that would implement the animation we just saw on the slide a minute ago now quick note on checkpointing checkpointing does get its own treatment in a section all by itself but it's important to point out that for most windowing operations it is mandatory what checkpointing will do is persist the spark application metadata and some of the data some of the intermediate data will be persisted to disk it looks for in this case the cassandra file system or cfs and it writes it into that now you enable checkpointing by calling the checkpoint method and passing it the directory where that stuff will get written and then start your application and let the streaming go on we will treat checkpointing separately but you should know that it's required for your streaming application to work",
+    "segments": [
+      {
+        "start": 0.07,
+        "duration": 6.68,
+        "text": "[Music]"
+      },
+      {
+        "start": 6.96,
+        "duration": 2.48,
+        "text": "recall in spark streaming there are two"
+      },
+      {
+        "start": 8.32,
+        "duration": 3.359,
+        "text": "kinds of things we can do"
+      },
+      {
+        "start": 9.44,
+        "duration": 4.0,
+        "text": "to a d stream there are transformations"
+      },
+      {
+        "start": 11.679,
+        "duration": 3.84,
+        "text": "and output operations"
+      },
+      {
+        "start": 13.44,
+        "duration": 3.12,
+        "text": "among transformations those are divided"
+      },
+      {
+        "start": 15.519,
+        "duration": 3.281,
+        "text": "into the stateless"
+      },
+      {
+        "start": 16.56,
+        "duration": 3.2,
+        "text": "transformations and the stateful"
+      },
+      {
+        "start": 18.8,
+        "duration": 2.72,
+        "text": "transformations"
+      },
+      {
+        "start": 19.76,
+        "duration": 4.32,
+        "text": "here we're going to zoom in on the"
+      },
+      {
+        "start": 21.52,
+        "duration": 3.999,
+        "text": "window transformations a particular kind"
+      },
+      {
+        "start": 24.08,
+        "duration": 1.84,
+        "text": "of stateful transformation that you can"
+      },
+      {
+        "start": 25.519,
+        "duration": 2.641,
+        "text": "use"
+      },
+      {
+        "start": 25.92,
+        "duration": 4.24,
+        "text": "to manipulate a d stream now let me tell"
+      },
+      {
+        "start": 28.16,
+        "duration": 3.68,
+        "text": "you how window transformations work the"
+      },
+      {
+        "start": 30.16,
+        "duration": 3.36,
+        "text": "idea is that you've got a discrete"
+      },
+      {
+        "start": 31.84,
+        "duration": 2.8,
+        "text": "stream or a d stream coming in"
+      },
+      {
+        "start": 33.52,
+        "duration": 2.32,
+        "text": "we're going to apply a window"
+      },
+      {
+        "start": 34.64,
+        "duration": 2.0,
+        "text": "transformation to it and that is going"
+      },
+      {
+        "start": 35.84,
+        "duration": 4.08,
+        "text": "to produce"
+      },
+      {
+        "start": 36.64,
+        "duration": 4.64,
+        "text": "a new d stream as its output"
+      },
+      {
+        "start": 39.92,
+        "duration": 3.84,
+        "text": "what we're going to do is we're going to"
+      },
+      {
+        "start": 41.28,
+        "duration": 4.64,
+        "text": "look at the batches remember that a d"
+      },
+      {
+        "start": 43.76,
+        "duration": 3.76,
+        "text": "stream is composed of these little rdds"
+      },
+      {
+        "start": 45.92,
+        "duration": 2.24,
+        "text": "that are chiseled off out of the input"
+      },
+      {
+        "start": 47.52,
+        "duration": 2.64,
+        "text": "stream"
+      },
+      {
+        "start": 48.16,
+        "duration": 3.2,
+        "text": "every so many seconds we're going to"
+      },
+      {
+        "start": 50.16,
+        "duration": 4.0,
+        "text": "slide a window"
+      },
+      {
+        "start": 51.36,
+        "duration": 3.6,
+        "text": "over those chunks of the d stream and"
+      },
+      {
+        "start": 54.16,
+        "duration": 4.079,
+        "text": "aggregate"
+      },
+      {
+        "start": 54.96,
+        "duration": 5.279,
+        "text": "those pieces into a new rdd"
+      },
+      {
+        "start": 58.239,
+        "duration": 3.521,
+        "text": "in the new d stream i think a little bit"
+      },
+      {
+        "start": 60.239,
+        "duration": 3.441,
+        "text": "of an animation might help here"
+      },
+      {
+        "start": 61.76,
+        "duration": 4.399,
+        "text": "so you see our d stream coming in in"
+      },
+      {
+        "start": 63.68,
+        "duration": 6.64,
+        "text": "time it's composed in the diagram of"
+      },
+      {
+        "start": 66.159,
+        "duration": 4.801,
+        "text": "rdd1 rdd2 rdd3 and rdd4 and those just"
+      },
+      {
+        "start": 70.32,
+        "duration": 2.56,
+        "text": "have"
+      },
+      {
+        "start": 70.96,
+        "duration": 3.199,
+        "text": "zeros and ones in them just some numbers"
+      },
+      {
+        "start": 72.88,
+        "duration": 4.16,
+        "text": "in them that we're going to count"
+      },
+      {
+        "start": 74.159,
+        "duration": 3.361,
+        "text": "then we're going to slide a window over"
+      },
+      {
+        "start": 77.04,
+        "duration": 3.28,
+        "text": "that d"
+      },
+      {
+        "start": 77.52,
+        "duration": 4.72,
+        "text": "stream like so that window is going to"
+      },
+      {
+        "start": 80.32,
+        "duration": 3.04,
+        "text": "slide it's going to first encompass that"
+      },
+      {
+        "start": 82.24,
+        "duration": 3.36,
+        "text": "first rdd"
+      },
+      {
+        "start": 83.36,
+        "duration": 3.2,
+        "text": "and there's an aggregation function here"
+      },
+      {
+        "start": 85.6,
+        "duration": 2.559,
+        "text": "we're counting"
+      },
+      {
+        "start": 86.56,
+        "duration": 4.4,
+        "text": "the things in the window we're counting"
+      },
+      {
+        "start": 88.159,
+        "duration": 3.521,
+        "text": "the number of data elements either ones"
+      },
+      {
+        "start": 90.96,
+        "duration": 4.32,
+        "text": "or zeros"
+      },
+      {
+        "start": 91.68,
+        "duration": 4.72,
+        "text": "that we see in that rdd so right now the"
+      },
+      {
+        "start": 95.28,
+        "duration": 3.12,
+        "text": "window's got one"
+      },
+      {
+        "start": 96.4,
+        "duration": 4.0,
+        "text": "we slide that window over again it'll"
+      },
+      {
+        "start": 98.4,
+        "duration": 3.28,
+        "text": "have two pieces and that new rdd"
+      },
+      {
+        "start": 100.4,
+        "duration": 2.079,
+        "text": "applying that count by window"
+      },
+      {
+        "start": 101.68,
+        "duration": 4.56,
+        "text": "transformation"
+      },
+      {
+        "start": 102.479,
+        "duration": 5.6,
+        "text": "will count all of the rdd chunks it sees"
+      },
+      {
+        "start": 106.24,
+        "duration": 3.6,
+        "text": "in its window now in that case that's"
+      },
+      {
+        "start": 108.079,
+        "duration": 4.561,
+        "text": "rdd1 and rdd2"
+      },
+      {
+        "start": 109.84,
+        "duration": 3.52,
+        "text": "there are six things a one a one a zero"
+      },
+      {
+        "start": 112.64,
+        "duration": 3.6,
+        "text": "a zero"
+      },
+      {
+        "start": 113.36,
+        "duration": 4.0,
+        "text": "a one and a zero as we keep sliding that"
+      },
+      {
+        "start": 116.24,
+        "duration": 4.159,
+        "text": "window forward"
+      },
+      {
+        "start": 117.36,
+        "duration": 4.079,
+        "text": "we'll keep counting now we see a zero a"
+      },
+      {
+        "start": 120.399,
+        "duration": 3.841,
+        "text": "one a one"
+      },
+      {
+        "start": 121.439,
+        "duration": 4.64,
+        "text": "a one a one and a zero in those two rdds"
+      },
+      {
+        "start": 124.24,
+        "duration": 2.32,
+        "text": "and that is the new rdd we're outputting"
+      },
+      {
+        "start": 126.079,
+        "duration": 3.361,
+        "text": "into"
+      },
+      {
+        "start": 126.56,
+        "duration": 3.759,
+        "text": "the transformed d stream slide it along"
+      },
+      {
+        "start": 129.44,
+        "duration": 2.64,
+        "text": "one more time"
+      },
+      {
+        "start": 130.319,
+        "duration": 3.441,
+        "text": "and we see it happen again this time"
+      },
+      {
+        "start": 132.08,
+        "duration": 4.48,
+        "text": "there are four data elements in"
+      },
+      {
+        "start": 133.76,
+        "duration": 4.0,
+        "text": "rdd4 and three in rdd3 so we come up"
+      },
+      {
+        "start": 136.56,
+        "duration": 3.759,
+        "text": "with a count of"
+      },
+      {
+        "start": 137.76,
+        "duration": 3.04,
+        "text": "seven so makes sense now having seen"
+      },
+      {
+        "start": 140.319,
+        "duration": 2.321,
+        "text": "that"
+      },
+      {
+        "start": 140.8,
+        "duration": 3.519,
+        "text": "let's talk about a couple parameters"
+      },
+      {
+        "start": 142.64,
+        "duration": 3.04,
+        "text": "that we have to define when we're doing"
+      },
+      {
+        "start": 144.319,
+        "duration": 4.801,
+        "text": "a window transformation"
+      },
+      {
+        "start": 145.68,
+        "duration": 6.08,
+        "text": "one is the window length or duration"
+      },
+      {
+        "start": 149.12,
+        "duration": 4.72,
+        "text": "that's the number of d stream pieces or"
+      },
+      {
+        "start": 151.76,
+        "duration": 3.52,
+        "text": "discrete rdds in the d stream"
+      },
+      {
+        "start": 153.84,
+        "duration": 3.2,
+        "text": "that we're going to gather up in the"
+      },
+      {
+        "start": 155.28,
+        "duration": 4.64,
+        "text": "transformation that we do we'll consider"
+      },
+      {
+        "start": 157.04,
+        "duration": 4.88,
+        "text": "in this case 2 at a time the window"
+      },
+      {
+        "start": 159.92,
+        "duration": 4.959,
+        "text": "sliding interval or sliding duration"
+      },
+      {
+        "start": 161.92,
+        "duration": 4.24,
+        "text": "is how many discrete rdds the window"
+      },
+      {
+        "start": 164.879,
+        "duration": 3.601,
+        "text": "will slide along"
+      },
+      {
+        "start": 166.16,
+        "duration": 4.24,
+        "text": "each time it's evaluated in the case of"
+      },
+      {
+        "start": 168.48,
+        "duration": 5.36,
+        "text": "our animation you saw that that was"
+      },
+      {
+        "start": 170.4,
+        "duration": 5.68,
+        "text": "one we moved one rdd along at a time"
+      },
+      {
+        "start": 173.84,
+        "duration": 3.2,
+        "text": "and each time we were considering two"
+      },
+      {
+        "start": 176.08,
+        "duration": 3.519,
+        "text": "rdds"
+      },
+      {
+        "start": 177.04,
+        "duration": 3.68,
+        "text": "of the input stream now how did we pick"
+      },
+      {
+        "start": 179.599,
+        "duration": 2.801,
+        "text": "two and one"
+      },
+      {
+        "start": 180.72,
+        "duration": 3.28,
+        "text": "well in this case it worked out awfully"
+      },
+      {
+        "start": 182.4,
+        "duration": 2.96,
+        "text": "nicely for the animation and obviously"
+      },
+      {
+        "start": 184.0,
+        "duration": 3.04,
+        "text": "that's always a key concern when you're"
+      },
+      {
+        "start": 185.36,
+        "duration": 3.44,
+        "text": "trying to learn a technology like this"
+      },
+      {
+        "start": 187.04,
+        "duration": 3.04,
+        "text": "but in your case you're going to have to"
+      },
+      {
+        "start": 188.8,
+        "duration": 3.439,
+        "text": "think about a couple things"
+      },
+      {
+        "start": 190.08,
+        "duration": 3.68,
+        "text": "now d streams are formed by collecting"
+      },
+      {
+        "start": 192.239,
+        "duration": 2.241,
+        "text": "streaming input for a certain amount of"
+      },
+      {
+        "start": 193.76,
+        "duration": 2.479,
+        "text": "time"
+      },
+      {
+        "start": 194.48,
+        "duration": 4.16,
+        "text": "and so the window length in a window"
+      },
+      {
+        "start": 196.239,
+        "duration": 4.241,
+        "text": "transformation is really manipulating"
+      },
+      {
+        "start": 198.64,
+        "duration": 3.519,
+        "text": "that length of time it's as if you're"
+      },
+      {
+        "start": 200.48,
+        "duration": 3.039,
+        "text": "changing the grain if you were to think"
+      },
+      {
+        "start": 202.159,
+        "duration": 3.281,
+        "text": "of a time dimension"
+      },
+      {
+        "start": 203.519,
+        "duration": 3.44,
+        "text": "in traditional analytics and what should"
+      },
+      {
+        "start": 205.44,
+        "duration": 2.879,
+        "text": "the grain be in a sense"
+      },
+      {
+        "start": 206.959,
+        "duration": 3.041,
+        "text": "that's up to you that's an engineering"
+      },
+      {
+        "start": 208.319,
+        "duration": 3.761,
+        "text": "decision you have to make based on the"
+      },
+      {
+        "start": 210.0,
+        "duration": 4.4,
+        "text": "kind of analysis you're trying to do"
+      },
+      {
+        "start": 212.08,
+        "duration": 3.519,
+        "text": "now a time base that is seconds or"
+      },
+      {
+        "start": 214.4,
+        "duration": 2.88,
+        "text": "minutes long"
+      },
+      {
+        "start": 215.599,
+        "duration": 3.92,
+        "text": "is reasonable that's probably going to"
+      },
+      {
+        "start": 217.28,
+        "duration": 3.679,
+        "text": "work well hours for a window length"
+      },
+      {
+        "start": 219.519,
+        "duration": 3.121,
+        "text": "might not work so well it's going to"
+      },
+      {
+        "start": 220.959,
+        "duration": 3.521,
+        "text": "take a long time to compute you're going"
+      },
+      {
+        "start": 222.64,
+        "duration": 4.4,
+        "text": "to have a huge latency on"
+      },
+      {
+        "start": 224.48,
+        "duration": 4.08,
+        "text": "updates to that d stream and in the case"
+      },
+      {
+        "start": 227.04,
+        "duration": 3.44,
+        "text": "of failure recovery you've got"
+      },
+      {
+        "start": 228.56,
+        "duration": 3.599,
+        "text": "lots more work to do lots more"
+      },
+      {
+        "start": 230.48,
+        "duration": 3.119,
+        "text": "intermediate work has been persisted"
+      },
+      {
+        "start": 232.159,
+        "duration": 3.041,
+        "text": "that you're going to have to recompute"
+      },
+      {
+        "start": 233.599,
+        "duration": 3.601,
+        "text": "when you're recovering from"
+      },
+      {
+        "start": 235.2,
+        "duration": 4.16,
+        "text": "a node failure so if you've got a grain"
+      },
+      {
+        "start": 237.2,
+        "duration": 3.92,
+        "text": "like that obviously hours days months"
+      },
+      {
+        "start": 239.36,
+        "duration": 4.239,
+        "text": "these are perfectly reasonable lengths"
+      },
+      {
+        "start": 241.12,
+        "duration": 4.0,
+        "text": "of time to roll up numbers over but if"
+      },
+      {
+        "start": 243.599,
+        "duration": 2.161,
+        "text": "you're doing that it's probably a better"
+      },
+      {
+        "start": 245.12,
+        "duration": 3.039,
+        "text": "idea"
+      },
+      {
+        "start": 245.76,
+        "duration": 3.52,
+        "text": "to discretize your transform d stream on"
+      },
+      {
+        "start": 248.159,
+        "duration": 4.08,
+        "text": "the basis of maybe"
+      },
+      {
+        "start": 249.28,
+        "duration": 5.84,
+        "text": "minutes and then have some other process"
+      },
+      {
+        "start": 252.239,
+        "duration": 5.601,
+        "text": "that rolls those up to a larger grain"
+      },
+      {
+        "start": 255.12,
+        "duration": 3.92,
+        "text": "of hours or days directly in a cassandra"
+      },
+      {
+        "start": 257.84,
+        "duration": 3.28,
+        "text": "table so in other words"
+      },
+      {
+        "start": 259.04,
+        "duration": 3.36,
+        "text": "that roll-up kind of gets done outside"
+      },
+      {
+        "start": 261.12,
+        "duration": 2.799,
+        "text": "of spark streaming and you're letting"
+      },
+      {
+        "start": 262.4,
+        "duration": 3.2,
+        "text": "spark streaming do roll-ups"
+      },
+      {
+        "start": 263.919,
+        "duration": 3.761,
+        "text": "on the basis of minutes there's very"
+      },
+      {
+        "start": 265.6,
+        "duration": 3.52,
+        "text": "little general to say about the sliding"
+      },
+      {
+        "start": 267.68,
+        "duration": 3.36,
+        "text": "interval that really is going to be an"
+      },
+      {
+        "start": 269.12,
+        "duration": 3.2,
+        "text": "application specific thing where you're"
+      },
+      {
+        "start": 271.04,
+        "duration": 3.28,
+        "text": "going to have to think through"
+      },
+      {
+        "start": 272.32,
+        "duration": 3.92,
+        "text": "the kind of transformation you're doing"
+      },
+      {
+        "start": 274.32,
+        "duration": 3.52,
+        "text": "and often the sort of counting you're"
+      },
+      {
+        "start": 276.24,
+        "duration": 2.88,
+        "text": "doing or if you're applying some sort of"
+      },
+      {
+        "start": 277.84,
+        "duration": 2.72,
+        "text": "reducing function"
+      },
+      {
+        "start": 279.12,
+        "duration": 2.88,
+        "text": "what's the nature of that reducing"
+      },
+      {
+        "start": 280.56,
+        "duration": 2.0,
+        "text": "function really what's the computation"
+      },
+      {
+        "start": 282.0,
+        "duration": 2.24,
+        "text": "you're doing"
+      },
+      {
+        "start": 282.56,
+        "duration": 3.04,
+        "text": "you need to understand how the sliding"
+      },
+      {
+        "start": 284.24,
+        "duration": 2.72,
+        "text": "interval works and then"
+      },
+      {
+        "start": 285.6,
+        "duration": 3.68,
+        "text": "be able to make the decision about what"
+      },
+      {
+        "start": 286.96,
+        "duration": 3.44,
+        "text": "it should be on your own be advised that"
+      },
+      {
+        "start": 289.28,
+        "duration": 3.6,
+        "text": "a smaller interval"
+      },
+      {
+        "start": 290.4,
+        "duration": 3.44,
+        "text": "will result in more computation the more"
+      },
+      {
+        "start": 292.88,
+        "duration": 3.2,
+        "text": "of a jump"
+      },
+      {
+        "start": 293.84,
+        "duration": 3.72,
+        "text": "you can take through the input discrete"
+      },
+      {
+        "start": 296.08,
+        "duration": 3.76,
+        "text": "stream the less"
+      },
+      {
+        "start": 297.56,
+        "duration": 3.32,
+        "text": "re-computation you're doing over the"
+      },
+      {
+        "start": 299.84,
+        "duration": 3.12,
+        "text": "input rdd"
+      },
+      {
+        "start": 300.88,
+        "duration": 3.599,
+        "text": "pieces so keep that in mind but in"
+      },
+      {
+        "start": 302.96,
+        "duration": 2.88,
+        "text": "general that's your decision to make"
+      },
+      {
+        "start": 304.479,
+        "duration": 3.681,
+        "text": "let's take a look at a little bit of the"
+      },
+      {
+        "start": 305.84,
+        "duration": 3.6,
+        "text": "api that lets us do these window"
+      },
+      {
+        "start": 308.16,
+        "duration": 2.72,
+        "text": "transformations remember these are"
+      },
+      {
+        "start": 309.44,
+        "duration": 4.24,
+        "text": "functions that we're going to call"
+      },
+      {
+        "start": 310.88,
+        "duration": 3.28,
+        "text": "on a d stream that are going to create a"
+      },
+      {
+        "start": 313.68,
+        "duration": 2.239,
+        "text": "new d"
+      },
+      {
+        "start": 314.16,
+        "duration": 3.12,
+        "text": "stream window is the simplest"
+      },
+      {
+        "start": 315.919,
+        "duration": 3.201,
+        "text": "transformation we give it a window"
+      },
+      {
+        "start": 317.28,
+        "duration": 3.6,
+        "text": "length which again tells us how many"
+      },
+      {
+        "start": 319.12,
+        "duration": 3.919,
+        "text": "input discrete rdds we're going to"
+      },
+      {
+        "start": 320.88,
+        "duration": 4.4,
+        "text": "gather up into a new one"
+      },
+      {
+        "start": 323.039,
+        "duration": 3.281,
+        "text": "in our output d stream and the default"
+      },
+      {
+        "start": 325.28,
+        "duration": 2.639,
+        "text": "slide interval"
+      },
+      {
+        "start": 326.32,
+        "duration": 3.2,
+        "text": "is going to be the batch interval of the"
+      },
+      {
+        "start": 327.919,
+        "duration": 3.361,
+        "text": "source d stream"
+      },
+      {
+        "start": 329.52,
+        "duration": 3.679,
+        "text": "in other words we'll essentially slide"
+      },
+      {
+        "start": 331.28,
+        "duration": 4.479,
+        "text": "along one input rdd"
+      },
+      {
+        "start": 333.199,
+        "duration": 4.401,
+        "text": "at a time count by window is a way of"
+      },
+      {
+        "start": 335.759,
+        "duration": 3.361,
+        "text": "counting up the number of elements we"
+      },
+      {
+        "start": 337.6,
+        "duration": 4.08,
+        "text": "see in the input stream"
+      },
+      {
+        "start": 339.12,
+        "duration": 3.04,
+        "text": "remember the discrete rdds in the input"
+      },
+      {
+        "start": 341.68,
+        "duration": 3.359,
+        "text": "stream"
+      },
+      {
+        "start": 342.16,
+        "duration": 4.879,
+        "text": "are sort of chiseled off on a time basis"
+      },
+      {
+        "start": 345.039,
+        "duration": 3.44,
+        "text": "we'll cut one every say four seconds or"
+      },
+      {
+        "start": 347.039,
+        "duration": 3.121,
+        "text": "five seconds or something like that"
+      },
+      {
+        "start": 348.479,
+        "duration": 3.921,
+        "text": "and we don't know in general how many"
+      },
+      {
+        "start": 350.16,
+        "duration": 3.2,
+        "text": "input elements how many tweets how many"
+      },
+      {
+        "start": 352.4,
+        "duration": 2.88,
+        "text": "log entries"
+      },
+      {
+        "start": 353.36,
+        "duration": 3.2,
+        "text": "how many clicks on our website whatever"
+      },
+      {
+        "start": 355.28,
+        "duration": 2.96,
+        "text": "the thing is that we're streaming"
+      },
+      {
+        "start": 356.56,
+        "duration": 4.0,
+        "text": "we don't know how many of those will end"
+      },
+      {
+        "start": 358.24,
+        "duration": 4.64,
+        "text": "up in each rdd in the batch"
+      },
+      {
+        "start": 360.56,
+        "duration": 4.32,
+        "text": "so count by window is a way of counting"
+      },
+      {
+        "start": 362.88,
+        "duration": 3.84,
+        "text": "those things and we give it explicitly"
+      },
+      {
+        "start": 364.88,
+        "duration": 3.599,
+        "text": "a window length and a slide interval and"
+      },
+      {
+        "start": 366.72,
+        "duration": 3.919,
+        "text": "we get that count back count by"
+      },
+      {
+        "start": 368.479,
+        "duration": 4.16,
+        "text": "value and window is a lot like count by"
+      },
+      {
+        "start": 370.639,
+        "duration": 2.801,
+        "text": "window except we're counting discrete"
+      },
+      {
+        "start": 372.639,
+        "duration": 3.041,
+        "text": "values"
+      },
+      {
+        "start": 373.44,
+        "duration": 3.36,
+        "text": "so these discrete rdd pieces in the"
+      },
+      {
+        "start": 375.68,
+        "duration": 3.04,
+        "text": "input d stream have"
+      },
+      {
+        "start": 376.8,
+        "duration": 3.119,
+        "text": "things in them and this is going to look"
+      },
+      {
+        "start": 378.72,
+        "duration": 3.199,
+        "text": "for uniqueness"
+      },
+      {
+        "start": 379.919,
+        "duration": 4.56,
+        "text": "in those things and count the number of"
+      },
+      {
+        "start": 381.919,
+        "duration": 5.84,
+        "text": "times unique things in the input"
+      },
+      {
+        "start": 384.479,
+        "duration": 5.041,
+        "text": "happen in the window so if for example"
+      },
+      {
+        "start": 387.759,
+        "duration": 4.16,
+        "text": "the input d stream contained just"
+      },
+      {
+        "start": 389.52,
+        "duration": 4.16,
+        "text": "numbers then we get the number of times"
+      },
+      {
+        "start": 391.919,
+        "duration": 2.481,
+        "text": "the number five occurred the number of"
+      },
+      {
+        "start": 393.68,
+        "duration": 4.0,
+        "text": "times"
+      },
+      {
+        "start": 394.4,
+        "duration": 4.799,
+        "text": "the number 42 occurred any unique values"
+      },
+      {
+        "start": 397.68,
+        "duration": 3.44,
+        "text": "in the input d stream we're counting"
+      },
+      {
+        "start": 399.199,
+        "duration": 3.761,
+        "text": "them uniquely and of course we can"
+      },
+      {
+        "start": 401.12,
+        "duration": 2.799,
+        "text": "specify window length and slide interval"
+      },
+      {
+        "start": 402.96,
+        "duration": 3.359,
+        "text": "as you'd expect"
+      },
+      {
+        "start": 403.919,
+        "duration": 3.361,
+        "text": "reduce by window is doing the same thing"
+      },
+      {
+        "start": 406.319,
+        "duration": 4.081,
+        "text": "it's gathering up"
+      },
+      {
+        "start": 407.28,
+        "duration": 4.24,
+        "text": "input discrete rdds and batching them"
+      },
+      {
+        "start": 410.4,
+        "duration": 2.0,
+        "text": "according to the window length and the"
+      },
+      {
+        "start": 411.52,
+        "duration": 2.56,
+        "text": "slide interval"
+      },
+      {
+        "start": 412.4,
+        "duration": 3.68,
+        "text": "but the batching is going to be done by"
+      },
+      {
+        "start": 414.08,
+        "duration": 3.519,
+        "text": "applying a reducing function that's a"
+      },
+      {
+        "start": 416.08,
+        "duration": 3.44,
+        "text": "function that we pass in"
+      },
+      {
+        "start": 417.599,
+        "duration": 3.681,
+        "text": "so if we are just getting say counts"
+      },
+      {
+        "start": 419.52,
+        "duration": 3.76,
+        "text": "coming in just raw numbers"
+      },
+      {
+        "start": 421.28,
+        "duration": 4.08,
+        "text": "then we could add them up and the"
+      },
+      {
+        "start": 423.28,
+        "duration": 4.08,
+        "text": "reducing function would then be addition"
+      },
+      {
+        "start": 425.36,
+        "duration": 4.32,
+        "text": "so the resulting d stream contains that"
+      },
+      {
+        "start": 427.36,
+        "duration": 3.76,
+        "text": "sum of the values in the input d stream"
+      },
+      {
+        "start": 429.68,
+        "duration": 3.12,
+        "text": "whatever that reducing function needs to"
+      },
+      {
+        "start": 431.12,
+        "duration": 3.6,
+        "text": "be we're able to pass that in"
+      },
+      {
+        "start": 432.8,
+        "duration": 3.76,
+        "text": "so it can be anything as long as it's an"
+      },
+      {
+        "start": 434.72,
+        "duration": 2.72,
+        "text": "associative function reduced by window"
+      },
+      {
+        "start": 436.56,
+        "duration": 2.72,
+        "text": "has another"
+      },
+      {
+        "start": 437.44,
+        "duration": 3.92,
+        "text": "interesting flavor we pass it two"
+      },
+      {
+        "start": 439.28,
+        "duration": 3.84,
+        "text": "functions one is the reducing function"
+      },
+      {
+        "start": 441.36,
+        "duration": 3.36,
+        "text": "the other is the inverse reducing"
+      },
+      {
+        "start": 443.12,
+        "duration": 3.6,
+        "text": "function this is kind of cool so imagine"
+      },
+      {
+        "start": 444.72,
+        "duration": 3.52,
+        "text": "the window sliding along the rdds on the"
+      },
+      {
+        "start": 446.72,
+        "duration": 3.759,
+        "text": "input d stream and we're doing"
+      },
+      {
+        "start": 448.24,
+        "duration": 3.04,
+        "text": "some kind of reduce function say we're"
+      },
+      {
+        "start": 450.479,
+        "duration": 2.801,
+        "text": "doing a"
+      },
+      {
+        "start": 451.28,
+        "duration": 4.639,
+        "text": "average now we could just do that we"
+      },
+      {
+        "start": 453.28,
+        "duration": 4.479,
+        "text": "could have a global average overall time"
+      },
+      {
+        "start": 455.919,
+        "duration": 3.12,
+        "text": "of that input d stream that's a valid"
+      },
+      {
+        "start": 457.759,
+        "duration": 2.72,
+        "text": "window transformation"
+      },
+      {
+        "start": 459.039,
+        "duration": 3.681,
+        "text": "imagine though if we wanted a moving"
+      },
+      {
+        "start": 460.479,
+        "duration": 4.56,
+        "text": "average then we'd want a way of"
+      },
+      {
+        "start": 462.72,
+        "duration": 3.039,
+        "text": "for each time an rdd falls off the edge"
+      },
+      {
+        "start": 465.039,
+        "duration": 3.28,
+        "text": "of the world"
+      },
+      {
+        "start": 465.759,
+        "duration": 3.28,
+        "text": "we want to say well let's take off those"
+      },
+      {
+        "start": 468.319,
+        "duration": 2.481,
+        "text": "values"
+      },
+      {
+        "start": 469.039,
+        "duration": 3.921,
+        "text": "so we have the reducing function and we"
+      },
+      {
+        "start": 470.8,
+        "duration": 4.959,
+        "text": "have the inverse reducing function"
+      },
+      {
+        "start": 472.96,
+        "duration": 4.32,
+        "text": "that takes away the effect of that rdd"
+      },
+      {
+        "start": 475.759,
+        "duration": 3.041,
+        "text": "that's falling out of the window it's"
+      },
+      {
+        "start": 477.28,
+        "duration": 3.12,
+        "text": "kind of a nifty thing and the most"
+      },
+      {
+        "start": 478.8,
+        "duration": 3.119,
+        "text": "obvious application off the top of your"
+      },
+      {
+        "start": 480.4,
+        "duration": 2.079,
+        "text": "head is probably something like a moving"
+      },
+      {
+        "start": 481.919,
+        "duration": 1.68,
+        "text": "average"
+      },
+      {
+        "start": 482.479,
+        "duration": 2.4,
+        "text": "although you can use it for anything"
+      },
+      {
+        "start": 483.599,
+        "duration": 3.44,
+        "text": "that you have an inverse reducing"
+      },
+      {
+        "start": 484.879,
+        "duration": 4.241,
+        "text": "function to play around with"
+      },
+      {
+        "start": 487.039,
+        "duration": 3.121,
+        "text": "and here are examples of counting by"
+      },
+      {
+        "start": 489.12,
+        "duration": 3.519,
+        "text": "window"
+      },
+      {
+        "start": 490.16,
+        "duration": 4.319,
+        "text": "and reducing by window and reducing by"
+      },
+      {
+        "start": 492.639,
+        "duration": 2.4,
+        "text": "window with the inverse reducing"
+      },
+      {
+        "start": 494.479,
+        "duration": 2.481,
+        "text": "function"
+      },
+      {
+        "start": 495.039,
+        "duration": 3.84,
+        "text": "that third example down there you can"
+      },
+      {
+        "start": 496.96,
+        "duration": 2.88,
+        "text": "see those api calls play out about the"
+      },
+      {
+        "start": 498.879,
+        "duration": 3.201,
+        "text": "way you'd expect"
+      },
+      {
+        "start": 499.84,
+        "duration": 3.68,
+        "text": "from looking at the documentation that"
+      },
+      {
+        "start": 502.08,
+        "duration": 2.88,
+        "text": "inverse reducing function is a little"
+      },
+      {
+        "start": 503.52,
+        "duration": 2.72,
+        "text": "tricky i was describing it but just in"
+      },
+      {
+        "start": 504.96,
+        "duration": 1.76,
+        "text": "case that didn't work let's look at a"
+      },
+      {
+        "start": 506.24,
+        "duration": 1.679,
+        "text": "picture"
+      },
+      {
+        "start": 506.72,
+        "duration": 2.8,
+        "text": "of that and just kind of watch the"
+      },
+      {
+        "start": 507.919,
+        "duration": 3.041,
+        "text": "animation happen the way we did before"
+      },
+      {
+        "start": 509.52,
+        "duration": 2.16,
+        "text": "so we're going to slide a window over"
+      },
+      {
+        "start": 510.96,
+        "duration": 3.12,
+        "text": "the same"
+      },
+      {
+        "start": 511.68,
+        "duration": 4.0,
+        "text": "four discrete rdds and we'll see things"
+      },
+      {
+        "start": 514.08,
+        "duration": 2.8,
+        "text": "come in and go out by way of the"
+      },
+      {
+        "start": 515.68,
+        "duration": 3.359,
+        "text": "reducing function"
+      },
+      {
+        "start": 516.88,
+        "duration": 3.12,
+        "text": "and the inverse reducing function so as"
+      },
+      {
+        "start": 519.039,
+        "duration": 3.12,
+        "text": "that window slides"
+      },
+      {
+        "start": 520.0,
+        "duration": 3.2,
+        "text": "along the reducing function in this case"
+      },
+      {
+        "start": 522.159,
+        "duration": 3.201,
+        "text": "it's addition"
+      },
+      {
+        "start": 523.2,
+        "duration": 4.319,
+        "text": "adds up those three ones and gets a"
+      },
+      {
+        "start": 525.36,
+        "duration": 4.24,
+        "text": "result you can check my math of"
+      },
+      {
+        "start": 527.519,
+        "duration": 3.041,
+        "text": "three we move along and now we've got a"
+      },
+      {
+        "start": 529.6,
+        "duration": 3.359,
+        "text": "second rdd"
+      },
+      {
+        "start": 530.56,
+        "duration": 3.839,
+        "text": "inside the window we have three ones in"
+      },
+      {
+        "start": 532.959,
+        "duration": 3.841,
+        "text": "this new rdd"
+      },
+      {
+        "start": 534.399,
+        "duration": 3.44,
+        "text": "and we add those to the previous state"
+      },
+      {
+        "start": 536.8,
+        "duration": 4.159,
+        "text": "of the window which"
+      },
+      {
+        "start": 537.839,
+        "duration": 5.041,
+        "text": "remember was three so we get six"
+      },
+      {
+        "start": 540.959,
+        "duration": 3.841,
+        "text": "now we have to let an rdd drop off the"
+      },
+      {
+        "start": 542.88,
+        "duration": 4.639,
+        "text": "edge of the world so we have to use the"
+      },
+      {
+        "start": 544.8,
+        "duration": 4.64,
+        "text": "inverse reducing function on that rdd to"
+      },
+      {
+        "start": 547.519,
+        "duration": 3.44,
+        "text": "keep the window value honest"
+      },
+      {
+        "start": 549.44,
+        "duration": 3.76,
+        "text": "now the fact that our inverse reducing"
+      },
+      {
+        "start": 550.959,
+        "duration": 2.961,
+        "text": "function is subtraction is a consequence"
+      },
+      {
+        "start": 553.2,
+        "duration": 3.12,
+        "text": "of the fact"
+      },
+      {
+        "start": 553.92,
+        "duration": 4.32,
+        "text": "that our reducing function is addition"
+      },
+      {
+        "start": 556.32,
+        "duration": 3.36,
+        "text": "it's the thing that undoes the operation"
+      },
+      {
+        "start": 558.24,
+        "duration": 3.12,
+        "text": "of our reducing function"
+      },
+      {
+        "start": 559.68,
+        "duration": 3.2,
+        "text": "so if we're doing a moving average"
+      },
+      {
+        "start": 561.36,
+        "duration": 2.32,
+        "text": "instead of just a sum of course you'd"
+      },
+      {
+        "start": 562.88,
+        "duration": 2.48,
+        "text": "have to apply"
+      },
+      {
+        "start": 563.68,
+        "duration": 3.68,
+        "text": "a different kind of function to"
+      },
+      {
+        "start": 565.36,
+        "duration": 3.84,
+        "text": "eliminate the effect of rdd1"
+      },
+      {
+        "start": 567.36,
+        "duration": 4.159,
+        "text": "on that average as the window moves"
+      },
+      {
+        "start": 569.2,
+        "duration": 5.6,
+        "text": "forward and as we keep sliding along"
+      },
+      {
+        "start": 571.519,
+        "duration": 5.601,
+        "text": "we'll now sum up all the ones in rdd4"
+      },
+      {
+        "start": 574.8,
+        "duration": 3.84,
+        "text": "with the new previous window state and"
+      },
+      {
+        "start": 577.12,
+        "duration": 3.52,
+        "text": "we'll see we get a 7"
+      },
+      {
+        "start": 578.64,
+        "duration": 3.04,
+        "text": "and we'll subtract rdd2 from that"
+      },
+      {
+        "start": 580.64,
+        "duration": 3.04,
+        "text": "summation"
+      },
+      {
+        "start": 581.68,
+        "duration": 3.36,
+        "text": "so that's kind of an animated version of"
+      },
+      {
+        "start": 583.68,
+        "duration": 3.76,
+        "text": "that interesting way to do"
+      },
+      {
+        "start": 585.04,
+        "duration": 3.44,
+        "text": "reduce by window now if the stream has"
+      },
+      {
+        "start": 587.44,
+        "duration": 2.32,
+        "text": "key value pair"
+      },
+      {
+        "start": 588.48,
+        "duration": 3.359,
+        "text": "data in it in other words if these are"
+      },
+      {
+        "start": 589.76,
+        "duration": 3.519,
+        "text": "pair rdds in the little discretized"
+      },
+      {
+        "start": 591.839,
+        "duration": 4.0,
+        "text": "chunks inside the d stream"
+      },
+      {
+        "start": 593.279,
+        "duration": 3.441,
+        "text": "we've got a few api methods that treat"
+      },
+      {
+        "start": 595.839,
+        "duration": 3.841,
+        "text": "those specially"
+      },
+      {
+        "start": 596.72,
+        "duration": 4.64,
+        "text": "there's reduce by key and window same"
+      },
+      {
+        "start": 599.68,
+        "duration": 3.279,
+        "text": "thing is reduced by window we're sliding"
+      },
+      {
+        "start": 601.36,
+        "duration": 2.96,
+        "text": "a window along window length slide"
+      },
+      {
+        "start": 602.959,
+        "duration": 2.081,
+        "text": "interval they mean exactly the same"
+      },
+      {
+        "start": 604.32,
+        "duration": 2.8,
+        "text": "thing"
+      },
+      {
+        "start": 605.04,
+        "duration": 3.12,
+        "text": "and again we have a reducing function"
+      },
+      {
+        "start": 607.12,
+        "duration": 2.719,
+        "text": "that we pass in here"
+      },
+      {
+        "start": 608.16,
+        "duration": 3.44,
+        "text": "that's going to do that reducing it's"
+      },
+      {
+        "start": 609.839,
+        "duration": 4.881,
+        "text": "just that the method will collect"
+      },
+      {
+        "start": 611.6,
+        "duration": 5.44,
+        "text": "all of the values having the same key"
+      },
+      {
+        "start": 614.72,
+        "duration": 3.28,
+        "text": "across the windowed batches and apply"
+      },
+      {
+        "start": 617.04,
+        "duration": 3.039,
+        "text": "the reducing function"
+      },
+      {
+        "start": 618.0,
+        "duration": 4.0,
+        "text": "to them and of course the output will"
+      },
+      {
+        "start": 620.079,
+        "duration": 2.88,
+        "text": "still be a pair rdd so we'll see those"
+      },
+      {
+        "start": 622.0,
+        "duration": 2.88,
+        "text": "keys"
+      },
+      {
+        "start": 622.959,
+        "duration": 3.44,
+        "text": "grouped together reduced by key window"
+      },
+      {
+        "start": 624.88,
+        "duration": 3.12,
+        "text": "also has the flavor where i pass it a"
+      },
+      {
+        "start": 626.399,
+        "duration": 2.641,
+        "text": "reducing function and an inverse"
+      },
+      {
+        "start": 628.0,
+        "duration": 3.04,
+        "text": "reducing function"
+      },
+      {
+        "start": 629.04,
+        "duration": 3.919,
+        "text": "for the moving average case and of"
+      },
+      {
+        "start": 631.04,
+        "duration": 2.56,
+        "text": "course i have a group by key and window"
+      },
+      {
+        "start": 632.959,
+        "duration": 2.721,
+        "text": "method"
+      },
+      {
+        "start": 633.6,
+        "duration": 4.56,
+        "text": "that's going to look for common keys in"
+      },
+      {
+        "start": 635.68,
+        "duration": 3.599,
+        "text": "the rdds across the windowed batch in"
+      },
+      {
+        "start": 638.16,
+        "duration": 2.799,
+        "text": "the input d stream"
+      },
+      {
+        "start": 639.279,
+        "duration": 4.0,
+        "text": "according to our window length and slide"
+      },
+      {
+        "start": 640.959,
+        "duration": 3.681,
+        "text": "interval and in the output rdd the"
+      },
+      {
+        "start": 643.279,
+        "duration": 3.761,
+        "text": "resulting rdd"
+      },
+      {
+        "start": 644.64,
+        "duration": 3.6,
+        "text": "all of the values of common keys will be"
+      },
+      {
+        "start": 647.04,
+        "duration": 4.32,
+        "text": "collected together"
+      },
+      {
+        "start": 648.24,
+        "duration": 4.88,
+        "text": "in the value of that pair rdd so it"
+      },
+      {
+        "start": 651.36,
+        "duration": 2.4,
+        "text": "works just like you'd expect a group by"
+      },
+      {
+        "start": 653.12,
+        "duration": 2.0,
+        "text": "to work"
+      },
+      {
+        "start": 653.76,
+        "duration": 3.199,
+        "text": "find all the things that have the same"
+      },
+      {
+        "start": 655.12,
+        "duration": 2.64,
+        "text": "key and make a collection of those"
+      },
+      {
+        "start": 656.959,
+        "duration": 2.801,
+        "text": "values"
+      },
+      {
+        "start": 657.76,
+        "duration": 3.759,
+        "text": "in the output d stream so if we wanted"
+      },
+      {
+        "start": 659.76,
+        "duration": 3.36,
+        "text": "to do a reduced by key in window over a"
+      },
+      {
+        "start": 661.519,
+        "duration": 3.281,
+        "text": "60 second window that's a one minute"
+      },
+      {
+        "start": 663.12,
+        "duration": 3.92,
+        "text": "window that moves along"
+      },
+      {
+        "start": 664.8,
+        "duration": 3.12,
+        "text": "four seconds at a time now four seconds"
+      },
+      {
+        "start": 667.04,
+        "duration": 2.479,
+        "text": "here just happens"
+      },
+      {
+        "start": 667.92,
+        "duration": 3.359,
+        "text": "also to be our batch interval when we"
+      },
+      {
+        "start": 669.519,
+        "duration": 3.041,
+        "text": "defined the stream that's not shown in"
+      },
+      {
+        "start": 671.279,
+        "duration": 2.56,
+        "text": "the slide but that's the batch interval"
+      },
+      {
+        "start": 672.56,
+        "duration": 3.92,
+        "text": "we're working with in all of our d"
+      },
+      {
+        "start": 673.839,
+        "duration": 4.481,
+        "text": "stream examples this will slide along"
+      },
+      {
+        "start": 676.48,
+        "duration": 4.16,
+        "text": "one discrete rdd at a time"
+      },
+      {
+        "start": 678.32,
+        "duration": 4.32,
+        "text": "but reduce a whole minute's worth at"
+      },
+      {
+        "start": 680.64,
+        "duration": 2.72,
+        "text": "once and the reduce operation as you can"
+      },
+      {
+        "start": 682.64,
+        "duration": 3.12,
+        "text": "see is"
+      },
+      {
+        "start": 683.36,
+        "duration": 3.039,
+        "text": "addition we also show the reduced by key"
+      },
+      {
+        "start": 685.76,
+        "duration": 2.56,
+        "text": "in window"
+      },
+      {
+        "start": 686.399,
+        "duration": 3.601,
+        "text": "with the inverse reducing function the"
+      },
+      {
+        "start": 688.32,
+        "duration": 4.079,
+        "text": "reducing function being addition"
+      },
+      {
+        "start": 690.0,
+        "duration": 3.68,
+        "text": "the inverse function being subtraction"
+      },
+      {
+        "start": 692.399,
+        "duration": 2.961,
+        "text": "so this is the code that would implement"
+      },
+      {
+        "start": 693.68,
+        "duration": 3.04,
+        "text": "the animation we just saw on the slide a"
+      },
+      {
+        "start": 695.36,
+        "duration": 3.12,
+        "text": "minute ago now quick note on"
+      },
+      {
+        "start": 696.72,
+        "duration": 2.16,
+        "text": "checkpointing checkpointing does get its"
+      },
+      {
+        "start": 698.48,
+        "duration": 2.479,
+        "text": "own"
+      },
+      {
+        "start": 698.88,
+        "duration": 3.12,
+        "text": "treatment in a section all by itself but"
+      },
+      {
+        "start": 700.959,
+        "duration": 3.041,
+        "text": "it's important to point out that"
+      },
+      {
+        "start": 702.0,
+        "duration": 4.16,
+        "text": "for most windowing operations it is"
+      },
+      {
+        "start": 704.0,
+        "duration": 3.76,
+        "text": "mandatory what checkpointing will do"
+      },
+      {
+        "start": 706.16,
+        "duration": 3.84,
+        "text": "is persist the spark application"
+      },
+      {
+        "start": 707.76,
+        "duration": 3.44,
+        "text": "metadata and some of the data some of"
+      },
+      {
+        "start": 710.0,
+        "duration": 3.6,
+        "text": "the intermediate data"
+      },
+      {
+        "start": 711.2,
+        "duration": 4.0,
+        "text": "will be persisted to disk it looks for"
+      },
+      {
+        "start": 713.6,
+        "duration": 3.679,
+        "text": "in this case the cassandra file system"
+      },
+      {
+        "start": 715.2,
+        "duration": 3.68,
+        "text": "or cfs and it writes it into that"
+      },
+      {
+        "start": 717.279,
+        "duration": 3.921,
+        "text": "now you enable checkpointing by calling"
+      },
+      {
+        "start": 718.88,
+        "duration": 4.0,
+        "text": "the checkpoint method and passing it the"
+      },
+      {
+        "start": 721.2,
+        "duration": 2.16,
+        "text": "directory where that stuff will get"
+      },
+      {
+        "start": 722.88,
+        "duration": 2.079,
+        "text": "written"
+      },
+      {
+        "start": 723.36,
+        "duration": 3.2,
+        "text": "and then start your application and let"
+      },
+      {
+        "start": 724.959,
+        "duration": 2.801,
+        "text": "the streaming go on we will treat"
+      },
+      {
+        "start": 726.56,
+        "duration": 2.399,
+        "text": "checkpointing separately but you should"
+      },
+      {
+        "start": 727.76,
+        "duration": 11.68,
+        "text": "know that it's required for your"
+      },
+      {
+        "start": 728.959,
+        "duration": 10.481,
+        "text": "streaming application to work"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T23:21:24.512981+00:00"
+}

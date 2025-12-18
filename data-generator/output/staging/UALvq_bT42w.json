@@ -1,0 +1,1464 @@
+{
+  "video_id": "UALvq_bT42w",
+  "title": "DS220.19 Analysis and Validation | Data Modeling with Apache Cassandra",
+  "description": "#DataStaxAcademy #DS220\nDS220.19 Analysis and Validation\nNow that we have implemented a working data model in Apache Cassandra, it is time to make sure that the data model works properly and performs the way we want it to. In this unit, you will learn about analysis and validation of your data model.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-14T09:28:00Z",
+  "thumbnail": "https://i.ytimg.com/vi/UALvq_bT42w/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "data_modeling",
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=UALvq_bT42w",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] hi my name is joe chu and welcome to the optimization and tuning module at this point assuming you've been following along in order you now have an understanding of the data modeling methodology leading up to the physical data model this means that you have envisioned designed and have even implemented a working data model to run in datasets enterprise congratulations hold up though before you start celebrating and asking your manager for some time off let's first talk about making sure that the data model works properly sure if you follow the data model methodology then the resulting data model is supposed to work right well that's true but nothing is more definite than actually running your application and database with the data model that's when it's possible to discover if the data model performs the way you want it to sometimes it works fine and other times well it can do better what that means is that you're not quite done with data modeling just yet that's where tuning and optimization comes in long after you design the data model and have your application running in production you may continue to make changes and tweaks that will help ensure that your data model works as efficiently as possible the next couple of topics will be discussing ways we can optimize a data model the one we'll be talking about in this video is analysis and validation of the data model remember just because you follow the data modeling methodology up to this point and have your create table statements doesn't mean that it's going to work perfectly we'll be going over and analyzing multiple things that will help to keep the data model from blowing up in our faces later if there are any issues with the data model then we can address them using some techniques that we'll be taking a look at a bit later this includes techniques to optimize the data model for write workloads and read workloads we'll examine some techniques to optimize your table keys and columns to ensure that data is distributed as evenly as possible and avoids hot spotting on nodes or in large partitions at this point we're pretty much at the home stretch you've seen the diagram time after time so you know that we're not done just yet now that we've reached optimization and tuning we're now putting the last finishing touches on our data model what we have here is something like a checklist of questions to consider regarding your completed data model following the methodology up to this point guarantees that you have your data available and can query in the order needed by your application but there are considerations not specific to just the data or application workflow that have not been taken into account until now although it is presented here these are important considerations that should be reviewed from time to time even after your application is in production and the data model has been in use the first consideration is whether you are using natural or surrogate keys for your table both natural and surrogate keys work fine to uniquely identify your row but when evaluating a potential partition key they do not have the same characteristics the critical point here is really with using a natural key as the partition key this means that the size of the partition is directly related to your data this can be bad if there are no controls set for your data because that means that they can grow much larger than what is recommended for optimal reading for example we previously talked about a videos by user table that contains the information of videos uploaded by different users the partition key for this table would be the user id which happens to be a natural key in this case what would be the consequence if there is one user that uploads as many videos as he possibly can well that means for each video another row is added to the partition identified by that user's user id and the partition will continue to grow theoretically the partition may grow large enough that it eventually becomes a hot spot when carrying for that partition surrogate keys don't have this problem since they are generated for each new row so if using that as a partition key a partition would usually have one row only a bit later we'll take a look at some optimization techniques to split or merge a partition if using a natural key data integrity should always be a priority when handling data and having a good primary key is necessary to avoid upserts in datasets enterprise since that is covered with our mapping rules we don't need to worry about that here however there are other scenarios where we do need to consider the possibility of right conflicts primarily with race conditions the most common type of race condition is when doing a read before a write where the written data is dependent on what was read let's think about the registration system for new users what happens when a new user wants to create an account he or she would select a username and in the background the application will need to check if that username is already being used by someone else well there is a potential race condition if two users simultaneously try to register the same username if the username check happens at the same time and both users are told that the username is available who actually gets a username then data types are also an important consideration on one end we don't want to use a data type that is not accurate enough otherwise we may end up with a loss of precision or even wrong data if you're familiar with the year 2038 problem that was an integer overflow issue from using a signed 32-bit integer for storing time stamps and only went up to the year 2038 before reset into the year 1901 that doesn't mean you should mindlessly use the largest data type available either remember going from float to double or into bigint effectively doubles the amount of space needed for those values similar to the first consideration there is a point where partitions become large enough to have an impact on performance identify where they exist and avoid creating them data duplication is one of the radical concepts for data modeling in data sex enterprise when it makes sense you'll want to denormalize your data into separate tables to optimize reading this results in duplicate data across multiple tables duplicating data sounds fine for certain tables when it is duplicated two or three times let's say but you should have a limit of how much data you're willing to duplicate for the sake of performance does it make sense to store 10 terabytes data in your cluster when the original data set is only 100 gigabytes for example the general recommendation is to avoid client-side joins whenever possible after all datastax enterprise doesn't allow joins in queries so there must be a good reason for that right nevertheless there will always be cases where someone truly believes that they know what the effects of using client-side joins are in their data model there is always going to be a price so make sure you know what that is if you're going to use it what's the latency for these client-side joins how much memory is being used to hold on to intermediate results before the join completes how much data is being transferred from the database to the application will the cost increase as the amount of data increases without getting into the consistency topics we discuss in the foundations class you also need to be mindful of possible data consistency anomalies within your data model particularly if you are duplicating data across multiple tables if you query an entity in one table and then query the same entity in another table with duplicate data will the values actually be the same what if updates for that entity in one table succeeds but fails for a different table what can you do to ensure that all this duplicate data is kept as consistent as possible finally what about transactions and aggregations do you really need them or can the application or business process be changed to accommodate how your data model works in data sex enterprise can udfs or uda's be written to perform the aggregations you need if you are thinking about this for your own domain and application and now realize that there are some concerns that you have about your data model that's good it's always better to be aware and to address this sooner rather than later as i said before we'll be taking a look at some techniques to help address these concerns in later videos you may have worked on your data model for a long time going through the data modeling methodology analysis and validation and all of this optimization tuning and now your application is running in production and works great however that does not mean that your data model will never have to change it's possible that database performance may start to degrade or additional requirements are needed for your application and data model or even the characteristics of your data changes regardless it's always a good idea to revisit the data model review the validation questions and determine if there are reasons to change or improve on the data model",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 5.32,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.279,
+        "duration": 2.32,
+        "text": "hi"
+      },
+      {
+        "start": 7.6,
+        "duration": 4.079,
+        "text": "my name is joe chu and welcome to the"
+      },
+      {
+        "start": 9.599,
+        "duration": 3.361,
+        "text": "optimization and tuning module"
+      },
+      {
+        "start": 11.679,
+        "duration": 3.361,
+        "text": "at this point assuming you've been"
+      },
+      {
+        "start": 12.96,
+        "duration": 3.36,
+        "text": "following along in order you now have an"
+      },
+      {
+        "start": 15.04,
+        "duration": 2.239,
+        "text": "understanding of the data modeling"
+      },
+      {
+        "start": 16.32,
+        "duration": 3.2,
+        "text": "methodology"
+      },
+      {
+        "start": 17.279,
+        "duration": 3.84,
+        "text": "leading up to the physical data model"
+      },
+      {
+        "start": 19.52,
+        "duration": 3.679,
+        "text": "this means that you have envisioned"
+      },
+      {
+        "start": 21.119,
+        "duration": 3.841,
+        "text": "designed and have even implemented a"
+      },
+      {
+        "start": 23.199,
+        "duration": 2.481,
+        "text": "working data model to run in datasets"
+      },
+      {
+        "start": 24.96,
+        "duration": 3.36,
+        "text": "enterprise"
+      },
+      {
+        "start": 25.68,
+        "duration": 4.16,
+        "text": "congratulations hold up though before"
+      },
+      {
+        "start": 28.32,
+        "duration": 2.879,
+        "text": "you start celebrating and asking your"
+      },
+      {
+        "start": 29.84,
+        "duration": 2.96,
+        "text": "manager for some time off"
+      },
+      {
+        "start": 31.199,
+        "duration": 3.281,
+        "text": "let's first talk about making sure that"
+      },
+      {
+        "start": 32.8,
+        "duration": 3.2,
+        "text": "the data model works properly"
+      },
+      {
+        "start": 34.48,
+        "duration": 3.52,
+        "text": "sure if you follow the data model"
+      },
+      {
+        "start": 36.0,
+        "duration": 3.6,
+        "text": "methodology then the resulting data"
+      },
+      {
+        "start": 38.0,
+        "duration": 3.52,
+        "text": "model is supposed to work right"
+      },
+      {
+        "start": 39.6,
+        "duration": 3.36,
+        "text": "well that's true but nothing is more"
+      },
+      {
+        "start": 41.52,
+        "duration": 3.28,
+        "text": "definite than actually running your"
+      },
+      {
+        "start": 42.96,
+        "duration": 2.72,
+        "text": "application and database with the data"
+      },
+      {
+        "start": 44.8,
+        "duration": 2.56,
+        "text": "model"
+      },
+      {
+        "start": 45.68,
+        "duration": 3.359,
+        "text": "that's when it's possible to discover if"
+      },
+      {
+        "start": 47.36,
+        "duration": 2.56,
+        "text": "the data model performs the way you want"
+      },
+      {
+        "start": 49.039,
+        "duration": 3.121,
+        "text": "it to"
+      },
+      {
+        "start": 49.92,
+        "duration": 3.119,
+        "text": "sometimes it works fine and other times"
+      },
+      {
+        "start": 52.16,
+        "duration": 2.8,
+        "text": "well"
+      },
+      {
+        "start": 53.039,
+        "duration": 3.601,
+        "text": "it can do better what that means is that"
+      },
+      {
+        "start": 54.96,
+        "duration": 2.72,
+        "text": "you're not quite done with data modeling"
+      },
+      {
+        "start": 56.64,
+        "duration": 2.8,
+        "text": "just yet"
+      },
+      {
+        "start": 57.68,
+        "duration": 4.32,
+        "text": "that's where tuning and optimization"
+      },
+      {
+        "start": 59.44,
+        "duration": 4.16,
+        "text": "comes in long after you design the data"
+      },
+      {
+        "start": 62.0,
+        "duration": 2.72,
+        "text": "model and have your application running"
+      },
+      {
+        "start": 63.6,
+        "duration": 3.04,
+        "text": "in production"
+      },
+      {
+        "start": 64.72,
+        "duration": 3.6,
+        "text": "you may continue to make changes and"
+      },
+      {
+        "start": 66.64,
+        "duration": 3.44,
+        "text": "tweaks that will help ensure that your"
+      },
+      {
+        "start": 68.32,
+        "duration": 2.72,
+        "text": "data model works as efficiently as"
+      },
+      {
+        "start": 70.08,
+        "duration": 2.399,
+        "text": "possible"
+      },
+      {
+        "start": 71.04,
+        "duration": 3.52,
+        "text": "the next couple of topics will be"
+      },
+      {
+        "start": 72.479,
+        "duration": 2.801,
+        "text": "discussing ways we can optimize a data"
+      },
+      {
+        "start": 74.56,
+        "duration": 2.4,
+        "text": "model"
+      },
+      {
+        "start": 75.28,
+        "duration": 3.68,
+        "text": "the one we'll be talking about in this"
+      },
+      {
+        "start": 76.96,
+        "duration": 2.96,
+        "text": "video is analysis and validation of the"
+      },
+      {
+        "start": 78.96,
+        "duration": 2.72,
+        "text": "data model"
+      },
+      {
+        "start": 79.92,
+        "duration": 3.519,
+        "text": "remember just because you follow the"
+      },
+      {
+        "start": 81.68,
+        "duration": 3.2,
+        "text": "data modeling methodology up to this"
+      },
+      {
+        "start": 83.439,
+        "duration": 2.32,
+        "text": "point and have your create table"
+      },
+      {
+        "start": 84.88,
+        "duration": 2.08,
+        "text": "statements"
+      },
+      {
+        "start": 85.759,
+        "duration": 3.201,
+        "text": "doesn't mean that it's going to work"
+      },
+      {
+        "start": 86.96,
+        "duration": 3.76,
+        "text": "perfectly we'll be going over and"
+      },
+      {
+        "start": 88.96,
+        "duration": 3.28,
+        "text": "analyzing multiple things that will help"
+      },
+      {
+        "start": 90.72,
+        "duration": 3.12,
+        "text": "to keep the data model from blowing up"
+      },
+      {
+        "start": 92.24,
+        "duration": 2.96,
+        "text": "in our faces later"
+      },
+      {
+        "start": 93.84,
+        "duration": 3.36,
+        "text": "if there are any issues with the data"
+      },
+      {
+        "start": 95.2,
+        "duration": 3.44,
+        "text": "model then we can address them using"
+      },
+      {
+        "start": 97.2,
+        "duration": 3.279,
+        "text": "some techniques that we'll be taking a"
+      },
+      {
+        "start": 98.64,
+        "duration": 3.519,
+        "text": "look at a bit later"
+      },
+      {
+        "start": 100.479,
+        "duration": 3.521,
+        "text": "this includes techniques to optimize the"
+      },
+      {
+        "start": 102.159,
+        "duration": 2.96,
+        "text": "data model for write workloads and read"
+      },
+      {
+        "start": 104.0,
+        "duration": 2.56,
+        "text": "workloads"
+      },
+      {
+        "start": 105.119,
+        "duration": 3.68,
+        "text": "we'll examine some techniques to"
+      },
+      {
+        "start": 106.56,
+        "duration": 3.919,
+        "text": "optimize your table keys and columns to"
+      },
+      {
+        "start": 108.799,
+        "duration": 2.96,
+        "text": "ensure that data is distributed as"
+      },
+      {
+        "start": 110.479,
+        "duration": 3.521,
+        "text": "evenly as possible"
+      },
+      {
+        "start": 111.759,
+        "duration": 3.841,
+        "text": "and avoids hot spotting on nodes or in"
+      },
+      {
+        "start": 114.0,
+        "duration": 3.04,
+        "text": "large partitions"
+      },
+      {
+        "start": 115.6,
+        "duration": 3.36,
+        "text": "at this point we're pretty much at the"
+      },
+      {
+        "start": 117.04,
+        "duration": 3.6,
+        "text": "home stretch you've seen the diagram"
+      },
+      {
+        "start": 118.96,
+        "duration": 2.96,
+        "text": "time after time so you know that we're"
+      },
+      {
+        "start": 120.64,
+        "duration": 3.04,
+        "text": "not done just yet"
+      },
+      {
+        "start": 121.92,
+        "duration": 3.44,
+        "text": "now that we've reached optimization and"
+      },
+      {
+        "start": 123.68,
+        "duration": 3.84,
+        "text": "tuning we're now putting the last"
+      },
+      {
+        "start": 125.36,
+        "duration": 3.759,
+        "text": "finishing touches on our data model"
+      },
+      {
+        "start": 127.52,
+        "duration": 3.28,
+        "text": "what we have here is something like a"
+      },
+      {
+        "start": 129.119,
+        "duration": 3.441,
+        "text": "checklist of questions to consider"
+      },
+      {
+        "start": 130.8,
+        "duration": 3.36,
+        "text": "regarding your completed data model"
+      },
+      {
+        "start": 132.56,
+        "duration": 3.36,
+        "text": "following the methodology up to this"
+      },
+      {
+        "start": 134.16,
+        "duration": 2.56,
+        "text": "point guarantees that you have your data"
+      },
+      {
+        "start": 135.92,
+        "duration": 2.399,
+        "text": "available"
+      },
+      {
+        "start": 136.72,
+        "duration": 3.36,
+        "text": "and can query in the order needed by"
+      },
+      {
+        "start": 138.319,
+        "duration": 2.801,
+        "text": "your application but there are"
+      },
+      {
+        "start": 140.08,
+        "duration": 2.879,
+        "text": "considerations"
+      },
+      {
+        "start": 141.12,
+        "duration": 3.04,
+        "text": "not specific to just the data or"
+      },
+      {
+        "start": 142.959,
+        "duration": 2.881,
+        "text": "application workflow"
+      },
+      {
+        "start": 144.16,
+        "duration": 4.32,
+        "text": "that have not been taken into account"
+      },
+      {
+        "start": 145.84,
+        "duration": 4.72,
+        "text": "until now although it is presented here"
+      },
+      {
+        "start": 148.48,
+        "duration": 4.0,
+        "text": "these are important considerations that"
+      },
+      {
+        "start": 150.56,
+        "duration": 3.44,
+        "text": "should be reviewed from time to time"
+      },
+      {
+        "start": 152.48,
+        "duration": 3.6,
+        "text": "even after your application is in"
+      },
+      {
+        "start": 154.0,
+        "duration": 3.84,
+        "text": "production and the data model has been"
+      },
+      {
+        "start": 156.08,
+        "duration": 3.6,
+        "text": "in use"
+      },
+      {
+        "start": 157.84,
+        "duration": 3.759,
+        "text": "the first consideration is whether you"
+      },
+      {
+        "start": 159.68,
+        "duration": 2.96,
+        "text": "are using natural or surrogate keys for"
+      },
+      {
+        "start": 161.599,
+        "duration": 2.881,
+        "text": "your table"
+      },
+      {
+        "start": 162.64,
+        "duration": 3.84,
+        "text": "both natural and surrogate keys work"
+      },
+      {
+        "start": 164.48,
+        "duration": 3.36,
+        "text": "fine to uniquely identify your row"
+      },
+      {
+        "start": 166.48,
+        "duration": 3.28,
+        "text": "but when evaluating a potential"
+      },
+      {
+        "start": 167.84,
+        "duration": 3.28,
+        "text": "partition key they do not have the same"
+      },
+      {
+        "start": 169.76,
+        "duration": 3.119,
+        "text": "characteristics"
+      },
+      {
+        "start": 171.12,
+        "duration": 4.0,
+        "text": "the critical point here is really with"
+      },
+      {
+        "start": 172.879,
+        "duration": 3.44,
+        "text": "using a natural key as the partition key"
+      },
+      {
+        "start": 175.12,
+        "duration": 2.96,
+        "text": "this means that the size of the"
+      },
+      {
+        "start": 176.319,
+        "duration": 2.401,
+        "text": "partition is directly related to your"
+      },
+      {
+        "start": 178.08,
+        "duration": 3.04,
+        "text": "data"
+      },
+      {
+        "start": 178.72,
+        "duration": 3.519,
+        "text": "this can be bad if there are no controls"
+      },
+      {
+        "start": 181.12,
+        "duration": 2.56,
+        "text": "set for your data"
+      },
+      {
+        "start": 182.239,
+        "duration": 3.36,
+        "text": "because that means that they can grow"
+      },
+      {
+        "start": 183.68,
+        "duration": 3.36,
+        "text": "much larger than what is recommended for"
+      },
+      {
+        "start": 185.599,
+        "duration": 3.441,
+        "text": "optimal reading"
+      },
+      {
+        "start": 187.04,
+        "duration": 3.36,
+        "text": "for example we previously talked about a"
+      },
+      {
+        "start": 189.04,
+        "duration": 3.36,
+        "text": "videos by user table"
+      },
+      {
+        "start": 190.4,
+        "duration": 3.919,
+        "text": "that contains the information of videos"
+      },
+      {
+        "start": 192.4,
+        "duration": 3.6,
+        "text": "uploaded by different users"
+      },
+      {
+        "start": 194.319,
+        "duration": 3.761,
+        "text": "the partition key for this table would"
+      },
+      {
+        "start": 196.0,
+        "duration": 3.599,
+        "text": "be the user id which happens to be a"
+      },
+      {
+        "start": 198.08,
+        "duration": 3.12,
+        "text": "natural key in this case"
+      },
+      {
+        "start": 199.599,
+        "duration": 3.761,
+        "text": "what would be the consequence if there"
+      },
+      {
+        "start": 201.2,
+        "duration": 3.52,
+        "text": "is one user that uploads as many videos"
+      },
+      {
+        "start": 203.36,
+        "duration": 3.439,
+        "text": "as he possibly can"
+      },
+      {
+        "start": 204.72,
+        "duration": 4.159,
+        "text": "well that means for each video another"
+      },
+      {
+        "start": 206.799,
+        "duration": 4.08,
+        "text": "row is added to the partition identified"
+      },
+      {
+        "start": 208.879,
+        "duration": 3.761,
+        "text": "by that user's user id"
+      },
+      {
+        "start": 210.879,
+        "duration": 3.44,
+        "text": "and the partition will continue to grow"
+      },
+      {
+        "start": 212.64,
+        "duration": 3.28,
+        "text": "theoretically the partition may grow"
+      },
+      {
+        "start": 214.319,
+        "duration": 2.401,
+        "text": "large enough that it eventually becomes"
+      },
+      {
+        "start": 215.92,
+        "duration": 2.48,
+        "text": "a hot spot"
+      },
+      {
+        "start": 216.72,
+        "duration": 3.519,
+        "text": "when carrying for that partition"
+      },
+      {
+        "start": 218.4,
+        "duration": 3.36,
+        "text": "surrogate keys don't have this problem"
+      },
+      {
+        "start": 220.239,
+        "duration": 2.161,
+        "text": "since they are generated for each new"
+      },
+      {
+        "start": 221.76,
+        "duration": 2.8,
+        "text": "row"
+      },
+      {
+        "start": 222.4,
+        "duration": 4.0,
+        "text": "so if using that as a partition key a"
+      },
+      {
+        "start": 224.56,
+        "duration": 2.48,
+        "text": "partition would usually have one row"
+      },
+      {
+        "start": 226.4,
+        "duration": 2.479,
+        "text": "only"
+      },
+      {
+        "start": 227.04,
+        "duration": 3.36,
+        "text": "a bit later we'll take a look at some"
+      },
+      {
+        "start": 228.879,
+        "duration": 3.521,
+        "text": "optimization techniques to split"
+      },
+      {
+        "start": 230.4,
+        "duration": 3.199,
+        "text": "or merge a partition if using a natural"
+      },
+      {
+        "start": 232.4,
+        "duration": 2.88,
+        "text": "key"
+      },
+      {
+        "start": 233.599,
+        "duration": 3.36,
+        "text": "data integrity should always be a"
+      },
+      {
+        "start": 235.28,
+        "duration": 3.36,
+        "text": "priority when handling data"
+      },
+      {
+        "start": 236.959,
+        "duration": 3.761,
+        "text": "and having a good primary key is"
+      },
+      {
+        "start": 238.64,
+        "duration": 3.36,
+        "text": "necessary to avoid upserts in datasets"
+      },
+      {
+        "start": 240.72,
+        "duration": 2.64,
+        "text": "enterprise"
+      },
+      {
+        "start": 242.0,
+        "duration": 3.12,
+        "text": "since that is covered with our mapping"
+      },
+      {
+        "start": 243.36,
+        "duration": 2.64,
+        "text": "rules we don't need to worry about that"
+      },
+      {
+        "start": 245.12,
+        "duration": 2.96,
+        "text": "here"
+      },
+      {
+        "start": 246.0,
+        "duration": 3.76,
+        "text": "however there are other scenarios where"
+      },
+      {
+        "start": 248.08,
+        "duration": 2.879,
+        "text": "we do need to consider the possibility"
+      },
+      {
+        "start": 249.76,
+        "duration": 3.52,
+        "text": "of right conflicts"
+      },
+      {
+        "start": 250.959,
+        "duration": 3.84,
+        "text": "primarily with race conditions the most"
+      },
+      {
+        "start": 253.28,
+        "duration": 3.12,
+        "text": "common type of race condition is when"
+      },
+      {
+        "start": 254.799,
+        "duration": 3.361,
+        "text": "doing a read before a write"
+      },
+      {
+        "start": 256.4,
+        "duration": 3.679,
+        "text": "where the written data is dependent on"
+      },
+      {
+        "start": 258.16,
+        "duration": 4.0,
+        "text": "what was read let's think about the"
+      },
+      {
+        "start": 260.079,
+        "duration": 3.761,
+        "text": "registration system for new users"
+      },
+      {
+        "start": 262.16,
+        "duration": 3.039,
+        "text": "what happens when a new user wants to"
+      },
+      {
+        "start": 263.84,
+        "duration": 3.52,
+        "text": "create an account"
+      },
+      {
+        "start": 265.199,
+        "duration": 4.0,
+        "text": "he or she would select a username and in"
+      },
+      {
+        "start": 267.36,
+        "duration": 3.44,
+        "text": "the background the application will need"
+      },
+      {
+        "start": 269.199,
+        "duration": 3.041,
+        "text": "to check if that username is already"
+      },
+      {
+        "start": 270.8,
+        "duration": 3.52,
+        "text": "being used by someone else"
+      },
+      {
+        "start": 272.24,
+        "duration": 4.08,
+        "text": "well there is a potential race condition"
+      },
+      {
+        "start": 274.32,
+        "duration": 3.439,
+        "text": "if two users simultaneously try to"
+      },
+      {
+        "start": 276.32,
+        "duration": 3.12,
+        "text": "register the same username"
+      },
+      {
+        "start": 277.759,
+        "duration": 3.601,
+        "text": "if the username check happens at the"
+      },
+      {
+        "start": 279.44,
+        "duration": 3.36,
+        "text": "same time and both users are told that"
+      },
+      {
+        "start": 281.36,
+        "duration": 4.24,
+        "text": "the username is available"
+      },
+      {
+        "start": 282.8,
+        "duration": 3.839,
+        "text": "who actually gets a username then data"
+      },
+      {
+        "start": 285.6,
+        "duration": 1.92,
+        "text": "types are also an important"
+      },
+      {
+        "start": 286.639,
+        "duration": 2.961,
+        "text": "consideration"
+      },
+      {
+        "start": 287.52,
+        "duration": 3.76,
+        "text": "on one end we don't want to use a data"
+      },
+      {
+        "start": 289.6,
+        "duration": 3.36,
+        "text": "type that is not accurate enough"
+      },
+      {
+        "start": 291.28,
+        "duration": 4.16,
+        "text": "otherwise we may end up with a loss of"
+      },
+      {
+        "start": 292.96,
+        "duration": 4.4,
+        "text": "precision or even wrong data"
+      },
+      {
+        "start": 295.44,
+        "duration": 4.08,
+        "text": "if you're familiar with the year 2038"
+      },
+      {
+        "start": 297.36,
+        "duration": 4.48,
+        "text": "problem that was an integer overflow"
+      },
+      {
+        "start": 299.52,
+        "duration": 3.92,
+        "text": "issue from using a signed 32-bit integer"
+      },
+      {
+        "start": 301.84,
+        "duration": 4.16,
+        "text": "for storing time stamps"
+      },
+      {
+        "start": 303.44,
+        "duration": 4.88,
+        "text": "and only went up to the year 2038 before"
+      },
+      {
+        "start": 306.0,
+        "duration": 4.08,
+        "text": "reset into the year 1901"
+      },
+      {
+        "start": 308.32,
+        "duration": 3.36,
+        "text": "that doesn't mean you should mindlessly"
+      },
+      {
+        "start": 310.08,
+        "duration": 2.16,
+        "text": "use the largest data type available"
+      },
+      {
+        "start": 311.68,
+        "duration": 2.72,
+        "text": "either"
+      },
+      {
+        "start": 312.24,
+        "duration": 3.28,
+        "text": "remember going from float to double or"
+      },
+      {
+        "start": 314.4,
+        "duration": 2.799,
+        "text": "into bigint"
+      },
+      {
+        "start": 315.52,
+        "duration": 3.28,
+        "text": "effectively doubles the amount of space"
+      },
+      {
+        "start": 317.199,
+        "duration": 3.681,
+        "text": "needed for those values"
+      },
+      {
+        "start": 318.8,
+        "duration": 3.839,
+        "text": "similar to the first consideration there"
+      },
+      {
+        "start": 320.88,
+        "duration": 3.12,
+        "text": "is a point where partitions become large"
+      },
+      {
+        "start": 322.639,
+        "duration": 3.84,
+        "text": "enough to have an impact on"
+      },
+      {
+        "start": 324.0,
+        "duration": 4.0,
+        "text": "performance identify where they exist"
+      },
+      {
+        "start": 326.479,
+        "duration": 3.361,
+        "text": "and avoid creating them"
+      },
+      {
+        "start": 328.0,
+        "duration": 3.759,
+        "text": "data duplication is one of the radical"
+      },
+      {
+        "start": 329.84,
+        "duration": 2.799,
+        "text": "concepts for data modeling in data sex"
+      },
+      {
+        "start": 331.759,
+        "duration": 2.481,
+        "text": "enterprise"
+      },
+      {
+        "start": 332.639,
+        "duration": 3.361,
+        "text": "when it makes sense you'll want to"
+      },
+      {
+        "start": 334.24,
+        "duration": 2.32,
+        "text": "denormalize your data into separate"
+      },
+      {
+        "start": 336.0,
+        "duration": 2.88,
+        "text": "tables"
+      },
+      {
+        "start": 336.56,
+        "duration": 4.88,
+        "text": "to optimize reading this results in"
+      },
+      {
+        "start": 338.88,
+        "duration": 4.4,
+        "text": "duplicate data across multiple tables"
+      },
+      {
+        "start": 341.44,
+        "duration": 3.92,
+        "text": "duplicating data sounds fine for certain"
+      },
+      {
+        "start": 343.28,
+        "duration": 3.359,
+        "text": "tables when it is duplicated two or"
+      },
+      {
+        "start": 345.36,
+        "duration": 2.88,
+        "text": "three times let's say"
+      },
+      {
+        "start": 346.639,
+        "duration": 3.12,
+        "text": "but you should have a limit of how much"
+      },
+      {
+        "start": 348.24,
+        "duration": 3.519,
+        "text": "data you're willing to duplicate"
+      },
+      {
+        "start": 349.759,
+        "duration": 4.0,
+        "text": "for the sake of performance does it make"
+      },
+      {
+        "start": 351.759,
+        "duration": 2.641,
+        "text": "sense to store 10 terabytes data in your"
+      },
+      {
+        "start": 353.759,
+        "duration": 2.641,
+        "text": "cluster"
+      },
+      {
+        "start": 354.4,
+        "duration": 3.84,
+        "text": "when the original data set is only 100"
+      },
+      {
+        "start": 356.4,
+        "duration": 3.519,
+        "text": "gigabytes for example"
+      },
+      {
+        "start": 358.24,
+        "duration": 3.679,
+        "text": "the general recommendation is to avoid"
+      },
+      {
+        "start": 359.919,
+        "duration": 3.761,
+        "text": "client-side joins whenever possible"
+      },
+      {
+        "start": 361.919,
+        "duration": 3.28,
+        "text": "after all datastax enterprise doesn't"
+      },
+      {
+        "start": 363.68,
+        "duration": 2.88,
+        "text": "allow joins in queries"
+      },
+      {
+        "start": 365.199,
+        "duration": 3.601,
+        "text": "so there must be a good reason for that"
+      },
+      {
+        "start": 366.56,
+        "duration": 4.0,
+        "text": "right nevertheless there will always be"
+      },
+      {
+        "start": 368.8,
+        "duration": 3.119,
+        "text": "cases where someone truly believes that"
+      },
+      {
+        "start": 370.56,
+        "duration": 2.72,
+        "text": "they know what the effects of using"
+      },
+      {
+        "start": 371.919,
+        "duration": 3.201,
+        "text": "client-side joins are"
+      },
+      {
+        "start": 373.28,
+        "duration": 3.52,
+        "text": "in their data model there is always"
+      },
+      {
+        "start": 375.12,
+        "duration": 3.28,
+        "text": "going to be a price so make sure you"
+      },
+      {
+        "start": 376.8,
+        "duration": 2.0,
+        "text": "know what that is if you're going to use"
+      },
+      {
+        "start": 378.4,
+        "duration": 2.16,
+        "text": "it"
+      },
+      {
+        "start": 378.8,
+        "duration": 3.839,
+        "text": "what's the latency for these client-side"
+      },
+      {
+        "start": 380.56,
+        "duration": 2.88,
+        "text": "joins how much memory is being used to"
+      },
+      {
+        "start": 382.639,
+        "duration": 2.321,
+        "text": "hold on to"
+      },
+      {
+        "start": 383.44,
+        "duration": 3.28,
+        "text": "intermediate results before the join"
+      },
+      {
+        "start": 384.96,
+        "duration": 3.04,
+        "text": "completes how much data is being"
+      },
+      {
+        "start": 386.72,
+        "duration": 2.16,
+        "text": "transferred from the database to the"
+      },
+      {
+        "start": 388.0,
+        "duration": 2.319,
+        "text": "application"
+      },
+      {
+        "start": 388.88,
+        "duration": 3.439,
+        "text": "will the cost increase as the amount of"
+      },
+      {
+        "start": 390.319,
+        "duration": 3.761,
+        "text": "data increases without getting into the"
+      },
+      {
+        "start": 392.319,
+        "duration": 2.961,
+        "text": "consistency topics we discuss in the"
+      },
+      {
+        "start": 394.08,
+        "duration": 3.36,
+        "text": "foundations class"
+      },
+      {
+        "start": 395.28,
+        "duration": 4.08,
+        "text": "you also need to be mindful of possible"
+      },
+      {
+        "start": 397.44,
+        "duration": 2.8,
+        "text": "data consistency anomalies within your"
+      },
+      {
+        "start": 399.36,
+        "duration": 2.88,
+        "text": "data model"
+      },
+      {
+        "start": 400.24,
+        "duration": 3.679,
+        "text": "particularly if you are duplicating data"
+      },
+      {
+        "start": 402.24,
+        "duration": 4.16,
+        "text": "across multiple tables"
+      },
+      {
+        "start": 403.919,
+        "duration": 4.0,
+        "text": "if you query an entity in one table and"
+      },
+      {
+        "start": 406.4,
+        "duration": 2.96,
+        "text": "then query the same entity in another"
+      },
+      {
+        "start": 407.919,
+        "duration": 3.28,
+        "text": "table with duplicate data"
+      },
+      {
+        "start": 409.36,
+        "duration": 3.52,
+        "text": "will the values actually be the same"
+      },
+      {
+        "start": 411.199,
+        "duration": 3.761,
+        "text": "what if updates for that entity"
+      },
+      {
+        "start": 412.88,
+        "duration": 3.12,
+        "text": "in one table succeeds but fails for a"
+      },
+      {
+        "start": 414.96,
+        "duration": 2.88,
+        "text": "different table"
+      },
+      {
+        "start": 416.0,
+        "duration": 3.919,
+        "text": "what can you do to ensure that all this"
+      },
+      {
+        "start": 417.84,
+        "duration": 3.359,
+        "text": "duplicate data is kept as consistent as"
+      },
+      {
+        "start": 419.919,
+        "duration": 2.881,
+        "text": "possible"
+      },
+      {
+        "start": 421.199,
+        "duration": 3.921,
+        "text": "finally what about transactions and"
+      },
+      {
+        "start": 422.8,
+        "duration": 4.48,
+        "text": "aggregations do you really need them or"
+      },
+      {
+        "start": 425.12,
+        "duration": 4.16,
+        "text": "can the application or business process"
+      },
+      {
+        "start": 427.28,
+        "duration": 4.24,
+        "text": "be changed to accommodate how your data"
+      },
+      {
+        "start": 429.28,
+        "duration": 4.88,
+        "text": "model works in data sex enterprise"
+      },
+      {
+        "start": 431.52,
+        "duration": 4.0,
+        "text": "can udfs or uda's be written to perform"
+      },
+      {
+        "start": 434.16,
+        "duration": 2.8,
+        "text": "the aggregations you need"
+      },
+      {
+        "start": 435.52,
+        "duration": 3.119,
+        "text": "if you are thinking about this for your"
+      },
+      {
+        "start": 436.96,
+        "duration": 3.44,
+        "text": "own domain and application and now"
+      },
+      {
+        "start": 438.639,
+        "duration": 3.441,
+        "text": "realize that there are some concerns"
+      },
+      {
+        "start": 440.4,
+        "duration": 3.519,
+        "text": "that you have about your data model"
+      },
+      {
+        "start": 442.08,
+        "duration": 3.28,
+        "text": "that's good it's always better to be"
+      },
+      {
+        "start": 443.919,
+        "duration": 3.521,
+        "text": "aware and to address this"
+      },
+      {
+        "start": 445.36,
+        "duration": 3.679,
+        "text": "sooner rather than later as i said"
+      },
+      {
+        "start": 447.44,
+        "duration": 2.879,
+        "text": "before we'll be taking a look at some"
+      },
+      {
+        "start": 449.039,
+        "duration": 1.921,
+        "text": "techniques to help address these"
+      },
+      {
+        "start": 450.319,
+        "duration": 2.801,
+        "text": "concerns"
+      },
+      {
+        "start": 450.96,
+        "duration": 3.76,
+        "text": "in later videos you may have worked on"
+      },
+      {
+        "start": 453.12,
+        "duration": 2.72,
+        "text": "your data model for a long time"
+      },
+      {
+        "start": 454.72,
+        "duration": 3.599,
+        "text": "going through the data modeling"
+      },
+      {
+        "start": 455.84,
+        "duration": 4.799,
+        "text": "methodology analysis and validation"
+      },
+      {
+        "start": 458.319,
+        "duration": 3.761,
+        "text": "and all of this optimization tuning and"
+      },
+      {
+        "start": 460.639,
+        "duration": 3.601,
+        "text": "now your application is running in"
+      },
+      {
+        "start": 462.08,
+        "duration": 3.839,
+        "text": "production and works great"
+      },
+      {
+        "start": 464.24,
+        "duration": 4.16,
+        "text": "however that does not mean that your"
+      },
+      {
+        "start": 465.919,
+        "duration": 4.241,
+        "text": "data model will never have to change"
+      },
+      {
+        "start": 468.4,
+        "duration": 3.6,
+        "text": "it's possible that database performance"
+      },
+      {
+        "start": 470.16,
+        "duration": 3.2,
+        "text": "may start to degrade or additional"
+      },
+      {
+        "start": 472.0,
+        "duration": 2.879,
+        "text": "requirements are needed for your"
+      },
+      {
+        "start": 473.36,
+        "duration": 3.279,
+        "text": "application and data model"
+      },
+      {
+        "start": 474.879,
+        "duration": 4.081,
+        "text": "or even the characteristics of your data"
+      },
+      {
+        "start": 476.639,
+        "duration": 4.24,
+        "text": "changes regardless it's always a good"
+      },
+      {
+        "start": 478.96,
+        "duration": 3.76,
+        "text": "idea to revisit the data model"
+      },
+      {
+        "start": 480.879,
+        "duration": 3.521,
+        "text": "review the validation questions and"
+      },
+      {
+        "start": 482.72,
+        "duration": 8.0,
+        "text": "determine if there are reasons to change"
+      },
+      {
+        "start": 484.4,
+        "duration": 6.32,
+        "text": "or improve on the data model"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:45:03.716383+00:00"
+}

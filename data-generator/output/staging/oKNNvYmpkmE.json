@@ -1,0 +1,2411 @@
+{
+  "video_id": "oKNNvYmpkmE",
+  "title": "Distributed Data Show Episode 24: Pre-Aggregation in an Eventually Consistent World with DuyHai Doan",
+  "description": "Luke Tillman and DuyHai Doan talk about why pre-aggregation is difficult on an eventually consistent database like Apache Cassandra, and debate whether the storage engine in Cassandra should be made pluggable.\n\nABOUT DATASTAX ENTERPRISE 5.1\nDataStax Enterprise 5.1, the database platform for cloud applications, includes Apache Cassandra 3.x with materialized views, tiered storage and advanced replication. Introduced in 5.1 is DataStax Enterprise Graph, the first graph database fast enough to power customer-facing applications, scale to massive datasets and integrate advanced tools to power deep analytical queries.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://academy.datastax.com/resources/whats-new-datastax-enterprise-50\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax \nLinkedin: https://www.linkedin.com/company/datastax\nhttp://feeds.feedburner.com/datastax \nhttps://github.com/datastax \n\nABOUT DATASTAX ACADEMY\nOn the DataStax Academy YouTube channel, you can find tutorials, webinars and much more to help you learn and stay updated with the latest information on DataStax Enterprise©.  Create an account on https://academy.datastax.com to watch our free online courses, tutorials, and more.",
+  "published_at": "2017-12-05T16:00:08Z",
+  "thumbnail": "https://i.ytimg.com/vi/oKNNvYmpkmE/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "tutorial",
+    "talk",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=oKNNvYmpkmE",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems welcome to another episode of distributed data show my name is Joe Hayden and today I am with routine man hello everyone so look today we are talking about pre aggregation in an eventually consistent world and that that sounds like a whole bunch of weird buzzwords all kind of mixed together into a sentence I'm pretty sure you just made that up yeah don't worry I will explain everything okay so he said we're gonna talk about pre aggregation in an eventually consistent world so maybe start by explaining to us what do we mean when we talk about the eventual consistency so yes eventual consistency is an distributed design architecture design it is closely related to a masterless architecture right in a masterless architecture you have different copies of your data because in this repeated system to avoid data loss and to be highly available we need to duplicate data this is the basic idea of every distributed system and we do this we do this even with relational databases when we try to miss masters this master/slave kind of is not an area yeah the only difference is in a masterless architecture on your replica strictly equal I mean there is no primary replica no master a picker everything is strictly eco and so the gain from this is you don't have any single point of failure you can write to any replica it doesn't matter but the drawback is now whenever you have inconsistency in your data you don't because you don't have a central point to decide which version of your data is correct you to somehow popo's and land Gorham to resolve the conflict okay so you're saying maybe replicas might disagree on what I find what the current copy of the data is because there's no there's no master that you know that is the one that's sort of in charge of deciding with the latest copy is an area you have to figure out so how do we do that like how do we do that in Cassandra like what's the so so the conflict resolution is done always a treat time okay and in Cassandra we we implement what we call the last fright win and Gorham so the idea is every time you write a piece of data in Cassandra the coordinator of kasama assigned a time stamp to this piece of data which is a metadata the times time is the metadata and we use this myth metadata at 3:00 time and Cassandra will compare time stamp on each replica and we'll take the latest the last right wing right make sense very simple idea so what is the like sort of what is what is the sort of performance implication of putting off that you know like doing the conflict resolution that way like what does that mean as far as performance goes so it means that basically it is very fast to regulator because when you write data you don't care about conflicts or eluphant you just dump data on this and when you are reading data it's another story right you need to compare them some and of course historically Cassandra WA was much faster for writing than for reading but since then we introduced a bunch of data structure on a bloom filter like a primary key indexes so that it makes the the read faster but by design writing will always be a little bit faster than grading right so I just want to point out that when I write data to Cassandra the blah blah blah sound effect makes total sense because most of the time I'm writing cat video data or something equally important but most of you listening out there probably write something more important than cat your data but you know when you're the guy that did killer video for three years this is what you're you know this is what you're stuck with but okay so we know we cannot understand eventual consistency we got it what about aggregation us we're gonna talk about pre aggregation and how we do pre aggregation what does aggregation mean Oh so give us an example of a very simple they finish and by example think about goodbye right goodbye okay so like from from sequel yeah yeah select some of some columns from some table goodbye well whatever goodbye year goodbye date and by the way talking about goodbye yeah I should mention that since Cassandra quit at nine we have the goodbye feature in Cassandra now you can group by our partition key and partition key clustering column of course but not on any arbitrary column and so the idea is when you are using goodbye with Cassandra the new hope I introduced from Cassandra 3.9 it's not very fast why because you need to fetch a lot of data cut you up in fact the grouping is done on the flight when you're reading data so the more you have data to cook by the longer it takes there is no magic there right so the idea of pre aggregation is instead of doing the the grouping or whatever the summing every time why don't we do it at right time so you're saying that the ideal whole idea of pre aggregation is how we're basically trying to solve the problem how do we make it faster because right now it's slow because we do it we do the second exact right time so so right now we don't have pre aggregation implemented in DSC this is Oran or an open source Cassandra this isn't a feature but I know you've had some sort of pie in the sky kind of ideas and I think this is kind of what we wanted to discuss was how would we go about implementing implementing pre aggregation in in DSE or in Cassandra so yeah my original idea was to make kizomba also a reasonable fit for analytic scenario okay that was there the original requirement in fact I was doing is this because aggregation is so it's so common right yeah it's also useful and so I was thinking right we have already the secondary interface the secretary index or interface that hook-up on the right path of Cassandra okay why don't we use it and to duplicate data on another format which is really really good fit for analytics for example what I was thinking about a batch back a data format or even losing the value right the new feature of loosing what's um what's for anybody out there is listening is not familiar what's Apache Parque like what is the medication of storing data in a parking format so parque format is a columnar format and the idea is to to store in south ksama storage engine is row base it means that we are accessing rows anytime every time and the columns star together for each row and with a columnar a data format like parquet in fact it's all the rows for each Oleg sorry all the columns for each Rose I start together right and it is best suited for this the scenario where you want to say select some columns where you put a predicate on those column because we've parquet format you have some a lots of indexing structure to skip reading beta yeah this is really fast it was it has been designed for this so you don't have to read a like in a row format you don't have to read a whole row and ice exactly skip a whole bunch of data that you don't care about in rock a the column values that you carry eggs are all stored together okay so like so you're saying we use this second or maybe we use this secondary index interface that we already have to store just do that data in a second format what like what kind of stuff would we store give this example what looks like a very classic example of time series I can you have a you have a date which is every every piece of data has a timestamp and then you start some values some metadata with your with your sensor so what we want to store for example in this form the new data format is for example the primary key looking like replicate the primary key of the of the base row in Cassandra we can pick some column we want to keep in this new data format we want to collect some matrix oh we can also because we have we we have flexible we have flexibility at right time we can also define pre pre filtering for example I can say oh I want to keep only time series value where the I don't know the temperature is greater than 20 degrees sensors or whatever some sample case is the rain sensor data you know if I was storing time series sensor data where they stored the temperature I might be able to filter on exactly so you have one data structure to store all the temperature between some threshold another data structure on another yeah index to store another threshold for temperature and so on we can think about pre-sorting and pre-soaking because it is very common for people to that they want to group their time sorry by week or by months and then compute the sum the average right so we can also think about pre-computing all those value some min max average median and so on yep so you're saying you're basically saying what that using and this is kind of what I think we did an episode on secondary indexes where they use this this interface for example sazi to flush the index at the same time that the SS table is written so you're saying that we would do this sort of aggregation at that point where we flush the data so we could kind of yeah okay very cool so this sounds the sounds really easy don't it sounds like you've already figured it all out why have we not why haven't we actually gone ahead and done this yet so that was my big surprise when I was thinking about this idea if I can think about this why didn't we implement this I mean you're a little bit of a genius no I'm not so in fact there's a very good reason because remember what I just talked about at the beginning of this later show we are in an eventually consistent world okay which means that we resolve conflicts at which time now let's take an example the Sun suppose you are free a great quick computing the Sun okay so every time you have a new value coming in you just increment the counter right it's a total Sun now let's say that you have three replicas one of the replica has missed some values it means that now the Sun from this replica is different from the other Africa okay and the worst thing is because you don't keep all value you are just keeping the Sun only the aggregated value you cannot know which some is the correct one you don't have the history okay exactly you lose all the history because you and the worst example is min and Max okay because with min and Max if you miss a single right out of 1 million right and by by chance this right is a min jung min is completely wrong right see the idea and in fact the only way to to be accurate and to avoid this kind of inconsistency is that you have to keep all the values yep in all the other values in your data structure but it means you need to start timestamp you need to stop stone stone you need to reemployment the last fragment logic again at this layer so you duplicate again the logic of conflict resolution yep makes total sense so is that sort of the only kind of like problems that we're facing in an eventually consistent world like it's basically we have to go and re-implement sort of the last rate wins or whatever it is or what else what are some of the other like implications of you know what are some other systems for example that would be impacted by you know by having sort of pre aggregated data so the other implication is performance of course because when you are writing right now you are writing the base data in Cassandra you will now you need to also to wait until the data is written in your whatever data structure of analytics and this whatever data structure may not have the same performance care estate characteristic as the SS table which is a lock structure locked structure of mastery so we're talking outright implication write amplification almost here like so you're writing tomorrow but all a multiple of right taking longer because when you write when you are writing to those data structure you may also update some of the internal index of those data structure okay yep so you may build some indexes indices and it takes time yep so that's not the right isn't as cheap as it was which has been for a long time one of the biggest selling points of Cassandra and ESC is that wow we Dana really faster than just appending data uh-huh yes it's no way faster than appending based on disk sure yep so this sounds to me like the sort of what you've proposed with the secondary indexes and using that interface like Oh kinda sounds to me almost like making basically the whole storage engine itself pluggable and I know there's been some debate you know in the past about you know should we shouldn't we so maybe give us like a recap what would like what are the pros and cons of maybe just making the storage engine itself pluggable and what's kind of going on out there in that area so yeah it's a good question recently on the mailing list of Pachuca Samarra there are some people that are telling that they are implementing rocks DB as an alternative story engine so yeah okay it's good the the the the only thing to be careful about is it will impact a lot of Cassandra base code okay and also the architecture because right now when you think about for example the second wind secondary interface right we use because we assume that we are dealing with as a stable and all of its meta meta data now if you you know that it is not necessary as a stable but some data structure from rocks DB it's all it's a whole new story right the same for the read path right the root path right now we have we are using bloom filter we are using partition index index Emery and so on with rocks be rocks VB are another story engine the index structure may be different so it almost becomes like if you can't just do the storage and you kind of have to do the whole read path yeah we we need to re-engineer out read pass to be more like interface make them like interface and very abstract so that we can plug in any implementation we wish and not to leak internal details up to the the repast that's the main challenge and I'm not even mentioning the problem we have with secure because sequel semantics I'm talking about semantics here right is the semantics of secure are closely related to our current storage engine right for example when we talk about support for counters support for collections a partition key clustering column rocks DB is a key value data star right so how do you support the idea of clustering column okay how do you support the idea of collections other counters I'm a little bit concerned when we have different storage engine and we say okay with this storage engine oh we cannot have a collection insecure you cannot use collection you cannot use counter you cannot use clustering column I'm really concerned because now we are breaking our contract to external client right would you change your your storage engine your break your your secret semantics ah not that good kind of reminds me of when when people people implement an interface or something in Java or C sharp and they throw not implemented exceptions for yeah it's like a runtime and which is the worst experience ever so you end up having like a matrix of like okay with this storage engine you can use this this feature with this one this this one feature like crazy matrix of what you can use if you can or not and you didn't even talk about compaction like so for compaction as an example is something that the current current storage engine uses that when I even create when I create a cql table I can set table options let's say well yeah it's like what compaction strategy use does that even a thing you know so the compaction to be honnest the compaction is is very low-level I mean it's at the storage engine level so we can imagine that rocks DB or whatever sorry engine manages its own compaction but on against equal semantics when you say create table with compaction strategy today you can use size here level time windows compaction right yeah tomorrow if you know that you are using rocks maybe you may not be allowed to declare compaction strategies sighs here no sense no sign so it means that you again you are introducing like a kind of compatibility matrix if you are using rocks DB you can use those compaction strategy and then proper block of rock so let me ask you an opinion question kind of the finish up like do you think we'll see you think we'll see like a pre aggregation implementation at some point or our pluggable storage engines or something like that do you think yeah technically it challenging I will not say that it's not doable it feasible it's it's very challenging but I think that because aggregation is so command and so useful today yeah we we may see some kind of implementation of this nature in the future may maybe not using exactly the secondary index interface may be using other mechanism may be a half-track of the the the the right path but yeah we may see something like this in in future oh cool okay well I hope that everyone out there listening or watching has enjoyed our discussion of pre aggregation in an eventually consistent world of course we want to say thank you to do we hi for all your knowledge and we will see you next time on the next episode of the distributed data show thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data Stax Academy and tell us what you think you can also find us on the data Stax Academy YouTube channel or find our podcast on iTunes Google Play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode you [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.37,
+        "duration": 4.11,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.48,
+        "duration": 4.14,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 9.18,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.62,
+        "duration": 9.39,
+        "text": "large-scale distributed systems welcome"
+      },
+      {
+        "start": 17.64,
+        "duration": 4.83,
+        "text": "to another episode of distributed data"
+      },
+      {
+        "start": 20.01,
+        "duration": 5.34,
+        "text": "show my name is Joe Hayden and today I"
+      },
+      {
+        "start": 22.47,
+        "duration": 6.42,
+        "text": "am with routine man hello everyone"
+      },
+      {
+        "start": 25.35,
+        "duration": 6.749,
+        "text": "so look today we are talking about pre"
+      },
+      {
+        "start": 28.89,
+        "duration": 6.87,
+        "text": "aggregation in an eventually consistent"
+      },
+      {
+        "start": 32.099,
+        "duration": 6.78,
+        "text": "world and that that sounds like a whole"
+      },
+      {
+        "start": 35.76,
+        "duration": 5.369,
+        "text": "bunch of weird buzzwords all kind of"
+      },
+      {
+        "start": 38.879,
+        "duration": 3.481,
+        "text": "mixed together into a sentence I'm"
+      },
+      {
+        "start": 41.129,
+        "duration": 3.68,
+        "text": "pretty sure you just made that up yeah"
+      },
+      {
+        "start": 42.36,
+        "duration": 6.33,
+        "text": "don't worry I will explain everything"
+      },
+      {
+        "start": 44.809,
+        "duration": 6.131,
+        "text": "okay so he said we're gonna talk about"
+      },
+      {
+        "start": 48.69,
+        "duration": 4.7,
+        "text": "pre aggregation in an eventually"
+      },
+      {
+        "start": 50.94,
+        "duration": 5.07,
+        "text": "consistent world so maybe start by"
+      },
+      {
+        "start": 53.39,
+        "duration": 5.86,
+        "text": "explaining to us what do we mean when we"
+      },
+      {
+        "start": 56.01,
+        "duration": 8.27,
+        "text": "talk about the eventual consistency so"
+      },
+      {
+        "start": 59.25,
+        "duration": 9.26,
+        "text": "yes eventual consistency is an"
+      },
+      {
+        "start": 64.28,
+        "duration": 7.69,
+        "text": "distributed design architecture design"
+      },
+      {
+        "start": 68.51,
+        "duration": 6.609,
+        "text": "it is closely related to a masterless"
+      },
+      {
+        "start": 71.97,
+        "duration": 5.43,
+        "text": "architecture right in a masterless"
+      },
+      {
+        "start": 75.119,
+        "duration": 4.951,
+        "text": "architecture you have different copies"
+      },
+      {
+        "start": 77.4,
+        "duration": 6.0,
+        "text": "of your data because in this repeated"
+      },
+      {
+        "start": 80.07,
+        "duration": 5.28,
+        "text": "system to avoid data loss and to be"
+      },
+      {
+        "start": 83.4,
+        "duration": 4.02,
+        "text": "highly available we need to duplicate"
+      },
+      {
+        "start": 85.35,
+        "duration": 3.9,
+        "text": "data this is the basic idea of every"
+      },
+      {
+        "start": 87.42,
+        "duration": 3.54,
+        "text": "distributed system and we do this we do"
+      },
+      {
+        "start": 89.25,
+        "duration": 5.25,
+        "text": "this even with relational databases when"
+      },
+      {
+        "start": 90.96,
+        "duration": 6.449,
+        "text": "we try to miss masters this master/slave"
+      },
+      {
+        "start": 94.5,
+        "duration": 5.34,
+        "text": "kind of is not an area yeah the only"
+      },
+      {
+        "start": 97.409,
+        "duration": 5.941,
+        "text": "difference is in a masterless"
+      },
+      {
+        "start": 99.84,
+        "duration": 6.9,
+        "text": "architecture on your replica strictly"
+      },
+      {
+        "start": 103.35,
+        "duration": 5.94,
+        "text": "equal I mean there is no primary replica"
+      },
+      {
+        "start": 106.74,
+        "duration": 5.37,
+        "text": "no master a picker everything is"
+      },
+      {
+        "start": 109.29,
+        "duration": 4.59,
+        "text": "strictly eco and so the gain from this"
+      },
+      {
+        "start": 112.11,
+        "duration": 4.079,
+        "text": "is you don't have any single point of"
+      },
+      {
+        "start": 113.88,
+        "duration": 5.779,
+        "text": "failure you can write to any replica it"
+      },
+      {
+        "start": 116.189,
+        "duration": 6.871,
+        "text": "doesn't matter but the drawback is now"
+      },
+      {
+        "start": 119.659,
+        "duration": 6.64,
+        "text": "whenever you have inconsistency in your"
+      },
+      {
+        "start": 123.06,
+        "duration": 5.94,
+        "text": "data you don't because you don't have a"
+      },
+      {
+        "start": 126.299,
+        "duration": 4.541,
+        "text": "central point to decide which version of"
+      },
+      {
+        "start": 129.0,
+        "duration": 7.33,
+        "text": "your data is correct you"
+      },
+      {
+        "start": 130.84,
+        "duration": 7.619,
+        "text": "to somehow popo's and land Gorham to"
+      },
+      {
+        "start": 136.33,
+        "duration": 4.32,
+        "text": "resolve the conflict okay so you're"
+      },
+      {
+        "start": 138.459,
+        "duration": 4.591,
+        "text": "saying maybe replicas might disagree on"
+      },
+      {
+        "start": 140.65,
+        "duration": 4.199,
+        "text": "what I find what the current copy of the"
+      },
+      {
+        "start": 143.05,
+        "duration": 3.51,
+        "text": "data is because there's no there's no"
+      },
+      {
+        "start": 144.849,
+        "duration": 3.481,
+        "text": "master that you know that is the one"
+      },
+      {
+        "start": 146.56,
+        "duration": 3.45,
+        "text": "that's sort of in charge of deciding"
+      },
+      {
+        "start": 148.33,
+        "duration": 4.68,
+        "text": "with the latest copy is an area you have"
+      },
+      {
+        "start": 150.01,
+        "duration": 4.41,
+        "text": "to figure out so how do we do that like"
+      },
+      {
+        "start": 153.01,
+        "duration": 4.86,
+        "text": "how do we do that in Cassandra like"
+      },
+      {
+        "start": 154.42,
+        "duration": 5.879,
+        "text": "what's the so so the conflict resolution"
+      },
+      {
+        "start": 157.87,
+        "duration": 6.149,
+        "text": "is done always a treat time okay and in"
+      },
+      {
+        "start": 160.299,
+        "duration": 6.151,
+        "text": "Cassandra we we implement what we call"
+      },
+      {
+        "start": 164.019,
+        "duration": 4.591,
+        "text": "the last fright win and Gorham so the"
+      },
+      {
+        "start": 166.45,
+        "duration": 5.34,
+        "text": "idea is every time you write a piece of"
+      },
+      {
+        "start": 168.61,
+        "duration": 5.37,
+        "text": "data in Cassandra the coordinator of"
+      },
+      {
+        "start": 171.79,
+        "duration": 3.99,
+        "text": "kasama assigned a time stamp to this"
+      },
+      {
+        "start": 173.98,
+        "duration": 4.02,
+        "text": "piece of data which is a metadata the"
+      },
+      {
+        "start": 175.78,
+        "duration": 4.56,
+        "text": "times time is the metadata and we use"
+      },
+      {
+        "start": 178.0,
+        "duration": 4.769,
+        "text": "this myth metadata at 3:00 time and"
+      },
+      {
+        "start": 180.34,
+        "duration": 5.28,
+        "text": "Cassandra will compare time stamp on"
+      },
+      {
+        "start": 182.769,
+        "duration": 5.641,
+        "text": "each replica and we'll take the latest"
+      },
+      {
+        "start": 185.62,
+        "duration": 5.399,
+        "text": "the last right wing right make sense"
+      },
+      {
+        "start": 188.41,
+        "duration": 5.549,
+        "text": "very simple idea so what is the like"
+      },
+      {
+        "start": 191.019,
+        "duration": 6.12,
+        "text": "sort of what is what is the sort of"
+      },
+      {
+        "start": 193.959,
+        "duration": 5.641,
+        "text": "performance implication of putting off"
+      },
+      {
+        "start": 197.139,
+        "duration": 4.051,
+        "text": "that you know like doing the conflict"
+      },
+      {
+        "start": 199.6,
+        "duration": 3.87,
+        "text": "resolution that way like what does that"
+      },
+      {
+        "start": 201.19,
+        "duration": 5.1,
+        "text": "mean as far as performance goes so it"
+      },
+      {
+        "start": 203.47,
+        "duration": 4.44,
+        "text": "means that basically it is very fast to"
+      },
+      {
+        "start": 206.29,
+        "duration": 3.569,
+        "text": "regulator because when you write data"
+      },
+      {
+        "start": 207.91,
+        "duration": 6.979,
+        "text": "you don't care about conflicts or"
+      },
+      {
+        "start": 209.859,
+        "duration": 7.321,
+        "text": "eluphant you just dump data on this and"
+      },
+      {
+        "start": 214.889,
+        "duration": 2.771,
+        "text": "when you are reading data it's another"
+      },
+      {
+        "start": 217.18,
+        "duration": 3.809,
+        "text": "story"
+      },
+      {
+        "start": 217.66,
+        "duration": 7.079,
+        "text": "right you need to compare them some and"
+      },
+      {
+        "start": 220.989,
+        "duration": 5.821,
+        "text": "of course historically Cassandra WA was"
+      },
+      {
+        "start": 224.739,
+        "duration": 5.161,
+        "text": "much faster for writing than for reading"
+      },
+      {
+        "start": 226.81,
+        "duration": 4.98,
+        "text": "but since then we introduced a bunch of"
+      },
+      {
+        "start": 229.9,
+        "duration": 5.1,
+        "text": "data structure on a bloom filter like a"
+      },
+      {
+        "start": 231.79,
+        "duration": 7.169,
+        "text": "primary key indexes so that it makes the"
+      },
+      {
+        "start": 235.0,
+        "duration": 6.12,
+        "text": "the read faster but by design writing"
+      },
+      {
+        "start": 238.959,
+        "duration": 4.62,
+        "text": "will always be a little bit faster than"
+      },
+      {
+        "start": 241.12,
+        "duration": 3.959,
+        "text": "grading right so I just want to point"
+      },
+      {
+        "start": 243.579,
+        "duration": 3.421,
+        "text": "out that when I write data to Cassandra"
+      },
+      {
+        "start": 245.079,
+        "duration": 3.24,
+        "text": "the blah blah blah sound effect makes"
+      },
+      {
+        "start": 247.0,
+        "duration": 2.79,
+        "text": "total sense because most of the time I'm"
+      },
+      {
+        "start": 248.319,
+        "duration": 4.021,
+        "text": "writing cat video data or something"
+      },
+      {
+        "start": 249.79,
+        "duration": 3.72,
+        "text": "equally important but most of you"
+      },
+      {
+        "start": 252.34,
+        "duration": 2.53,
+        "text": "listening out there probably write"
+      },
+      {
+        "start": 253.51,
+        "duration": 2.41,
+        "text": "something more important than cat"
+      },
+      {
+        "start": 254.87,
+        "duration": 2.31,
+        "text": "your data but you know when you're the"
+      },
+      {
+        "start": 255.92,
+        "duration": 2.52,
+        "text": "guy that did killer video for three"
+      },
+      {
+        "start": 257.18,
+        "duration": 3.089,
+        "text": "years this is what you're you know this"
+      },
+      {
+        "start": 258.44,
+        "duration": 3.449,
+        "text": "is what you're stuck with but okay so we"
+      },
+      {
+        "start": 260.269,
+        "duration": 3.091,
+        "text": "know we cannot understand eventual"
+      },
+      {
+        "start": 261.889,
+        "duration": 3.391,
+        "text": "consistency we got it"
+      },
+      {
+        "start": 263.36,
+        "duration": 4.32,
+        "text": "what about aggregation us we're gonna"
+      },
+      {
+        "start": 265.28,
+        "duration": 3.81,
+        "text": "talk about pre aggregation and how we do"
+      },
+      {
+        "start": 267.68,
+        "duration": 3.299,
+        "text": "pre aggregation what does aggregation"
+      },
+      {
+        "start": 269.09,
+        "duration": 4.25,
+        "text": "mean Oh"
+      },
+      {
+        "start": 270.979,
+        "duration": 5.761,
+        "text": "so give us an example of a very simple"
+      },
+      {
+        "start": 273.34,
+        "duration": 4.99,
+        "text": "they finish and by example think about"
+      },
+      {
+        "start": 276.74,
+        "duration": 3.72,
+        "text": "goodbye right goodbye"
+      },
+      {
+        "start": 278.33,
+        "duration": 6.63,
+        "text": "okay so like from from sequel yeah yeah"
+      },
+      {
+        "start": 280.46,
+        "duration": 7.26,
+        "text": "select some of some columns from some"
+      },
+      {
+        "start": 284.96,
+        "duration": 5.459,
+        "text": "table goodbye well whatever goodbye year"
+      },
+      {
+        "start": 287.72,
+        "duration": 4.05,
+        "text": "goodbye date and by the way talking"
+      },
+      {
+        "start": 290.419,
+        "duration": 3.991,
+        "text": "about goodbye"
+      },
+      {
+        "start": 291.77,
+        "duration": 4.98,
+        "text": "yeah I should mention that since"
+      },
+      {
+        "start": 294.41,
+        "duration": 5.55,
+        "text": "Cassandra quit at nine we have the"
+      },
+      {
+        "start": 296.75,
+        "duration": 6.15,
+        "text": "goodbye feature in Cassandra now you can"
+      },
+      {
+        "start": 299.96,
+        "duration": 5.82,
+        "text": "group by our partition key and partition"
+      },
+      {
+        "start": 302.9,
+        "duration": 6.81,
+        "text": "key clustering column of course but not"
+      },
+      {
+        "start": 305.78,
+        "duration": 8.13,
+        "text": "on any arbitrary column and so the idea"
+      },
+      {
+        "start": 309.71,
+        "duration": 6.48,
+        "text": "is when you are using goodbye with"
+      },
+      {
+        "start": 313.91,
+        "duration": 5.31,
+        "text": "Cassandra the new hope I introduced from"
+      },
+      {
+        "start": 316.19,
+        "duration": 5.31,
+        "text": "Cassandra 3.9 it's not very fast"
+      },
+      {
+        "start": 319.22,
+        "duration": 4.169,
+        "text": "why because you need to fetch a lot of"
+      },
+      {
+        "start": 321.5,
+        "duration": 4.26,
+        "text": "data cut you up"
+      },
+      {
+        "start": 323.389,
+        "duration": 5.34,
+        "text": "in fact the grouping is done on the"
+      },
+      {
+        "start": 325.76,
+        "duration": 5.67,
+        "text": "flight when you're reading data so the"
+      },
+      {
+        "start": 328.729,
+        "duration": 4.231,
+        "text": "more you have data to cook by the longer"
+      },
+      {
+        "start": 331.43,
+        "duration": 4.919,
+        "text": "it takes there is no magic there right"
+      },
+      {
+        "start": 332.96,
+        "duration": 6.389,
+        "text": "so the idea of pre aggregation is"
+      },
+      {
+        "start": 336.349,
+        "duration": 6.931,
+        "text": "instead of doing the the grouping or"
+      },
+      {
+        "start": 339.349,
+        "duration": 6.661,
+        "text": "whatever the summing every time why"
+      },
+      {
+        "start": 343.28,
+        "duration": 4.5,
+        "text": "don't we do it at right time so you're"
+      },
+      {
+        "start": 346.01,
+        "duration": 3.36,
+        "text": "saying that the ideal whole idea of pre"
+      },
+      {
+        "start": 347.78,
+        "duration": 2.79,
+        "text": "aggregation is how we're basically"
+      },
+      {
+        "start": 349.37,
+        "duration": 2.609,
+        "text": "trying to solve the problem how do we"
+      },
+      {
+        "start": 350.57,
+        "duration": 3.18,
+        "text": "make it faster because right now it's"
+      },
+      {
+        "start": 351.979,
+        "duration": 5.491,
+        "text": "slow because we do it we do the second"
+      },
+      {
+        "start": 353.75,
+        "duration": 5.76,
+        "text": "exact right time so so right now we"
+      },
+      {
+        "start": 357.47,
+        "duration": 4.11,
+        "text": "don't have pre aggregation implemented"
+      },
+      {
+        "start": 359.51,
+        "duration": 4.68,
+        "text": "in DSC this is Oran or an open source"
+      },
+      {
+        "start": 361.58,
+        "duration": 4.2,
+        "text": "Cassandra this isn't a feature but I"
+      },
+      {
+        "start": 364.19,
+        "duration": 4.08,
+        "text": "know you've had some sort of pie in the"
+      },
+      {
+        "start": 365.78,
+        "duration": 3.96,
+        "text": "sky kind of ideas and I think this is"
+      },
+      {
+        "start": 368.27,
+        "duration": 5.3,
+        "text": "kind of what we wanted to discuss was"
+      },
+      {
+        "start": 369.74,
+        "duration": 6.38,
+        "text": "how would we go about implementing"
+      },
+      {
+        "start": 373.57,
+        "duration": 6.48,
+        "text": "implementing pre aggregation in"
+      },
+      {
+        "start": 376.12,
+        "duration": 10.4,
+        "text": "in DSE or in Cassandra so yeah my"
+      },
+      {
+        "start": 380.05,
+        "duration": 9.48,
+        "text": "original idea was to make kizomba also a"
+      },
+      {
+        "start": 386.52,
+        "duration": 3.76,
+        "text": "reasonable fit for analytic scenario"
+      },
+      {
+        "start": 389.53,
+        "duration": 3.359,
+        "text": "okay"
+      },
+      {
+        "start": 390.28,
+        "duration": 4.77,
+        "text": "that was there the original requirement"
+      },
+      {
+        "start": 392.889,
+        "duration": 3.931,
+        "text": "in fact I was doing is this because"
+      },
+      {
+        "start": 395.05,
+        "duration": 5.399,
+        "text": "aggregation is so it's so common right"
+      },
+      {
+        "start": 396.82,
+        "duration": 7.08,
+        "text": "yeah it's also useful and so I was"
+      },
+      {
+        "start": 400.449,
+        "duration": 6.451,
+        "text": "thinking right we have already the"
+      },
+      {
+        "start": 403.9,
+        "duration": 6.57,
+        "text": "secondary interface the secretary index"
+      },
+      {
+        "start": 406.9,
+        "duration": 6.329,
+        "text": "or interface that hook-up on the right"
+      },
+      {
+        "start": 410.47,
+        "duration": 8.37,
+        "text": "path of Cassandra okay why don't we use"
+      },
+      {
+        "start": 413.229,
+        "duration": 8.491,
+        "text": "it and to duplicate data on another"
+      },
+      {
+        "start": 418.84,
+        "duration": 5.79,
+        "text": "format which is really really good fit"
+      },
+      {
+        "start": 421.72,
+        "duration": 5.91,
+        "text": "for analytics for example what I was"
+      },
+      {
+        "start": 424.63,
+        "duration": 5.52,
+        "text": "thinking about a batch back a data"
+      },
+      {
+        "start": 427.63,
+        "duration": 4.89,
+        "text": "format or even losing the value right"
+      },
+      {
+        "start": 430.15,
+        "duration": 4.26,
+        "text": "the new feature of loosing what's um"
+      },
+      {
+        "start": 432.52,
+        "duration": 3.149,
+        "text": "what's for anybody out there is"
+      },
+      {
+        "start": 434.41,
+        "duration": 3.12,
+        "text": "listening is not familiar what's Apache"
+      },
+      {
+        "start": 435.669,
+        "duration": 4.291,
+        "text": "Parque like what is the medication of"
+      },
+      {
+        "start": 437.53,
+        "duration": 5.1,
+        "text": "storing data in a parking format so"
+      },
+      {
+        "start": 439.96,
+        "duration": 8.01,
+        "text": "parque format is a columnar format and"
+      },
+      {
+        "start": 442.63,
+        "duration": 8.22,
+        "text": "the idea is to to store in south"
+      },
+      {
+        "start": 447.97,
+        "duration": 6.06,
+        "text": "ksama storage engine is row base it"
+      },
+      {
+        "start": 450.85,
+        "duration": 7.08,
+        "text": "means that we are accessing rows anytime"
+      },
+      {
+        "start": 454.03,
+        "duration": 7.17,
+        "text": "every time and the columns star together"
+      },
+      {
+        "start": 457.93,
+        "duration": 7.739,
+        "text": "for each row and with a columnar a data"
+      },
+      {
+        "start": 461.2,
+        "duration": 7.529,
+        "text": "format like parquet in fact it's all the"
+      },
+      {
+        "start": 465.669,
+        "duration": 5.011,
+        "text": "rows for each Oleg sorry all the columns"
+      },
+      {
+        "start": 468.729,
+        "duration": 5.821,
+        "text": "for each Rose I start together right and"
+      },
+      {
+        "start": 470.68,
+        "duration": 6.33,
+        "text": "it is best suited for this the scenario"
+      },
+      {
+        "start": 474.55,
+        "duration": 5.01,
+        "text": "where you want to say select some"
+      },
+      {
+        "start": 477.01,
+        "duration": 4.11,
+        "text": "columns where you put a predicate on"
+      },
+      {
+        "start": 479.56,
+        "duration": 4.41,
+        "text": "those column because we've parquet"
+      },
+      {
+        "start": 481.12,
+        "duration": 5.549,
+        "text": "format you have some a lots of indexing"
+      },
+      {
+        "start": 483.97,
+        "duration": 5.129,
+        "text": "structure to skip reading beta yeah this"
+      },
+      {
+        "start": 486.669,
+        "duration": 3.961,
+        "text": "is really fast it was it has been"
+      },
+      {
+        "start": 489.099,
+        "duration": 3.091,
+        "text": "designed for this so you don't have to"
+      },
+      {
+        "start": 490.63,
+        "duration": 2.88,
+        "text": "read a like in a row format you don't"
+      },
+      {
+        "start": 492.19,
+        "duration": 2.94,
+        "text": "have to read a whole row and ice exactly"
+      },
+      {
+        "start": 493.51,
+        "duration": 3.779,
+        "text": "skip a whole bunch of data that you"
+      },
+      {
+        "start": 495.13,
+        "duration": 3.3,
+        "text": "don't care about in rock a the column"
+      },
+      {
+        "start": 497.289,
+        "duration": 3.961,
+        "text": "values that you carry eggs are all"
+      },
+      {
+        "start": 498.43,
+        "duration": 4.5,
+        "text": "stored together okay so like so you're"
+      },
+      {
+        "start": 501.25,
+        "duration": 3.69,
+        "text": "saying we use this second or maybe we"
+      },
+      {
+        "start": 502.93,
+        "duration": 4.47,
+        "text": "use this secondary index"
+      },
+      {
+        "start": 504.94,
+        "duration": 4.38,
+        "text": "interface that we already have to store"
+      },
+      {
+        "start": 507.4,
+        "duration": 3.36,
+        "text": "just do that data in a second format"
+      },
+      {
+        "start": 509.32,
+        "duration": 5.339,
+        "text": "what like what kind of stuff would we"
+      },
+      {
+        "start": 510.76,
+        "duration": 6.99,
+        "text": "store give this example what looks like"
+      },
+      {
+        "start": 514.659,
+        "duration": 6.801,
+        "text": "a very classic example of time series I"
+      },
+      {
+        "start": 517.75,
+        "duration": 7.05,
+        "text": "can you have a you have a date which is"
+      },
+      {
+        "start": 521.46,
+        "duration": 5.17,
+        "text": "every every piece of data has a"
+      },
+      {
+        "start": 524.8,
+        "duration": 5.27,
+        "text": "timestamp and then you start some values"
+      },
+      {
+        "start": 526.63,
+        "duration": 6.33,
+        "text": "some metadata with your with your sensor"
+      },
+      {
+        "start": 530.07,
+        "duration": 5.8,
+        "text": "so what we want to store for example in"
+      },
+      {
+        "start": 532.96,
+        "duration": 5.79,
+        "text": "this form the new data format is for"
+      },
+      {
+        "start": 535.87,
+        "duration": 5.969,
+        "text": "example the primary key looking like"
+      },
+      {
+        "start": 538.75,
+        "duration": 6.93,
+        "text": "replicate the primary key of the of the"
+      },
+      {
+        "start": 541.839,
+        "duration": 5.94,
+        "text": "base row in Cassandra we can pick some"
+      },
+      {
+        "start": 545.68,
+        "duration": 5.37,
+        "text": "column we want to keep in this new data"
+      },
+      {
+        "start": 547.779,
+        "duration": 7.371,
+        "text": "format we want to collect some matrix oh"
+      },
+      {
+        "start": 551.05,
+        "duration": 6.78,
+        "text": "we can also because we have we we have"
+      },
+      {
+        "start": 555.15,
+        "duration": 3.04,
+        "text": "flexible we have flexibility at right"
+      },
+      {
+        "start": 557.83,
+        "duration": 5.22,
+        "text": "time"
+      },
+      {
+        "start": 558.19,
+        "duration": 9.17,
+        "text": "we can also define pre pre filtering for"
+      },
+      {
+        "start": 563.05,
+        "duration": 8.16,
+        "text": "example I can say oh I want to keep only"
+      },
+      {
+        "start": 567.36,
+        "duration": 6.669,
+        "text": "time series value where the I don't know"
+      },
+      {
+        "start": 571.21,
+        "duration": 5.37,
+        "text": "the temperature is greater than 20"
+      },
+      {
+        "start": 574.029,
+        "duration": 4.351,
+        "text": "degrees sensors or whatever some sample"
+      },
+      {
+        "start": 576.58,
+        "duration": 3.69,
+        "text": "case is the rain sensor data you know if"
+      },
+      {
+        "start": 578.38,
+        "duration": 3.3,
+        "text": "I was storing time series sensor data"
+      },
+      {
+        "start": 580.27,
+        "duration": 3.36,
+        "text": "where they stored the temperature I"
+      },
+      {
+        "start": 581.68,
+        "duration": 4.59,
+        "text": "might be able to filter on exactly so"
+      },
+      {
+        "start": 583.63,
+        "duration": 4.77,
+        "text": "you have one data structure to store all"
+      },
+      {
+        "start": 586.27,
+        "duration": 6.47,
+        "text": "the temperature between some threshold"
+      },
+      {
+        "start": 588.4,
+        "duration": 8.309,
+        "text": "another data structure on another yeah"
+      },
+      {
+        "start": 592.74,
+        "duration": 7.05,
+        "text": "index to store another threshold for"
+      },
+      {
+        "start": 596.709,
+        "duration": 4.771,
+        "text": "temperature and so on we can think about"
+      },
+      {
+        "start": 599.79,
+        "duration": 4.299,
+        "text": "pre-sorting and pre-soaking"
+      },
+      {
+        "start": 601.48,
+        "duration": 5.19,
+        "text": "because it is very common for people to"
+      },
+      {
+        "start": 604.089,
+        "duration": 6.471,
+        "text": "that they want to group their time sorry"
+      },
+      {
+        "start": 606.67,
+        "duration": 7.5,
+        "text": "by week or by months and then compute"
+      },
+      {
+        "start": 610.56,
+        "duration": 6.46,
+        "text": "the sum the average right so we can also"
+      },
+      {
+        "start": 614.17,
+        "duration": 11.76,
+        "text": "think about pre-computing all those"
+      },
+      {
+        "start": 617.02,
+        "duration": 11.28,
+        "text": "value some min max average median and so"
+      },
+      {
+        "start": 625.93,
+        "duration": 3.57,
+        "text": "on yep so you're saying you're basically"
+      },
+      {
+        "start": 628.3,
+        "duration": 4.05,
+        "text": "saying what"
+      },
+      {
+        "start": 629.5,
+        "duration": 5.67,
+        "text": "that using and this is kind of what I"
+      },
+      {
+        "start": 632.35,
+        "duration": 4.65,
+        "text": "think we did an episode on secondary"
+      },
+      {
+        "start": 635.17,
+        "duration": 4.62,
+        "text": "indexes where they use this this"
+      },
+      {
+        "start": 637.0,
+        "duration": 4.59,
+        "text": "interface for example sazi to flush the"
+      },
+      {
+        "start": 639.79,
+        "duration": 2.97,
+        "text": "index at the same time that the SS table"
+      },
+      {
+        "start": 641.59,
+        "duration": 2.64,
+        "text": "is written so you're saying that we"
+      },
+      {
+        "start": 642.76,
+        "duration": 3.99,
+        "text": "would do this sort of aggregation at"
+      },
+      {
+        "start": 644.23,
+        "duration": 6.75,
+        "text": "that point where we flush the data so we"
+      },
+      {
+        "start": 646.75,
+        "duration": 7.29,
+        "text": "could kind of yeah okay very cool so"
+      },
+      {
+        "start": 650.98,
+        "duration": 4.68,
+        "text": "this sounds the sounds really easy don't"
+      },
+      {
+        "start": 654.04,
+        "duration": 4.38,
+        "text": "it sounds like you've already figured it"
+      },
+      {
+        "start": 655.66,
+        "duration": 4.73,
+        "text": "all out why have we not why haven't we"
+      },
+      {
+        "start": 658.42,
+        "duration": 4.53,
+        "text": "actually gone ahead and done this yet so"
+      },
+      {
+        "start": 660.39,
+        "duration": 5.8,
+        "text": "that was my big surprise when I was"
+      },
+      {
+        "start": 662.95,
+        "duration": 3.9,
+        "text": "thinking about this idea if I can think"
+      },
+      {
+        "start": 666.19,
+        "duration": 3.06,
+        "text": "about this"
+      },
+      {
+        "start": 666.85,
+        "duration": 4.44,
+        "text": "why didn't we implement this I mean"
+      },
+      {
+        "start": 669.25,
+        "duration": 6.81,
+        "text": "you're a little bit of a genius no I'm"
+      },
+      {
+        "start": 671.29,
+        "duration": 8.34,
+        "text": "not so in fact there's a very good"
+      },
+      {
+        "start": 676.06,
+        "duration": 5.43,
+        "text": "reason because remember what I just"
+      },
+      {
+        "start": 679.63,
+        "duration": 5.43,
+        "text": "talked about at the beginning of this"
+      },
+      {
+        "start": 681.49,
+        "duration": 6.09,
+        "text": "later show we are in an eventually"
+      },
+      {
+        "start": 685.06,
+        "duration": 6.24,
+        "text": "consistent world okay which means that"
+      },
+      {
+        "start": 687.58,
+        "duration": 7.02,
+        "text": "we resolve conflicts at which time now"
+      },
+      {
+        "start": 691.3,
+        "duration": 5.97,
+        "text": "let's take an example the Sun suppose"
+      },
+      {
+        "start": 694.6,
+        "duration": 4.95,
+        "text": "you are free a great quick computing the"
+      },
+      {
+        "start": 697.27,
+        "duration": 5.22,
+        "text": "Sun okay so every time you have a new"
+      },
+      {
+        "start": 699.55,
+        "duration": 6.72,
+        "text": "value coming in you just increment the"
+      },
+      {
+        "start": 702.49,
+        "duration": 7.17,
+        "text": "counter right it's a total Sun now let's"
+      },
+      {
+        "start": 706.27,
+        "duration": 6.84,
+        "text": "say that you have three replicas one of"
+      },
+      {
+        "start": 709.66,
+        "duration": 5.76,
+        "text": "the replica has missed some values it"
+      },
+      {
+        "start": 713.11,
+        "duration": 4.979,
+        "text": "means that now the Sun from this replica"
+      },
+      {
+        "start": 715.42,
+        "duration": 5.16,
+        "text": "is different from the other Africa okay"
+      },
+      {
+        "start": 718.089,
+        "duration": 5.071,
+        "text": "and the worst thing is because you don't"
+      },
+      {
+        "start": 720.58,
+        "duration": 5.73,
+        "text": "keep all value you are just keeping the"
+      },
+      {
+        "start": 723.16,
+        "duration": 6.09,
+        "text": "Sun only the aggregated value you cannot"
+      },
+      {
+        "start": 726.31,
+        "duration": 4.86,
+        "text": "know which some is the correct one you"
+      },
+      {
+        "start": 729.25,
+        "duration": 4.53,
+        "text": "don't have the history okay exactly you"
+      },
+      {
+        "start": 731.17,
+        "duration": 5.79,
+        "text": "lose all the history because you and the"
+      },
+      {
+        "start": 733.78,
+        "duration": 6.57,
+        "text": "worst example is min and Max okay"
+      },
+      {
+        "start": 736.96,
+        "duration": 6.17,
+        "text": "because with min and Max if you miss a"
+      },
+      {
+        "start": 740.35,
+        "duration": 8.01,
+        "text": "single right out of 1 million right and"
+      },
+      {
+        "start": 743.13,
+        "duration": 7.63,
+        "text": "by by chance this right is a min jung"
+      },
+      {
+        "start": 748.36,
+        "duration": 7.47,
+        "text": "min is completely wrong right see the"
+      },
+      {
+        "start": 750.76,
+        "duration": 7.52,
+        "text": "idea and in fact the only way to to be"
+      },
+      {
+        "start": 755.83,
+        "duration": 5.37,
+        "text": "accurate and to avoid this kind of"
+      },
+      {
+        "start": 758.28,
+        "duration": 4.19,
+        "text": "inconsistency is that you have to keep"
+      },
+      {
+        "start": 761.2,
+        "duration": 5.53,
+        "text": "all the values"
+      },
+      {
+        "start": 762.47,
+        "duration": 8.31,
+        "text": "yep in all the other values in your data"
+      },
+      {
+        "start": 766.73,
+        "duration": 6.93,
+        "text": "structure but it means you need to start"
+      },
+      {
+        "start": 770.78,
+        "duration": 5.73,
+        "text": "timestamp you need to stop stone stone"
+      },
+      {
+        "start": 773.66,
+        "duration": 7.29,
+        "text": "you need to reemployment the last"
+      },
+      {
+        "start": 776.51,
+        "duration": 6.81,
+        "text": "fragment logic again at this layer so"
+      },
+      {
+        "start": 780.95,
+        "duration": 4.29,
+        "text": "you duplicate again the logic of"
+      },
+      {
+        "start": 783.32,
+        "duration": 5.76,
+        "text": "conflict resolution yep"
+      },
+      {
+        "start": 785.24,
+        "duration": 7.11,
+        "text": "makes total sense so is that sort of the"
+      },
+      {
+        "start": 789.08,
+        "duration": 5.37,
+        "text": "only kind of like problems that we're"
+      },
+      {
+        "start": 792.35,
+        "duration": 5.48,
+        "text": "facing in an eventually consistent world"
+      },
+      {
+        "start": 794.45,
+        "duration": 5.97,
+        "text": "like it's basically we have to go and"
+      },
+      {
+        "start": 797.83,
+        "duration": 4.0,
+        "text": "re-implement sort of the last rate wins"
+      },
+      {
+        "start": 800.42,
+        "duration": 3.78,
+        "text": "or whatever it is or what else what are"
+      },
+      {
+        "start": 801.83,
+        "duration": 3.87,
+        "text": "some of the other like implications of"
+      },
+      {
+        "start": 804.2,
+        "duration": 4.77,
+        "text": "you know what are some other systems for"
+      },
+      {
+        "start": 805.7,
+        "duration": 6.63,
+        "text": "example that would be impacted by you"
+      },
+      {
+        "start": 808.97,
+        "duration": 6.48,
+        "text": "know by having sort of pre aggregated"
+      },
+      {
+        "start": 812.33,
+        "duration": 6.75,
+        "text": "data so the other implication is"
+      },
+      {
+        "start": 815.45,
+        "duration": 6.54,
+        "text": "performance of course because when you"
+      },
+      {
+        "start": 819.08,
+        "duration": 5.88,
+        "text": "are writing right now you are writing"
+      },
+      {
+        "start": 821.99,
+        "duration": 7.29,
+        "text": "the base data in Cassandra you will now"
+      },
+      {
+        "start": 824.96,
+        "duration": 7.47,
+        "text": "you need to also to wait until the data"
+      },
+      {
+        "start": 829.28,
+        "duration": 7.2,
+        "text": "is written in your whatever data"
+      },
+      {
+        "start": 832.43,
+        "duration": 6.21,
+        "text": "structure of analytics and this whatever"
+      },
+      {
+        "start": 836.48,
+        "duration": 4.31,
+        "text": "data structure may not have the same"
+      },
+      {
+        "start": 838.64,
+        "duration": 5.7,
+        "text": "performance care estate characteristic"
+      },
+      {
+        "start": 840.79,
+        "duration": 7.06,
+        "text": "as the SS table which is a lock"
+      },
+      {
+        "start": 844.34,
+        "duration": 4.98,
+        "text": "structure locked structure of mastery so"
+      },
+      {
+        "start": 847.85,
+        "duration": 3.21,
+        "text": "we're talking outright implication write"
+      },
+      {
+        "start": 849.32,
+        "duration": 3.54,
+        "text": "amplification almost here like so you're"
+      },
+      {
+        "start": 851.06,
+        "duration": 3.96,
+        "text": "writing tomorrow but all a multiple of"
+      },
+      {
+        "start": 852.86,
+        "duration": 4.17,
+        "text": "right taking longer because when you"
+      },
+      {
+        "start": 855.02,
+        "duration": 5.34,
+        "text": "write when you are writing to those data"
+      },
+      {
+        "start": 857.03,
+        "duration": 5.25,
+        "text": "structure you may also update some of"
+      },
+      {
+        "start": 860.36,
+        "duration": 4.92,
+        "text": "the internal index of those data"
+      },
+      {
+        "start": 862.28,
+        "duration": 6.18,
+        "text": "structure okay yep so you may build some"
+      },
+      {
+        "start": 865.28,
+        "duration": 5.13,
+        "text": "indexes indices and it takes time yep"
+      },
+      {
+        "start": 868.46,
+        "duration": 3.93,
+        "text": "so that's not the right isn't as cheap"
+      },
+      {
+        "start": 870.41,
+        "duration": 3.12,
+        "text": "as it was which has been for a long time"
+      },
+      {
+        "start": 872.39,
+        "duration": 3.47,
+        "text": "one of the biggest selling points of"
+      },
+      {
+        "start": 873.53,
+        "duration": 5.39,
+        "text": "Cassandra and ESC is that wow we"
+      },
+      {
+        "start": 875.86,
+        "duration": 3.75,
+        "text": "Dana really faster than just appending"
+      },
+      {
+        "start": 878.92,
+        "duration": 3.18,
+        "text": "data"
+      },
+      {
+        "start": 879.61,
+        "duration": 5.4,
+        "text": "uh-huh yes it's no way faster than"
+      },
+      {
+        "start": 882.1,
+        "duration": 4.5,
+        "text": "appending based on disk sure yep so this"
+      },
+      {
+        "start": 885.01,
+        "duration": 2.759,
+        "text": "sounds to me like the sort of what"
+      },
+      {
+        "start": 886.6,
+        "duration": 3.39,
+        "text": "you've proposed with the secondary"
+      },
+      {
+        "start": 887.769,
+        "duration": 4.26,
+        "text": "indexes and using that interface like Oh"
+      },
+      {
+        "start": 889.99,
+        "duration": 3.779,
+        "text": "kinda sounds to me almost like making"
+      },
+      {
+        "start": 892.029,
+        "duration": 4.951,
+        "text": "basically the whole storage engine"
+      },
+      {
+        "start": 893.769,
+        "duration": 5.791,
+        "text": "itself pluggable and I know there's been"
+      },
+      {
+        "start": 896.98,
+        "duration": 4.65,
+        "text": "some debate you know in the past about"
+      },
+      {
+        "start": 899.56,
+        "duration": 4.44,
+        "text": "you know should we shouldn't we"
+      },
+      {
+        "start": 901.63,
+        "duration": 4.38,
+        "text": "so maybe give us like a recap what would"
+      },
+      {
+        "start": 904.0,
+        "duration": 3.42,
+        "text": "like what are the pros and cons of maybe"
+      },
+      {
+        "start": 906.01,
+        "duration": 2.94,
+        "text": "just making the storage engine itself"
+      },
+      {
+        "start": 907.42,
+        "duration": 4.62,
+        "text": "pluggable and what's kind of going on"
+      },
+      {
+        "start": 908.95,
+        "duration": 4.67,
+        "text": "out there in that area so yeah it's a"
+      },
+      {
+        "start": 912.04,
+        "duration": 5.52,
+        "text": "good question"
+      },
+      {
+        "start": 913.62,
+        "duration": 6.18,
+        "text": "recently on the mailing list of Pachuca"
+      },
+      {
+        "start": 917.56,
+        "duration": 4.709,
+        "text": "Samarra there are some people that are"
+      },
+      {
+        "start": 919.8,
+        "duration": 6.67,
+        "text": "telling that they are implementing rocks"
+      },
+      {
+        "start": 922.269,
+        "duration": 7.411,
+        "text": "DB as an alternative story engine so"
+      },
+      {
+        "start": 926.47,
+        "duration": 6.48,
+        "text": "yeah okay it's good the the the the only"
+      },
+      {
+        "start": 929.68,
+        "duration": 8.969,
+        "text": "thing to be careful about is it will"
+      },
+      {
+        "start": 932.95,
+        "duration": 7.65,
+        "text": "impact a lot of Cassandra base code okay"
+      },
+      {
+        "start": 938.649,
+        "duration": 4.831,
+        "text": "and also the architecture because right"
+      },
+      {
+        "start": 940.6,
+        "duration": 3.81,
+        "text": "now when you think about for example the"
+      },
+      {
+        "start": 943.48,
+        "duration": 3.96,
+        "text": "second wind"
+      },
+      {
+        "start": 944.41,
+        "duration": 6.239,
+        "text": "secondary interface right we use because"
+      },
+      {
+        "start": 947.44,
+        "duration": 8.339,
+        "text": "we assume that we are dealing with as a"
+      },
+      {
+        "start": 950.649,
+        "duration": 8.761,
+        "text": "stable and all of its meta meta data now"
+      },
+      {
+        "start": 955.779,
+        "duration": 5.761,
+        "text": "if you you know that it is not necessary"
+      },
+      {
+        "start": 959.41,
+        "duration": 5.85,
+        "text": "as a stable but some data structure from"
+      },
+      {
+        "start": 961.54,
+        "duration": 7.26,
+        "text": "rocks DB it's all it's a whole new story"
+      },
+      {
+        "start": 965.26,
+        "duration": 5.759,
+        "text": "right the same for the read path right"
+      },
+      {
+        "start": 968.8,
+        "duration": 4.19,
+        "text": "the root path right now we have we are"
+      },
+      {
+        "start": 971.019,
+        "duration": 5.781,
+        "text": "using bloom filter we are using"
+      },
+      {
+        "start": 972.99,
+        "duration": 7.27,
+        "text": "partition index index Emery and so on"
+      },
+      {
+        "start": 976.8,
+        "duration": 6.31,
+        "text": "with rocks be rocks VB are another story"
+      },
+      {
+        "start": 980.26,
+        "duration": 4.65,
+        "text": "engine the index structure may be"
+      },
+      {
+        "start": 983.11,
+        "duration": 3.63,
+        "text": "different so it almost becomes like if"
+      },
+      {
+        "start": 984.91,
+        "duration": 3.48,
+        "text": "you can't just do the storage and you"
+      },
+      {
+        "start": 986.74,
+        "duration": 6.27,
+        "text": "kind of have to do the whole read path"
+      },
+      {
+        "start": 988.39,
+        "duration": 8.52,
+        "text": "yeah we we need to re-engineer out read"
+      },
+      {
+        "start": 993.01,
+        "duration": 6.87,
+        "text": "pass to be more like interface make them"
+      },
+      {
+        "start": 996.91,
+        "duration": 7.26,
+        "text": "like interface and very abstract so that"
+      },
+      {
+        "start": 999.88,
+        "duration": 8.04,
+        "text": "we can plug in any implementation we"
+      },
+      {
+        "start": 1004.17,
+        "duration": 4.96,
+        "text": "wish and not to leak internal details up"
+      },
+      {
+        "start": 1007.92,
+        "duration": 3.43,
+        "text": "to the"
+      },
+      {
+        "start": 1009.13,
+        "duration": 6.6,
+        "text": "the repast that's the main challenge and"
+      },
+      {
+        "start": 1011.35,
+        "duration": 6.75,
+        "text": "I'm not even mentioning the problem we"
+      },
+      {
+        "start": 1015.73,
+        "duration": 5.01,
+        "text": "have with secure because sequel"
+      },
+      {
+        "start": 1018.1,
+        "duration": 6.15,
+        "text": "semantics I'm talking about semantics"
+      },
+      {
+        "start": 1020.74,
+        "duration": 6.21,
+        "text": "here right is the semantics of secure"
+      },
+      {
+        "start": 1024.25,
+        "duration": 5.25,
+        "text": "are closely related to our current"
+      },
+      {
+        "start": 1026.95,
+        "duration": 6.27,
+        "text": "storage engine right for example when we"
+      },
+      {
+        "start": 1029.5,
+        "duration": 8.04,
+        "text": "talk about support for counters support"
+      },
+      {
+        "start": 1033.22,
+        "duration": 6.93,
+        "text": "for collections a partition key"
+      },
+      {
+        "start": 1037.54,
+        "duration": 5.79,
+        "text": "clustering column rocks DB is a key"
+      },
+      {
+        "start": 1040.15,
+        "duration": 5.1,
+        "text": "value data star right so how do you"
+      },
+      {
+        "start": 1043.33,
+        "duration": 4.56,
+        "text": "support the idea of clustering column"
+      },
+      {
+        "start": 1045.25,
+        "duration": 6.27,
+        "text": "okay how do you support the idea of"
+      },
+      {
+        "start": 1047.89,
+        "duration": 7.23,
+        "text": "collections other counters I'm a little"
+      },
+      {
+        "start": 1051.52,
+        "duration": 6.63,
+        "text": "bit concerned when we have different"
+      },
+      {
+        "start": 1055.12,
+        "duration": 6.33,
+        "text": "storage engine and we say okay with this"
+      },
+      {
+        "start": 1058.15,
+        "duration": 5.91,
+        "text": "storage engine oh we cannot have a"
+      },
+      {
+        "start": 1061.45,
+        "duration": 4.83,
+        "text": "collection insecure you cannot use"
+      },
+      {
+        "start": 1064.06,
+        "duration": 5.25,
+        "text": "collection you cannot use counter you"
+      },
+      {
+        "start": 1066.28,
+        "duration": 4.98,
+        "text": "cannot use clustering column I'm really"
+      },
+      {
+        "start": 1069.31,
+        "duration": 4.41,
+        "text": "concerned because now we are breaking"
+      },
+      {
+        "start": 1071.26,
+        "duration": 4.05,
+        "text": "our contract to external client right"
+      },
+      {
+        "start": 1073.72,
+        "duration": 3.15,
+        "text": "would you change your your storage"
+      },
+      {
+        "start": 1075.31,
+        "duration": 3.81,
+        "text": "engine your break your your secret"
+      },
+      {
+        "start": 1076.87,
+        "duration": 4.26,
+        "text": "semantics ah not that good kind of"
+      },
+      {
+        "start": 1079.12,
+        "duration": 3.63,
+        "text": "reminds me of when when people people"
+      },
+      {
+        "start": 1081.13,
+        "duration": 3.0,
+        "text": "implement an interface or something in"
+      },
+      {
+        "start": 1082.75,
+        "duration": 4.14,
+        "text": "Java or C sharp and they throw not"
+      },
+      {
+        "start": 1084.13,
+        "duration": 4.53,
+        "text": "implemented exceptions for yeah it's"
+      },
+      {
+        "start": 1086.89,
+        "duration": 4.2,
+        "text": "like a runtime and which is the worst"
+      },
+      {
+        "start": 1088.66,
+        "duration": 5.1,
+        "text": "experience ever so you end up having"
+      },
+      {
+        "start": 1091.09,
+        "duration": 4.17,
+        "text": "like a matrix of like okay with this"
+      },
+      {
+        "start": 1093.76,
+        "duration": 3.81,
+        "text": "storage engine you can use this this"
+      },
+      {
+        "start": 1095.26,
+        "duration": 4.71,
+        "text": "feature with this one this this one"
+      },
+      {
+        "start": 1097.57,
+        "duration": 4.17,
+        "text": "feature like crazy matrix of what you"
+      },
+      {
+        "start": 1099.97,
+        "duration": 3.48,
+        "text": "can use if you can or not and you didn't"
+      },
+      {
+        "start": 1101.74,
+        "duration": 3.51,
+        "text": "even talk about compaction like so for"
+      },
+      {
+        "start": 1103.45,
+        "duration": 3.18,
+        "text": "compaction as an example is something"
+      },
+      {
+        "start": 1105.25,
+        "duration": 3.93,
+        "text": "that the current current storage engine"
+      },
+      {
+        "start": 1106.63,
+        "duration": 4.47,
+        "text": "uses that when I even create when I"
+      },
+      {
+        "start": 1109.18,
+        "duration": 3.24,
+        "text": "create a cql table I can set table"
+      },
+      {
+        "start": 1111.1,
+        "duration": 2.85,
+        "text": "options let's say well yeah it's like"
+      },
+      {
+        "start": 1112.42,
+        "duration": 3.06,
+        "text": "what compaction strategy use does that"
+      },
+      {
+        "start": 1113.95,
+        "duration": 2.55,
+        "text": "even a thing you know so the compaction"
+      },
+      {
+        "start": 1115.48,
+        "duration": 5.91,
+        "text": "to be honnest"
+      },
+      {
+        "start": 1116.5,
+        "duration": 7.56,
+        "text": "the compaction is is very low-level"
+      },
+      {
+        "start": 1121.39,
+        "duration": 4.95,
+        "text": "I mean it's at the storage engine level"
+      },
+      {
+        "start": 1124.06,
+        "duration": 5.19,
+        "text": "so we can imagine that rocks DB or"
+      },
+      {
+        "start": 1126.34,
+        "duration": 6.89,
+        "text": "whatever sorry engine manages its own"
+      },
+      {
+        "start": 1129.25,
+        "duration": 9.21,
+        "text": "compaction but on against equal"
+      },
+      {
+        "start": 1133.23,
+        "duration": 7.75,
+        "text": "semantics when you say create table with"
+      },
+      {
+        "start": 1138.46,
+        "duration": 5.01,
+        "text": "compaction strategy today you can use"
+      },
+      {
+        "start": 1140.98,
+        "duration": 4.439,
+        "text": "size here level"
+      },
+      {
+        "start": 1143.47,
+        "duration": 4.319,
+        "text": "time windows compaction right yeah"
+      },
+      {
+        "start": 1145.419,
+        "duration": 4.5,
+        "text": "tomorrow if you know that you are using"
+      },
+      {
+        "start": 1147.789,
+        "duration": 4.941,
+        "text": "rocks maybe you may not be allowed to"
+      },
+      {
+        "start": 1149.919,
+        "duration": 5.88,
+        "text": "declare compaction strategies sighs here"
+      },
+      {
+        "start": 1152.73,
+        "duration": 5.11,
+        "text": "no sense no sign so it means that you"
+      },
+      {
+        "start": 1155.799,
+        "duration": 4.201,
+        "text": "again you are introducing like a kind of"
+      },
+      {
+        "start": 1157.84,
+        "duration": 5.069,
+        "text": "compatibility matrix if you are using"
+      },
+      {
+        "start": 1160.0,
+        "duration": 4.74,
+        "text": "rocks DB you can use those compaction"
+      },
+      {
+        "start": 1162.909,
+        "duration": 3.51,
+        "text": "strategy and then proper block of rock"
+      },
+      {
+        "start": 1164.74,
+        "duration": 3.27,
+        "text": "so let me ask you an opinion question"
+      },
+      {
+        "start": 1166.419,
+        "duration": 4.38,
+        "text": "kind of the finish up like do you think"
+      },
+      {
+        "start": 1168.01,
+        "duration": 4.77,
+        "text": "we'll see you think we'll see like a pre"
+      },
+      {
+        "start": 1170.799,
+        "duration": 4.321,
+        "text": "aggregation implementation at some point"
+      },
+      {
+        "start": 1172.78,
+        "duration": 2.97,
+        "text": "or our pluggable storage engines or"
+      },
+      {
+        "start": 1175.12,
+        "duration": 5.309,
+        "text": "something like that"
+      },
+      {
+        "start": 1175.75,
+        "duration": 9.78,
+        "text": "do you think yeah technically it"
+      },
+      {
+        "start": 1180.429,
+        "duration": 8.011,
+        "text": "challenging I will not say that it's not"
+      },
+      {
+        "start": 1185.53,
+        "duration": 6.33,
+        "text": "doable it feasible it's it's very"
+      },
+      {
+        "start": 1188.44,
+        "duration": 6.27,
+        "text": "challenging but I think that because"
+      },
+      {
+        "start": 1191.86,
+        "duration": 6.33,
+        "text": "aggregation is so command and so useful"
+      },
+      {
+        "start": 1194.71,
+        "duration": 6.15,
+        "text": "today yeah we we may see some kind of"
+      },
+      {
+        "start": 1198.19,
+        "duration": 6.54,
+        "text": "implementation of this nature in the"
+      },
+      {
+        "start": 1200.86,
+        "duration": 5.97,
+        "text": "future may maybe not using exactly the"
+      },
+      {
+        "start": 1204.73,
+        "duration": 4.47,
+        "text": "secondary index interface may be using"
+      },
+      {
+        "start": 1206.83,
+        "duration": 5.67,
+        "text": "other mechanism may be a half-track of"
+      },
+      {
+        "start": 1209.2,
+        "duration": 5.4,
+        "text": "the the the the right path but yeah we"
+      },
+      {
+        "start": 1212.5,
+        "duration": 6.12,
+        "text": "may see something like this in in future"
+      },
+      {
+        "start": 1214.6,
+        "duration": 5.43,
+        "text": "oh cool okay well I hope that everyone"
+      },
+      {
+        "start": 1218.62,
+        "duration": 3.929,
+        "text": "out there listening or watching has"
+      },
+      {
+        "start": 1220.03,
+        "duration": 4.32,
+        "text": "enjoyed our discussion of pre"
+      },
+      {
+        "start": 1222.549,
+        "duration": 3.75,
+        "text": "aggregation in an eventually consistent"
+      },
+      {
+        "start": 1224.35,
+        "duration": 4.439,
+        "text": "world of course we want to say thank you"
+      },
+      {
+        "start": 1226.299,
+        "duration": 4.981,
+        "text": "to do we hi for all your knowledge and"
+      },
+      {
+        "start": 1228.789,
+        "duration": 5.481,
+        "text": "we will see you next time on the next"
+      },
+      {
+        "start": 1231.28,
+        "duration": 5.22,
+        "text": "episode of the distributed data show"
+      },
+      {
+        "start": 1234.27,
+        "duration": 4.269,
+        "text": "thank you for joining us again for the"
+      },
+      {
+        "start": 1236.5,
+        "duration": 3.72,
+        "text": "distributed data show we love your"
+      },
+      {
+        "start": 1238.539,
+        "duration": 3.721,
+        "text": "feedback so go to the distributed data"
+      },
+      {
+        "start": 1240.22,
+        "duration": 3.87,
+        "text": "show page on data Stax Academy and tell"
+      },
+      {
+        "start": 1242.26,
+        "duration": 3.659,
+        "text": "us what you think you can also find us"
+      },
+      {
+        "start": 1244.09,
+        "duration": 4.319,
+        "text": "on the data Stax Academy YouTube channel"
+      },
+      {
+        "start": 1245.919,
+        "duration": 4.861,
+        "text": "or find our podcast on iTunes Google"
+      },
+      {
+        "start": 1248.409,
+        "duration": 4.351,
+        "text": "Play or wherever you get great podcast"
+      },
+      {
+        "start": 1250.78,
+        "duration": 3.42,
+        "text": "while you're there make sure and"
+      },
+      {
+        "start": 1252.76,
+        "duration": 3.04,
+        "text": "subscribe so you don't miss a single"
+      },
+      {
+        "start": 1254.2,
+        "duration": 2.12,
+        "text": "episode"
+      },
+      {
+        "start": 1255.8,
+        "duration": 3.63,
+        "text": "you"
+      },
+      {
+        "start": 1256.32,
+        "duration": 3.11,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T07:03:35.057087+00:00"
+}

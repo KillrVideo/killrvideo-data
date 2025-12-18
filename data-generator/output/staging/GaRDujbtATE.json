@@ -1,0 +1,1791 @@
+{
+  "video_id": "GaRDujbtATE",
+  "title": "DS310.33 Trouble Shooting Slow Queries | DataStax Enterprise 6 Search",
+  "description": "#DataStaxAcademy #DS310\nDS310.33 Trouble Shooting Slow Queries\nIn this section we will see several different methods to troubleshoot slow queries and isolate the part of the query execution that may cause its performance to drop.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-15T20:55:32Z",
+  "thumbnail": "https://i.ytimg.com/vi/GaRDujbtATE/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "search",
+    "tutorial",
+    "apache_cassandra",
+    "query",
+    "performance",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=GaRDujbtATE",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] i'm joe chu and this is troubleshooting slow queries we try to avoid talking too much about operations in this course but when it comes to slow queries i think every developer will want to know if a query is running slow and why in this video we'll be going through several different methods to troubleshoot slow queries and isolate what part of the query is causing the performance to drop to start it is important to remember that pure cql queries and search queries do not perform the same there has been misconceptions that search queries can somehow be faster due to the use of indexes there should also not be any expectations of search queries to be able to consistently run at the same performance level as cassandra referring back to the read path there are already extra steps that are done in a search query one of them already being to read road data from cassandra this is partly one reason why dlc search is called near real time however the meaning of near real time can change depending on who you ask fortunately it should never be as bad as a batch job or a complex join query however it may not necessarily be a query that return results without a noticeable delay the important thing is whether or not it meets your expectations and slas and if it does then whatever it's called doesn't even matter there are a number of external factors that can influence the actual speed of a search query the number of cpu cores disk speeds data cached in memory network bandwidth and latency configuration and settings noisy neighbors etc if query performance isn't your satisfaction there is almost always something that you can blame so just how fast are search queries well without getting into the external factors again it can be said that they typically run anywhere between tens of milliseconds and up to about two seconds on average queries that take longer than a few seconds to complete would be sufficiently slow enough to further investigate if needed one of the staple tools for troubleshooting is the cql traces that are saved during the execution of a cql query although these are primarily meant to trace the various parts of the read and write path for cassandra queries there are traces related to dsc search and can be used to approximate the amount of time spent going through the search index and of course how long the cql query took to run overall in the tiny example traces that you see here there's an obvious trace activity that indicates work done from dsc search this is the line that says process response from shard 172.31.28.32 colon 8609 solar slash killer video.videos etc etc the source elapsed value for this is 71470 which indicates that it took about 71 milliseconds for the index to be read and searched results returned the later traces are actually retrieving road data based on unique ids provided by the search result and the entire request completed at 121 537 or about 121 milliseconds this illustrates that the majority of the time spent for the search query was spent reading the index cql tracing is available from all the major cql clients including cql shell dataset studio and the datasex drivers instructions for enabling tracing may vary but for sql shell this can be easily done by executing the command tracing on another great troubleshooting tool can be found in dsc search and is the query name parameter that can be added to a search query this can only be done with the json search query but when used dlc search will then be able to collect and aggregate certain metrics for all the executed queries that use the same query name in the example below we have a search query that is searching for documents with the term terminator in the title field and a query name set to arnold the query metrics are exposed through the jmx query metrics endbean which we'll take a look at next to read the metrics that are made available by the querymetrics mbean you can use any jmx compatible client such as jconsole or visual bm both which can be found in the java development kit or jdk datastax enterprise also has a special function built into the nodetool command line to utility called sjk or swiss java knife that can read these end beans accessing the m bean requires a specific domain com.datasex.mdp and a key property list that includes the keys type being set to search index set to the name of the search index and the name being query metrics the examples show two different uses of the nodetool sjk mx command which accesses the ambient the first uses the mg flag to retrieve statistics that are available as an attribute the second example has the dash mc flag to invoke an mbean method there are several n-beam methods that provide useful performance metrics including latency counts latency percentile and average latency latency values provided are in microseconds and can also be split up by the individual read path phases there are four phases that are saved with the first one being coordinate this would be the total amount of time spent by the node to distribute the query and to gather and process results from the shards when it has the role of the coordinator for a search query this value will be computed only on nodes that do coordinate queries and the value is always zero if there is only one search node another phase is execute which is the time spent by the node to read the index for a search query the retrieved base represents the time spent by a node to retrieve data from cassandra when using the http api for search queries if using cql no metrics will be saved finally the enqueue phase is the time spent waiting for a thread to execute the search query not listed here is a total phase which contains the total server-side latency for a search query and is the sum of both the coordinate and the enqueue latency the latency counts can be retrieved with an ambient operation called get recorded latency count and requires two arguments the name of the phase you want to retrieve the latency count for and the query name that was used when executing the search query the example below shows using the nodetool sjk mx command to get the latency count for the execute base and for the search queries with the query name arnold in this case there are 50 query executions that were recorded with this query name the end bean operation get latency percentile can be used to retrieve the highest latency time for a specific percentile of search queries executed the arguments for this operation is again the phase and the query name but will also include the percentile rank which is an integer representing the percentage following our previous example we are now trying to get the highest latency among 90 of the queries executed which we have found previously to have a sample size of 50. in this command we are still getting the latency for the execute base here we see that 90 of the executed search queries were able to complete the execute base within 3075 microseconds or 3 milliseconds the last end beam operation that we'll be covering here is the get average latency operation this operation will retrieve the mean latency across all the recorded query executions again taking in the phase and the query name as the arguments our example again is using the execute base and the arnold query name and returns an average latency of 527 microseconds again the result may sound strange but this is only one phase out of the several for a search query a great way to proactively monitor search query performance is with the cql slow log that's available in the dsc performance service with the cql slow log dse will record all cql queries that run for longer than a set threshold in cassandra under the dsc prep dot node slow log table the slowest queries for each node can also be kept in memory and reviewed using the dsc tool command line tool making changes to the cql slow log including enabling the log can be done in the dsc.yaml file among the changes that you can make include changing the threshold that determines if a query will get logged the minimum number of samples needed before logging queries the amount of time a record stays on the log table whether the log will also be kept in memory or saved to the database and the number of entries to keep in memory note that for the threshold setting any value greater than 1 is assumed to be in milliseconds and a value less than 1 is a percentile for example if the threshold is set to 0.9 that means that any query that runs slower than 90 of the queries will be logged another useful feature is the ability to temporarily make changes to the cql slow log settings using the dsc tool perf cql slow log command these are all the same settings that you can change in the dsc.yaml file but the changes made here will only be applicable until the next time dsc starts up on the node when it reverts back to the settings in the dc.yaml another useful log from the dlc performance service is the solar slow subquery log this is a search specific log that keeps track of subqueries that runs on the local node which runs longer than the specified threshold although it doesn't completely cover the execution of a search query the ability to drill down to the individual parts of the read path on the search side can be useful to find performance bottlenecks when a slow sub query triggers logging information about that subquery will be saved for a set amount of time in the database under dsc per dot solar slow subquery log here only a snippet of the information logged about the subquery is shown in the screenshot the elapsed millis shown here contains the amount of time the subquery needed to execute and there are other additional columns not shown here that breaks down the execution time between the prepared phase and the process phase of the read path otherwise other potentially helpful information about the subquery is also logged the number of documents found the ip of the coordinator for the subquery and the parameters used for the subquery like the other log we just saw the solar slow sub query log is configured in the dsc.yaml file there are fewer settings here but you are able to tune the amount of time needed to trigger logging how long logs will stay in the database and how many concurrent writes that can be made to the log the dse tool solar slow log command can also make temporary changes to the solar slow sub query log settings as well and can temporarily enable or disable logging or to change the threshold value again changes stay in effect until the next time dsc starts up reverting back to the settings in the dlc.aml there are even more performance objects that are available with the dsc performance service as shown in this table all the logs and performance objects are disabled by default and you should not necessarily be enabling every one of them if you do notice performance issues take a look and see which of these might be useful to help troubleshoot and temporarily enable them to collect statistics refer to the data stacks documentation for more details about each of these performance objects we are at the end of another video and the reward is another exercise to do go and do this exercise before continuing on",
+    "segments": [
+      {
+        "start": 2.13,
+        "duration": 2.669,
+        "text": "[Music]"
+      },
+      {
+        "start": 3.919,
+        "duration": 3.201,
+        "text": "i'm joe chu"
+      },
+      {
+        "start": 4.799,
+        "duration": 4.001,
+        "text": "and this is troubleshooting slow queries"
+      },
+      {
+        "start": 7.12,
+        "duration": 3.12,
+        "text": "we try to avoid talking too much about"
+      },
+      {
+        "start": 8.8,
+        "duration": 3.2,
+        "text": "operations in this course"
+      },
+      {
+        "start": 10.24,
+        "duration": 3.439,
+        "text": "but when it comes to slow queries i"
+      },
+      {
+        "start": 12.0,
+        "duration": 3.12,
+        "text": "think every developer will want to know"
+      },
+      {
+        "start": 13.679,
+        "duration": 3.44,
+        "text": "if a query is running slow"
+      },
+      {
+        "start": 15.12,
+        "duration": 3.36,
+        "text": "and why in this video we'll be going"
+      },
+      {
+        "start": 17.119,
+        "duration": 2.721,
+        "text": "through several different methods to"
+      },
+      {
+        "start": 18.48,
+        "duration": 2.959,
+        "text": "troubleshoot slow queries"
+      },
+      {
+        "start": 19.84,
+        "duration": 3.12,
+        "text": "and isolate what part of the query is"
+      },
+      {
+        "start": 21.439,
+        "duration": 3.521,
+        "text": "causing the performance to drop"
+      },
+      {
+        "start": 22.96,
+        "duration": 3.44,
+        "text": "to start it is important to remember"
+      },
+      {
+        "start": 24.96,
+        "duration": 2.88,
+        "text": "that pure cql queries"
+      },
+      {
+        "start": 26.4,
+        "duration": 3.119,
+        "text": "and search queries do not perform the"
+      },
+      {
+        "start": 27.84,
+        "duration": 3.439,
+        "text": "same there has been"
+      },
+      {
+        "start": 29.519,
+        "duration": 3.441,
+        "text": "misconceptions that search queries can"
+      },
+      {
+        "start": 31.279,
+        "duration": 2.481,
+        "text": "somehow be faster due to the use of"
+      },
+      {
+        "start": 32.96,
+        "duration": 2.16,
+        "text": "indexes"
+      },
+      {
+        "start": 33.76,
+        "duration": 3.2,
+        "text": "there should also not be any"
+      },
+      {
+        "start": 35.12,
+        "duration": 3.279,
+        "text": "expectations of search queries to be"
+      },
+      {
+        "start": 36.96,
+        "duration": 2.56,
+        "text": "able to consistently run"
+      },
+      {
+        "start": 38.399,
+        "duration": 2.961,
+        "text": "at the same performance level as"
+      },
+      {
+        "start": 39.52,
+        "duration": 2.32,
+        "text": "cassandra referring back to the read"
+      },
+      {
+        "start": 41.36,
+        "duration": 2.24,
+        "text": "path"
+      },
+      {
+        "start": 41.84,
+        "duration": 3.12,
+        "text": "there are already extra steps that are"
+      },
+      {
+        "start": 43.6,
+        "duration": 3.2,
+        "text": "done in a search query"
+      },
+      {
+        "start": 44.96,
+        "duration": 3.439,
+        "text": "one of them already being to read road"
+      },
+      {
+        "start": 46.8,
+        "duration": 3.759,
+        "text": "data from cassandra"
+      },
+      {
+        "start": 48.399,
+        "duration": 3.84,
+        "text": "this is partly one reason why dlc search"
+      },
+      {
+        "start": 50.559,
+        "duration": 3.281,
+        "text": "is called near real time"
+      },
+      {
+        "start": 52.239,
+        "duration": 3.84,
+        "text": "however the meaning of near real time"
+      },
+      {
+        "start": 53.84,
+        "duration": 4.0,
+        "text": "can change depending on who you ask"
+      },
+      {
+        "start": 56.079,
+        "duration": 3.921,
+        "text": "fortunately it should never be as bad as"
+      },
+      {
+        "start": 57.84,
+        "duration": 2.8,
+        "text": "a batch job or a complex join query"
+      },
+      {
+        "start": 60.0,
+        "duration": 2.559,
+        "text": "however"
+      },
+      {
+        "start": 60.64,
+        "duration": 3.68,
+        "text": "it may not necessarily be a query that"
+      },
+      {
+        "start": 62.559,
+        "duration": 2.32,
+        "text": "return results without a noticeable"
+      },
+      {
+        "start": 64.32,
+        "duration": 2.08,
+        "text": "delay"
+      },
+      {
+        "start": 64.879,
+        "duration": 3.681,
+        "text": "the important thing is whether or not it"
+      },
+      {
+        "start": 66.4,
+        "duration": 4.16,
+        "text": "meets your expectations and slas"
+      },
+      {
+        "start": 68.56,
+        "duration": 3.04,
+        "text": "and if it does then whatever it's called"
+      },
+      {
+        "start": 70.56,
+        "duration": 2.8,
+        "text": "doesn't even matter"
+      },
+      {
+        "start": 71.6,
+        "duration": 3.519,
+        "text": "there are a number of external factors"
+      },
+      {
+        "start": 73.36,
+        "duration": 2.48,
+        "text": "that can influence the actual speed of a"
+      },
+      {
+        "start": 75.119,
+        "duration": 3.601,
+        "text": "search query"
+      },
+      {
+        "start": 75.84,
+        "duration": 4.0,
+        "text": "the number of cpu cores disk speeds data"
+      },
+      {
+        "start": 78.72,
+        "duration": 3.2,
+        "text": "cached in memory"
+      },
+      {
+        "start": 79.84,
+        "duration": 3.36,
+        "text": "network bandwidth and latency"
+      },
+      {
+        "start": 81.92,
+        "duration": 3.839,
+        "text": "configuration and settings"
+      },
+      {
+        "start": 83.2,
+        "duration": 3.919,
+        "text": "noisy neighbors etc if query performance"
+      },
+      {
+        "start": 85.759,
+        "duration": 2.881,
+        "text": "isn't your satisfaction"
+      },
+      {
+        "start": 87.119,
+        "duration": 3.281,
+        "text": "there is almost always something that"
+      },
+      {
+        "start": 88.64,
+        "duration": 2.799,
+        "text": "you can blame so just how fast are"
+      },
+      {
+        "start": 90.4,
+        "duration": 2.64,
+        "text": "search queries"
+      },
+      {
+        "start": 91.439,
+        "duration": 3.601,
+        "text": "well without getting into the external"
+      },
+      {
+        "start": 93.04,
+        "duration": 3.84,
+        "text": "factors again it can be said that they"
+      },
+      {
+        "start": 95.04,
+        "duration": 2.64,
+        "text": "typically run anywhere between tens of"
+      },
+      {
+        "start": 96.88,
+        "duration": 2.8,
+        "text": "milliseconds"
+      },
+      {
+        "start": 97.68,
+        "duration": 3.52,
+        "text": "and up to about two seconds on average"
+      },
+      {
+        "start": 99.68,
+        "duration": 2.479,
+        "text": "queries that take longer than a few"
+      },
+      {
+        "start": 101.2,
+        "duration": 2.72,
+        "text": "seconds to complete"
+      },
+      {
+        "start": 102.159,
+        "duration": 3.6,
+        "text": "would be sufficiently slow enough to"
+      },
+      {
+        "start": 103.92,
+        "duration": 3.12,
+        "text": "further investigate if needed"
+      },
+      {
+        "start": 105.759,
+        "duration": 3.36,
+        "text": "one of the staple tools for"
+      },
+      {
+        "start": 107.04,
+        "duration": 4.079,
+        "text": "troubleshooting is the cql traces that"
+      },
+      {
+        "start": 109.119,
+        "duration": 2.481,
+        "text": "are saved during the execution of a cql"
+      },
+      {
+        "start": 111.119,
+        "duration": 2.0,
+        "text": "query"
+      },
+      {
+        "start": 111.6,
+        "duration": 3.12,
+        "text": "although these are primarily meant to"
+      },
+      {
+        "start": 113.119,
+        "duration": 3.28,
+        "text": "trace the various parts of the read and"
+      },
+      {
+        "start": 114.72,
+        "duration": 3.92,
+        "text": "write path for cassandra queries"
+      },
+      {
+        "start": 116.399,
+        "duration": 3.921,
+        "text": "there are traces related to dsc search"
+      },
+      {
+        "start": 118.64,
+        "duration": 2.96,
+        "text": "and can be used to approximate the"
+      },
+      {
+        "start": 120.32,
+        "duration": 2.96,
+        "text": "amount of time spent"
+      },
+      {
+        "start": 121.6,
+        "duration": 3.519,
+        "text": "going through the search index and of"
+      },
+      {
+        "start": 123.28,
+        "duration": 2.72,
+        "text": "course how long the cql query took to"
+      },
+      {
+        "start": 125.119,
+        "duration": 2.881,
+        "text": "run overall"
+      },
+      {
+        "start": 126.0,
+        "duration": 4.319,
+        "text": "in the tiny example traces that you see"
+      },
+      {
+        "start": 128.0,
+        "duration": 4.56,
+        "text": "here there's an obvious trace activity"
+      },
+      {
+        "start": 130.319,
+        "duration": 4.081,
+        "text": "that indicates work done from dsc search"
+      },
+      {
+        "start": 132.56,
+        "duration": 5.92,
+        "text": "this is the line that says process"
+      },
+      {
+        "start": 134.4,
+        "duration": 7.12,
+        "text": "response from shard 172.31.28.32"
+      },
+      {
+        "start": 138.48,
+        "duration": 4.08,
+        "text": "colon 8609 solar slash killer"
+      },
+      {
+        "start": 141.52,
+        "duration": 3.439,
+        "text": "video.videos"
+      },
+      {
+        "start": 142.56,
+        "duration": 4.88,
+        "text": "etc etc the source elapsed value for"
+      },
+      {
+        "start": 144.959,
+        "duration": 4.401,
+        "text": "this is 71470"
+      },
+      {
+        "start": 147.44,
+        "duration": 3.92,
+        "text": "which indicates that it took about 71"
+      },
+      {
+        "start": 149.36,
+        "duration": 3.92,
+        "text": "milliseconds for the index to be read"
+      },
+      {
+        "start": 151.36,
+        "duration": 3.92,
+        "text": "and searched results returned the later"
+      },
+      {
+        "start": 153.28,
+        "duration": 3.92,
+        "text": "traces are actually retrieving road data"
+      },
+      {
+        "start": 155.28,
+        "duration": 2.88,
+        "text": "based on unique ids provided by the"
+      },
+      {
+        "start": 157.2,
+        "duration": 4.44,
+        "text": "search result"
+      },
+      {
+        "start": 158.16,
+        "duration": 6.96,
+        "text": "and the entire request completed at 121"
+      },
+      {
+        "start": 161.64,
+        "duration": 5.16,
+        "text": "537 or about 121 milliseconds"
+      },
+      {
+        "start": 165.12,
+        "duration": 3.36,
+        "text": "this illustrates that the majority of"
+      },
+      {
+        "start": 166.8,
+        "duration": 3.2,
+        "text": "the time spent for the search query was"
+      },
+      {
+        "start": 168.48,
+        "duration": 3.52,
+        "text": "spent reading the index"
+      },
+      {
+        "start": 170.0,
+        "duration": 3.28,
+        "text": "cql tracing is available from all the"
+      },
+      {
+        "start": 172.0,
+        "duration": 4.16,
+        "text": "major cql clients"
+      },
+      {
+        "start": 173.28,
+        "duration": 4.72,
+        "text": "including cql shell dataset studio and"
+      },
+      {
+        "start": 176.16,
+        "duration": 3.52,
+        "text": "the datasex drivers"
+      },
+      {
+        "start": 178.0,
+        "duration": 3.44,
+        "text": "instructions for enabling tracing may"
+      },
+      {
+        "start": 179.68,
+        "duration": 3.52,
+        "text": "vary but for sql shell"
+      },
+      {
+        "start": 181.44,
+        "duration": 3.6,
+        "text": "this can be easily done by executing the"
+      },
+      {
+        "start": 183.2,
+        "duration": 3.44,
+        "text": "command tracing on"
+      },
+      {
+        "start": 185.04,
+        "duration": 3.76,
+        "text": "another great troubleshooting tool can"
+      },
+      {
+        "start": 186.64,
+        "duration": 3.04,
+        "text": "be found in dsc search and is the query"
+      },
+      {
+        "start": 188.8,
+        "duration": 3.28,
+        "text": "name parameter"
+      },
+      {
+        "start": 189.68,
+        "duration": 4.08,
+        "text": "that can be added to a search query this"
+      },
+      {
+        "start": 192.08,
+        "duration": 4.159,
+        "text": "can only be done with the json"
+      },
+      {
+        "start": 193.76,
+        "duration": 4.0,
+        "text": "search query but when used dlc search"
+      },
+      {
+        "start": 196.239,
+        "duration": 3.441,
+        "text": "will then be able to collect and"
+      },
+      {
+        "start": 197.76,
+        "duration": 3.119,
+        "text": "aggregate certain metrics for all the"
+      },
+      {
+        "start": 199.68,
+        "duration": 3.04,
+        "text": "executed queries"
+      },
+      {
+        "start": 200.879,
+        "duration": 3.681,
+        "text": "that use the same query name in the"
+      },
+      {
+        "start": 202.72,
+        "duration": 3.519,
+        "text": "example below we have a search query"
+      },
+      {
+        "start": 204.56,
+        "duration": 2.16,
+        "text": "that is searching for documents with the"
+      },
+      {
+        "start": 206.239,
+        "duration": 2.481,
+        "text": "term"
+      },
+      {
+        "start": 206.72,
+        "duration": 3.28,
+        "text": "terminator in the title field and a"
+      },
+      {
+        "start": 208.72,
+        "duration": 3.599,
+        "text": "query name set to"
+      },
+      {
+        "start": 210.0,
+        "duration": 4.319,
+        "text": "arnold the query metrics are exposed"
+      },
+      {
+        "start": 212.319,
+        "duration": 4.0,
+        "text": "through the jmx query metrics endbean"
+      },
+      {
+        "start": 214.319,
+        "duration": 3.521,
+        "text": "which we'll take a look at next to read"
+      },
+      {
+        "start": 216.319,
+        "duration": 3.041,
+        "text": "the metrics that are made available by"
+      },
+      {
+        "start": 217.84,
+        "duration": 3.84,
+        "text": "the querymetrics mbean"
+      },
+      {
+        "start": 219.36,
+        "duration": 4.799,
+        "text": "you can use any jmx compatible client"
+      },
+      {
+        "start": 221.68,
+        "duration": 4.0,
+        "text": "such as jconsole or visual bm"
+      },
+      {
+        "start": 224.159,
+        "duration": 3.201,
+        "text": "both which can be found in the java"
+      },
+      {
+        "start": 225.68,
+        "duration": 3.68,
+        "text": "development kit or jdk"
+      },
+      {
+        "start": 227.36,
+        "duration": 3.84,
+        "text": "datastax enterprise also has a special"
+      },
+      {
+        "start": 229.36,
+        "duration": 2.959,
+        "text": "function built into the nodetool command"
+      },
+      {
+        "start": 231.2,
+        "duration": 4.16,
+        "text": "line to utility"
+      },
+      {
+        "start": 232.319,
+        "duration": 4.321,
+        "text": "called sjk or swiss java knife that can"
+      },
+      {
+        "start": 235.36,
+        "duration": 3.36,
+        "text": "read these end beans"
+      },
+      {
+        "start": 236.64,
+        "duration": 5.12,
+        "text": "accessing the m bean requires a specific"
+      },
+      {
+        "start": 238.72,
+        "duration": 4.96,
+        "text": "domain com.datasex.mdp"
+      },
+      {
+        "start": 241.76,
+        "duration": 4.24,
+        "text": "and a key property list that includes"
+      },
+      {
+        "start": 243.68,
+        "duration": 4.0,
+        "text": "the keys type being set to search"
+      },
+      {
+        "start": 246.0,
+        "duration": 3.28,
+        "text": "index set to the name of the search"
+      },
+      {
+        "start": 247.68,
+        "duration": 3.919,
+        "text": "index and the name"
+      },
+      {
+        "start": 249.28,
+        "duration": 4.64,
+        "text": "being query metrics the examples show"
+      },
+      {
+        "start": 251.599,
+        "duration": 4.561,
+        "text": "two different uses of the nodetool sjk"
+      },
+      {
+        "start": 253.92,
+        "duration": 4.879,
+        "text": "mx command which accesses the ambient"
+      },
+      {
+        "start": 256.16,
+        "duration": 4.24,
+        "text": "the first uses the mg flag to retrieve"
+      },
+      {
+        "start": 258.799,
+        "duration": 2.241,
+        "text": "statistics that are available as an"
+      },
+      {
+        "start": 260.4,
+        "duration": 3.04,
+        "text": "attribute"
+      },
+      {
+        "start": 261.04,
+        "duration": 4.0,
+        "text": "the second example has the dash mc flag"
+      },
+      {
+        "start": 263.44,
+        "duration": 3.199,
+        "text": "to invoke an mbean method"
+      },
+      {
+        "start": 265.04,
+        "duration": 3.36,
+        "text": "there are several n-beam methods that"
+      },
+      {
+        "start": 266.639,
+        "duration": 3.761,
+        "text": "provide useful performance metrics"
+      },
+      {
+        "start": 268.4,
+        "duration": 4.4,
+        "text": "including latency counts latency"
+      },
+      {
+        "start": 270.4,
+        "duration": 4.4,
+        "text": "percentile and average latency"
+      },
+      {
+        "start": 272.8,
+        "duration": 4.24,
+        "text": "latency values provided are in"
+      },
+      {
+        "start": 274.8,
+        "duration": 4.16,
+        "text": "microseconds and can also be split up by"
+      },
+      {
+        "start": 277.04,
+        "duration": 3.599,
+        "text": "the individual read path phases"
+      },
+      {
+        "start": 278.96,
+        "duration": 3.36,
+        "text": "there are four phases that are saved"
+      },
+      {
+        "start": 280.639,
+        "duration": 3.28,
+        "text": "with the first one being coordinate"
+      },
+      {
+        "start": 282.32,
+        "duration": 3.12,
+        "text": "this would be the total amount of time"
+      },
+      {
+        "start": 283.919,
+        "duration": 2.0,
+        "text": "spent by the node to distribute the"
+      },
+      {
+        "start": 285.44,
+        "duration": 2.16,
+        "text": "query"
+      },
+      {
+        "start": 285.919,
+        "duration": 3.761,
+        "text": "and to gather and process results from"
+      },
+      {
+        "start": 287.6,
+        "duration": 3.599,
+        "text": "the shards when it has the role of the"
+      },
+      {
+        "start": 289.68,
+        "duration": 3.2,
+        "text": "coordinator for a search query"
+      },
+      {
+        "start": 291.199,
+        "duration": 3.601,
+        "text": "this value will be computed only on"
+      },
+      {
+        "start": 292.88,
+        "duration": 3.92,
+        "text": "nodes that do coordinate queries"
+      },
+      {
+        "start": 294.8,
+        "duration": 3.2,
+        "text": "and the value is always zero if there is"
+      },
+      {
+        "start": 296.8,
+        "duration": 3.28,
+        "text": "only one search node"
+      },
+      {
+        "start": 298.0,
+        "duration": 4.08,
+        "text": "another phase is execute which is the"
+      },
+      {
+        "start": 300.08,
+        "duration": 3.119,
+        "text": "time spent by the node to read the index"
+      },
+      {
+        "start": 302.08,
+        "duration": 3.2,
+        "text": "for a search query"
+      },
+      {
+        "start": 303.199,
+        "duration": 3.761,
+        "text": "the retrieved base represents the time"
+      },
+      {
+        "start": 305.28,
+        "duration": 4.24,
+        "text": "spent by a node to retrieve data from"
+      },
+      {
+        "start": 306.96,
+        "duration": 3.44,
+        "text": "cassandra when using the http api for"
+      },
+      {
+        "start": 309.52,
+        "duration": 3.519,
+        "text": "search queries"
+      },
+      {
+        "start": 310.4,
+        "duration": 4.72,
+        "text": "if using cql no metrics will be saved"
+      },
+      {
+        "start": 313.039,
+        "duration": 3.921,
+        "text": "finally the enqueue phase is the time"
+      },
+      {
+        "start": 315.12,
+        "duration": 2.96,
+        "text": "spent waiting for a thread to execute"
+      },
+      {
+        "start": 316.96,
+        "duration": 3.44,
+        "text": "the search query"
+      },
+      {
+        "start": 318.08,
+        "duration": 4.24,
+        "text": "not listed here is a total phase which"
+      },
+      {
+        "start": 320.4,
+        "duration": 3.04,
+        "text": "contains the total server-side latency"
+      },
+      {
+        "start": 322.32,
+        "duration": 2.8,
+        "text": "for a search query"
+      },
+      {
+        "start": 323.44,
+        "duration": 3.28,
+        "text": "and is the sum of both the coordinate"
+      },
+      {
+        "start": 325.12,
+        "duration": 3.44,
+        "text": "and the enqueue latency"
+      },
+      {
+        "start": 326.72,
+        "duration": 3.52,
+        "text": "the latency counts can be retrieved with"
+      },
+      {
+        "start": 328.56,
+        "duration": 4.24,
+        "text": "an ambient operation called"
+      },
+      {
+        "start": 330.24,
+        "duration": 3.44,
+        "text": "get recorded latency count and requires"
+      },
+      {
+        "start": 332.8,
+        "duration": 2.08,
+        "text": "two arguments"
+      },
+      {
+        "start": 333.68,
+        "duration": 3.2,
+        "text": "the name of the phase you want to"
+      },
+      {
+        "start": 334.88,
+        "duration": 2.96,
+        "text": "retrieve the latency count for and the"
+      },
+      {
+        "start": 336.88,
+        "duration": 3.039,
+        "text": "query name that was"
+      },
+      {
+        "start": 337.84,
+        "duration": 4.4,
+        "text": "used when executing the search query the"
+      },
+      {
+        "start": 339.919,
+        "duration": 4.241,
+        "text": "example below shows using the nodetool"
+      },
+      {
+        "start": 342.24,
+        "duration": 4.0,
+        "text": "sjk mx command"
+      },
+      {
+        "start": 344.16,
+        "duration": 3.92,
+        "text": "to get the latency count for the execute"
+      },
+      {
+        "start": 346.24,
+        "duration": 2.64,
+        "text": "base and for the search queries with the"
+      },
+      {
+        "start": 348.08,
+        "duration": 2.88,
+        "text": "query name"
+      },
+      {
+        "start": 348.88,
+        "duration": 3.84,
+        "text": "arnold in this case there are 50 query"
+      },
+      {
+        "start": 350.96,
+        "duration": 2.48,
+        "text": "executions that were recorded with this"
+      },
+      {
+        "start": 352.72,
+        "duration": 2.64,
+        "text": "query name"
+      },
+      {
+        "start": 353.44,
+        "duration": 4.08,
+        "text": "the end bean operation get latency"
+      },
+      {
+        "start": 355.36,
+        "duration": 3.52,
+        "text": "percentile can be used to retrieve the"
+      },
+      {
+        "start": 357.52,
+        "duration": 3.2,
+        "text": "highest latency time"
+      },
+      {
+        "start": 358.88,
+        "duration": 3.039,
+        "text": "for a specific percentile of search"
+      },
+      {
+        "start": 360.72,
+        "duration": 2.8,
+        "text": "queries executed"
+      },
+      {
+        "start": 361.919,
+        "duration": 3.761,
+        "text": "the arguments for this operation is"
+      },
+      {
+        "start": 363.52,
+        "duration": 4.16,
+        "text": "again the phase and the query name"
+      },
+      {
+        "start": 365.68,
+        "duration": 4.0,
+        "text": "but will also include the percentile"
+      },
+      {
+        "start": 367.68,
+        "duration": 2.799,
+        "text": "rank which is an integer representing"
+      },
+      {
+        "start": 369.68,
+        "duration": 2.56,
+        "text": "the percentage"
+      },
+      {
+        "start": 370.479,
+        "duration": 3.84,
+        "text": "following our previous example we are"
+      },
+      {
+        "start": 372.24,
+        "duration": 4.64,
+        "text": "now trying to get the highest latency"
+      },
+      {
+        "start": 374.319,
+        "duration": 4.16,
+        "text": "among 90 of the queries executed which"
+      },
+      {
+        "start": 376.88,
+        "duration": 2.879,
+        "text": "we have found previously to have a"
+      },
+      {
+        "start": 378.479,
+        "duration": 2.72,
+        "text": "sample size of 50."
+      },
+      {
+        "start": 379.759,
+        "duration": 3.28,
+        "text": "in this command we are still getting the"
+      },
+      {
+        "start": 381.199,
+        "duration": 4.0,
+        "text": "latency for the execute base"
+      },
+      {
+        "start": 383.039,
+        "duration": 3.841,
+        "text": "here we see that 90 of the executed"
+      },
+      {
+        "start": 385.199,
+        "duration": 5.041,
+        "text": "search queries were able to complete the"
+      },
+      {
+        "start": 386.88,
+        "duration": 5.52,
+        "text": "execute base within 3075 microseconds"
+      },
+      {
+        "start": 390.24,
+        "duration": 3.92,
+        "text": "or 3 milliseconds the last end beam"
+      },
+      {
+        "start": 392.4,
+        "duration": 2.16,
+        "text": "operation that we'll be covering here is"
+      },
+      {
+        "start": 394.16,
+        "duration": 2.56,
+        "text": "the get"
+      },
+      {
+        "start": 394.56,
+        "duration": 4.079,
+        "text": "average latency operation this operation"
+      },
+      {
+        "start": 396.72,
+        "duration": 4.0,
+        "text": "will retrieve the mean latency across"
+      },
+      {
+        "start": 398.639,
+        "duration": 4.321,
+        "text": "all the recorded query executions"
+      },
+      {
+        "start": 400.72,
+        "duration": 3.599,
+        "text": "again taking in the phase and the query"
+      },
+      {
+        "start": 402.96,
+        "duration": 3.28,
+        "text": "name as the arguments"
+      },
+      {
+        "start": 404.319,
+        "duration": 4.0,
+        "text": "our example again is using the execute"
+      },
+      {
+        "start": 406.24,
+        "duration": 4.799,
+        "text": "base and the arnold query name and"
+      },
+      {
+        "start": 408.319,
+        "duration": 3.841,
+        "text": "returns an average latency of 527"
+      },
+      {
+        "start": 411.039,
+        "duration": 3.121,
+        "text": "microseconds"
+      },
+      {
+        "start": 412.16,
+        "duration": 3.599,
+        "text": "again the result may sound strange but"
+      },
+      {
+        "start": 414.16,
+        "duration": 3.039,
+        "text": "this is only one phase out of the"
+      },
+      {
+        "start": 415.759,
+        "duration": 3.361,
+        "text": "several for a search query"
+      },
+      {
+        "start": 417.199,
+        "duration": 3.12,
+        "text": "a great way to proactively monitor"
+      },
+      {
+        "start": 419.12,
+        "duration": 3.12,
+        "text": "search query performance"
+      },
+      {
+        "start": 420.319,
+        "duration": 4.0,
+        "text": "is with the cql slow log that's"
+      },
+      {
+        "start": 422.24,
+        "duration": 4.64,
+        "text": "available in the dsc performance service"
+      },
+      {
+        "start": 424.319,
+        "duration": 4.72,
+        "text": "with the cql slow log dse will record"
+      },
+      {
+        "start": 426.88,
+        "duration": 4.08,
+        "text": "all cql queries that run for longer than"
+      },
+      {
+        "start": 429.039,
+        "duration": 4.641,
+        "text": "a set threshold in cassandra"
+      },
+      {
+        "start": 430.96,
+        "duration": 3.28,
+        "text": "under the dsc prep dot node slow log"
+      },
+      {
+        "start": 433.68,
+        "duration": 2.239,
+        "text": "table"
+      },
+      {
+        "start": 434.24,
+        "duration": 3.519,
+        "text": "the slowest queries for each node can"
+      },
+      {
+        "start": 435.919,
+        "duration": 4.081,
+        "text": "also be kept in memory and reviewed"
+      },
+      {
+        "start": 437.759,
+        "duration": 4.321,
+        "text": "using the dsc tool command line tool"
+      },
+      {
+        "start": 440.0,
+        "duration": 3.599,
+        "text": "making changes to the cql slow log"
+      },
+      {
+        "start": 442.08,
+        "duration": 4.08,
+        "text": "including enabling the log"
+      },
+      {
+        "start": 443.599,
+        "duration": 3.921,
+        "text": "can be done in the dsc.yaml file among"
+      },
+      {
+        "start": 446.16,
+        "duration": 2.96,
+        "text": "the changes that you can make"
+      },
+      {
+        "start": 447.52,
+        "duration": 3.679,
+        "text": "include changing the threshold that"
+      },
+      {
+        "start": 449.12,
+        "duration": 3.919,
+        "text": "determines if a query will get logged"
+      },
+      {
+        "start": 451.199,
+        "duration": 3.361,
+        "text": "the minimum number of samples needed"
+      },
+      {
+        "start": 453.039,
+        "duration": 3.28,
+        "text": "before logging queries"
+      },
+      {
+        "start": 454.56,
+        "duration": 3.68,
+        "text": "the amount of time a record stays on the"
+      },
+      {
+        "start": 456.319,
+        "duration": 3.761,
+        "text": "log table whether the log"
+      },
+      {
+        "start": 458.24,
+        "duration": 4.079,
+        "text": "will also be kept in memory or saved to"
+      },
+      {
+        "start": 460.08,
+        "duration": 3.28,
+        "text": "the database and the number of entries"
+      },
+      {
+        "start": 462.319,
+        "duration": 3.041,
+        "text": "to keep in memory"
+      },
+      {
+        "start": 463.36,
+        "duration": 3.839,
+        "text": "note that for the threshold setting any"
+      },
+      {
+        "start": 465.36,
+        "duration": 2.8,
+        "text": "value greater than 1 is assumed to be in"
+      },
+      {
+        "start": 467.199,
+        "duration": 3.761,
+        "text": "milliseconds"
+      },
+      {
+        "start": 468.16,
+        "duration": 4.56,
+        "text": "and a value less than 1 is a percentile"
+      },
+      {
+        "start": 470.96,
+        "duration": 2.88,
+        "text": "for example if the threshold is set to"
+      },
+      {
+        "start": 472.72,
+        "duration": 2.64,
+        "text": "0.9"
+      },
+      {
+        "start": 473.84,
+        "duration": 3.52,
+        "text": "that means that any query that runs"
+      },
+      {
+        "start": 475.36,
+        "duration": 4.559,
+        "text": "slower than 90 of the queries"
+      },
+      {
+        "start": 477.36,
+        "duration": 4.88,
+        "text": "will be logged another useful feature is"
+      },
+      {
+        "start": 479.919,
+        "duration": 4.161,
+        "text": "the ability to temporarily make changes"
+      },
+      {
+        "start": 482.24,
+        "duration": 4.799,
+        "text": "to the cql slow log settings"
+      },
+      {
+        "start": 484.08,
+        "duration": 4.08,
+        "text": "using the dsc tool perf cql slow log"
+      },
+      {
+        "start": 487.039,
+        "duration": 2.641,
+        "text": "command"
+      },
+      {
+        "start": 488.16,
+        "duration": 3.439,
+        "text": "these are all the same settings that you"
+      },
+      {
+        "start": 489.68,
+        "duration": 3.919,
+        "text": "can change in the dsc.yaml file"
+      },
+      {
+        "start": 491.599,
+        "duration": 4.0,
+        "text": "but the changes made here will only be"
+      },
+      {
+        "start": 493.599,
+        "duration": 3.521,
+        "text": "applicable until the next time dsc"
+      },
+      {
+        "start": 495.599,
+        "duration": 3.28,
+        "text": "starts up on the node"
+      },
+      {
+        "start": 497.12,
+        "duration": 4.079,
+        "text": "when it reverts back to the settings in"
+      },
+      {
+        "start": 498.879,
+        "duration": 3.681,
+        "text": "the dc.yaml another useful log from the"
+      },
+      {
+        "start": 501.199,
+        "duration": 4.4,
+        "text": "dlc performance service"
+      },
+      {
+        "start": 502.56,
+        "duration": 4.88,
+        "text": "is the solar slow subquery log this is a"
+      },
+      {
+        "start": 505.599,
+        "duration": 4.16,
+        "text": "search specific log that keeps track of"
+      },
+      {
+        "start": 507.44,
+        "duration": 4.0,
+        "text": "subqueries that runs on the local node"
+      },
+      {
+        "start": 509.759,
+        "duration": 3.52,
+        "text": "which runs longer than the specified"
+      },
+      {
+        "start": 511.44,
+        "duration": 3.839,
+        "text": "threshold although it doesn't completely"
+      },
+      {
+        "start": 513.279,
+        "duration": 3.521,
+        "text": "cover the execution of a search query"
+      },
+      {
+        "start": 515.279,
+        "duration": 3.361,
+        "text": "the ability to drill down to the"
+      },
+      {
+        "start": 516.8,
+        "duration": 3.919,
+        "text": "individual parts of the read path"
+      },
+      {
+        "start": 518.64,
+        "duration": 3.36,
+        "text": "on the search side can be useful to find"
+      },
+      {
+        "start": 520.719,
+        "duration": 3.521,
+        "text": "performance bottlenecks"
+      },
+      {
+        "start": 522.0,
+        "duration": 4.08,
+        "text": "when a slow sub query triggers logging"
+      },
+      {
+        "start": 524.24,
+        "duration": 3.68,
+        "text": "information about that subquery will be"
+      },
+      {
+        "start": 526.08,
+        "duration": 5.199,
+        "text": "saved for a set amount of time"
+      },
+      {
+        "start": 527.92,
+        "duration": 4.8,
+        "text": "in the database under dsc per dot solar"
+      },
+      {
+        "start": 531.279,
+        "duration": 3.441,
+        "text": "slow subquery log"
+      },
+      {
+        "start": 532.72,
+        "duration": 3.679,
+        "text": "here only a snippet of the information"
+      },
+      {
+        "start": 534.72,
+        "duration": 2.64,
+        "text": "logged about the subquery is shown in"
+      },
+      {
+        "start": 536.399,
+        "duration": 3.44,
+        "text": "the screenshot"
+      },
+      {
+        "start": 537.36,
+        "duration": 4.32,
+        "text": "the elapsed millis shown here contains"
+      },
+      {
+        "start": 539.839,
+        "duration": 2.881,
+        "text": "the amount of time the subquery needed"
+      },
+      {
+        "start": 541.68,
+        "duration": 2.8,
+        "text": "to execute"
+      },
+      {
+        "start": 542.72,
+        "duration": 3.6,
+        "text": "and there are other additional columns"
+      },
+      {
+        "start": 544.48,
+        "duration": 2.799,
+        "text": "not shown here that breaks down the"
+      },
+      {
+        "start": 546.32,
+        "duration": 2.56,
+        "text": "execution time"
+      },
+      {
+        "start": 547.279,
+        "duration": 3.201,
+        "text": "between the prepared phase and the"
+      },
+      {
+        "start": 548.88,
+        "duration": 3.28,
+        "text": "process phase of the read path"
+      },
+      {
+        "start": 550.48,
+        "duration": 3.44,
+        "text": "otherwise other potentially helpful"
+      },
+      {
+        "start": 552.16,
+        "duration": 2.48,
+        "text": "information about the subquery is also"
+      },
+      {
+        "start": 553.92,
+        "duration": 2.88,
+        "text": "logged"
+      },
+      {
+        "start": 554.64,
+        "duration": 3.92,
+        "text": "the number of documents found the ip of"
+      },
+      {
+        "start": 556.8,
+        "duration": 4.0,
+        "text": "the coordinator for the subquery"
+      },
+      {
+        "start": 558.56,
+        "duration": 4.0,
+        "text": "and the parameters used for the subquery"
+      },
+      {
+        "start": 560.8,
+        "duration": 3.84,
+        "text": "like the other log we just saw"
+      },
+      {
+        "start": 562.56,
+        "duration": 4.399,
+        "text": "the solar slow sub query log is"
+      },
+      {
+        "start": 564.64,
+        "duration": 4.319,
+        "text": "configured in the dsc.yaml file"
+      },
+      {
+        "start": 566.959,
+        "duration": 3.44,
+        "text": "there are fewer settings here but you"
+      },
+      {
+        "start": 568.959,
+        "duration": 3.041,
+        "text": "are able to tune the amount of time"
+      },
+      {
+        "start": 570.399,
+        "duration": 3.761,
+        "text": "needed to trigger logging"
+      },
+      {
+        "start": 572.0,
+        "duration": 3.68,
+        "text": "how long logs will stay in the database"
+      },
+      {
+        "start": 574.16,
+        "duration": 1.84,
+        "text": "and how many concurrent writes that can"
+      },
+      {
+        "start": 575.68,
+        "duration": 3.279,
+        "text": "be made"
+      },
+      {
+        "start": 576.0,
+        "duration": 3.519,
+        "text": "to the log the dse tool solar slow log"
+      },
+      {
+        "start": 578.959,
+        "duration": 2.401,
+        "text": "command"
+      },
+      {
+        "start": 579.519,
+        "duration": 4.0,
+        "text": "can also make temporary changes to the"
+      },
+      {
+        "start": 581.36,
+        "duration": 4.479,
+        "text": "solar slow sub query log settings"
+      },
+      {
+        "start": 583.519,
+        "duration": 3.521,
+        "text": "as well and can temporarily enable or"
+      },
+      {
+        "start": 585.839,
+        "duration": 3.12,
+        "text": "disable logging"
+      },
+      {
+        "start": 587.04,
+        "duration": 3.2,
+        "text": "or to change the threshold value again"
+      },
+      {
+        "start": 588.959,
+        "duration": 3.44,
+        "text": "changes stay in effect"
+      },
+      {
+        "start": 590.24,
+        "duration": 3.52,
+        "text": "until the next time dsc starts up"
+      },
+      {
+        "start": 592.399,
+        "duration": 2.641,
+        "text": "reverting back to the settings in the"
+      },
+      {
+        "start": 593.76,
+        "duration": 3.04,
+        "text": "dlc.aml"
+      },
+      {
+        "start": 595.04,
+        "duration": 2.96,
+        "text": "there are even more performance objects"
+      },
+      {
+        "start": 596.8,
+        "duration": 2.32,
+        "text": "that are available with the dsc"
+      },
+      {
+        "start": 598.0,
+        "duration": 3.279,
+        "text": "performance service"
+      },
+      {
+        "start": 599.12,
+        "duration": 3.76,
+        "text": "as shown in this table all the logs and"
+      },
+      {
+        "start": 601.279,
+        "duration": 2.24,
+        "text": "performance objects are disabled by"
+      },
+      {
+        "start": 602.88,
+        "duration": 2.079,
+        "text": "default"
+      },
+      {
+        "start": 603.519,
+        "duration": 3.361,
+        "text": "and you should not necessarily be"
+      },
+      {
+        "start": 604.959,
+        "duration": 3.361,
+        "text": "enabling every one of them if you do"
+      },
+      {
+        "start": 606.88,
+        "duration": 2.959,
+        "text": "notice performance issues"
+      },
+      {
+        "start": 608.32,
+        "duration": 3.04,
+        "text": "take a look and see which of these might"
+      },
+      {
+        "start": 609.839,
+        "duration": 3.201,
+        "text": "be useful to help troubleshoot"
+      },
+      {
+        "start": 611.36,
+        "duration": 3.68,
+        "text": "and temporarily enable them to collect"
+      },
+      {
+        "start": 613.04,
+        "duration": 3.84,
+        "text": "statistics refer to the data stacks"
+      },
+      {
+        "start": 615.04,
+        "duration": 3.52,
+        "text": "documentation for more details about"
+      },
+      {
+        "start": 616.88,
+        "duration": 3.44,
+        "text": "each of these performance objects"
+      },
+      {
+        "start": 618.56,
+        "duration": 3.92,
+        "text": "we are at the end of another video and"
+      },
+      {
+        "start": 620.32,
+        "duration": 3.519,
+        "text": "the reward is another exercise to do"
+      },
+      {
+        "start": 622.48,
+        "duration": 8.0,
+        "text": "go and do this exercise before"
+      },
+      {
+        "start": 623.839,
+        "duration": 6.641,
+        "text": "continuing on"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:00:42.371959+00:00"
+}

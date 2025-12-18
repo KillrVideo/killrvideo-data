@@ -1,0 +1,4307 @@
+{
+  "video_id": "fRP3udEONZM",
+  "title": "DataStax Presents: Prometheus and Cassandra with Luc Perkins",
+  "description": "Over the past few years, Prometheus has emerged as a best-of-breed OSS monitoring and observability solution. In this talk, I'll walk you through setting up a full-fledged Prometheus setup for a Cassandra cluster running on Kubernetes, including Grafana dashboards, Alertmanager notifications via Slack, and more.\n\nABOUT DATASTAX ENTERPRISE 6\nDataStax  powers  the  Right-Now  Enterprise  with  the  always-on,  distributed  cloud  database  built  on  Apache  Cassandra™  and designed for hybrid cloud. DataStax Enterprise 6 (DSE 6) includes industry-leading performance, self-driving operational simplicity, and robust analytics.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://www.datastax.com/products/datastax-enterprise-6\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax | https://twitter.com/datastax-academy\nLinkedin: https://www.linkedin.com/company/datastax\nhttp://feeds.feedburner.com/datastax \nhttps://github.com/datastax \n\nABOUT DATASTAX ACADEMY\nOn the DataStax Academy YouTube channel, you can find tutorials, webinars and much more to help you learn and stay updated with the latest information on DataStax Enterprise©.  Create an account on https://academy.datastax.com to watch our free online courses, tutorials, and more.",
+  "published_at": "2018-11-28T14:17:26Z",
+  "thumbnail": "https://i.ytimg.com/vi/fRP3udEONZM/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "tutorial",
+    "database",
+    "performance",
+    "talk",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=fRP3udEONZM",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "thank you for the introduction Adrienne thank you for for having me yeah I'm Luke I am from the CN CF the cloud native computing foundation which if you're not familiar with it is it's basically like the Apache foundation so it's like a non-profit open-source foundation with get a pretty significant backing by major tech companies and orgs but with a specific focus which is on the so called cloud native paradigm which is a very very controversial kind of nebulous thing but it's basically stuff having to do with containers and kubernetes so well yeah I will um I will give a bit of a disclaimer before this talk I just started working to CNC up about four months ago and my talk tonight is gonna be about two technologies that I don't know a super-duper amount about so it's gonna be a little bit more of a high-level thing where I just you know talk a live a you know 500 foot overview of Prometheus and Cassandra and how they work together and I think it's more it's more of a suggestive talk like here's here's some stuff you might think is interesting here is some potential father for future independent exploration so a little bit about me like I said developer advocate at the CN CF developer advocate is of course a very is is also a very nebulous position in my case I mostly write documentation and blog posts and big build websites and things like that because it turns out that those tend to be the things that open-source projects need the most and know the least about how to help themselves to put it a little bit bluntly in terms of databases I do know a thing or two about databases I offered the second edition of the seven databases in seven weeks book which some of you may be familiar with it covers well covers one sequel database which is Postgres and then six no it just sort of for the sake of comparison and then six no sequel databases so we got Redis MongoDB CouchDB neo4j did I say HBase HBase originally react was in the first edition but we scrapped react for the second edition and did DynamoDB instead so if you if you want a book that gives you a real real like 10,000 foot overview of things I think that's a pretty good place to start a database that the book does not cover is cassandra because we I guess with you know previously react and then dynamo we felt like that that sort of sub paradigm was already covered in the book maybe in the third edition I mean now the cassandra has become so well-established maybe in the third edition will well we'll throw that one in as well but sorry yeah well the problem is that there's already this like seven languages seven databases seven containerization seven seven configuration languages that's a book I want to write one of these days yeah also I live in Portland these days but I am a native Washingtonian and I'm very proud of that I for a long time I I flirted with the idea of Cascadian separatism and then I just and then one day I realized that I think I'm just a Washington state separatist maybe I don't care as much about the rest anyways I always could be back in the home state always good to be back in Seattle so a basic crash course in Prometheus has anybody here not heard of Prometheus okay so it's it's it's gonna be familiar to some degree too to all of you so if you if you're like super dialed into Prometheus maybe just I don't know do something else for the next twenty minutes because I'm giving a pretty high-level overview so Prometheus is an open source monitoring and observability tool it is actually the ii graduated project under the cnc F so so kubernetes unsurprisingly was was number one you know kubernetes was the project that more or less though is coterminous with the birth of CN CF super duper important but Prometheus is coming in right at its heels it was originally built at SoundCloud in in 2012 in Germany and actually the the dev team is is heavily German I was just at prom con in Munich a couple months ago it's super fun and one thing that I like about the community well actually two things that I like about the development the core development team is that it's not dominated by any single organization so we all know these open-source projects that are you know that are like nominally ostensibly open but really there's you know there's like one or two like really heavy hands guiding things with Prometheus that's that's not at all the case in fact some of the core community members are basically our basically contractors who run their own observability and monitoring startups and and consultancies the other thing that I really like is that it's a it's it's a pretty conservative development culture and I don't mean that politically I just mean in terms of their their sensibility and their approach to to the project they're they're very much into you know not going all in on new features and you know bells and whistles and flashy things they're much more about staying on a very narrow path and and not not allowing the project to succumb to bloat which we see in a lot of cases where you know connector to this and integration to this connector to this integration of this and what you get is a big big mess Prometheus is very much not not that which I appreciate it's written and go it's it's been it's gotten pretty widespread adoption so it's been around for six years it's been in the CN CF for a few and it's it's used by you know if you pull up the Prometheus dot IO page the the list of users is is pretty crazy they use it internally at Google digital ocean you know Apple all over the place it integrates with just with just about everything including Cassandra so you look at the integrations list and you know every major every major database you can imagine is represented so on and so forth it is a scrape based metrics gathering system so in contrast to a what you would call push-based metrics gatherings where processes you know emit metrics to a thing over there instead the way that Prometheus works is that your process is whatever they are offer up metrics and that are scraped just through an HTTP port in a very simple text format which is also a little controversial but we'll talk of it a little bit about that so in terms of how the data actually works it's this label based time series data system so you see HTTP requests total job equals web incidence equals web one and end B equals prod so it's this very kind of key value oriented way of specifying time series and in choosing which time series you want I'll talk a little bit later about about the sort of the the other paradigm of querying time series data which is more hierarchical and I think like objectively worse but but that's that's open to interpretation as well yeah so this is the basic this is the basic format for exposing Prometheus data and then prom QL is more of a sort of high powered querying an analytics language that you can use to actually do things with this time series data so in this case we're doing we're basically what are we doing here so we have you know total HTTP requests potentially across all jobs instances and environments in the last five minutes a some of the rate and then and then you're doing like the bottom three so so whichever three processes are actually and then sorted by app and process this is all I'll be this is very abstract I actually don't even know what this represents but this gives you an idea of what what prom ql looks like a phone call okay in terms of the the basic architecture of Prometheus so this is actually borrowed from the Prometheus Docs which I actually don't feel bad about because I made it so if you see it on the webpage that's actually my work so you'll see that a Prometheus server you see in the middle is typically part of kind of a mesh or a framework of other services it's it's very rare that you would use prometheus just just on its own run it as a server so I'll talk a little bit about some of these components later but but you know typically what you'll see in conjunction with Prometheus is is the alert manager which i think is probably the most commonly used one which actually which which manages which manages the actual I guess you could say observability portion of Prometheus so so the alert manager basically takes in alerts that are fired off by Prometheus and you can configure conditions under which alerts are fired and you can assign severity levels to those alerts and then alert managers is responsible for actually handling them so where do they go so what happens you do they get sent to email do they get sent to page of duty I'm sure that there's some kind of I'm sure people build Twilio integrations and so on and so forth you could get actual like literal pages or literal text messages so on and so forth some other things which we'll get into later Prometheus does come with its own web UI in terms of a visualization of Gryphon a-- which is not technically part of the Prometheus project is is typically used as the visualization system I haven't really seen any others used with it although there might be others if there are please let me know I'd be very curious the push gateway is something that's that I think is not used all that often but if you have short lived jobs remember that Prometheus is a scrape based system so if you have a short-lived job that dies before prometheus is is able to scrape it what do you do well what you do is you had those jobs push to this push gateway that gathers them keeps them and makes them available for Prometheus to come along and scrape at whatever specified interval so yeah we'll get more into these components as we go along so yeah the push gateway the alert manager which which like I said before you basically there's there's two levels of configuration that you use here so one of them is that you you provide Prometheus with Caen configuration that determines what actually counts as something deserving an alert and you use prom ql for that so like whatever kind of prom ql statement you can think of if you know disk space usage is if the the rate of disk space usage over time is it's bound to is expected to achieve some undesired level for example over the course of five minutes then you fire an alert with a severity of critical or warning or notice or caution for example the alert manager has I think some really interesting capabilities built into it one of them is inhibition rules which is basically it allows you to two hierarchies your your alerts which makes a lot of sense if if for example in a Cassandra context if you have like an Enquirer in entire cluster down you can say that that's a more important alert than for example one of the nodes running out of disk space so imagine if the same time you're getting messages on on pager duty that your Cassandra cluster is down and also that one of the nodes is running out of disk I mean who cares about the node running out of disk if the whole thing's unavailable and so inhibition rules enable you to sort of to prioritize in that way you also have silencing rules which enable you to - you know temporarily silence certain things and you also have a handful of built in notification targets I mentioned two of them before another one is slack and I think most importantly and I put it in bold is that you can actually send notifications alerts to to custom web hooks so you can just give the alert manager a URL endpoint and the alert manager will just post some JSON which i think is a really interesting and really compelling way to to extend and customize your your Prometheus setup another one of course is like I said before is grifone a-- dashboards and I'll show you an example of one in a little bit here this is the Blessed visualization solution I've never seen another one used and a cool thing about graph wanna dashboards is that they do allow for you know a classic sort of click and drag interface for putting together dashboards but you can also but you can also build your own by a JSON that can be very unwieldy process I mean I've seen these JSON blobs that are like you know 200 K or something but it's also really easy to basically share them inline like make them available through the graph on a web page and you know sort of click and drag and it's uh it's all it's all pretty nice so I'll get into some of the some of the arguments for I mean I'm here with the CN CF and I do need to talk it up a little bit so these are some of the things that that I personally find most compelling about Prometheus and I imagine there are others in the community that agree so one of them I think is the operations story is is pretty solid so you basically have this the single static binary that you can just you know fetch on tar and and go you know obviously a programming language like go makes that makes that borderline trivial to build and distribute which I really like you have on disk storage via TS DB I'll talk a little bit more about that which is that the time series database that underlies Prometheus and I think the advantage of that that on disk storage is that you don't have to stand up a database beside it to make it run so you don't have to you don't have to run it along side you know Postgres or cassandra or anything like that you just have these these independent units that you can put up on a server or a VM somewhere and and all of the storage is is handled for you another thing that I really like that you you definitely do not get in Java land like you definitely don't get this with Prometheus is that you can restart the server and do a configuration reload in two ways you can either use kill or you can just do an HTTP POST to a certain / - slash reload and it typically restarts in like like 200 milliseconds or something which is really nice so if you need to do some kind of like you know rolling configuration change across instances some kind of rolling upgrade and or so on and so forth you can do that really super easy which which I'm sure a lot of you working in distributed systems and ops and SRA things that's not that's not the most common thing to be able to trigger configuration reload that quickly it also has a built in expression browser which is you know not the prettiest thing it's not you know the the most up-to-date you know react j/s hot thing but but it works pretty well and it's and it just runs as an HTTP process so another so you know as I said before I talked about the the label based time series querying and so I basically so so this top one right here is a label based query and the one below it would be a hierarchical query in a system like like like stats de query and they're sort of functionally the same but you'll see that with the hierarchical system for querying time series data you basically there's an implicit positionality of the different elements so you basically if you forget the order in which these things are are arrayed in the expression then you're pretty much sunk so so that so that essentially means that she wasn't gonna say I forgot I was gonna say anyways so I mean to me I think that as far as I can tell the entire monitoring ecosystem is time series query ecosystem is move firmly away from from this kind of hierarchical querying there may be holdouts there may be advantages that I'm not aware of but I think that the that this label based system which is a you know very much a key-value kind of paradigm for for fetching time series seems to be really carrying the day and and Prometheus seems to be a leader in that space a couple other things so like I said there's this actually I shouldn't say in memory storage it's it's it's on disk storage I actually don't remember if TS DB is in memory so don't don't don't quote me on that it's based on on on Facebook's gorilla so it's this you know heavily optimized time series database it also has so Prometheus has a variety of service discovery mechanisms built in so so one of the hard problems in just in the monitoring space in general is just knowing where your targets are so if you have you know hundreds if not thousands of targets then then how do you make sure that Prometheus knows where they are at all times and there are a bunch of built in mechanisms for doing this you can do basic kubernetes service discovery via the you know default the SVC dot whatever system whatever the weird internal DNS system in kubernetes is you can use console you can use standard DNS or one that I find super interesting is you can actually use JSON files for service discovery so you can basically say so you can just in your service discovery configuration you can point to a JSON file and list you know IPs and imports alongside that and which is which is already fairly compelling but but what I find more compelling is that if you if you change these if you change the contents one of those JSON files then Prometheus will actually recognize the change and do some kind of internal Auto refresh in terms of where the targets are so I've seen when I was at at prom Khan and eunuch a couple months ago there were actually a bunch of talks about how all big companies like fastly had all these crazy like sidecar processes that that we're doing real-time service discovery updates via JSON files so you know some kind of you know either like kubernetes you know pod sidecar or some kind of you know agent running on a particular server it's actually it's you know has a sole task of keeping these JSON files up-to-date at all times so I think that's another very cool of customization thing so and finally amongst the this is not going to be like five parts just two part whywhy Prometheus is that you get just tons of customization so you know like I said before the development culture around Prometheus is a very very conservative one they're not interesting and adding feature after feature after feature they want to you know their goal is kind of the same as the kubernetes core team which is basically they want to just have a a feature set that's done forever and I think they're just about there well with with one exception we'll talk about and and instead they very much gone down this customization route so you can you can set up your own alerting web hooks if you need to instead of you know hard coding a bunch of of alerting targets into alert manager and you know getting that static binary blowed it to like 150 megabytes instead they just let you write your own there's also a a remote a remote write API I'm taking trigger water real quick there's a remote write API for long-term storage so Prometheus does not actually provide any long-term storage you can configure how long you want your data to stay in a particular Prometheus instance but it's not designed for to keep your data around forever and to run super complex queries on data that's a month old it's meant to basically take taken as much data as you say for it to take in process it the way it needs to process it potentially fire off alerts and then just let it go after while or potentially write it to a long-term storage solution file based service discovery is the one is another one that I just mentioned I am not aware of any other systems that do file based service discovery in this way does anybody know of one where you can update a file and that change is instantly noted by the system and taken yeah I haven't seen them before which is super cool and and of course custom exporters so so lots of things including Cassandra and you know every other major database and major distributed system thing that you can think of has a Prometheus exporter and you can also just create your own so as long as you know as long as you expose an HTTP port that's scrape Abul by Prometheus and you expose your metrics in the the Prometheus text format then you have written a Prometheus scrape compatible service or process so some of the drawbacks of Prometheus and of course I put the asterisk because drawbacks you know really depend on your perspective and and some of the so-called drawbacks are actually a product of you know very conscious decision making on their part so there's no built in long term storage it's not designed for that it's not it's not it's not built around that principle it's also not importantly it's technically not a highly available system so each each Prometheus node is like an independent sort of universe they're not built to work in conjunction with one another they're not built to work in a cluster you don't get you don't nrw you know read/write quorums specifics or semantics or anything like that you basically you get high you get high availability by just running lots of them and if you lose one you just you know you just hope for the best that there's still enough left which is also I think a very conscious decision on the part of the developers that when you start building system to operate in terms of you know Paxos or raft or or whatever consensus algorithm they get really hairy really quickly they they produce all kinds of headaches for four operators and sres and sis admins and yeah so no no built in long-term storage is a drawback but like I said there is a remote I remote right API that you can use to to fan-out Prometheus data and to any kind of system you want so some of the major commercial providers include in flux DB which I'm sure a lot of you are familiar with they have I think a pretty good prometheus story there's an open source project called open TS d TS DB a time series database you can use actually other systems like graphite for that so on and so forth and yeah basically you can you can shell that data out any way you like with the API there's also this is also a little bit controversial but but there's no built-in security so this is another design choice that keeps that that static binary nice and lean and keeps it very quote unquote I guess operationally simple but it also means that that any security that goes on around prometheus has to be provided by by you so it basically assumes that that every request in everything coming to it is coming from some kind of you know trusted non-malicious non-malignant source and and yeah the responsibility is on you to to keep it that way so the drawback of course is that that's another operational thing that you have to that you have to worry about and take care of but I guess the advantage is that if you have some you know crazy you know like Kerberos level 10 internal security system that you don't have to you know that the Prometheus maintainer don't have to worry about covering that another drawback is the sort of plaintext metrics x-position format now it's a super simple format I showed you a couple examples but one of the criticisms here of course is that it would probably be a lot faster if if the metrics were exposed by a you know protobuf or or something like that some something some kind of more efficient encoding would probably be better which yeah I I suppose that is a drawback but it does have the advantage that that writing your own you know libraries that work with your own language specific libraries and and clients for Prometheus is super easy because you're just writing plain text and not having to you know do your dot proto something or other and then finally one drawback I guess is that it tends to be just one piece of a puzzle so this is not like an all-encompassing all-in-one tool that's meant to to serve every purpose there's no built-in dashboard you use Cortana for that there's no support for logs or tracing so you know if you want to deal with logs you're gonna have to do a log stash elasticsearch something or other if you want to do tracing you're gonna have to do Jagr some kind of open tracing compatible thing etc so in terms of how Prometheus and Cassandra would play together I put together this little diagram right here so so here's a hypothetical Cassandra cluster right here and I guess that that the interesting key part right here is this which is that Cassandra metrics are actually exposed via JMX and there's there's a JMX exporter that you can run as a kind of a sidecar agent on the same JVM as your Cassandra note now Adrienne informed me right before this talk that apparently coming from the data stacks universe from for data stacks enterprise there's going to be some very interesting stuff happening sometime soon but maybe Adrienne can say something about that later but so you have a handful of a Prometheus instances running here and remember they're not running in a che they're not clustered or anything like that they just they're just these kind of autonomous art autarkic processes doing their thing and each one of these instances and and this is where things get a little bit chatty the diagram is simplified but basically you're gonna have each of your Prometheus instances scraping each one of your cassandra notes all the time so there is a lot of redundancy built into that but but again you know if each of these Prometheus instances is autarkic the way that they necessarily are then there isn't really any any compelling way around that and then you have web clients connecting to to Prometheus right here so that can be the the Prometheus dashboard griffons so on and so forth and then pushing out alerts to alert manager which then does whatever with them so I'm gonna dig a little bit more into this into the scraping part so basically for Cassandra the mbean concept is where everything begins so in Cassandra you have a bunch of ambien families or Apache Cassandra dot whatever what well all the Prometheus metrics are in this dot metrics sub family and so the JMX exporter what it essentially does is is so the problem with mbeans is that they expose you know metrics in kind of a similar way but the names are just a completely different just of a completely different species and so what the what the GMX exporter does is it just renames each of your your m your m beans and you can actually specify by a configuration how that renaming transpires so so here's an example of like one of the default rules which is where if you have org data Patchett metrics and then colon which actually kind of plays well with the label based naming system type name absurd you would end up with this as your Prometheus metrics name and then so from there the metrics names are our trans post and then the metrics are exposed via HTTP by the by the JMX exporter running in the same JVM and then from there they get scraped by Prometheus and then you can do all kinds of fun stuff with them via via prom ql and you can make all kinds of cool dashboards and things like that which we'll do in a sec yeah so here's kind of a somewhat prettier picture of what I what I just explained so you have your your mbeans kind of like embedded inside and meshed inside of your your cassandra process shelling after the JMX exporter which is renaming which is renaming the metrics and exposing them via HTTP so uh yeah here are some examples obviously I'm not gonna like go through these specifically but you see that there are a bunch of metrics that are Cassandra specific having to do with with the cache with with disk space usage with with client connections with the client requests failures and and and successes there are metrics for cql related things and then also something like 15 to 20 JVM specific metrics that you get access access to so if you want to know what how much how much memory your JVM is using how many threads are current at a given time and so on and so forth this is all exposed up to the the Prometheus level here's a handful of prom ql queries which i copy and pasted i'm not sure what they mean but that's what they look like and and here's an example of an alert manager rule that you might write uh that you might write for a for prometheus so so you have this named alert approaching capacity and you take a metric like Cassandra storage load and you say if it has exceeded a certain a certain number for for over ten minutes then you need to fire an alert at the caution level and then you can apply some actual text so disk you approaching capacity and Cassandra enchants blah blah labels that instance and what this thing is right there is um that's actually the go templating system so I I don't know if any of you have used the go templating system I use it a lot because I use Hugo static site generator a bunch it's it's a very weird very unintuitive but also very powerful templating system so if it used to you know ginger and like liquid templates and things like that it's it's gonna be a completely different species of thing so I wanted to also talk a little tiny bit about about what what's currently going on in the prometheus community so one of the things that's coming on the way is its built-in security so we actually talked about this at the dev summit in Munich a couple months ago but things like basic auth TLS and a handful of other mechanisms like maybe JSON web tokens maybe spiffy which is a certificate based system but one way or another you will soon be able to apply some actual security to your Prometheus instances without applying your own you know proxy layer or something like that the open metrics project is another is a new CN CF project in the sandbox right now it's basically attempting to take the Prometheus Exposition format that we saw and and turn it into a neutral standard and it's actually it's pretty interesting effort that has a lot of like a lot of the you know a lot of the big players on board I think New Relic is part of that data dog sensu and a bunch of others so it's entirely possible that in a couple years or even sooner this will emerge as the de facto standard and which would enable you to to basically you know [Music] sorry which would enable you to you know write once and forget that basically you know as long as your processes and your your systems are exposing open metrics compliant format then the you can mix and match and pick and choose whatever whatever endpoints or systems you're working within so uh yeah it was originally based on the Prometheus format open metrics is also gonna have a protobuf format so if you're concerned about the efficiency of of plain text then then I suppose help is on the way and right now there's an effort underway to actually to bring the open metrics process back into Prometheus itself and to make that a sort of self or a mutually enhancing process in terms of long term storage which I talked about before cortex is is also a new CN CF project in the sandbox and this is a long-term storage end point for Prometheus it's this is very much like a multi-tenant horizontally scalable clustered system with n RW quorum so on and so forth a very complex thing so if you if you need that kind of scalable long term storage for Prometheus and you want to do crazy analytics and you want to you know look at data from five years ago cortex is you know is emerging as as the de-facto open source way to do that it writes to a bunch of backends dynamodb I actually I forgot to put s3 on there that's one of them so dynamo Cassandra Google Cloud BigTable and then yeah and then like Adrienne just told me apparently there's some data stacks Enterprise thing that's going to give you long term storage of Prometheus data but I don't know much about that so but I figure I'd mention it yeah so that's it for now or actually before I go I'm just gonna I'll just pull up an example oops I know how to get over can I go I need to oh yeah I'm just pull up a example dashboard running locally so if you want to get super pretty a super pretty picture what's going on in your in your Cassandra cluster this is just a single node so some of these aren't super interesting unsurprisingly the the cache capacity for example is not it's not really doing much given that there are no reads or writes but yeah so that's what that looks like and that is pretty much it for me so alright that's it thanks [Applause]",
+    "segments": [
+      {
+        "start": 0.06,
+        "duration": 4.16,
+        "text": "thank you for the introduction Adrienne"
+      },
+      {
+        "start": 2.639,
+        "duration": 4.95,
+        "text": "thank you for for having me"
+      },
+      {
+        "start": 4.22,
+        "duration": 4.89,
+        "text": "yeah I'm Luke I am from the CN CF the"
+      },
+      {
+        "start": 7.589,
+        "duration": 5.041,
+        "text": "cloud native computing foundation which"
+      },
+      {
+        "start": 9.11,
+        "duration": 6.01,
+        "text": "if you're not familiar with it is it's"
+      },
+      {
+        "start": 12.63,
+        "duration": 4.53,
+        "text": "basically like the Apache foundation so"
+      },
+      {
+        "start": 15.12,
+        "duration": 5.46,
+        "text": "it's like a non-profit open-source"
+      },
+      {
+        "start": 17.16,
+        "duration": 6.08,
+        "text": "foundation with get a pretty significant"
+      },
+      {
+        "start": 20.58,
+        "duration": 6.6,
+        "text": "backing by major tech companies and orgs"
+      },
+      {
+        "start": 23.24,
+        "duration": 6.549,
+        "text": "but with a specific focus which is on"
+      },
+      {
+        "start": 27.18,
+        "duration": 5.219,
+        "text": "the so called cloud native paradigm"
+      },
+      {
+        "start": 29.789,
+        "duration": 4.61,
+        "text": "which is a very very controversial kind"
+      },
+      {
+        "start": 32.399,
+        "duration": 4.981,
+        "text": "of nebulous thing but it's basically"
+      },
+      {
+        "start": 34.399,
+        "duration": 8.441,
+        "text": "stuff having to do with containers and"
+      },
+      {
+        "start": 37.38,
+        "duration": 8.07,
+        "text": "kubernetes so well yeah I will um I will"
+      },
+      {
+        "start": 42.84,
+        "duration": 4.949,
+        "text": "give a bit of a disclaimer before this"
+      },
+      {
+        "start": 45.45,
+        "duration": 4.679,
+        "text": "talk I just started working to CNC up"
+      },
+      {
+        "start": 47.789,
+        "duration": 3.36,
+        "text": "about four months ago and my talk"
+      },
+      {
+        "start": 50.129,
+        "duration": 3.351,
+        "text": "tonight is gonna be about two"
+      },
+      {
+        "start": 51.149,
+        "duration": 5.941,
+        "text": "technologies that I don't know a"
+      },
+      {
+        "start": 53.48,
+        "duration": 4.509,
+        "text": "super-duper amount about so it's gonna"
+      },
+      {
+        "start": 57.09,
+        "duration": 4.41,
+        "text": "be a little bit more of a high-level"
+      },
+      {
+        "start": 57.989,
+        "duration": 6.021,
+        "text": "thing where I just you know talk a live"
+      },
+      {
+        "start": 61.5,
+        "duration": 4.5,
+        "text": "a you know 500 foot overview of"
+      },
+      {
+        "start": 64.01,
+        "duration": 5.77,
+        "text": "Prometheus and Cassandra and how they"
+      },
+      {
+        "start": 66.0,
+        "duration": 5.58,
+        "text": "work together and I think it's more it's"
+      },
+      {
+        "start": 69.78,
+        "duration": 3.51,
+        "text": "more of a suggestive talk like here's"
+      },
+      {
+        "start": 71.58,
+        "duration": 4.77,
+        "text": "here's some stuff you might think is"
+      },
+      {
+        "start": 73.29,
+        "duration": 5.399,
+        "text": "interesting here is some potential"
+      },
+      {
+        "start": 76.35,
+        "duration": 6.089,
+        "text": "father for future independent"
+      },
+      {
+        "start": 78.689,
+        "duration": 5.761,
+        "text": "exploration so a little bit about me"
+      },
+      {
+        "start": 82.439,
+        "duration": 4.651,
+        "text": "like I said developer advocate at the CN"
+      },
+      {
+        "start": 84.45,
+        "duration": 5.22,
+        "text": "CF developer advocate is of course a"
+      },
+      {
+        "start": 87.09,
+        "duration": 6.36,
+        "text": "very is is also a very nebulous position"
+      },
+      {
+        "start": 89.67,
+        "duration": 6.089,
+        "text": "in my case I mostly write documentation"
+      },
+      {
+        "start": 93.45,
+        "duration": 3.9,
+        "text": "and blog posts and big build websites"
+      },
+      {
+        "start": 95.759,
+        "duration": 3.75,
+        "text": "and things like that because it turns"
+      },
+      {
+        "start": 97.35,
+        "duration": 3.839,
+        "text": "out that those tend to be the things"
+      },
+      {
+        "start": 99.509,
+        "duration": 4.981,
+        "text": "that open-source projects need the most"
+      },
+      {
+        "start": 101.189,
+        "duration": 5.371,
+        "text": "and know the least about how to help"
+      },
+      {
+        "start": 104.49,
+        "duration": 5.1,
+        "text": "themselves to put it a little bit"
+      },
+      {
+        "start": 106.56,
+        "duration": 6.15,
+        "text": "bluntly in terms of databases I do know"
+      },
+      {
+        "start": 109.59,
+        "duration": 5.459,
+        "text": "a thing or two about databases I offered"
+      },
+      {
+        "start": 112.71,
+        "duration": 4.65,
+        "text": "the second edition of the seven"
+      },
+      {
+        "start": 115.049,
+        "duration": 5.991,
+        "text": "databases in seven weeks book which some"
+      },
+      {
+        "start": 117.36,
+        "duration": 6.27,
+        "text": "of you may be familiar with it covers"
+      },
+      {
+        "start": 121.04,
+        "duration": 5.829,
+        "text": "well covers one sequel database which is"
+      },
+      {
+        "start": 123.63,
+        "duration": 4.829,
+        "text": "Postgres and then six no it just sort of"
+      },
+      {
+        "start": 126.869,
+        "duration": 3.501,
+        "text": "for the sake of comparison and then six"
+      },
+      {
+        "start": 128.459,
+        "duration": 6.471,
+        "text": "no sequel databases so we got Redis"
+      },
+      {
+        "start": 130.37,
+        "duration": 11.38,
+        "text": "MongoDB CouchDB neo4j"
+      },
+      {
+        "start": 134.93,
+        "duration": 8.56,
+        "text": "did I say HBase HBase originally react"
+      },
+      {
+        "start": 141.75,
+        "duration": 4.08,
+        "text": "was in the first edition but we scrapped"
+      },
+      {
+        "start": 143.49,
+        "duration": 5.31,
+        "text": "react for the second edition and did"
+      },
+      {
+        "start": 145.83,
+        "duration": 5.43,
+        "text": "DynamoDB instead so if you if you want a"
+      },
+      {
+        "start": 148.8,
+        "duration": 4.68,
+        "text": "book that gives you a real real like"
+      },
+      {
+        "start": 151.26,
+        "duration": 5.57,
+        "text": "10,000 foot overview of things I think"
+      },
+      {
+        "start": 153.48,
+        "duration": 5.67,
+        "text": "that's a pretty good place to start a"
+      },
+      {
+        "start": 156.83,
+        "duration": 6.19,
+        "text": "database that the book does not cover is"
+      },
+      {
+        "start": 159.15,
+        "duration": 7.35,
+        "text": "cassandra because we I guess with you"
+      },
+      {
+        "start": 163.02,
+        "duration": 6.33,
+        "text": "know previously react and then dynamo we"
+      },
+      {
+        "start": 166.5,
+        "duration": 5.85,
+        "text": "felt like that that sort of sub paradigm"
+      },
+      {
+        "start": 169.35,
+        "duration": 4.08,
+        "text": "was already covered in the book maybe in"
+      },
+      {
+        "start": 172.35,
+        "duration": 2.67,
+        "text": "the third edition I mean now the"
+      },
+      {
+        "start": 173.43,
+        "duration": 3.51,
+        "text": "cassandra has become so well-established"
+      },
+      {
+        "start": 175.02,
+        "duration": 3.42,
+        "text": "maybe in the third edition will well"
+      },
+      {
+        "start": 176.94,
+        "duration": 6.45,
+        "text": "we'll throw that one in as well"
+      },
+      {
+        "start": 178.44,
+        "duration": 6.69,
+        "text": "but sorry yeah well the problem is that"
+      },
+      {
+        "start": 183.39,
+        "duration": 3.99,
+        "text": "there's already this like seven"
+      },
+      {
+        "start": 185.13,
+        "duration": 6.09,
+        "text": "languages seven databases seven"
+      },
+      {
+        "start": 187.38,
+        "duration": 5.64,
+        "text": "containerization seven seven"
+      },
+      {
+        "start": 191.22,
+        "duration": 4.28,
+        "text": "configuration languages that's a book I"
+      },
+      {
+        "start": 193.02,
+        "duration": 5.49,
+        "text": "want to write one of these days yeah"
+      },
+      {
+        "start": 195.5,
+        "duration": 4.87,
+        "text": "also I live in Portland these days but I"
+      },
+      {
+        "start": 198.51,
+        "duration": 5.37,
+        "text": "am a native Washingtonian and I'm very"
+      },
+      {
+        "start": 200.37,
+        "duration": 5.28,
+        "text": "proud of that I for a long time I I"
+      },
+      {
+        "start": 203.88,
+        "duration": 4.169,
+        "text": "flirted with the idea of Cascadian"
+      },
+      {
+        "start": 205.65,
+        "duration": 3.839,
+        "text": "separatism and then I just and then one"
+      },
+      {
+        "start": 208.049,
+        "duration": 4.44,
+        "text": "day I realized that I think I'm just a"
+      },
+      {
+        "start": 209.489,
+        "duration": 4.47,
+        "text": "Washington state separatist maybe I"
+      },
+      {
+        "start": 212.489,
+        "duration": 4.261,
+        "text": "don't care as much about the rest"
+      },
+      {
+        "start": 213.959,
+        "duration": 3.991,
+        "text": "anyways I always could be back in the"
+      },
+      {
+        "start": 216.75,
+        "duration": 4.86,
+        "text": "home state always good to be back in"
+      },
+      {
+        "start": 217.95,
+        "duration": 5.64,
+        "text": "Seattle so a basic crash course in"
+      },
+      {
+        "start": 221.61,
+        "duration": 6.75,
+        "text": "Prometheus has anybody here not heard of"
+      },
+      {
+        "start": 223.59,
+        "duration": 7.53,
+        "text": "Prometheus okay so it's it's it's gonna"
+      },
+      {
+        "start": 228.36,
+        "duration": 6.54,
+        "text": "be familiar to some degree too to all of"
+      },
+      {
+        "start": 231.12,
+        "duration": 6.03,
+        "text": "you so if you if you're like super"
+      },
+      {
+        "start": 234.9,
+        "duration": 3.63,
+        "text": "dialed into Prometheus maybe just I"
+      },
+      {
+        "start": 237.15,
+        "duration": 3.57,
+        "text": "don't know do something else for the"
+      },
+      {
+        "start": 238.53,
+        "duration": 5.429,
+        "text": "next twenty minutes because I'm giving a"
+      },
+      {
+        "start": 240.72,
+        "duration": 5.13,
+        "text": "pretty high-level overview so Prometheus"
+      },
+      {
+        "start": 243.959,
+        "duration": 6.481,
+        "text": "is an open source monitoring and"
+      },
+      {
+        "start": 245.85,
+        "duration": 6.78,
+        "text": "observability tool it is actually the ii"
+      },
+      {
+        "start": 250.44,
+        "duration": 4.38,
+        "text": "graduated project under the cnc F so so"
+      },
+      {
+        "start": 252.63,
+        "duration": 2.88,
+        "text": "kubernetes unsurprisingly was was number"
+      },
+      {
+        "start": 254.82,
+        "duration": 2.58,
+        "text": "one"
+      },
+      {
+        "start": 255.51,
+        "duration": 5.039,
+        "text": "you know kubernetes was the project that"
+      },
+      {
+        "start": 257.4,
+        "duration": 6.48,
+        "text": "more or less though is coterminous with"
+      },
+      {
+        "start": 260.549,
+        "duration": 6.3,
+        "text": "the birth of CN CF super duper important"
+      },
+      {
+        "start": 263.88,
+        "duration": 3.84,
+        "text": "but Prometheus is coming in right at its"
+      },
+      {
+        "start": 266.849,
+        "duration": 4.111,
+        "text": "heels"
+      },
+      {
+        "start": 267.72,
+        "duration": 7.74,
+        "text": "it was originally built at SoundCloud in"
+      },
+      {
+        "start": 270.96,
+        "duration": 8.25,
+        "text": "in 2012 in Germany and actually the the"
+      },
+      {
+        "start": 275.46,
+        "duration": 5.43,
+        "text": "dev team is is heavily German I was just"
+      },
+      {
+        "start": 279.21,
+        "duration": 4.95,
+        "text": "at prom con in Munich a couple months"
+      },
+      {
+        "start": 280.89,
+        "duration": 5.37,
+        "text": "ago it's super fun and one thing that I"
+      },
+      {
+        "start": 284.16,
+        "duration": 3.15,
+        "text": "like about the community well actually"
+      },
+      {
+        "start": 286.26,
+        "duration": 3.39,
+        "text": "two things that I like about the"
+      },
+      {
+        "start": 287.31,
+        "duration": 5.1,
+        "text": "development the core development team is"
+      },
+      {
+        "start": 289.65,
+        "duration": 4.8,
+        "text": "that it's not dominated by any single"
+      },
+      {
+        "start": 292.41,
+        "duration": 4.77,
+        "text": "organization so we all know these"
+      },
+      {
+        "start": 294.45,
+        "duration": 6.12,
+        "text": "open-source projects that are you know"
+      },
+      {
+        "start": 297.18,
+        "duration": 4.92,
+        "text": "that are like nominally ostensibly open"
+      },
+      {
+        "start": 300.57,
+        "duration": 3.27,
+        "text": "but really there's you know there's like"
+      },
+      {
+        "start": 302.1,
+        "duration": 3.81,
+        "text": "one or two like really heavy hands"
+      },
+      {
+        "start": 303.84,
+        "duration": 3.54,
+        "text": "guiding things with Prometheus that's"
+      },
+      {
+        "start": 305.91,
+        "duration": 2.61,
+        "text": "that's not at all the case in fact some"
+      },
+      {
+        "start": 307.38,
+        "duration": 4.02,
+        "text": "of the core community members are"
+      },
+      {
+        "start": 308.52,
+        "duration": 5.82,
+        "text": "basically our basically contractors who"
+      },
+      {
+        "start": 311.4,
+        "duration": 5.93,
+        "text": "run their own observability and"
+      },
+      {
+        "start": 314.34,
+        "duration": 5.73,
+        "text": "monitoring startups and and"
+      },
+      {
+        "start": 317.33,
+        "duration": 4.78,
+        "text": "consultancies the other thing that I"
+      },
+      {
+        "start": 320.07,
+        "duration": 4.38,
+        "text": "really like is that it's a it's it's a"
+      },
+      {
+        "start": 322.11,
+        "duration": 4.02,
+        "text": "pretty conservative development culture"
+      },
+      {
+        "start": 324.45,
+        "duration": 3.87,
+        "text": "and I don't mean that politically I just"
+      },
+      {
+        "start": 326.13,
+        "duration": 4.35,
+        "text": "mean in terms of their their sensibility"
+      },
+      {
+        "start": 328.32,
+        "duration": 5.43,
+        "text": "and their approach to to the project"
+      },
+      {
+        "start": 330.48,
+        "duration": 7.77,
+        "text": "they're they're very much into you know"
+      },
+      {
+        "start": 333.75,
+        "duration": 6.24,
+        "text": "not going all in on new features and you"
+      },
+      {
+        "start": 338.25,
+        "duration": 4.14,
+        "text": "know bells and whistles and flashy"
+      },
+      {
+        "start": 339.99,
+        "duration": 6.98,
+        "text": "things they're much more about staying"
+      },
+      {
+        "start": 342.39,
+        "duration": 7.2,
+        "text": "on a very narrow path and and not not"
+      },
+      {
+        "start": 346.97,
+        "duration": 4.21,
+        "text": "allowing the project to succumb to bloat"
+      },
+      {
+        "start": 349.59,
+        "duration": 3.21,
+        "text": "which we see in a lot of cases where you"
+      },
+      {
+        "start": 351.18,
+        "duration": 3.03,
+        "text": "know connector to this and integration"
+      },
+      {
+        "start": 352.8,
+        "duration": 3.74,
+        "text": "to this connector to this integration of"
+      },
+      {
+        "start": 354.21,
+        "duration": 4.56,
+        "text": "this and what you get is a big big mess"
+      },
+      {
+        "start": 356.54,
+        "duration": 6.75,
+        "text": "Prometheus is very much not not that"
+      },
+      {
+        "start": 358.77,
+        "duration": 4.52,
+        "text": "which I appreciate it's written and go"
+      },
+      {
+        "start": 363.65,
+        "duration": 4.42,
+        "text": "it's it's been it's gotten pretty"
+      },
+      {
+        "start": 366.66,
+        "duration": 3.27,
+        "text": "widespread adoption so it's been around"
+      },
+      {
+        "start": 368.07,
+        "duration": 5.7,
+        "text": "for six years it's been in the CN CF for"
+      },
+      {
+        "start": 369.93,
+        "duration": 5.549,
+        "text": "a few and it's it's used by you know if"
+      },
+      {
+        "start": 373.77,
+        "duration": 4.26,
+        "text": "you pull up the Prometheus dot IO page"
+      },
+      {
+        "start": 375.479,
+        "duration": 4.981,
+        "text": "the the list of users is is pretty crazy"
+      },
+      {
+        "start": 378.03,
+        "duration": 4.62,
+        "text": "they use it internally at Google digital"
+      },
+      {
+        "start": 380.46,
+        "duration": 4.59,
+        "text": "ocean you know Apple all over the place"
+      },
+      {
+        "start": 382.65,
+        "duration": 3.81,
+        "text": "it integrates with just with just about"
+      },
+      {
+        "start": 385.05,
+        "duration": 2.94,
+        "text": "everything including Cassandra so you"
+      },
+      {
+        "start": 386.46,
+        "duration": 3.959,
+        "text": "look at the integrations list and you"
+      },
+      {
+        "start": 387.99,
+        "duration": 5.1,
+        "text": "know every major every major database"
+      },
+      {
+        "start": 390.419,
+        "duration": 3.5,
+        "text": "you can imagine is represented so on and"
+      },
+      {
+        "start": 393.09,
+        "duration": 4.71,
+        "text": "so forth"
+      },
+      {
+        "start": 393.919,
+        "duration": 7.701,
+        "text": "it is a scrape based metrics gathering"
+      },
+      {
+        "start": 397.8,
+        "duration": 5.92,
+        "text": "system so in contrast to a"
+      },
+      {
+        "start": 401.62,
+        "duration": 4.109,
+        "text": "what you would call push-based metrics"
+      },
+      {
+        "start": 403.72,
+        "duration": 3.87,
+        "text": "gatherings where processes"
+      },
+      {
+        "start": 405.729,
+        "duration": 4.531,
+        "text": "you know emit metrics to a thing over"
+      },
+      {
+        "start": 407.59,
+        "duration": 4.59,
+        "text": "there instead the way that Prometheus"
+      },
+      {
+        "start": 410.26,
+        "duration": 5.939,
+        "text": "works is that your process is whatever"
+      },
+      {
+        "start": 412.18,
+        "duration": 6.39,
+        "text": "they are offer up metrics and that are"
+      },
+      {
+        "start": 416.199,
+        "duration": 4.981,
+        "text": "scraped just through an HTTP port in a"
+      },
+      {
+        "start": 418.57,
+        "duration": 4.62,
+        "text": "very simple text format which is also a"
+      },
+      {
+        "start": 421.18,
+        "duration": 5.34,
+        "text": "little controversial but we'll talk of"
+      },
+      {
+        "start": 423.19,
+        "duration": 6.05,
+        "text": "it a little bit about that so in terms"
+      },
+      {
+        "start": 426.52,
+        "duration": 5.369,
+        "text": "of how the data actually works it's this"
+      },
+      {
+        "start": 429.24,
+        "duration": 8.049,
+        "text": "label based time series data system so"
+      },
+      {
+        "start": 431.889,
+        "duration": 7.441,
+        "text": "you see HTTP requests total job equals"
+      },
+      {
+        "start": 437.289,
+        "duration": 4.38,
+        "text": "web incidence equals web one and end B"
+      },
+      {
+        "start": 439.33,
+        "duration": 4.89,
+        "text": "equals prod so it's this very kind of"
+      },
+      {
+        "start": 441.669,
+        "duration": 5.851,
+        "text": "key value oriented way of specifying"
+      },
+      {
+        "start": 444.22,
+        "duration": 6.24,
+        "text": "time series and in choosing which time"
+      },
+      {
+        "start": 447.52,
+        "duration": 5.79,
+        "text": "series you want I'll talk a little bit"
+      },
+      {
+        "start": 450.46,
+        "duration": 5.28,
+        "text": "later about about the sort of the the"
+      },
+      {
+        "start": 453.31,
+        "duration": 3.93,
+        "text": "other paradigm of querying time series"
+      },
+      {
+        "start": 455.74,
+        "duration": 4.53,
+        "text": "data which is more hierarchical and I"
+      },
+      {
+        "start": 457.24,
+        "duration": 4.89,
+        "text": "think like objectively worse but but"
+      },
+      {
+        "start": 460.27,
+        "duration": 5.16,
+        "text": "that's that's open to interpretation as"
+      },
+      {
+        "start": 462.13,
+        "duration": 6.599,
+        "text": "well yeah so this is the basic this is"
+      },
+      {
+        "start": 465.43,
+        "duration": 6.75,
+        "text": "the basic format for exposing Prometheus"
+      },
+      {
+        "start": 468.729,
+        "duration": 6.271,
+        "text": "data and then prom QL is more of a sort"
+      },
+      {
+        "start": 472.18,
+        "duration": 5.01,
+        "text": "of high powered querying an analytics"
+      },
+      {
+        "start": 475.0,
+        "duration": 4.289,
+        "text": "language that you can use to actually do"
+      },
+      {
+        "start": 477.19,
+        "duration": 5.15,
+        "text": "things with this time series data so in"
+      },
+      {
+        "start": 479.289,
+        "duration": 5.491,
+        "text": "this case we're doing we're basically"
+      },
+      {
+        "start": 482.34,
+        "duration": 6.25,
+        "text": "what are we doing here so we have you"
+      },
+      {
+        "start": 484.78,
+        "duration": 5.94,
+        "text": "know total HTTP requests potentially"
+      },
+      {
+        "start": 488.59,
+        "duration": 5.16,
+        "text": "across all jobs instances and"
+      },
+      {
+        "start": 490.72,
+        "duration": 5.91,
+        "text": "environments in the last five minutes a"
+      },
+      {
+        "start": 493.75,
+        "duration": 4.979,
+        "text": "some of the rate and then and then"
+      },
+      {
+        "start": 496.63,
+        "duration": 5.25,
+        "text": "you're doing like the bottom three so so"
+      },
+      {
+        "start": 498.729,
+        "duration": 7.56,
+        "text": "whichever three processes are actually"
+      },
+      {
+        "start": 501.88,
+        "duration": 5.88,
+        "text": "and then sorted by app and process this"
+      },
+      {
+        "start": 506.289,
+        "duration": 2.731,
+        "text": "is all I'll be this is very abstract I"
+      },
+      {
+        "start": 507.76,
+        "duration": 2.879,
+        "text": "actually don't even know what this"
+      },
+      {
+        "start": 509.02,
+        "duration": 6.06,
+        "text": "represents but this gives you an idea of"
+      },
+      {
+        "start": 510.639,
+        "duration": 8.4,
+        "text": "what what prom ql looks like a phone"
+      },
+      {
+        "start": 515.08,
+        "duration": 7.139,
+        "text": "call okay in terms of the the basic"
+      },
+      {
+        "start": 519.039,
+        "duration": 5.281,
+        "text": "architecture of Prometheus so this is"
+      },
+      {
+        "start": 522.219,
+        "duration": 4.471,
+        "text": "actually borrowed from the Prometheus"
+      },
+      {
+        "start": 524.32,
+        "duration": 4.92,
+        "text": "Docs which I actually don't feel bad"
+      },
+      {
+        "start": 526.69,
+        "duration": 4.55,
+        "text": "about because I made it so if you see it"
+      },
+      {
+        "start": 529.24,
+        "duration": 5.01,
+        "text": "on the webpage that's actually my work"
+      },
+      {
+        "start": 531.24,
+        "duration": 3.82,
+        "text": "so you'll see that a Prometheus server"
+      },
+      {
+        "start": 534.25,
+        "duration": 5.07,
+        "text": "you see in"
+      },
+      {
+        "start": 535.06,
+        "duration": 6.57,
+        "text": "the middle is typically part of kind of"
+      },
+      {
+        "start": 539.32,
+        "duration": 5.87,
+        "text": "a mesh or a framework of other services"
+      },
+      {
+        "start": 541.63,
+        "duration": 6.33,
+        "text": "it's it's very rare that you would use"
+      },
+      {
+        "start": 545.19,
+        "duration": 5.41,
+        "text": "prometheus just just on its own run it"
+      },
+      {
+        "start": 547.96,
+        "duration": 4.85,
+        "text": "as a server so I'll talk a little bit"
+      },
+      {
+        "start": 550.6,
+        "duration": 4.47,
+        "text": "about some of these components later but"
+      },
+      {
+        "start": 552.81,
+        "duration": 4.99,
+        "text": "but you know typically what you'll see"
+      },
+      {
+        "start": 555.07,
+        "duration": 4.2,
+        "text": "in conjunction with Prometheus is is the"
+      },
+      {
+        "start": 557.8,
+        "duration": 3.72,
+        "text": "alert manager which i think is probably"
+      },
+      {
+        "start": 559.27,
+        "duration": 5.94,
+        "text": "the most commonly used one which"
+      },
+      {
+        "start": 561.52,
+        "duration": 6.71,
+        "text": "actually which which manages which"
+      },
+      {
+        "start": 565.21,
+        "duration": 6.78,
+        "text": "manages the actual I guess you could say"
+      },
+      {
+        "start": 568.23,
+        "duration": 6.88,
+        "text": "observability portion of Prometheus so"
+      },
+      {
+        "start": 571.99,
+        "duration": 5.34,
+        "text": "so the alert manager basically takes in"
+      },
+      {
+        "start": 575.11,
+        "duration": 5.58,
+        "text": "alerts that are fired off by Prometheus"
+      },
+      {
+        "start": 577.33,
+        "duration": 5.22,
+        "text": "and you can configure conditions under"
+      },
+      {
+        "start": 580.69,
+        "duration": 4.56,
+        "text": "which alerts are fired and you can"
+      },
+      {
+        "start": 582.55,
+        "duration": 6.18,
+        "text": "assign severity levels to those alerts"
+      },
+      {
+        "start": 585.25,
+        "duration": 4.77,
+        "text": "and then alert managers is responsible"
+      },
+      {
+        "start": 588.73,
+        "duration": 4.44,
+        "text": "for actually handling them so where do"
+      },
+      {
+        "start": 590.02,
+        "duration": 4.89,
+        "text": "they go so what happens you do they get"
+      },
+      {
+        "start": 593.17,
+        "duration": 4.29,
+        "text": "sent to email do they get sent to page"
+      },
+      {
+        "start": 594.91,
+        "duration": 4.02,
+        "text": "of duty I'm sure that there's some kind"
+      },
+      {
+        "start": 597.46,
+        "duration": 3.51,
+        "text": "of I'm sure people build Twilio"
+      },
+      {
+        "start": 598.93,
+        "duration": 4.11,
+        "text": "integrations and so on and so forth you"
+      },
+      {
+        "start": 600.97,
+        "duration": 5.66,
+        "text": "could get actual like literal pages or"
+      },
+      {
+        "start": 603.04,
+        "duration": 5.94,
+        "text": "literal text messages so on and so forth"
+      },
+      {
+        "start": 606.63,
+        "duration": 2.97,
+        "text": "some other things which we'll get into"
+      },
+      {
+        "start": 608.98,
+        "duration": 3.08,
+        "text": "later"
+      },
+      {
+        "start": 609.6,
+        "duration": 6.34,
+        "text": "Prometheus does come with its own web UI"
+      },
+      {
+        "start": 612.06,
+        "duration": 6.42,
+        "text": "in terms of a visualization of Gryphon"
+      },
+      {
+        "start": 615.94,
+        "duration": 6.24,
+        "text": "a-- which is not technically part of the"
+      },
+      {
+        "start": 618.48,
+        "duration": 6.7,
+        "text": "Prometheus project is is typically used"
+      },
+      {
+        "start": 622.18,
+        "duration": 4.95,
+        "text": "as the visualization system I haven't"
+      },
+      {
+        "start": 625.18,
+        "duration": 3.42,
+        "text": "really seen any others used with it"
+      },
+      {
+        "start": 627.13,
+        "duration": 2.67,
+        "text": "although there might be others if there"
+      },
+      {
+        "start": 628.6,
+        "duration": 4.41,
+        "text": "are please let me know I'd be very"
+      },
+      {
+        "start": 629.8,
+        "duration": 5.97,
+        "text": "curious the push gateway is something"
+      },
+      {
+        "start": 633.01,
+        "duration": 5.21,
+        "text": "that's that I think is not used all that"
+      },
+      {
+        "start": 635.77,
+        "duration": 5.76,
+        "text": "often but if you have short lived jobs"
+      },
+      {
+        "start": 638.22,
+        "duration": 5.08,
+        "text": "remember that Prometheus is a scrape"
+      },
+      {
+        "start": 641.53,
+        "duration": 3.92,
+        "text": "based system so if you have a"
+      },
+      {
+        "start": 643.3,
+        "duration": 4.92,
+        "text": "short-lived job that dies before"
+      },
+      {
+        "start": 645.45,
+        "duration": 4.6,
+        "text": "prometheus is is able to scrape it what"
+      },
+      {
+        "start": 648.22,
+        "duration": 3.63,
+        "text": "do you do well what you do is you had"
+      },
+      {
+        "start": 650.05,
+        "duration": 4.65,
+        "text": "those jobs push to this push gateway"
+      },
+      {
+        "start": 651.85,
+        "duration": 4.71,
+        "text": "that gathers them keeps them and makes"
+      },
+      {
+        "start": 654.7,
+        "duration": 4.259,
+        "text": "them available for Prometheus to come"
+      },
+      {
+        "start": 656.56,
+        "duration": 6.45,
+        "text": "along and scrape at whatever specified"
+      },
+      {
+        "start": 658.959,
+        "duration": 7.431,
+        "text": "interval so yeah we'll get more into"
+      },
+      {
+        "start": 663.01,
+        "duration": 3.38,
+        "text": "these components as we go along"
+      },
+      {
+        "start": 666.58,
+        "duration": 5.64,
+        "text": "so yeah the push gateway the alert"
+      },
+      {
+        "start": 670.15,
+        "duration": 5.76,
+        "text": "manager which which like I said before"
+      },
+      {
+        "start": 672.22,
+        "duration": 5.67,
+        "text": "you basically there's there's two levels"
+      },
+      {
+        "start": 675.91,
+        "duration": 4.65,
+        "text": "of configuration that you use here so"
+      },
+      {
+        "start": 677.89,
+        "duration": 6.3,
+        "text": "one of them is that you you provide"
+      },
+      {
+        "start": 680.56,
+        "duration": 5.37,
+        "text": "Prometheus with Caen configuration that"
+      },
+      {
+        "start": 684.19,
+        "duration": 5.19,
+        "text": "determines what actually counts as"
+      },
+      {
+        "start": 685.93,
+        "duration": 5.67,
+        "text": "something deserving an alert and you use"
+      },
+      {
+        "start": 689.38,
+        "duration": 4.83,
+        "text": "prom ql for that so like whatever kind"
+      },
+      {
+        "start": 691.6,
+        "duration": 5.46,
+        "text": "of prom ql statement you can think of if"
+      },
+      {
+        "start": 694.21,
+        "duration": 6.2,
+        "text": "you know disk space usage is if the the"
+      },
+      {
+        "start": 697.06,
+        "duration": 6.96,
+        "text": "rate of disk space usage over time is"
+      },
+      {
+        "start": 700.41,
+        "duration": 7.6,
+        "text": "it's bound to is expected to achieve"
+      },
+      {
+        "start": 704.02,
+        "duration": 6.63,
+        "text": "some undesired level for example over"
+      },
+      {
+        "start": 708.01,
+        "duration": 5.16,
+        "text": "the course of five minutes then you fire"
+      },
+      {
+        "start": 710.65,
+        "duration": 5.87,
+        "text": "an alert with a severity of critical or"
+      },
+      {
+        "start": 713.17,
+        "duration": 6.12,
+        "text": "warning or notice or caution for example"
+      },
+      {
+        "start": 716.52,
+        "duration": 4.84,
+        "text": "the alert manager has I think some"
+      },
+      {
+        "start": 719.29,
+        "duration": 4.32,
+        "text": "really interesting capabilities built"
+      },
+      {
+        "start": 721.36,
+        "duration": 5.79,
+        "text": "into it one of them is inhibition rules"
+      },
+      {
+        "start": 723.61,
+        "duration": 8.49,
+        "text": "which is basically it allows you to two"
+      },
+      {
+        "start": 727.15,
+        "duration": 7.71,
+        "text": "hierarchies your your alerts which makes"
+      },
+      {
+        "start": 732.1,
+        "duration": 5.28,
+        "text": "a lot of sense if if for example in a"
+      },
+      {
+        "start": 734.86,
+        "duration": 6.36,
+        "text": "Cassandra context if you have like an"
+      },
+      {
+        "start": 737.38,
+        "duration": 5.31,
+        "text": "Enquirer in entire cluster down you can"
+      },
+      {
+        "start": 741.22,
+        "duration": 3.15,
+        "text": "say that that's a more important alert"
+      },
+      {
+        "start": 742.69,
+        "duration": 4.35,
+        "text": "than for example one of the nodes"
+      },
+      {
+        "start": 744.37,
+        "duration": 6.51,
+        "text": "running out of disk space so imagine if"
+      },
+      {
+        "start": 747.04,
+        "duration": 6.57,
+        "text": "the same time you're getting messages on"
+      },
+      {
+        "start": 750.88,
+        "duration": 4.98,
+        "text": "on pager duty that your Cassandra"
+      },
+      {
+        "start": 753.61,
+        "duration": 3.84,
+        "text": "cluster is down and also that one of the"
+      },
+      {
+        "start": 755.86,
+        "duration": 2.97,
+        "text": "nodes is running out of disk I mean who"
+      },
+      {
+        "start": 757.45,
+        "duration": 3.27,
+        "text": "cares about the node running out of disk"
+      },
+      {
+        "start": 758.83,
+        "duration": 4.04,
+        "text": "if the whole thing's unavailable and so"
+      },
+      {
+        "start": 760.72,
+        "duration": 7.05,
+        "text": "inhibition rules enable you to sort of"
+      },
+      {
+        "start": 762.87,
+        "duration": 9.43,
+        "text": "to prioritize in that way you also have"
+      },
+      {
+        "start": 767.77,
+        "duration": 6.63,
+        "text": "silencing rules which enable you to -"
+      },
+      {
+        "start": 772.3,
+        "duration": 6.09,
+        "text": "you know temporarily silence certain"
+      },
+      {
+        "start": 774.4,
+        "duration": 6.27,
+        "text": "things and you also have a handful of"
+      },
+      {
+        "start": 778.39,
+        "duration": 4.08,
+        "text": "built in notification targets I"
+      },
+      {
+        "start": 780.67,
+        "duration": 5.19,
+        "text": "mentioned two of them before another one"
+      },
+      {
+        "start": 782.47,
+        "duration": 4.8,
+        "text": "is slack and I think most importantly"
+      },
+      {
+        "start": 785.86,
+        "duration": 5.79,
+        "text": "and I put it in bold is that you can"
+      },
+      {
+        "start": 787.27,
+        "duration": 6.39,
+        "text": "actually send notifications alerts to to"
+      },
+      {
+        "start": 791.65,
+        "duration": 6.54,
+        "text": "custom web hooks so you can just give"
+      },
+      {
+        "start": 793.66,
+        "duration": 5.91,
+        "text": "the alert manager a URL endpoint and the"
+      },
+      {
+        "start": 798.19,
+        "duration": 4.17,
+        "text": "alert manager will just post"
+      },
+      {
+        "start": 799.57,
+        "duration": 5.209,
+        "text": "some JSON which i think is a really"
+      },
+      {
+        "start": 802.36,
+        "duration": 5.64,
+        "text": "interesting and really compelling way to"
+      },
+      {
+        "start": 804.779,
+        "duration": 5.411,
+        "text": "to extend and customize your your"
+      },
+      {
+        "start": 808.0,
+        "duration": 4.949,
+        "text": "Prometheus setup another one of course"
+      },
+      {
+        "start": 810.19,
+        "duration": 3.75,
+        "text": "is like I said before is grifone a--"
+      },
+      {
+        "start": 812.949,
+        "duration": 4.531,
+        "text": "dashboards and I'll show you an example"
+      },
+      {
+        "start": 813.94,
+        "duration": 5.519,
+        "text": "of one in a little bit here this is the"
+      },
+      {
+        "start": 817.48,
+        "duration": 4.919,
+        "text": "Blessed visualization solution I've"
+      },
+      {
+        "start": 819.459,
+        "duration": 4.8,
+        "text": "never seen another one used and a cool"
+      },
+      {
+        "start": 822.399,
+        "duration": 4.38,
+        "text": "thing about graph wanna dashboards is"
+      },
+      {
+        "start": 824.259,
+        "duration": 5.25,
+        "text": "that they do allow for you know a"
+      },
+      {
+        "start": 826.779,
+        "duration": 4.05,
+        "text": "classic sort of click and drag interface"
+      },
+      {
+        "start": 829.509,
+        "duration": 3.721,
+        "text": "for putting together dashboards but you"
+      },
+      {
+        "start": 830.829,
+        "duration": 5.641,
+        "text": "can also but you can also build your own"
+      },
+      {
+        "start": 833.23,
+        "duration": 5.58,
+        "text": "by a JSON that can be very unwieldy"
+      },
+      {
+        "start": 836.47,
+        "duration": 5.489,
+        "text": "process I mean I've seen these JSON"
+      },
+      {
+        "start": 838.81,
+        "duration": 5.99,
+        "text": "blobs that are like you know 200 K or"
+      },
+      {
+        "start": 841.959,
+        "duration": 5.37,
+        "text": "something but it's also really easy to"
+      },
+      {
+        "start": 844.8,
+        "duration": 3.76,
+        "text": "basically share them inline like make"
+      },
+      {
+        "start": 847.329,
+        "duration": 2.851,
+        "text": "them available through the graph on a"
+      },
+      {
+        "start": 848.56,
+        "duration": 4.199,
+        "text": "web page and you know sort of click and"
+      },
+      {
+        "start": 850.18,
+        "duration": 6.779,
+        "text": "drag and it's uh it's all it's all"
+      },
+      {
+        "start": 852.759,
+        "duration": 5.94,
+        "text": "pretty nice so I'll get into some of the"
+      },
+      {
+        "start": 856.959,
+        "duration": 4.411,
+        "text": "some of the arguments for I mean I'm"
+      },
+      {
+        "start": 858.699,
+        "duration": 6.481,
+        "text": "here with the CN CF and I do need to"
+      },
+      {
+        "start": 861.37,
+        "duration": 4.709,
+        "text": "talk it up a little bit so these are"
+      },
+      {
+        "start": 865.18,
+        "duration": 2.57,
+        "text": "some of the things that that I"
+      },
+      {
+        "start": 866.079,
+        "duration": 3.361,
+        "text": "personally find most compelling about"
+      },
+      {
+        "start": 867.75,
+        "duration": 4.48,
+        "text": "Prometheus and I imagine there are"
+      },
+      {
+        "start": 869.44,
+        "duration": 5.67,
+        "text": "others in the community that agree so"
+      },
+      {
+        "start": 872.23,
+        "duration": 5.969,
+        "text": "one of them I think is the operations"
+      },
+      {
+        "start": 875.11,
+        "duration": 4.77,
+        "text": "story is is pretty solid so you"
+      },
+      {
+        "start": 878.199,
+        "duration": 3.75,
+        "text": "basically have this the single static"
+      },
+      {
+        "start": 879.88,
+        "duration": 7.74,
+        "text": "binary that you can just you know fetch"
+      },
+      {
+        "start": 881.949,
+        "duration": 7.95,
+        "text": "on tar and and go you know obviously a"
+      },
+      {
+        "start": 887.62,
+        "duration": 4.74,
+        "text": "programming language like go makes that"
+      },
+      {
+        "start": 889.899,
+        "duration": 5.49,
+        "text": "makes that borderline trivial to build"
+      },
+      {
+        "start": 892.36,
+        "duration": 6.2,
+        "text": "and distribute which I really like"
+      },
+      {
+        "start": 895.389,
+        "duration": 5.341,
+        "text": "you have on disk storage via"
+      },
+      {
+        "start": 898.56,
+        "duration": 3.969,
+        "text": "TS DB I'll talk a little bit more about"
+      },
+      {
+        "start": 900.73,
+        "duration": 4.979,
+        "text": "that which is that the time series"
+      },
+      {
+        "start": 902.529,
+        "duration": 5.401,
+        "text": "database that underlies Prometheus and I"
+      },
+      {
+        "start": 905.709,
+        "duration": 5.641,
+        "text": "think the advantage of that that on disk"
+      },
+      {
+        "start": 907.93,
+        "duration": 4.86,
+        "text": "storage is that you don't have to stand"
+      },
+      {
+        "start": 911.35,
+        "duration": 4.08,
+        "text": "up a database beside it"
+      },
+      {
+        "start": 912.79,
+        "duration": 4.44,
+        "text": "to make it run so you don't have to you"
+      },
+      {
+        "start": 915.43,
+        "duration": 3.75,
+        "text": "don't have to run it along side you know"
+      },
+      {
+        "start": 917.23,
+        "duration": 3.719,
+        "text": "Postgres or cassandra or anything like"
+      },
+      {
+        "start": 919.18,
+        "duration": 4.44,
+        "text": "that you just have these these"
+      },
+      {
+        "start": 920.949,
+        "duration": 5.82,
+        "text": "independent units that you can put up on"
+      },
+      {
+        "start": 923.62,
+        "duration": 6.23,
+        "text": "a server or a VM somewhere and and all"
+      },
+      {
+        "start": 926.769,
+        "duration": 6.361,
+        "text": "of the storage is is handled for you"
+      },
+      {
+        "start": 929.85,
+        "duration": 3.7,
+        "text": "another thing that I really like that"
+      },
+      {
+        "start": 933.13,
+        "duration": 2.7,
+        "text": "you"
+      },
+      {
+        "start": 933.55,
+        "duration": 3.9,
+        "text": "you definitely do not get in Java land"
+      },
+      {
+        "start": 935.83,
+        "duration": 5.31,
+        "text": "like you definitely don't get this with"
+      },
+      {
+        "start": 937.45,
+        "duration": 7.47,
+        "text": "Prometheus is that you can restart the"
+      },
+      {
+        "start": 941.14,
+        "duration": 5.819,
+        "text": "server and do a configuration reload in"
+      },
+      {
+        "start": 944.92,
+        "duration": 5.159,
+        "text": "two ways you can either use kill or you"
+      },
+      {
+        "start": 946.959,
+        "duration": 7.44,
+        "text": "can just do an HTTP POST to a certain /"
+      },
+      {
+        "start": 950.079,
+        "duration": 8.01,
+        "text": "- slash reload and it typically restarts"
+      },
+      {
+        "start": 954.399,
+        "duration": 6.271,
+        "text": "in like like 200 milliseconds or"
+      },
+      {
+        "start": 958.089,
+        "duration": 5.49,
+        "text": "something which is really nice so if you"
+      },
+      {
+        "start": 960.67,
+        "duration": 4.68,
+        "text": "need to do some kind of like you know"
+      },
+      {
+        "start": 963.579,
+        "duration": 3.721,
+        "text": "rolling configuration change across"
+      },
+      {
+        "start": 965.35,
+        "duration": 5.37,
+        "text": "instances some kind of rolling upgrade"
+      },
+      {
+        "start": 967.3,
+        "duration": 6.09,
+        "text": "and or so on and so forth you can do"
+      },
+      {
+        "start": 970.72,
+        "duration": 4.799,
+        "text": "that really super easy which which I'm"
+      },
+      {
+        "start": 973.39,
+        "duration": 5.04,
+        "text": "sure a lot of you working in distributed"
+      },
+      {
+        "start": 975.519,
+        "duration": 5.161,
+        "text": "systems and ops and SRA things that's"
+      },
+      {
+        "start": 978.43,
+        "duration": 4.14,
+        "text": "not that's not the most common thing to"
+      },
+      {
+        "start": 980.68,
+        "duration": 3.99,
+        "text": "be able to trigger configuration reload"
+      },
+      {
+        "start": 982.57,
+        "duration": 4.56,
+        "text": "that quickly it also has a built in"
+      },
+      {
+        "start": 984.67,
+        "duration": 4.2,
+        "text": "expression browser which is you know not"
+      },
+      {
+        "start": 987.13,
+        "duration": 4.079,
+        "text": "the prettiest thing it's not you know"
+      },
+      {
+        "start": 988.87,
+        "duration": 5.31,
+        "text": "the the most up-to-date you know react"
+      },
+      {
+        "start": 991.209,
+        "duration": 5.401,
+        "text": "j/s hot thing but but it works pretty"
+      },
+      {
+        "start": 994.18,
+        "duration": 7.62,
+        "text": "well and it's and it just runs as an"
+      },
+      {
+        "start": 996.61,
+        "duration": 7.169,
+        "text": "HTTP process so another so you know as I"
+      },
+      {
+        "start": 1001.8,
+        "duration": 7.8,
+        "text": "said before I talked about the the label"
+      },
+      {
+        "start": 1003.779,
+        "duration": 9.421,
+        "text": "based time series querying and so I"
+      },
+      {
+        "start": 1009.6,
+        "duration": 5.37,
+        "text": "basically so so this top one right here"
+      },
+      {
+        "start": 1013.2,
+        "duration": 3.99,
+        "text": "is a label based query and the one below"
+      },
+      {
+        "start": 1014.97,
+        "duration": 7.28,
+        "text": "it would be a hierarchical query in a"
+      },
+      {
+        "start": 1017.19,
+        "duration": 7.259,
+        "text": "system like like like stats de query and"
+      },
+      {
+        "start": 1022.25,
+        "duration": 4.809,
+        "text": "they're sort of functionally the same"
+      },
+      {
+        "start": 1024.449,
+        "duration": 4.74,
+        "text": "but you'll see that with the"
+      },
+      {
+        "start": 1027.059,
+        "duration": 5.851,
+        "text": "hierarchical system for querying time"
+      },
+      {
+        "start": 1029.189,
+        "duration": 5.611,
+        "text": "series data you basically there's an"
+      },
+      {
+        "start": 1032.91,
+        "duration": 5.46,
+        "text": "implicit positionality of the different"
+      },
+      {
+        "start": 1034.8,
+        "duration": 6.18,
+        "text": "elements so you basically if you forget"
+      },
+      {
+        "start": 1038.37,
+        "duration": 5.939,
+        "text": "the order in which these things are are"
+      },
+      {
+        "start": 1040.98,
+        "duration": 7.53,
+        "text": "arrayed in the expression then you're"
+      },
+      {
+        "start": 1044.309,
+        "duration": 11.191,
+        "text": "pretty much sunk so so that so that"
+      },
+      {
+        "start": 1048.51,
+        "duration": 8.43,
+        "text": "essentially means that she wasn't gonna"
+      },
+      {
+        "start": 1055.5,
+        "duration": 5.94,
+        "text": "say I forgot I was gonna say"
+      },
+      {
+        "start": 1056.94,
+        "duration": 6.45,
+        "text": "anyways so I mean to me I think that as"
+      },
+      {
+        "start": 1061.44,
+        "duration": 4.59,
+        "text": "far as I can tell the entire monitoring"
+      },
+      {
+        "start": 1063.39,
+        "duration": 3.63,
+        "text": "ecosystem is time series query ecosystem"
+      },
+      {
+        "start": 1066.03,
+        "duration": 2.85,
+        "text": "is move"
+      },
+      {
+        "start": 1067.02,
+        "duration": 4.17,
+        "text": "firmly away from from this kind of"
+      },
+      {
+        "start": 1068.88,
+        "duration": 4.23,
+        "text": "hierarchical querying there may be"
+      },
+      {
+        "start": 1071.19,
+        "duration": 4.11,
+        "text": "holdouts there may be advantages that"
+      },
+      {
+        "start": 1073.11,
+        "duration": 4.5,
+        "text": "I'm not aware of but I think that the"
+      },
+      {
+        "start": 1075.3,
+        "duration": 5.28,
+        "text": "that this label based system which is a"
+      },
+      {
+        "start": 1077.61,
+        "duration": 5.54,
+        "text": "you know very much a key-value kind of"
+      },
+      {
+        "start": 1080.58,
+        "duration": 4.92,
+        "text": "paradigm for for fetching time series"
+      },
+      {
+        "start": 1083.15,
+        "duration": 5.26,
+        "text": "seems to be really carrying the day and"
+      },
+      {
+        "start": 1085.5,
+        "duration": 6.6,
+        "text": "and Prometheus seems to be a leader in"
+      },
+      {
+        "start": 1088.41,
+        "duration": 6.42,
+        "text": "that space a couple other things so like"
+      },
+      {
+        "start": 1092.1,
+        "duration": 6.03,
+        "text": "I said there's this actually I shouldn't"
+      },
+      {
+        "start": 1094.83,
+        "duration": 6.75,
+        "text": "say in memory storage it's it's it's on"
+      },
+      {
+        "start": 1098.13,
+        "duration": 6.66,
+        "text": "disk storage I actually don't remember"
+      },
+      {
+        "start": 1101.58,
+        "duration": 5.91,
+        "text": "if TS DB is in memory so don't don't"
+      },
+      {
+        "start": 1104.79,
+        "duration": 4.62,
+        "text": "don't quote me on that it's based on on"
+      },
+      {
+        "start": 1107.49,
+        "duration": 4.47,
+        "text": "on Facebook's gorilla"
+      },
+      {
+        "start": 1109.41,
+        "duration": 5.52,
+        "text": "so it's this you know heavily optimized"
+      },
+      {
+        "start": 1111.96,
+        "duration": 5.73,
+        "text": "time series database"
+      },
+      {
+        "start": 1114.93,
+        "duration": 4.71,
+        "text": "it also has so Prometheus has a variety"
+      },
+      {
+        "start": 1117.69,
+        "duration": 5.52,
+        "text": "of service discovery mechanisms built in"
+      },
+      {
+        "start": 1119.64,
+        "duration": 5.01,
+        "text": "so so one of the hard problems in just"
+      },
+      {
+        "start": 1123.21,
+        "duration": 4.32,
+        "text": "in the monitoring space in general is"
+      },
+      {
+        "start": 1124.65,
+        "duration": 4.65,
+        "text": "just knowing where your targets are so"
+      },
+      {
+        "start": 1127.53,
+        "duration": 3.81,
+        "text": "if you have you know hundreds if not"
+      },
+      {
+        "start": 1129.3,
+        "duration": 3.81,
+        "text": "thousands of targets then then how do"
+      },
+      {
+        "start": 1131.34,
+        "duration": 3.99,
+        "text": "you make sure that Prometheus knows"
+      },
+      {
+        "start": 1133.11,
+        "duration": 4.8,
+        "text": "where they are at all times and there"
+      },
+      {
+        "start": 1135.33,
+        "duration": 6.15,
+        "text": "are a bunch of built in mechanisms for"
+      },
+      {
+        "start": 1137.91,
+        "duration": 6.06,
+        "text": "doing this you can do basic kubernetes"
+      },
+      {
+        "start": 1141.48,
+        "duration": 5.58,
+        "text": "service discovery via the you know"
+      },
+      {
+        "start": 1143.97,
+        "duration": 5.43,
+        "text": "default the SVC dot whatever system"
+      },
+      {
+        "start": 1147.06,
+        "duration": 6.66,
+        "text": "whatever the weird internal DNS system"
+      },
+      {
+        "start": 1149.4,
+        "duration": 8.07,
+        "text": "in kubernetes is you can use console you"
+      },
+      {
+        "start": 1153.72,
+        "duration": 5.4,
+        "text": "can use standard DNS or one that I find"
+      },
+      {
+        "start": 1157.47,
+        "duration": 4.8,
+        "text": "super interesting is you can actually"
+      },
+      {
+        "start": 1159.12,
+        "duration": 6.96,
+        "text": "use JSON files for service discovery so"
+      },
+      {
+        "start": 1162.27,
+        "duration": 6.12,
+        "text": "you can basically say so you can just in"
+      },
+      {
+        "start": 1166.08,
+        "duration": 5.67,
+        "text": "your service discovery configuration you"
+      },
+      {
+        "start": 1168.39,
+        "duration": 8.57,
+        "text": "can point to a JSON file and list you"
+      },
+      {
+        "start": 1171.75,
+        "duration": 7.65,
+        "text": "know IPs and imports alongside that and"
+      },
+      {
+        "start": 1176.96,
+        "duration": 4.0,
+        "text": "which is which is already fairly"
+      },
+      {
+        "start": 1179.4,
+        "duration": 3.75,
+        "text": "compelling but but what I find more"
+      },
+      {
+        "start": 1180.96,
+        "duration": 4.92,
+        "text": "compelling is that if you if you change"
+      },
+      {
+        "start": 1183.15,
+        "duration": 4.83,
+        "text": "these if you change the contents one of"
+      },
+      {
+        "start": 1185.88,
+        "duration": 4.77,
+        "text": "those JSON files then Prometheus will"
+      },
+      {
+        "start": 1187.98,
+        "duration": 4.68,
+        "text": "actually recognize the change and do"
+      },
+      {
+        "start": 1190.65,
+        "duration": 4.14,
+        "text": "some kind of internal Auto refresh in"
+      },
+      {
+        "start": 1192.66,
+        "duration": 4.62,
+        "text": "terms of where the targets are so I've"
+      },
+      {
+        "start": 1194.79,
+        "duration": 4.47,
+        "text": "seen when I was at at prom Khan and"
+      },
+      {
+        "start": 1197.28,
+        "duration": 3.51,
+        "text": "eunuch a couple months ago there were"
+      },
+      {
+        "start": 1199.26,
+        "duration": 3.69,
+        "text": "actually a bunch of talks about how all"
+      },
+      {
+        "start": 1200.79,
+        "duration": 5.64,
+        "text": "big companies like fastly had all these"
+      },
+      {
+        "start": 1202.95,
+        "duration": 6.12,
+        "text": "crazy like sidecar processes that that"
+      },
+      {
+        "start": 1206.43,
+        "duration": 6.03,
+        "text": "we're doing real-time service discovery"
+      },
+      {
+        "start": 1209.07,
+        "duration": 6.03,
+        "text": "updates via JSON files so you know some"
+      },
+      {
+        "start": 1212.46,
+        "duration": 6.36,
+        "text": "kind of you know either like kubernetes"
+      },
+      {
+        "start": 1215.1,
+        "duration": 5.04,
+        "text": "you know pod sidecar or some kind of you"
+      },
+      {
+        "start": 1218.82,
+        "duration": 4.47,
+        "text": "know agent running on a particular"
+      },
+      {
+        "start": 1220.14,
+        "duration": 6.06,
+        "text": "server it's actually it's you know has a"
+      },
+      {
+        "start": 1223.29,
+        "duration": 6.3,
+        "text": "sole task of keeping these JSON files"
+      },
+      {
+        "start": 1226.2,
+        "duration": 4.53,
+        "text": "up-to-date at all times so I think"
+      },
+      {
+        "start": 1229.59,
+        "duration": 2.97,
+        "text": "that's another very cool of"
+      },
+      {
+        "start": 1230.73,
+        "duration": 3.96,
+        "text": "customization thing so"
+      },
+      {
+        "start": 1232.56,
+        "duration": 3.72,
+        "text": "and finally amongst the this is not"
+      },
+      {
+        "start": 1234.69,
+        "duration": 4.17,
+        "text": "going to be like five parts just two"
+      },
+      {
+        "start": 1236.28,
+        "duration": 5.94,
+        "text": "part whywhy Prometheus is that you get"
+      },
+      {
+        "start": 1238.86,
+        "duration": 5.88,
+        "text": "just tons of customization so you know"
+      },
+      {
+        "start": 1242.22,
+        "duration": 4.92,
+        "text": "like I said before the development"
+      },
+      {
+        "start": 1244.74,
+        "duration": 4.35,
+        "text": "culture around Prometheus is a very very"
+      },
+      {
+        "start": 1247.14,
+        "duration": 3.24,
+        "text": "conservative one they're not interesting"
+      },
+      {
+        "start": 1249.09,
+        "duration": 4.38,
+        "text": "and adding feature after feature after"
+      },
+      {
+        "start": 1250.38,
+        "duration": 4.74,
+        "text": "feature they want to you know their goal"
+      },
+      {
+        "start": 1253.47,
+        "duration": 4.44,
+        "text": "is kind of the same as the kubernetes"
+      },
+      {
+        "start": 1255.12,
+        "duration": 5.49,
+        "text": "core team which is basically they want"
+      },
+      {
+        "start": 1257.91,
+        "duration": 5.91,
+        "text": "to just have a a feature set that's done"
+      },
+      {
+        "start": 1260.61,
+        "duration": 4.83,
+        "text": "forever and I think they're just about"
+      },
+      {
+        "start": 1263.82,
+        "duration": 5.91,
+        "text": "there well with with one exception we'll"
+      },
+      {
+        "start": 1265.44,
+        "duration": 6.26,
+        "text": "talk about and and instead they very"
+      },
+      {
+        "start": 1269.73,
+        "duration": 4.2,
+        "text": "much gone down this customization route"
+      },
+      {
+        "start": 1271.7,
+        "duration": 4.21,
+        "text": "so you can you can set up your own"
+      },
+      {
+        "start": 1273.93,
+        "duration": 4.8,
+        "text": "alerting web hooks if you need to"
+      },
+      {
+        "start": 1275.91,
+        "duration": 5.28,
+        "text": "instead of you know hard coding a bunch"
+      },
+      {
+        "start": 1278.73,
+        "duration": 4.62,
+        "text": "of of alerting targets into alert"
+      },
+      {
+        "start": 1281.19,
+        "duration": 4.47,
+        "text": "manager and you know getting that static"
+      },
+      {
+        "start": 1283.35,
+        "duration": 4.64,
+        "text": "binary blowed it to like 150 megabytes"
+      },
+      {
+        "start": 1285.66,
+        "duration": 6.21,
+        "text": "instead they just let you write your own"
+      },
+      {
+        "start": 1287.99,
+        "duration": 8.4,
+        "text": "there's also a a remote a remote write"
+      },
+      {
+        "start": 1291.87,
+        "duration": 8.76,
+        "text": "API I'm taking trigger water real quick"
+      },
+      {
+        "start": 1296.39,
+        "duration": 4.87,
+        "text": "there's a remote write API for long-term"
+      },
+      {
+        "start": 1300.63,
+        "duration": 4.92,
+        "text": "storage"
+      },
+      {
+        "start": 1301.26,
+        "duration": 7.07,
+        "text": "so Prometheus does not actually provide"
+      },
+      {
+        "start": 1305.55,
+        "duration": 7.02,
+        "text": "any long-term storage you can configure"
+      },
+      {
+        "start": 1308.33,
+        "duration": 5.77,
+        "text": "how long you want your data to stay in a"
+      },
+      {
+        "start": 1312.57,
+        "duration": 4.95,
+        "text": "particular Prometheus instance"
+      },
+      {
+        "start": 1314.1,
+        "duration": 6.3,
+        "text": "but it's not designed for to keep your"
+      },
+      {
+        "start": 1317.52,
+        "duration": 5.19,
+        "text": "data around forever and to run super"
+      },
+      {
+        "start": 1320.4,
+        "duration": 4.89,
+        "text": "complex queries on data that's a month"
+      },
+      {
+        "start": 1322.71,
+        "duration": 5.25,
+        "text": "old it's meant to basically take taken"
+      },
+      {
+        "start": 1325.29,
+        "duration": 4.53,
+        "text": "as much data as you say for it to take"
+      },
+      {
+        "start": 1327.96,
+        "duration": 3.99,
+        "text": "in process it the way it needs to"
+      },
+      {
+        "start": 1329.82,
+        "duration": 5.31,
+        "text": "process it potentially fire off alerts"
+      },
+      {
+        "start": 1331.95,
+        "duration": 5.13,
+        "text": "and then just let it go after"
+      },
+      {
+        "start": 1335.13,
+        "duration": 5.22,
+        "text": "while or potentially write it to a"
+      },
+      {
+        "start": 1337.08,
+        "duration": 4.77,
+        "text": "long-term storage solution file based"
+      },
+      {
+        "start": 1340.35,
+        "duration": 3.57,
+        "text": "service discovery is the one is another"
+      },
+      {
+        "start": 1341.85,
+        "duration": 4.98,
+        "text": "one that I just mentioned I am not aware"
+      },
+      {
+        "start": 1343.92,
+        "duration": 4.68,
+        "text": "of any other systems that do file based"
+      },
+      {
+        "start": 1346.83,
+        "duration": 4.2,
+        "text": "service discovery in this way does"
+      },
+      {
+        "start": 1348.6,
+        "duration": 6.03,
+        "text": "anybody know of one where you can update"
+      },
+      {
+        "start": 1351.03,
+        "duration": 6.39,
+        "text": "a file and that change is instantly"
+      },
+      {
+        "start": 1354.63,
+        "duration": 5.04,
+        "text": "noted by the system and taken yeah I"
+      },
+      {
+        "start": 1357.42,
+        "duration": 6.42,
+        "text": "haven't seen them before which is super"
+      },
+      {
+        "start": 1359.67,
+        "duration": 8.01,
+        "text": "cool and and of course custom exporters"
+      },
+      {
+        "start": 1363.84,
+        "duration": 6.99,
+        "text": "so so lots of things including Cassandra"
+      },
+      {
+        "start": 1367.68,
+        "duration": 5.67,
+        "text": "and you know every other major database"
+      },
+      {
+        "start": 1370.83,
+        "duration": 5.94,
+        "text": "and major distributed system thing that"
+      },
+      {
+        "start": 1373.35,
+        "duration": 5.85,
+        "text": "you can think of has a Prometheus"
+      },
+      {
+        "start": 1376.77,
+        "duration": 6.27,
+        "text": "exporter and you can also just create"
+      },
+      {
+        "start": 1379.2,
+        "duration": 8.7,
+        "text": "your own so as long as you know as long"
+      },
+      {
+        "start": 1383.04,
+        "duration": 6.75,
+        "text": "as you expose an HTTP port that's scrape"
+      },
+      {
+        "start": 1387.9,
+        "duration": 4.35,
+        "text": "Abul by Prometheus and you expose your"
+      },
+      {
+        "start": 1389.79,
+        "duration": 5.45,
+        "text": "metrics in the the Prometheus text"
+      },
+      {
+        "start": 1392.25,
+        "duration": 6.3,
+        "text": "format then you have written a"
+      },
+      {
+        "start": 1395.24,
+        "duration": 7.54,
+        "text": "Prometheus scrape compatible service or"
+      },
+      {
+        "start": 1398.55,
+        "duration": 5.97,
+        "text": "process so some of the drawbacks of"
+      },
+      {
+        "start": 1402.78,
+        "duration": 5.31,
+        "text": "Prometheus and of course I put the"
+      },
+      {
+        "start": 1404.52,
+        "duration": 5.12,
+        "text": "asterisk because drawbacks you know"
+      },
+      {
+        "start": 1408.09,
+        "duration": 4.26,
+        "text": "really depend on your perspective and"
+      },
+      {
+        "start": 1409.64,
+        "duration": 4.48,
+        "text": "and some of the so-called drawbacks are"
+      },
+      {
+        "start": 1412.35,
+        "duration": 3.45,
+        "text": "actually a product of you know very"
+      },
+      {
+        "start": 1414.12,
+        "duration": 4.94,
+        "text": "conscious decision making on their part"
+      },
+      {
+        "start": 1415.8,
+        "duration": 6.3,
+        "text": "so there's no built in long term storage"
+      },
+      {
+        "start": 1419.06,
+        "duration": 5.38,
+        "text": "it's not designed for that it's not it's"
+      },
+      {
+        "start": 1422.1,
+        "duration": 5.34,
+        "text": "not it's not built around that principle"
+      },
+      {
+        "start": 1424.44,
+        "duration": 4.2,
+        "text": "it's also not importantly it's"
+      },
+      {
+        "start": 1427.44,
+        "duration": 3.69,
+        "text": "technically not a highly available"
+      },
+      {
+        "start": 1428.64,
+        "duration": 5.46,
+        "text": "system so each each Prometheus node is"
+      },
+      {
+        "start": 1431.13,
+        "duration": 5.19,
+        "text": "like an independent sort of universe"
+      },
+      {
+        "start": 1434.1,
+        "duration": 5.04,
+        "text": "they're not built to work in conjunction"
+      },
+      {
+        "start": 1436.32,
+        "duration": 4.8,
+        "text": "with one another they're not built to"
+      },
+      {
+        "start": 1439.14,
+        "duration": 6.0,
+        "text": "work in a cluster you don't get you"
+      },
+      {
+        "start": 1441.12,
+        "duration": 6.33,
+        "text": "don't nrw you know read/write quorums"
+      },
+      {
+        "start": 1445.14,
+        "duration": 5.52,
+        "text": "specifics or semantics or anything like"
+      },
+      {
+        "start": 1447.45,
+        "duration": 5.76,
+        "text": "that you basically you get high you get"
+      },
+      {
+        "start": 1450.66,
+        "duration": 6.48,
+        "text": "high availability by just running lots"
+      },
+      {
+        "start": 1453.21,
+        "duration": 5.16,
+        "text": "of them and if you lose one you just you"
+      },
+      {
+        "start": 1457.14,
+        "duration": 4.56,
+        "text": "know you just hope for the best that"
+      },
+      {
+        "start": 1458.37,
+        "duration": 5.13,
+        "text": "there's still enough left which is also"
+      },
+      {
+        "start": 1461.7,
+        "duration": 4.95,
+        "text": "I think a very conscious decision on the"
+      },
+      {
+        "start": 1463.5,
+        "duration": 5.61,
+        "text": "part of the developers that when you"
+      },
+      {
+        "start": 1466.65,
+        "duration": 5.25,
+        "text": "start building system"
+      },
+      {
+        "start": 1469.11,
+        "duration": 5.28,
+        "text": "to operate in terms of you know Paxos or"
+      },
+      {
+        "start": 1471.9,
+        "duration": 4.649,
+        "text": "raft or or whatever consensus algorithm"
+      },
+      {
+        "start": 1474.39,
+        "duration": 4.05,
+        "text": "they get really hairy really quickly"
+      },
+      {
+        "start": 1476.549,
+        "duration": 4.231,
+        "text": "they they produce all kinds of headaches"
+      },
+      {
+        "start": 1478.44,
+        "duration": 6.42,
+        "text": "for four operators and sres and sis"
+      },
+      {
+        "start": 1480.78,
+        "duration": 6.18,
+        "text": "admins and yeah so no no built in"
+      },
+      {
+        "start": 1484.86,
+        "duration": 4.23,
+        "text": "long-term storage is a drawback but like"
+      },
+      {
+        "start": 1486.96,
+        "duration": 7.02,
+        "text": "I said there is a remote I remote right"
+      },
+      {
+        "start": 1489.09,
+        "duration": 6.93,
+        "text": "API that you can use to to fan-out"
+      },
+      {
+        "start": 1493.98,
+        "duration": 4.17,
+        "text": "Prometheus data and to any kind of"
+      },
+      {
+        "start": 1496.02,
+        "duration": 4.62,
+        "text": "system you want so some of the major"
+      },
+      {
+        "start": 1498.15,
+        "duration": 3.57,
+        "text": "commercial providers include in flux DB"
+      },
+      {
+        "start": 1500.64,
+        "duration": 4.95,
+        "text": "which I'm sure a lot of you are familiar"
+      },
+      {
+        "start": 1501.72,
+        "duration": 6.12,
+        "text": "with they have I think a pretty good"
+      },
+      {
+        "start": 1505.59,
+        "duration": 5.52,
+        "text": "prometheus story there's an open source"
+      },
+      {
+        "start": 1507.84,
+        "duration": 5.85,
+        "text": "project called open TS d TS DB a time"
+      },
+      {
+        "start": 1511.11,
+        "duration": 5.1,
+        "text": "series database you can use actually"
+      },
+      {
+        "start": 1513.69,
+        "duration": 5.55,
+        "text": "other systems like graphite for that so"
+      },
+      {
+        "start": 1516.21,
+        "duration": 6.39,
+        "text": "on and so forth and yeah basically you"
+      },
+      {
+        "start": 1519.24,
+        "duration": 6.27,
+        "text": "can you can shell that data out any way"
+      },
+      {
+        "start": 1522.6,
+        "duration": 4.819,
+        "text": "you like with the API there's also this"
+      },
+      {
+        "start": 1525.51,
+        "duration": 5.46,
+        "text": "is also a little bit controversial but"
+      },
+      {
+        "start": 1527.419,
+        "duration": 6.371,
+        "text": "but there's no built-in security so this"
+      },
+      {
+        "start": 1530.97,
+        "duration": 5.01,
+        "text": "is another design choice that keeps that"
+      },
+      {
+        "start": 1533.79,
+        "duration": 4.86,
+        "text": "that static binary nice and lean and"
+      },
+      {
+        "start": 1535.98,
+        "duration": 6.42,
+        "text": "keeps it very quote unquote"
+      },
+      {
+        "start": 1538.65,
+        "duration": 7.38,
+        "text": "I guess operationally simple but it also"
+      },
+      {
+        "start": 1542.4,
+        "duration": 6.96,
+        "text": "means that that any security that goes"
+      },
+      {
+        "start": 1546.03,
+        "duration": 4.38,
+        "text": "on around prometheus has to be provided"
+      },
+      {
+        "start": 1549.36,
+        "duration": 3.84,
+        "text": "by by you"
+      },
+      {
+        "start": 1550.41,
+        "duration": 4.889,
+        "text": "so it basically assumes that that every"
+      },
+      {
+        "start": 1553.2,
+        "duration": 4.08,
+        "text": "request in everything coming to it is"
+      },
+      {
+        "start": 1555.299,
+        "duration": 4.141,
+        "text": "coming from some kind of you know"
+      },
+      {
+        "start": 1557.28,
+        "duration": 5.67,
+        "text": "trusted non-malicious non-malignant"
+      },
+      {
+        "start": 1559.44,
+        "duration": 6.869,
+        "text": "source and and yeah the responsibility"
+      },
+      {
+        "start": 1562.95,
+        "duration": 5.91,
+        "text": "is on you to to keep it that way"
+      },
+      {
+        "start": 1566.309,
+        "duration": 5.011,
+        "text": "so the drawback of course is that that's"
+      },
+      {
+        "start": 1568.86,
+        "duration": 3.78,
+        "text": "another operational thing that you have"
+      },
+      {
+        "start": 1571.32,
+        "duration": 3.75,
+        "text": "to that you have to worry about and take"
+      },
+      {
+        "start": 1572.64,
+        "duration": 6.39,
+        "text": "care of but I guess the advantage is"
+      },
+      {
+        "start": 1575.07,
+        "duration": 8.58,
+        "text": "that if you have some you know crazy you"
+      },
+      {
+        "start": 1579.03,
+        "duration": 7.62,
+        "text": "know like Kerberos level 10 internal"
+      },
+      {
+        "start": 1583.65,
+        "duration": 5.43,
+        "text": "security system that you don't have to"
+      },
+      {
+        "start": 1586.65,
+        "duration": 4.97,
+        "text": "you know that the Prometheus maintainer"
+      },
+      {
+        "start": 1589.08,
+        "duration": 4.979,
+        "text": "don't have to worry about covering that"
+      },
+      {
+        "start": 1591.62,
+        "duration": 5.52,
+        "text": "another drawback is the sort of"
+      },
+      {
+        "start": 1594.059,
+        "duration": 5.881,
+        "text": "plaintext metrics x-position format now"
+      },
+      {
+        "start": 1597.14,
+        "duration": 4.45,
+        "text": "it's a super simple format I showed you"
+      },
+      {
+        "start": 1599.94,
+        "duration": 3.0,
+        "text": "a couple examples but one of the"
+      },
+      {
+        "start": 1601.59,
+        "duration": 3.54,
+        "text": "criticisms here of course is"
+      },
+      {
+        "start": 1602.94,
+        "duration": 6.18,
+        "text": "that it would probably be a lot faster"
+      },
+      {
+        "start": 1605.13,
+        "duration": 6.15,
+        "text": "if if the metrics were exposed by a you"
+      },
+      {
+        "start": 1609.12,
+        "duration": 6.47,
+        "text": "know protobuf or or something like that"
+      },
+      {
+        "start": 1611.28,
+        "duration": 7.26,
+        "text": "some something some kind of more"
+      },
+      {
+        "start": 1615.59,
+        "duration": 8.44,
+        "text": "efficient encoding would probably be"
+      },
+      {
+        "start": 1618.54,
+        "duration": 6.99,
+        "text": "better which yeah I I suppose that is a"
+      },
+      {
+        "start": 1624.03,
+        "duration": 4.17,
+        "text": "drawback but it does have the advantage"
+      },
+      {
+        "start": 1625.53,
+        "duration": 5.28,
+        "text": "that that writing your own you know"
+      },
+      {
+        "start": 1628.2,
+        "duration": 4.41,
+        "text": "libraries that work with your own"
+      },
+      {
+        "start": 1630.81,
+        "duration": 3.45,
+        "text": "language specific libraries and and"
+      },
+      {
+        "start": 1632.61,
+        "duration": 3.21,
+        "text": "clients for Prometheus is super easy"
+      },
+      {
+        "start": 1634.26,
+        "duration": 4.89,
+        "text": "because you're just writing plain text"
+      },
+      {
+        "start": 1635.82,
+        "duration": 6.72,
+        "text": "and not having to you know do your dot"
+      },
+      {
+        "start": 1639.15,
+        "duration": 6.75,
+        "text": "proto something or other and then"
+      },
+      {
+        "start": 1642.54,
+        "duration": 5.19,
+        "text": "finally one drawback I guess is that it"
+      },
+      {
+        "start": 1645.9,
+        "duration": 3.77,
+        "text": "tends to be just one piece of a puzzle"
+      },
+      {
+        "start": 1647.73,
+        "duration": 4.53,
+        "text": "so this is not like an all-encompassing"
+      },
+      {
+        "start": 1649.67,
+        "duration": 4.69,
+        "text": "all-in-one tool that's meant to to serve"
+      },
+      {
+        "start": 1652.26,
+        "duration": 3.72,
+        "text": "every purpose there's no built-in"
+      },
+      {
+        "start": 1654.36,
+        "duration": 3.99,
+        "text": "dashboard you use Cortana for that"
+      },
+      {
+        "start": 1655.98,
+        "duration": 4.26,
+        "text": "there's no support for logs or tracing"
+      },
+      {
+        "start": 1658.35,
+        "duration": 4.5,
+        "text": "so you know if you want to deal with"
+      },
+      {
+        "start": 1660.24,
+        "duration": 4.44,
+        "text": "logs you're gonna have to do a log stash"
+      },
+      {
+        "start": 1662.85,
+        "duration": 3.21,
+        "text": "elasticsearch something or other if you"
+      },
+      {
+        "start": 1664.68,
+        "duration": 1.71,
+        "text": "want to do tracing you're gonna have to"
+      },
+      {
+        "start": 1666.06,
+        "duration": 2.19,
+        "text": "do"
+      },
+      {
+        "start": 1666.39,
+        "duration": 8.79,
+        "text": "Jagr some kind of open tracing"
+      },
+      {
+        "start": 1668.25,
+        "duration": 10.22,
+        "text": "compatible thing etc so in terms of how"
+      },
+      {
+        "start": 1675.18,
+        "duration": 6.63,
+        "text": "Prometheus and Cassandra would play"
+      },
+      {
+        "start": 1678.47,
+        "duration": 6.58,
+        "text": "together I put together this little"
+      },
+      {
+        "start": 1681.81,
+        "duration": 6.12,
+        "text": "diagram right here so so here's a"
+      },
+      {
+        "start": 1685.05,
+        "duration": 6.39,
+        "text": "hypothetical Cassandra cluster right"
+      },
+      {
+        "start": 1687.93,
+        "duration": 5.99,
+        "text": "here and I guess that that the"
+      },
+      {
+        "start": 1691.44,
+        "duration": 5.85,
+        "text": "interesting key part right here is this"
+      },
+      {
+        "start": 1693.92,
+        "duration": 5.62,
+        "text": "which is that Cassandra metrics are"
+      },
+      {
+        "start": 1697.29,
+        "duration": 6.0,
+        "text": "actually exposed via JMX"
+      },
+      {
+        "start": 1699.54,
+        "duration": 6.96,
+        "text": "and there's there's a JMX exporter that"
+      },
+      {
+        "start": 1703.29,
+        "duration": 5.91,
+        "text": "you can run as a kind of a sidecar agent"
+      },
+      {
+        "start": 1706.5,
+        "duration": 5.91,
+        "text": "on the same JVM as your Cassandra note"
+      },
+      {
+        "start": 1709.2,
+        "duration": 5.1,
+        "text": "now Adrienne informed me right before"
+      },
+      {
+        "start": 1712.41,
+        "duration": 4.2,
+        "text": "this talk that apparently coming from"
+      },
+      {
+        "start": 1714.3,
+        "duration": 4.05,
+        "text": "the data stacks universe from for data"
+      },
+      {
+        "start": 1716.61,
+        "duration": 4.68,
+        "text": "stacks enterprise there's going to be"
+      },
+      {
+        "start": 1718.35,
+        "duration": 6.69,
+        "text": "some very interesting stuff happening"
+      },
+      {
+        "start": 1721.29,
+        "duration": 7.41,
+        "text": "sometime soon but maybe Adrienne can say"
+      },
+      {
+        "start": 1725.04,
+        "duration": 7.59,
+        "text": "something about that later but so you"
+      },
+      {
+        "start": 1728.7,
+        "duration": 5.1,
+        "text": "have a handful of a Prometheus instances"
+      },
+      {
+        "start": 1732.63,
+        "duration": 2.82,
+        "text": "running here and remember they're not"
+      },
+      {
+        "start": 1733.8,
+        "duration": 2.42,
+        "text": "running in a che they're not clustered"
+      },
+      {
+        "start": 1735.45,
+        "duration": 2.63,
+        "text": "or anything like that"
+      },
+      {
+        "start": 1736.22,
+        "duration": 7.02,
+        "text": "they just they're just these kind of"
+      },
+      {
+        "start": 1738.08,
+        "duration": 7.89,
+        "text": "autonomous art autarkic processes doing"
+      },
+      {
+        "start": 1743.24,
+        "duration": 5.46,
+        "text": "their thing and each one of these"
+      },
+      {
+        "start": 1745.97,
+        "duration": 5.79,
+        "text": "instances and and this is where things"
+      },
+      {
+        "start": 1748.7,
+        "duration": 5.25,
+        "text": "get a little bit chatty the diagram is"
+      },
+      {
+        "start": 1751.76,
+        "duration": 3.96,
+        "text": "simplified but basically you're gonna"
+      },
+      {
+        "start": 1753.95,
+        "duration": 3.15,
+        "text": "have each of your Prometheus instances"
+      },
+      {
+        "start": 1755.72,
+        "duration": 4.38,
+        "text": "scraping each one of your cassandra"
+      },
+      {
+        "start": 1757.1,
+        "duration": 6.62,
+        "text": "notes all the time so there is a lot of"
+      },
+      {
+        "start": 1760.1,
+        "duration": 6.24,
+        "text": "redundancy built into that but but again"
+      },
+      {
+        "start": 1763.72,
+        "duration": 5.29,
+        "text": "you know if each of these Prometheus"
+      },
+      {
+        "start": 1766.34,
+        "duration": 4.8,
+        "text": "instances is autarkic the way that they"
+      },
+      {
+        "start": 1769.01,
+        "duration": 5.63,
+        "text": "necessarily are then there isn't really"
+      },
+      {
+        "start": 1771.14,
+        "duration": 6.75,
+        "text": "any any compelling way around that and"
+      },
+      {
+        "start": 1774.64,
+        "duration": 4.75,
+        "text": "then you have web clients connecting to"
+      },
+      {
+        "start": 1777.89,
+        "duration": 3.899,
+        "text": "to Prometheus right here so that can be"
+      },
+      {
+        "start": 1779.39,
+        "duration": 4.409,
+        "text": "the the Prometheus dashboard griffons so"
+      },
+      {
+        "start": 1781.789,
+        "duration": 4.02,
+        "text": "on and so forth and then pushing out"
+      },
+      {
+        "start": 1783.799,
+        "duration": 5.071,
+        "text": "alerts to alert manager which then does"
+      },
+      {
+        "start": 1785.809,
+        "duration": 5.571,
+        "text": "whatever with them so I'm gonna dig a"
+      },
+      {
+        "start": 1788.87,
+        "duration": 8.01,
+        "text": "little bit more into this into the"
+      },
+      {
+        "start": 1791.38,
+        "duration": 7.539,
+        "text": "scraping part so basically for Cassandra"
+      },
+      {
+        "start": 1796.88,
+        "duration": 3.39,
+        "text": "the mbean concept is where everything"
+      },
+      {
+        "start": 1798.919,
+        "duration": 4.021,
+        "text": "begins"
+      },
+      {
+        "start": 1800.27,
+        "duration": 6.06,
+        "text": "so in Cassandra you have a bunch of"
+      },
+      {
+        "start": 1802.94,
+        "duration": 5.849,
+        "text": "ambien families or Apache Cassandra dot"
+      },
+      {
+        "start": 1806.33,
+        "duration": 4.89,
+        "text": "whatever what well all the Prometheus"
+      },
+      {
+        "start": 1808.789,
+        "duration": 12.091,
+        "text": "metrics are in this dot metrics sub"
+      },
+      {
+        "start": 1811.22,
+        "duration": 13.079,
+        "text": "family and so the JMX exporter what it"
+      },
+      {
+        "start": 1820.88,
+        "duration": 6.299,
+        "text": "essentially does is is so the problem"
+      },
+      {
+        "start": 1824.299,
+        "duration": 4.5,
+        "text": "with mbeans is that they expose you know"
+      },
+      {
+        "start": 1827.179,
+        "duration": 4.921,
+        "text": "metrics in kind of a similar way but the"
+      },
+      {
+        "start": 1828.799,
+        "duration": 5.581,
+        "text": "names are just a completely different"
+      },
+      {
+        "start": 1832.1,
+        "duration": 5.16,
+        "text": "just of a completely different species"
+      },
+      {
+        "start": 1834.38,
+        "duration": 5.279,
+        "text": "and so what the what the GMX exporter"
+      },
+      {
+        "start": 1837.26,
+        "duration": 5.34,
+        "text": "does is it just renames each of your"
+      },
+      {
+        "start": 1839.659,
+        "duration": 5.25,
+        "text": "your m your m beans and you can actually"
+      },
+      {
+        "start": 1842.6,
+        "duration": 5.43,
+        "text": "specify by a configuration how that"
+      },
+      {
+        "start": 1844.909,
+        "duration": 5.371,
+        "text": "renaming transpires so so here's an"
+      },
+      {
+        "start": 1848.03,
+        "duration": 5.1,
+        "text": "example of like one of the default rules"
+      },
+      {
+        "start": 1850.28,
+        "duration": 6.24,
+        "text": "which is where if you have org data"
+      },
+      {
+        "start": 1853.13,
+        "duration": 4.65,
+        "text": "Patchett metrics and then colon which"
+      },
+      {
+        "start": 1856.52,
+        "duration": 4.01,
+        "text": "actually kind of plays well with the"
+      },
+      {
+        "start": 1857.78,
+        "duration": 6.12,
+        "text": "label based naming system type name"
+      },
+      {
+        "start": 1860.53,
+        "duration": 6.97,
+        "text": "absurd you would end up with this as"
+      },
+      {
+        "start": 1863.9,
+        "duration": 6.18,
+        "text": "your Prometheus metrics name and then so"
+      },
+      {
+        "start": 1867.5,
+        "duration": 4.799,
+        "text": "from there the metrics names are"
+      },
+      {
+        "start": 1870.08,
+        "duration": 5.699,
+        "text": "our trans post and then the metrics are"
+      },
+      {
+        "start": 1872.299,
+        "duration": 5.181,
+        "text": "exposed via HTTP by the by the JMX"
+      },
+      {
+        "start": 1875.779,
+        "duration": 5.52,
+        "text": "exporter running in the same JVM and"
+      },
+      {
+        "start": 1877.48,
+        "duration": 5.41,
+        "text": "then from there they get scraped by"
+      },
+      {
+        "start": 1881.299,
+        "duration": 4.771,
+        "text": "Prometheus and then you can do all kinds"
+      },
+      {
+        "start": 1882.89,
+        "duration": 4.8,
+        "text": "of fun stuff with them via via prom ql"
+      },
+      {
+        "start": 1886.07,
+        "duration": 3.03,
+        "text": "and you can make all kinds of cool"
+      },
+      {
+        "start": 1887.69,
+        "duration": 4.92,
+        "text": "dashboards and things like that which"
+      },
+      {
+        "start": 1889.1,
+        "duration": 5.52,
+        "text": "we'll do in a sec yeah so here's kind of"
+      },
+      {
+        "start": 1892.61,
+        "duration": 4.199,
+        "text": "a somewhat prettier picture of what I"
+      },
+      {
+        "start": 1894.62,
+        "duration": 3.33,
+        "text": "what I just explained so you have your"
+      },
+      {
+        "start": 1896.809,
+        "duration": 3.09,
+        "text": "your mbeans"
+      },
+      {
+        "start": 1897.95,
+        "duration": 4.79,
+        "text": "kind of like embedded inside and meshed"
+      },
+      {
+        "start": 1899.899,
+        "duration": 5.91,
+        "text": "inside of your your cassandra process"
+      },
+      {
+        "start": 1902.74,
+        "duration": 6.22,
+        "text": "shelling after the JMX exporter which is"
+      },
+      {
+        "start": 1905.809,
+        "duration": 9.811,
+        "text": "renaming which is renaming the metrics"
+      },
+      {
+        "start": 1908.96,
+        "duration": 9.569,
+        "text": "and exposing them via HTTP so uh yeah"
+      },
+      {
+        "start": 1915.62,
+        "duration": 5.189,
+        "text": "here are some examples obviously I'm not"
+      },
+      {
+        "start": 1918.529,
+        "duration": 3.601,
+        "text": "gonna like go through these specifically"
+      },
+      {
+        "start": 1920.809,
+        "duration": 3.571,
+        "text": "but you see that there are a bunch of"
+      },
+      {
+        "start": 1922.13,
+        "duration": 4.529,
+        "text": "metrics that are Cassandra specific"
+      },
+      {
+        "start": 1924.38,
+        "duration": 6.6,
+        "text": "having to do with with the cache with"
+      },
+      {
+        "start": 1926.659,
+        "duration": 7.681,
+        "text": "with disk space usage with with client"
+      },
+      {
+        "start": 1930.98,
+        "duration": 7.159,
+        "text": "connections with the client requests"
+      },
+      {
+        "start": 1934.34,
+        "duration": 7.53,
+        "text": "failures and and and successes there are"
+      },
+      {
+        "start": 1938.139,
+        "duration": 6.4,
+        "text": "metrics for cql related things and then"
+      },
+      {
+        "start": 1941.87,
+        "duration": 4.11,
+        "text": "also something like 15 to 20 JVM"
+      },
+      {
+        "start": 1944.539,
+        "duration": 3.961,
+        "text": "specific metrics that you get access"
+      },
+      {
+        "start": 1945.98,
+        "duration": 5.549,
+        "text": "access to so if you want to know what"
+      },
+      {
+        "start": 1948.5,
+        "duration": 5.25,
+        "text": "how much how much memory your JVM is"
+      },
+      {
+        "start": 1951.529,
+        "duration": 4.441,
+        "text": "using how many threads are current at a"
+      },
+      {
+        "start": 1953.75,
+        "duration": 4.889,
+        "text": "given time and so on and so forth this"
+      },
+      {
+        "start": 1955.97,
+        "duration": 5.97,
+        "text": "is all exposed up to the the Prometheus"
+      },
+      {
+        "start": 1958.639,
+        "duration": 4.951,
+        "text": "level here's a handful of prom ql"
+      },
+      {
+        "start": 1961.94,
+        "duration": 3.42,
+        "text": "queries which i copy and pasted i'm not"
+      },
+      {
+        "start": 1963.59,
+        "duration": 4.88,
+        "text": "sure what they mean but that's what they"
+      },
+      {
+        "start": 1965.36,
+        "duration": 6.33,
+        "text": "look like and and here's an example of"
+      },
+      {
+        "start": 1968.47,
+        "duration": 7.27,
+        "text": "an alert manager rule that you might"
+      },
+      {
+        "start": 1971.69,
+        "duration": 6.63,
+        "text": "write uh that you might write for a for"
+      },
+      {
+        "start": 1975.74,
+        "duration": 4.95,
+        "text": "prometheus so so you have this named"
+      },
+      {
+        "start": 1978.32,
+        "duration": 5.459,
+        "text": "alert approaching capacity and you take"
+      },
+      {
+        "start": 1980.69,
+        "duration": 7.05,
+        "text": "a metric like Cassandra storage load and"
+      },
+      {
+        "start": 1983.779,
+        "duration": 6.75,
+        "text": "you say if it has exceeded a certain a"
+      },
+      {
+        "start": 1987.74,
+        "duration": 5.189,
+        "text": "certain number for for over ten minutes"
+      },
+      {
+        "start": 1990.529,
+        "duration": 6.181,
+        "text": "then you need to fire an alert at the"
+      },
+      {
+        "start": 1992.929,
+        "duration": 6.12,
+        "text": "caution level and then you can apply"
+      },
+      {
+        "start": 1996.71,
+        "duration": 4.23,
+        "text": "some actual text so disk you approaching"
+      },
+      {
+        "start": 1999.049,
+        "duration": 4.411,
+        "text": "capacity and Cassandra enchants blah"
+      },
+      {
+        "start": 2000.94,
+        "duration": 3.099,
+        "text": "blah labels that instance and what this"
+      },
+      {
+        "start": 2003.46,
+        "duration": 2.949,
+        "text": "thing is"
+      },
+      {
+        "start": 2004.039,
+        "duration": 4.74,
+        "text": "right there is um that's actually the go"
+      },
+      {
+        "start": 2006.409,
+        "duration": 3.781,
+        "text": "templating system so I I don't know if"
+      },
+      {
+        "start": 2008.779,
+        "duration": 3.39,
+        "text": "any of you have used the go templating"
+      },
+      {
+        "start": 2010.19,
+        "duration": 5.429,
+        "text": "system I use it a lot because I use Hugo"
+      },
+      {
+        "start": 2012.169,
+        "duration": 6.38,
+        "text": "static site generator a bunch it's it's"
+      },
+      {
+        "start": 2015.619,
+        "duration": 6.571,
+        "text": "a very weird very unintuitive but also"
+      },
+      {
+        "start": 2018.549,
+        "duration": 7.57,
+        "text": "very powerful templating system so if it"
+      },
+      {
+        "start": 2022.19,
+        "duration": 6.089,
+        "text": "used to you know ginger and like liquid"
+      },
+      {
+        "start": 2026.119,
+        "duration": 4.41,
+        "text": "templates and things like that it's it's"
+      },
+      {
+        "start": 2028.279,
+        "duration": 7.62,
+        "text": "gonna be a completely different species"
+      },
+      {
+        "start": 2030.529,
+        "duration": 7.74,
+        "text": "of thing so I wanted to also talk a"
+      },
+      {
+        "start": 2035.899,
+        "duration": 3.9,
+        "text": "little tiny bit about about what what's"
+      },
+      {
+        "start": 2038.269,
+        "duration": 4.08,
+        "text": "currently going on in the prometheus"
+      },
+      {
+        "start": 2039.799,
+        "duration": 4.95,
+        "text": "community so one of the things that's"
+      },
+      {
+        "start": 2042.349,
+        "duration": 4.38,
+        "text": "coming on the way is its built-in"
+      },
+      {
+        "start": 2044.749,
+        "duration": 3.66,
+        "text": "security so we actually talked about"
+      },
+      {
+        "start": 2046.729,
+        "duration": 4.741,
+        "text": "this at the dev summit in Munich a"
+      },
+      {
+        "start": 2048.409,
+        "duration": 7.111,
+        "text": "couple months ago but things like basic"
+      },
+      {
+        "start": 2051.47,
+        "duration": 7.29,
+        "text": "auth TLS and a handful of other"
+      },
+      {
+        "start": 2055.52,
+        "duration": 5.099,
+        "text": "mechanisms like maybe JSON web tokens"
+      },
+      {
+        "start": 2058.76,
+        "duration": 5.52,
+        "text": "maybe spiffy which is a certificate"
+      },
+      {
+        "start": 2060.619,
+        "duration": 6.27,
+        "text": "based system but one way or another you"
+      },
+      {
+        "start": 2064.28,
+        "duration": 4.589,
+        "text": "will soon be able to apply some actual"
+      },
+      {
+        "start": 2066.889,
+        "duration": 4.47,
+        "text": "security to your Prometheus instances"
+      },
+      {
+        "start": 2068.869,
+        "duration": 5.04,
+        "text": "without applying your own you know proxy"
+      },
+      {
+        "start": 2071.359,
+        "duration": 5.01,
+        "text": "layer or something like that the open"
+      },
+      {
+        "start": 2073.909,
+        "duration": 4.77,
+        "text": "metrics project is another is a new CN"
+      },
+      {
+        "start": 2076.369,
+        "duration": 5.24,
+        "text": "CF project in the sandbox right now it's"
+      },
+      {
+        "start": 2078.679,
+        "duration": 5.611,
+        "text": "basically attempting to take the"
+      },
+      {
+        "start": 2081.609,
+        "duration": 5.55,
+        "text": "Prometheus Exposition format that we saw"
+      },
+      {
+        "start": 2084.29,
+        "duration": 5.879,
+        "text": "and and turn it into a neutral standard"
+      },
+      {
+        "start": 2087.159,
+        "duration": 4.331,
+        "text": "and it's actually it's pretty"
+      },
+      {
+        "start": 2090.169,
+        "duration": 3.571,
+        "text": "interesting effort that has a lot of"
+      },
+      {
+        "start": 2091.49,
+        "duration": 4.23,
+        "text": "like a lot of the you know a lot of the"
+      },
+      {
+        "start": 2093.74,
+        "duration": 5.94,
+        "text": "big players on board I think New Relic"
+      },
+      {
+        "start": 2095.72,
+        "duration": 5.73,
+        "text": "is part of that data dog sensu and a"
+      },
+      {
+        "start": 2099.68,
+        "duration": 4.02,
+        "text": "bunch of others so it's entirely"
+      },
+      {
+        "start": 2101.45,
+        "duration": 4.74,
+        "text": "possible that in a couple years or even"
+      },
+      {
+        "start": 2103.7,
+        "duration": 5.27,
+        "text": "sooner this will emerge as the de facto"
+      },
+      {
+        "start": 2106.19,
+        "duration": 6.95,
+        "text": "standard and which would enable you to"
+      },
+      {
+        "start": 2108.97,
+        "duration": 7.24,
+        "text": "to basically you know"
+      },
+      {
+        "start": 2113.14,
+        "duration": 3.07,
+        "text": "[Music]"
+      },
+      {
+        "start": 2116.75,
+        "duration": 8.099,
+        "text": "sorry which would enable you to you know"
+      },
+      {
+        "start": 2122.51,
+        "duration": 4.319,
+        "text": "write once and forget that basically you"
+      },
+      {
+        "start": 2124.849,
+        "duration": 5.371,
+        "text": "know as long as your processes and your"
+      },
+      {
+        "start": 2126.829,
+        "duration": 8.671,
+        "text": "your systems are exposing open metrics"
+      },
+      {
+        "start": 2130.22,
+        "duration": 7.23,
+        "text": "compliant format then the you can mix"
+      },
+      {
+        "start": 2135.5,
+        "duration": 4.41,
+        "text": "and match and pick and choose whatever"
+      },
+      {
+        "start": 2137.45,
+        "duration": 5.01,
+        "text": "whatever endpoints or systems you're"
+      },
+      {
+        "start": 2139.91,
+        "duration": 3.63,
+        "text": "working within so uh yeah it was"
+      },
+      {
+        "start": 2142.46,
+        "duration": 3.54,
+        "text": "originally based on the Prometheus"
+      },
+      {
+        "start": 2143.54,
+        "duration": 4.47,
+        "text": "format open metrics is also gonna have a"
+      },
+      {
+        "start": 2146.0,
+        "duration": 4.47,
+        "text": "protobuf format so if you're concerned"
+      },
+      {
+        "start": 2148.01,
+        "duration": 5.4,
+        "text": "about the efficiency of of plain text"
+      },
+      {
+        "start": 2150.47,
+        "duration": 5.31,
+        "text": "then then I suppose help is on the way"
+      },
+      {
+        "start": 2153.41,
+        "duration": 6.709,
+        "text": "and right now there's an effort underway"
+      },
+      {
+        "start": 2155.78,
+        "duration": 7.53,
+        "text": "to actually to bring the open metrics"
+      },
+      {
+        "start": 2160.119,
+        "duration": 5.081,
+        "text": "process back into Prometheus itself and"
+      },
+      {
+        "start": 2163.31,
+        "duration": 5.73,
+        "text": "to make that a sort of self or a"
+      },
+      {
+        "start": 2165.2,
+        "duration": 5.22,
+        "text": "mutually enhancing process in terms of"
+      },
+      {
+        "start": 2169.04,
+        "duration": 5.64,
+        "text": "long term storage which I talked about"
+      },
+      {
+        "start": 2170.42,
+        "duration": 6.72,
+        "text": "before cortex is is also a new CN CF"
+      },
+      {
+        "start": 2174.68,
+        "duration": 4.53,
+        "text": "project in the sandbox and this is a"
+      },
+      {
+        "start": 2177.14,
+        "duration": 5.939,
+        "text": "long-term storage end point for"
+      },
+      {
+        "start": 2179.21,
+        "duration": 5.96,
+        "text": "Prometheus it's this is very much like a"
+      },
+      {
+        "start": 2183.079,
+        "duration": 5.941,
+        "text": "multi-tenant horizontally scalable"
+      },
+      {
+        "start": 2185.17,
+        "duration": 6.07,
+        "text": "clustered system with n RW quorum so on"
+      },
+      {
+        "start": 2189.02,
+        "duration": 4.38,
+        "text": "and so forth a very complex thing so if"
+      },
+      {
+        "start": 2191.24,
+        "duration": 4.589,
+        "text": "you if you need that kind of scalable"
+      },
+      {
+        "start": 2193.4,
+        "duration": 4.74,
+        "text": "long term storage for Prometheus and you"
+      },
+      {
+        "start": 2195.829,
+        "duration": 5.401,
+        "text": "want to do crazy analytics and you want"
+      },
+      {
+        "start": 2198.14,
+        "duration": 7.679,
+        "text": "to you know look at data from five years"
+      },
+      {
+        "start": 2201.23,
+        "duration": 7.52,
+        "text": "ago cortex is you know is emerging as as"
+      },
+      {
+        "start": 2205.819,
+        "duration": 5.721,
+        "text": "the de-facto open source way to do that"
+      },
+      {
+        "start": 2208.75,
+        "duration": 5.319,
+        "text": "it writes to a bunch of backends"
+      },
+      {
+        "start": 2211.54,
+        "duration": 4.0,
+        "text": "dynamodb I actually I forgot to put s3"
+      },
+      {
+        "start": 2214.069,
+        "duration": 4.581,
+        "text": "on there that's one of them so dynamo"
+      },
+      {
+        "start": 2215.54,
+        "duration": 6.0,
+        "text": "Cassandra Google Cloud BigTable and then"
+      },
+      {
+        "start": 2218.65,
+        "duration": 4.54,
+        "text": "yeah and then like Adrienne just told me"
+      },
+      {
+        "start": 2221.54,
+        "duration": 4.049,
+        "text": "apparently there's some data stacks"
+      },
+      {
+        "start": 2223.19,
+        "duration": 4.71,
+        "text": "Enterprise thing that's going to give"
+      },
+      {
+        "start": 2225.589,
+        "duration": 4.23,
+        "text": "you long term storage of Prometheus data"
+      },
+      {
+        "start": 2227.9,
+        "duration": 6.179,
+        "text": "but I don't know much about that so but"
+      },
+      {
+        "start": 2229.819,
+        "duration": 6.691,
+        "text": "I figure I'd mention it yeah so that's"
+      },
+      {
+        "start": 2234.079,
+        "duration": 6.051,
+        "text": "it for now or actually before I go I'm"
+      },
+      {
+        "start": 2236.51,
+        "duration": 6.62,
+        "text": "just gonna I'll just pull up an example"
+      },
+      {
+        "start": 2240.13,
+        "duration": 3.0,
+        "text": "oops"
+      },
+      {
+        "start": 2243.83,
+        "duration": 8.21,
+        "text": "I know how to get over can I go"
+      },
+      {
+        "start": 2252.62,
+        "duration": 3.08,
+        "text": "I need to"
+      },
+      {
+        "start": 2258.19,
+        "duration": 6.15,
+        "text": "oh yeah I'm just pull up a example"
+      },
+      {
+        "start": 2261.13,
+        "duration": 5.43,
+        "text": "dashboard running locally so if you want"
+      },
+      {
+        "start": 2264.34,
+        "duration": 4.17,
+        "text": "to get super pretty a super pretty"
+      },
+      {
+        "start": 2266.56,
+        "duration": 3.66,
+        "text": "picture what's going on in your in your"
+      },
+      {
+        "start": 2268.51,
+        "duration": 3.33,
+        "text": "Cassandra cluster this is just a single"
+      },
+      {
+        "start": 2270.22,
+        "duration": 3.87,
+        "text": "node so some of these aren't super"
+      },
+      {
+        "start": 2271.84,
+        "duration": 4.62,
+        "text": "interesting unsurprisingly the the cache"
+      },
+      {
+        "start": 2274.09,
+        "duration": 4.47,
+        "text": "capacity for example is not it's not"
+      },
+      {
+        "start": 2276.46,
+        "duration": 5.28,
+        "text": "really doing much given that there are"
+      },
+      {
+        "start": 2278.56,
+        "duration": 5.76,
+        "text": "no reads or writes but yeah so that's"
+      },
+      {
+        "start": 2281.74,
+        "duration": 4.77,
+        "text": "what that looks like and that is pretty"
+      },
+      {
+        "start": 2284.32,
+        "duration": 4.18,
+        "text": "much it for me so alright that's it"
+      },
+      {
+        "start": 2286.51,
+        "duration": 5.08,
+        "text": "thanks"
+      },
+      {
+        "start": 2288.5,
+        "duration": 3.09,
+        "text": "[Applause]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T05:38:12.587473+00:00"
+}

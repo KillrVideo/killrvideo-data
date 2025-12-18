@@ -1,0 +1,2243 @@
+{
+  "video_id": "TyTXOjFMi7k",
+  "title": "DS210.16 Size-Tiered Compaction | Operations with Apache Cassandra",
+  "description": "#DataStaxAcademy #DS210\nDS210.16 SIZE-TIERED COMPACTION\nSize tiered compaction is a pretty simple process, SSTables of approximately the same size are merged. In this unit, you will learn how size tiered compaction works.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-11T12:36:15Z",
+  "thumbnail": "https://i.ytimg.com/vi/TyTXOjFMi7k/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "tutorial",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=TyTXOjFMi7k",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] let's talk about size tier compaction the original gangster compaction for cassandra it's been the steady eddy forever probably the least favorite and the most favorite of many it's one of those kind of things that you talk about whenever you're talking to other people working with cassandra admin but size cheer compaction is a pretty simple process we have some great animation to show you exactly how it works so here's a perfect world example perfect world which you will never live in i'm sorry but it's a great example right so when you're writing out data let's say these hundred meg ss tables they flush you do a ss table flush to disk here are a bunch of files what do you do with them the compactor looks at these files does a comparison and tries to compact those smaller files into a larger file so the data is written in it's written out now you have a new file the old files can go away great now perfect world meaning none of this data overlapped there was no data to delete every bit of that data was 100 valid so now you get a 400 meg file out of four 100 meg files pretty easy right let me up the game so again here's another four 100 megabyte files what do you do with those well we're going to create a new 400 meg file now we have two 400 meg files what are you gonna do with those well as the compaction process is running we're just going to create more of those until it reaches a threshold the threshold is at minimum number of ss tables before it triggers a compaction in this case four so if i have four 400 meg files i'm gonna have to run another compaction to create a 1600 meg file when we do that it eliminates those four 400 meg files i now have one big file size to your compaction is taking those smaller files compact them into larger files once we get over a certain number of those files it'll compact again this process runs continuously in the background now as i'm keep running and those compactions are running all the time this is a 100 automatic process eventually what i'm going to start seeing is smaller files turning into larger files and sitting there because once i get to that larger file i'm going to need more of those to compact let's consider the worst case scenario when we have to compact a lot of files you need to have at least 50 percent of your disk available to do a compaction think of it this way if i'm consuming more than 50 of my disk and i need to rewrite all of that data again i'm going to need to have that much space to do it if i'm over if i'm at 51 52 well it's not going to work very good because what's going to happen is it's going to overflow my disk so consider this example so now when the compactor runs and i have exactly 50 of my disk used up i just squeaked it in what happens afterwards and this is a nice thing that file will stay it'll be one file and all those other files will go away i get my disk space back another problem with sites to compaction is i might have data scattered all over the disk so in this example i have a few different files each with different people different places what i'm doing is i'm combining everything with the state of texas that was a partition key compaction looks at partition keys and tries to join all of those records together in the same file that's the point of compaction but whenever i have more files with that what happens when i eventually get down to this place where i have tons and tons of records with just texas in them well here we go i have a bunch of potentially stale records because now i have updates look at texas of one has jim and in the green file it says texas one joe i need to update that record well since that ss table is so big it's going to take a while for that compaction to catch up and overwrite that other file this is a problem with size gear compaction over time is that eventually you start getting stale records not the end of the world but it's something to consider if you're doing a lot of updates and the compactions are running you're going to wind up with some possible stale data in the larger ss tables so what about the ss tables that are all these different sizes and that's pretty likely a scenario if you were to go look at your data directory and look at the esses tables they're not going to be uniform because your data isn't uniform but there are rules about how that works let's take a look so in this example i have ss tables of all these different sizes these numbers are how big the files are how am i going to compact those out well let's run through that scenario let's take that 100 that's 100 meg file we have this much space to put it in so we put in the 100 that fits in a certain size bucket awesome what if we have a one gigabyte file well that's not going to fit inside that bucket so we're going to have yet another now we have this size but we have two different sizes at play here how are we going to mix those together here comes another file that fits differently it's going to have to fit somewhere in one of these buckets we have a new bucket to create that bucket now stores that size of a file now we have this little guy what are we going to do with it well it's going to be in these smaller tiers and these smaller tiers are going to be a problem over time because those are going to have to add up and be combined together but now what we have are these buckets and these buckets will store like sizes and it'll start grouping our data very nicely at this point and as you can see all these buckets are being filled up and over time you have these neatly arranged buckets of data with the size of data that we are giving it from the type of data that we're writing to the system so what's going on here is we're trying to group these tables together we're trying to group similar sizes together that is important for like trying to keep the stale data to a minimum if we have a lot of large files and large data sets we want to group those together we have small ones we want to group those together any of these tiers below the minimum compaction that's the setting inside the table that will just get ignored we won't touch those at all so any bucket that's over the max threshold will get trimmed to fit just that many ss tables one of the other factors is this idea of hotness hotness is how much is that table being written or used and it considers that in compaction it's going to try to compact those files first just out of an optimization and that's a really key optimization especially when we're trying to keep our data fresh and available for reads similar size files are always going to be optimized for and we really want to make sure we have the similar size files so the similar size files have a fair amount of overlap and that's fine but we're minimizing right amplification right amplification is if i write the data once and it causes an i o event meaning something written to disk that it triggers more writing to disk we don't want it to trigger more writing to disk that triggers more writing to this triggers more writing to disk that's what we're calling right amplification we want it to just write once maybe compact ones and be done for every data that goes into your system you don't want it to be continuously rewritten that is a nasty part of write amplification that we're trying to avoid there's also incites to your compaction this idea of concurrency just because it's compacting two sets of files together doesn't mean it can't do two others and so there is a choice you can use concurrent compactors one of the settings in yaml file to how many compactors you want to run keep in mind this is what's going to eat up a lot of your i o if you're not using a really robust file system say an ssd or better and there are better then you should really consider how many current compactors you have running right now because that can eat up all your disk io and then you start seeing some really weird indications like you're running out of flush writers the ss tables can't write to disk anymore because there's just no more room to go there's no more i o to give the computer gives up and that's pretty much the worst thing that can happen you're going to lose a node so keep in mind managing your disk i o is really about how you manage your compactions 100 other writes to the disc not as important this concurrency measure can really help you get that disk i o dialed in just perfect so here's a list of all the things that trigger a compaction so you know remember this is all automatic so whenever there's a flesh event meaning the mem table in memory goes down into the disk so that's a write event creates an ss table that means a compaction starts up so it's going to have to look to see okay am i over my size when mem tables are too large they just go beyond their capacity then they have to be written to disk as well other things that can happen are during like a streaming event like a build or a repair that triggers a compaction because there's a lot of new data in there just like if you're writing a lot of data to your node but that triggers a compaction size to your compaction always runs after one of these events to organize and clean up your files the compaction event will continue to run until it meets the min threshold once it hits that then everything stops if you're not writing data into your system compaction will eventually quiesce stop and it'll be waiting for more data to be written once you write more data in the compaction process starts up again and starts rewriting your data and then everyone's dreaded topic tombstones size tiered is really geared around tombstones a lot better than some so some of the things that can happen there that really are important for tombstones tombstones of course are deleted data that data could be in a file for a long time there is a thing called tombstone compaction so what it's looking for is a threshold how many expired tombstones are inside an ss table so if it goes above 20 by default it triggers a tombstone compaction tombstone compaction is really built for i got to clean up a lot of ss tables because i got a lot of deleted data in there this is really good for you if you're trying to conserve disk space think about it you have a lot of tombstones you have a lot of deleted data if you're not compacting it that data will never disappear tombstone compaction helps solve that problem the table has to be at least one day old or you could change that with the tombstone compaction interval say you want to do it two days or three days or 10 days but the default is one day the compaction process is really trying to ensure that that old data just isn't laying around this can be a huge problem whenever you have really large files that you're compacting if you have something that's been compacted for a long time ss tables can store a lot of tombstones over time remember tombstones are a marker and until they actually expire that data isn't deleted until you run a compaction this forces that process so what are some of the pros and cons with size to your compaction like everything else in the world there are trade-offs understanding what those are are really important size to your compaction is a default for a reason it works in most cases it's the most generalizable compaction process it works in the small and the large now there are edge cases that are better you'll learn about level compaction you'll learn about time window compaction size tiered covers most of the bases the key benefit for size tiered is how it handles ingested data it is really good for if you have a high right system if you have a high read system you may consider something else like level compaction that gives you more performance in those type of use cases or time window when you have a very specific time window data model if you have a high right system size tier gets the job done and then finally if you are dealing with too much compaction or it's overwhelming my disk you could throttle it back there is a setting for that compaction throughput megabyte per second is your friend you could turn that down and really keep the compaction from eating up your disk i will say though if compaction's eating up your disk then you should probably consider getting a new disk compaction should run fine in a normal operating system sometimes if you don't have the luxury of having the best discs this is a way to throttle back and keep it from eating up your system and finally the whole idea of a major compaction major compaction is a term we use for when you compact all of the data let me explain you can go to nodetool and type the word nodetool compact and what will happen is it will create one big ss table of all your data if that sounds like an awesome idea let me fix that it's not because what you're going to get out of this situation is one big access table that will sit there with anything that needs to be deleted or stale data it will take some time to get an essence table as large as the one you just created from doing a major compaction that's bad news because in the end what you're going to deal with is an operations problem one big file sitting there laughing at all the other compaction processes because it will never get compacted there is a way to undo this and this is an anti-compaction that's covered in another module if you find yourself with a huge compaction on your hands then there is a way out of it don't worry we can fix this but just know that typing no tool compact is a bad idea so this is an overview of how size to your compaction work this is the steady eddy of cassandra world it's used all over the place even inside some other compaction strategies hopefully this gave you a good overview and you understand how it works so you can tune it properly if you need to",
+    "segments": [
+      {
+        "start": 1.43,
+        "duration": 7.129,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.6,
+        "duration": 3.6,
+        "text": "let's talk about"
+      },
+      {
+        "start": 8.559,
+        "duration": 4.881,
+        "text": "size tier compaction the original"
+      },
+      {
+        "start": 11.2,
+        "duration": 4.639,
+        "text": "gangster compaction for cassandra"
+      },
+      {
+        "start": 13.44,
+        "duration": 4.4,
+        "text": "it's been the steady eddy forever"
+      },
+      {
+        "start": 15.839,
+        "duration": 3.28,
+        "text": "probably the least favorite and the most"
+      },
+      {
+        "start": 17.84,
+        "duration": 2.72,
+        "text": "favorite of many"
+      },
+      {
+        "start": 19.119,
+        "duration": 2.881,
+        "text": "it's one of those kind of things that"
+      },
+      {
+        "start": 20.56,
+        "duration": 2.879,
+        "text": "you talk about whenever you're talking"
+      },
+      {
+        "start": 22.0,
+        "duration": 3.599,
+        "text": "to other people working with"
+      },
+      {
+        "start": 23.439,
+        "duration": 4.961,
+        "text": "cassandra admin but size cheer"
+      },
+      {
+        "start": 25.599,
+        "duration": 4.801,
+        "text": "compaction is a pretty simple process"
+      },
+      {
+        "start": 28.4,
+        "duration": 3.6,
+        "text": "we have some great animation to show you"
+      },
+      {
+        "start": 30.4,
+        "duration": 3.839,
+        "text": "exactly how it works"
+      },
+      {
+        "start": 32.0,
+        "duration": 4.0,
+        "text": "so here's a perfect world example"
+      },
+      {
+        "start": 34.239,
+        "duration": 2.081,
+        "text": "perfect world which you will never live"
+      },
+      {
+        "start": 36.0,
+        "duration": 2.8,
+        "text": "in"
+      },
+      {
+        "start": 36.32,
+        "duration": 4.0,
+        "text": "i'm sorry but it's a great example right"
+      },
+      {
+        "start": 38.8,
+        "duration": 3.52,
+        "text": "so when you're writing out data let's"
+      },
+      {
+        "start": 40.32,
+        "duration": 4.239,
+        "text": "say these hundred meg ss tables"
+      },
+      {
+        "start": 42.32,
+        "duration": 3.12,
+        "text": "they flush you do a ss table flush to"
+      },
+      {
+        "start": 44.559,
+        "duration": 2.801,
+        "text": "disk"
+      },
+      {
+        "start": 45.44,
+        "duration": 3.599,
+        "text": "here are a bunch of files what do you do"
+      },
+      {
+        "start": 47.36,
+        "duration": 3.28,
+        "text": "with them the compactor looks at these"
+      },
+      {
+        "start": 49.039,
+        "duration": 3.921,
+        "text": "files does a comparison"
+      },
+      {
+        "start": 50.64,
+        "duration": 4.079,
+        "text": "and tries to compact those smaller files"
+      },
+      {
+        "start": 52.96,
+        "duration": 3.599,
+        "text": "into a larger file"
+      },
+      {
+        "start": 54.719,
+        "duration": 3.441,
+        "text": "so the data is written in it's written"
+      },
+      {
+        "start": 56.559,
+        "duration": 5.361,
+        "text": "out now you have"
+      },
+      {
+        "start": 58.16,
+        "duration": 6.56,
+        "text": "a new file the old files can go away"
+      },
+      {
+        "start": 61.92,
+        "duration": 4.72,
+        "text": "great now perfect world meaning none of"
+      },
+      {
+        "start": 64.72,
+        "duration": 2.96,
+        "text": "this data overlapped there was no data"
+      },
+      {
+        "start": 66.64,
+        "duration": 4.08,
+        "text": "to delete"
+      },
+      {
+        "start": 67.68,
+        "duration": 5.6,
+        "text": "every bit of that data was 100 valid so"
+      },
+      {
+        "start": 70.72,
+        "duration": 5.68,
+        "text": "now you get a 400 meg file out of four"
+      },
+      {
+        "start": 73.28,
+        "duration": 5.519,
+        "text": "100 meg files pretty easy right"
+      },
+      {
+        "start": 76.4,
+        "duration": 3.12,
+        "text": "let me up the game so again here's"
+      },
+      {
+        "start": 78.799,
+        "duration": 2.801,
+        "text": "another"
+      },
+      {
+        "start": 79.52,
+        "duration": 3.2,
+        "text": "four 100 megabyte files what do you do"
+      },
+      {
+        "start": 81.6,
+        "duration": 3.28,
+        "text": "with those"
+      },
+      {
+        "start": 82.72,
+        "duration": 3.6,
+        "text": "well we're going to create a new 400 meg"
+      },
+      {
+        "start": 84.88,
+        "duration": 3.36,
+        "text": "file now we have two"
+      },
+      {
+        "start": 86.32,
+        "duration": 4.4,
+        "text": "400 meg files what are you gonna do with"
+      },
+      {
+        "start": 88.24,
+        "duration": 4.16,
+        "text": "those well as the compaction process is"
+      },
+      {
+        "start": 90.72,
+        "duration": 3.68,
+        "text": "running we're just going to create more"
+      },
+      {
+        "start": 92.4,
+        "duration": 3.92,
+        "text": "of those until it reaches a threshold"
+      },
+      {
+        "start": 94.4,
+        "duration": 3.92,
+        "text": "the threshold is at minimum number of ss"
+      },
+      {
+        "start": 96.32,
+        "duration": 5.04,
+        "text": "tables before it triggers a compaction"
+      },
+      {
+        "start": 98.32,
+        "duration": 4.96,
+        "text": "in this case four so if i have four"
+      },
+      {
+        "start": 101.36,
+        "duration": 3.759,
+        "text": "400 meg files i'm gonna have to run"
+      },
+      {
+        "start": 103.28,
+        "duration": 5.119,
+        "text": "another compaction to create"
+      },
+      {
+        "start": 105.119,
+        "duration": 6.0,
+        "text": "a 1600 meg file when we do that"
+      },
+      {
+        "start": 108.399,
+        "duration": 3.281,
+        "text": "it eliminates those four 400 meg files i"
+      },
+      {
+        "start": 111.119,
+        "duration": 3.841,
+        "text": "now have"
+      },
+      {
+        "start": 111.68,
+        "duration": 4.88,
+        "text": "one big file size to your compaction is"
+      },
+      {
+        "start": 114.96,
+        "duration": 4.159,
+        "text": "taking those smaller files"
+      },
+      {
+        "start": 116.56,
+        "duration": 4.559,
+        "text": "compact them into larger files once we"
+      },
+      {
+        "start": 119.119,
+        "duration": 3.36,
+        "text": "get over a certain number of those files"
+      },
+      {
+        "start": 121.119,
+        "duration": 3.201,
+        "text": "it'll compact again"
+      },
+      {
+        "start": 122.479,
+        "duration": 4.24,
+        "text": "this process runs continuously in the"
+      },
+      {
+        "start": 124.32,
+        "duration": 4.159,
+        "text": "background now as i'm keep running"
+      },
+      {
+        "start": 126.719,
+        "duration": 3.68,
+        "text": "and those compactions are running all"
+      },
+      {
+        "start": 128.479,
+        "duration": 4.4,
+        "text": "the time this is a 100"
+      },
+      {
+        "start": 130.399,
+        "duration": 3.441,
+        "text": "automatic process eventually what i'm"
+      },
+      {
+        "start": 132.879,
+        "duration": 2.801,
+        "text": "going to start seeing"
+      },
+      {
+        "start": 133.84,
+        "duration": 3.44,
+        "text": "is smaller files turning into larger"
+      },
+      {
+        "start": 135.68,
+        "duration": 4.0,
+        "text": "files and sitting there"
+      },
+      {
+        "start": 137.28,
+        "duration": 3.92,
+        "text": "because once i get to that larger file"
+      },
+      {
+        "start": 139.68,
+        "duration": 2.559,
+        "text": "i'm going to need more of those to"
+      },
+      {
+        "start": 141.2,
+        "duration": 3.28,
+        "text": "compact"
+      },
+      {
+        "start": 142.239,
+        "duration": 5.281,
+        "text": "let's consider the worst case scenario"
+      },
+      {
+        "start": 144.48,
+        "duration": 5.04,
+        "text": "when we have to compact a lot of files"
+      },
+      {
+        "start": 147.52,
+        "duration": 3.2,
+        "text": "you need to have at least 50 percent of"
+      },
+      {
+        "start": 149.52,
+        "duration": 3.999,
+        "text": "your disk available"
+      },
+      {
+        "start": 150.72,
+        "duration": 4.159,
+        "text": "to do a compaction think of it this way"
+      },
+      {
+        "start": 153.519,
+        "duration": 3.521,
+        "text": "if i'm consuming"
+      },
+      {
+        "start": 154.879,
+        "duration": 3.041,
+        "text": "more than 50 of my disk and i need to"
+      },
+      {
+        "start": 157.04,
+        "duration": 3.44,
+        "text": "rewrite"
+      },
+      {
+        "start": 157.92,
+        "duration": 3.679,
+        "text": "all of that data again i'm going to need"
+      },
+      {
+        "start": 160.48,
+        "duration": 4.24,
+        "text": "to have that much space"
+      },
+      {
+        "start": 161.599,
+        "duration": 5.681,
+        "text": "to do it if i'm over if i'm at 51"
+      },
+      {
+        "start": 164.72,
+        "duration": 3.599,
+        "text": "52 well it's not going to work very good"
+      },
+      {
+        "start": 167.28,
+        "duration": 3.36,
+        "text": "because what's going to happen is it's"
+      },
+      {
+        "start": 168.319,
+        "duration": 3.28,
+        "text": "going to overflow my disk so consider"
+      },
+      {
+        "start": 170.64,
+        "duration": 3.36,
+        "text": "this example"
+      },
+      {
+        "start": 171.599,
+        "duration": 4.0,
+        "text": "so now when the compactor runs and i"
+      },
+      {
+        "start": 174.0,
+        "duration": 5.04,
+        "text": "have exactly 50"
+      },
+      {
+        "start": 175.599,
+        "duration": 4.881,
+        "text": "of my disk used up i just squeaked it in"
+      },
+      {
+        "start": 179.04,
+        "duration": 3.199,
+        "text": "what happens afterwards and this is a"
+      },
+      {
+        "start": 180.48,
+        "duration": 3.92,
+        "text": "nice thing that file"
+      },
+      {
+        "start": 182.239,
+        "duration": 3.601,
+        "text": "will stay it'll be one file and all"
+      },
+      {
+        "start": 184.4,
+        "duration": 3.919,
+        "text": "those other files will go away"
+      },
+      {
+        "start": 185.84,
+        "duration": 4.16,
+        "text": "i get my disk space back another problem"
+      },
+      {
+        "start": 188.319,
+        "duration": 3.761,
+        "text": "with sites to compaction is i might have"
+      },
+      {
+        "start": 190.0,
+        "duration": 4.159,
+        "text": "data scattered all over the disk"
+      },
+      {
+        "start": 192.08,
+        "duration": 3.519,
+        "text": "so in this example i have a few"
+      },
+      {
+        "start": 194.159,
+        "duration": 3.761,
+        "text": "different files"
+      },
+      {
+        "start": 195.599,
+        "duration": 4.321,
+        "text": "each with different people different"
+      },
+      {
+        "start": 197.92,
+        "duration": 2.56,
+        "text": "places what i'm doing is i'm combining"
+      },
+      {
+        "start": 199.92,
+        "duration": 2.56,
+        "text": "everything"
+      },
+      {
+        "start": 200.48,
+        "duration": 3.28,
+        "text": "with the state of texas that was a"
+      },
+      {
+        "start": 202.48,
+        "duration": 3.039,
+        "text": "partition key"
+      },
+      {
+        "start": 203.76,
+        "duration": 3.68,
+        "text": "compaction looks at partition keys and"
+      },
+      {
+        "start": 205.519,
+        "duration": 3.521,
+        "text": "tries to join all of those records"
+      },
+      {
+        "start": 207.44,
+        "duration": 3.359,
+        "text": "together in the same file"
+      },
+      {
+        "start": 209.04,
+        "duration": 4.0,
+        "text": "that's the point of compaction but"
+      },
+      {
+        "start": 210.799,
+        "duration": 4.401,
+        "text": "whenever i have more files with that"
+      },
+      {
+        "start": 213.04,
+        "duration": 3.839,
+        "text": "what happens when i eventually get down"
+      },
+      {
+        "start": 215.2,
+        "duration": 3.92,
+        "text": "to this place where i have tons and tons"
+      },
+      {
+        "start": 216.879,
+        "duration": 4.801,
+        "text": "of records with just texas in them"
+      },
+      {
+        "start": 219.12,
+        "duration": 4.24,
+        "text": "well here we go i have a bunch of"
+      },
+      {
+        "start": 221.68,
+        "duration": 5.119,
+        "text": "potentially stale records"
+      },
+      {
+        "start": 223.36,
+        "duration": 4.0,
+        "text": "because now i have updates look at texas"
+      },
+      {
+        "start": 226.799,
+        "duration": 3.281,
+        "text": "of one"
+      },
+      {
+        "start": 227.36,
+        "duration": 3.599,
+        "text": "has jim and in the green file it says"
+      },
+      {
+        "start": 230.08,
+        "duration": 4.239,
+        "text": "texas one"
+      },
+      {
+        "start": 230.959,
+        "duration": 6.161,
+        "text": "joe i need to update that record"
+      },
+      {
+        "start": 234.319,
+        "duration": 4.0,
+        "text": "well since that ss table is so big it's"
+      },
+      {
+        "start": 237.12,
+        "duration": 2.08,
+        "text": "going to take a while for that"
+      },
+      {
+        "start": 238.319,
+        "duration": 2.801,
+        "text": "compaction"
+      },
+      {
+        "start": 239.2,
+        "duration": 4.08,
+        "text": "to catch up and overwrite that other"
+      },
+      {
+        "start": 241.12,
+        "duration": 3.679,
+        "text": "file this is a problem with size gear"
+      },
+      {
+        "start": 243.28,
+        "duration": 2.879,
+        "text": "compaction over time"
+      },
+      {
+        "start": 244.799,
+        "duration": 3.921,
+        "text": "is that eventually you start getting"
+      },
+      {
+        "start": 246.159,
+        "duration": 4.16,
+        "text": "stale records not the end of the world"
+      },
+      {
+        "start": 248.72,
+        "duration": 2.96,
+        "text": "but it's something to consider if you're"
+      },
+      {
+        "start": 250.319,
+        "duration": 2.64,
+        "text": "doing a lot of updates and the"
+      },
+      {
+        "start": 251.68,
+        "duration": 2.479,
+        "text": "compactions are running"
+      },
+      {
+        "start": 252.959,
+        "duration": 3.441,
+        "text": "you're going to wind up with some"
+      },
+      {
+        "start": 254.159,
+        "duration": 3.36,
+        "text": "possible stale data in the larger ss"
+      },
+      {
+        "start": 256.4,
+        "duration": 3.44,
+        "text": "tables"
+      },
+      {
+        "start": 257.519,
+        "duration": 3.361,
+        "text": "so what about the ss tables that are all"
+      },
+      {
+        "start": 259.84,
+        "duration": 3.04,
+        "text": "these different sizes"
+      },
+      {
+        "start": 260.88,
+        "duration": 3.12,
+        "text": "and that's pretty likely a scenario if"
+      },
+      {
+        "start": 262.88,
+        "duration": 3.039,
+        "text": "you were to go look at your data"
+      },
+      {
+        "start": 264.0,
+        "duration": 3.199,
+        "text": "directory and look at the esses tables"
+      },
+      {
+        "start": 265.919,
+        "duration": 3.361,
+        "text": "they're not going to be uniform because"
+      },
+      {
+        "start": 267.199,
+        "duration": 3.761,
+        "text": "your data isn't uniform but there are"
+      },
+      {
+        "start": 269.28,
+        "duration": 4.32,
+        "text": "rules about how that works"
+      },
+      {
+        "start": 270.96,
+        "duration": 4.239,
+        "text": "let's take a look so in this example i"
+      },
+      {
+        "start": 273.6,
+        "duration": 2.319,
+        "text": "have ss tables of all these different"
+      },
+      {
+        "start": 275.199,
+        "duration": 3.681,
+        "text": "sizes"
+      },
+      {
+        "start": 275.919,
+        "duration": 4.72,
+        "text": "these numbers are how big the files are"
+      },
+      {
+        "start": 278.88,
+        "duration": 3.759,
+        "text": "how am i going to compact those out"
+      },
+      {
+        "start": 280.639,
+        "duration": 3.521,
+        "text": "well let's run through that scenario"
+      },
+      {
+        "start": 282.639,
+        "duration": 4.401,
+        "text": "let's take that 100"
+      },
+      {
+        "start": 284.16,
+        "duration": 4.16,
+        "text": "that's 100 meg file we have this much"
+      },
+      {
+        "start": 287.04,
+        "duration": 3.52,
+        "text": "space to put it in"
+      },
+      {
+        "start": 288.32,
+        "duration": 3.52,
+        "text": "so we put in the 100 that fits in a"
+      },
+      {
+        "start": 290.56,
+        "duration": 4.8,
+        "text": "certain size bucket"
+      },
+      {
+        "start": 291.84,
+        "duration": 4.72,
+        "text": "awesome what if we have a one gigabyte"
+      },
+      {
+        "start": 295.36,
+        "duration": 2.64,
+        "text": "file"
+      },
+      {
+        "start": 296.56,
+        "duration": 2.96,
+        "text": "well that's not going to fit inside that"
+      },
+      {
+        "start": 298.0,
+        "duration": 3.199,
+        "text": "bucket so we're going to have yet"
+      },
+      {
+        "start": 299.52,
+        "duration": 4.239,
+        "text": "another"
+      },
+      {
+        "start": 301.199,
+        "duration": 4.0,
+        "text": "now we have this size but we have two"
+      },
+      {
+        "start": 303.759,
+        "duration": 2.801,
+        "text": "different sizes at play here how are we"
+      },
+      {
+        "start": 305.199,
+        "duration": 3.121,
+        "text": "going to mix those together"
+      },
+      {
+        "start": 306.56,
+        "duration": 3.28,
+        "text": "here comes another file that fits"
+      },
+      {
+        "start": 308.32,
+        "duration": 3.12,
+        "text": "differently it's going to have to fit"
+      },
+      {
+        "start": 309.84,
+        "duration": 3.84,
+        "text": "somewhere in one of these buckets"
+      },
+      {
+        "start": 311.44,
+        "duration": 4.479,
+        "text": "we have a new bucket to create that"
+      },
+      {
+        "start": 313.68,
+        "duration": 4.0,
+        "text": "bucket now stores that size of a file"
+      },
+      {
+        "start": 315.919,
+        "duration": 3.521,
+        "text": "now we have this little guy what are we"
+      },
+      {
+        "start": 317.68,
+        "duration": 3.92,
+        "text": "going to do with it well it's going to"
+      },
+      {
+        "start": 319.44,
+        "duration": 4.319,
+        "text": "be in these smaller tiers"
+      },
+      {
+        "start": 321.6,
+        "duration": 4.0,
+        "text": "and these smaller tiers are going to be"
+      },
+      {
+        "start": 323.759,
+        "duration": 3.041,
+        "text": "a problem over time"
+      },
+      {
+        "start": 325.6,
+        "duration": 3.12,
+        "text": "because those are going to have to add"
+      },
+      {
+        "start": 326.8,
+        "duration": 4.32,
+        "text": "up and be combined together"
+      },
+      {
+        "start": 328.72,
+        "duration": 4.0,
+        "text": "but now what we have are these buckets"
+      },
+      {
+        "start": 331.12,
+        "duration": 3.84,
+        "text": "and these buckets will store"
+      },
+      {
+        "start": 332.72,
+        "duration": 4.08,
+        "text": "like sizes and it'll start grouping our"
+      },
+      {
+        "start": 334.96,
+        "duration": 3.679,
+        "text": "data very nicely at this point"
+      },
+      {
+        "start": 336.8,
+        "duration": 3.04,
+        "text": "and as you can see all these buckets are"
+      },
+      {
+        "start": 338.639,
+        "duration": 2.641,
+        "text": "being filled up"
+      },
+      {
+        "start": 339.84,
+        "duration": 3.52,
+        "text": "and over time you have these neatly"
+      },
+      {
+        "start": 341.28,
+        "duration": 3.68,
+        "text": "arranged buckets of data with the size"
+      },
+      {
+        "start": 343.36,
+        "duration": 2.96,
+        "text": "of data that we are giving it"
+      },
+      {
+        "start": 344.96,
+        "duration": 4.0,
+        "text": "from the type of data that we're writing"
+      },
+      {
+        "start": 346.32,
+        "duration": 4.64,
+        "text": "to the system so what's going on here"
+      },
+      {
+        "start": 348.96,
+        "duration": 4.239,
+        "text": "is we're trying to group these tables"
+      },
+      {
+        "start": 350.96,
+        "duration": 3.6,
+        "text": "together we're trying to group similar"
+      },
+      {
+        "start": 353.199,
+        "duration": 2.801,
+        "text": "sizes together"
+      },
+      {
+        "start": 354.56,
+        "duration": 3.759,
+        "text": "that is important for like trying to"
+      },
+      {
+        "start": 356.0,
+        "duration": 4.08,
+        "text": "keep the stale data to a minimum"
+      },
+      {
+        "start": 358.319,
+        "duration": 3.521,
+        "text": "if we have a lot of large files and"
+      },
+      {
+        "start": 360.08,
+        "duration": 2.32,
+        "text": "large data sets we want to group those"
+      },
+      {
+        "start": 361.84,
+        "duration": 2.079,
+        "text": "together"
+      },
+      {
+        "start": 362.4,
+        "duration": 3.519,
+        "text": "we have small ones we want to group"
+      },
+      {
+        "start": 363.919,
+        "duration": 3.28,
+        "text": "those together any of these tiers below"
+      },
+      {
+        "start": 365.919,
+        "duration": 3.84,
+        "text": "the minimum compaction"
+      },
+      {
+        "start": 367.199,
+        "duration": 4.241,
+        "text": "that's the setting inside the table that"
+      },
+      {
+        "start": 369.759,
+        "duration": 2.72,
+        "text": "will just get ignored we won't touch"
+      },
+      {
+        "start": 371.44,
+        "duration": 2.879,
+        "text": "those at all"
+      },
+      {
+        "start": 372.479,
+        "duration": 3.681,
+        "text": "so any bucket that's over the max"
+      },
+      {
+        "start": 374.319,
+        "duration": 4.241,
+        "text": "threshold will get trimmed to fit"
+      },
+      {
+        "start": 376.16,
+        "duration": 4.64,
+        "text": "just that many ss tables one of the"
+      },
+      {
+        "start": 378.56,
+        "duration": 4.32,
+        "text": "other factors is this idea of hotness"
+      },
+      {
+        "start": 380.8,
+        "duration": 3.28,
+        "text": "hotness is how much is that table being"
+      },
+      {
+        "start": 382.88,
+        "duration": 3.28,
+        "text": "written or used"
+      },
+      {
+        "start": 384.08,
+        "duration": 4.0,
+        "text": "and it considers that in compaction it's"
+      },
+      {
+        "start": 386.16,
+        "duration": 4.24,
+        "text": "going to try to compact those files"
+      },
+      {
+        "start": 388.08,
+        "duration": 4.16,
+        "text": "first just out of an optimization and"
+      },
+      {
+        "start": 390.4,
+        "duration": 3.12,
+        "text": "that's a really key optimization"
+      },
+      {
+        "start": 392.24,
+        "duration": 3.04,
+        "text": "especially when we're trying to keep our"
+      },
+      {
+        "start": 393.52,
+        "duration": 4.88,
+        "text": "data fresh and"
+      },
+      {
+        "start": 395.28,
+        "duration": 4.639,
+        "text": "available for reads similar size files"
+      },
+      {
+        "start": 398.4,
+        "duration": 2.96,
+        "text": "are always going to be optimized for and"
+      },
+      {
+        "start": 399.919,
+        "duration": 4.0,
+        "text": "we really want to make sure we have"
+      },
+      {
+        "start": 401.36,
+        "duration": 4.399,
+        "text": "the similar size files so the similar"
+      },
+      {
+        "start": 403.919,
+        "duration": 2.961,
+        "text": "size files have a fair amount of overlap"
+      },
+      {
+        "start": 405.759,
+        "duration": 3.601,
+        "text": "and that's fine"
+      },
+      {
+        "start": 406.88,
+        "duration": 4.0,
+        "text": "but we're minimizing right amplification"
+      },
+      {
+        "start": 409.36,
+        "duration": 2.959,
+        "text": "right amplification is if i write the"
+      },
+      {
+        "start": 410.88,
+        "duration": 3.36,
+        "text": "data once and it causes"
+      },
+      {
+        "start": 412.319,
+        "duration": 3.921,
+        "text": "an i o event meaning something written"
+      },
+      {
+        "start": 414.24,
+        "duration": 4.64,
+        "text": "to disk that it triggers"
+      },
+      {
+        "start": 416.24,
+        "duration": 3.92,
+        "text": "more writing to disk we don't want it to"
+      },
+      {
+        "start": 418.88,
+        "duration": 2.56,
+        "text": "trigger more writing to disk that"
+      },
+      {
+        "start": 420.16,
+        "duration": 2.96,
+        "text": "triggers more writing to this"
+      },
+      {
+        "start": 421.44,
+        "duration": 3.52,
+        "text": "triggers more writing to disk that's"
+      },
+      {
+        "start": 423.12,
+        "duration": 3.919,
+        "text": "what we're calling right amplification"
+      },
+      {
+        "start": 424.96,
+        "duration": 3.04,
+        "text": "we want it to just write once maybe"
+      },
+      {
+        "start": 427.039,
+        "duration": 3.121,
+        "text": "compact ones"
+      },
+      {
+        "start": 428.0,
+        "duration": 3.28,
+        "text": "and be done for every data that goes"
+      },
+      {
+        "start": 430.16,
+        "duration": 2.72,
+        "text": "into your system"
+      },
+      {
+        "start": 431.28,
+        "duration": 4.08,
+        "text": "you don't want it to be continuously"
+      },
+      {
+        "start": 432.88,
+        "duration": 3.12,
+        "text": "rewritten that is a nasty part of write"
+      },
+      {
+        "start": 435.36,
+        "duration": 2.64,
+        "text": "amplification"
+      },
+      {
+        "start": 436.0,
+        "duration": 3.52,
+        "text": "that we're trying to avoid there's also"
+      },
+      {
+        "start": 438.0,
+        "duration": 3.84,
+        "text": "incites to your compaction"
+      },
+      {
+        "start": 439.52,
+        "duration": 3.44,
+        "text": "this idea of concurrency just because"
+      },
+      {
+        "start": 441.84,
+        "duration": 2.799,
+        "text": "it's compacting"
+      },
+      {
+        "start": 442.96,
+        "duration": 3.519,
+        "text": "two sets of files together doesn't mean"
+      },
+      {
+        "start": 444.639,
+        "duration": 4.481,
+        "text": "it can't do two others and so"
+      },
+      {
+        "start": 446.479,
+        "duration": 4.641,
+        "text": "there is a choice you can use concurrent"
+      },
+      {
+        "start": 449.12,
+        "duration": 2.479,
+        "text": "compactors one of the settings in yaml"
+      },
+      {
+        "start": 451.12,
+        "duration": 2.4,
+        "text": "file"
+      },
+      {
+        "start": 451.599,
+        "duration": 3.681,
+        "text": "to how many compactors you want to run"
+      },
+      {
+        "start": 453.52,
+        "duration": 2.32,
+        "text": "keep in mind this is what's going to eat"
+      },
+      {
+        "start": 455.28,
+        "duration": 2.88,
+        "text": "up a lot"
+      },
+      {
+        "start": 455.84,
+        "duration": 3.919,
+        "text": "of your i o if you're not using a really"
+      },
+      {
+        "start": 458.16,
+        "duration": 4.0,
+        "text": "robust file system"
+      },
+      {
+        "start": 459.759,
+        "duration": 3.041,
+        "text": "say an ssd or better and there are"
+      },
+      {
+        "start": 462.16,
+        "duration": 2.08,
+        "text": "better"
+      },
+      {
+        "start": 462.8,
+        "duration": 3.04,
+        "text": "then you should really consider how many"
+      },
+      {
+        "start": 464.24,
+        "duration": 2.32,
+        "text": "current compactors you have running"
+      },
+      {
+        "start": 465.84,
+        "duration": 3.6,
+        "text": "right now"
+      },
+      {
+        "start": 466.56,
+        "duration": 4.24,
+        "text": "because that can eat up all your disk io"
+      },
+      {
+        "start": 469.44,
+        "duration": 2.72,
+        "text": "and then you start seeing some really"
+      },
+      {
+        "start": 470.8,
+        "duration": 2.72,
+        "text": "weird indications like"
+      },
+      {
+        "start": 472.16,
+        "duration": 3.36,
+        "text": "you're running out of flush writers the"
+      },
+      {
+        "start": 473.52,
+        "duration": 4.239,
+        "text": "ss tables can't write to disk anymore"
+      },
+      {
+        "start": 475.52,
+        "duration": 4.0,
+        "text": "because there's just no more room to go"
+      },
+      {
+        "start": 477.759,
+        "duration": 3.521,
+        "text": "there's no more i o to give"
+      },
+      {
+        "start": 479.52,
+        "duration": 2.88,
+        "text": "the computer gives up and that's pretty"
+      },
+      {
+        "start": 481.28,
+        "duration": 2.24,
+        "text": "much the worst thing that can happen"
+      },
+      {
+        "start": 482.4,
+        "duration": 4.56,
+        "text": "you're going to lose a node"
+      },
+      {
+        "start": 483.52,
+        "duration": 5.359,
+        "text": "so keep in mind managing your disk i o"
+      },
+      {
+        "start": 486.96,
+        "duration": 4.239,
+        "text": "is really about how you manage your"
+      },
+      {
+        "start": 488.879,
+        "duration": 4.16,
+        "text": "compactions 100"
+      },
+      {
+        "start": 491.199,
+        "duration": 3.761,
+        "text": "other writes to the disc not as"
+      },
+      {
+        "start": 493.039,
+        "duration": 4.16,
+        "text": "important this concurrency measure can"
+      },
+      {
+        "start": 494.96,
+        "duration": 3.519,
+        "text": "really help you get that disk i o dialed"
+      },
+      {
+        "start": 497.199,
+        "duration": 3.201,
+        "text": "in just perfect"
+      },
+      {
+        "start": 498.479,
+        "duration": 4.081,
+        "text": "so here's a list of all the things that"
+      },
+      {
+        "start": 500.4,
+        "duration": 4.72,
+        "text": "trigger a compaction so you know"
+      },
+      {
+        "start": 502.56,
+        "duration": 3.919,
+        "text": "remember this is all automatic so"
+      },
+      {
+        "start": 505.12,
+        "duration": 2.799,
+        "text": "whenever there's a flesh event meaning"
+      },
+      {
+        "start": 506.479,
+        "duration": 2.801,
+        "text": "the mem table in memory"
+      },
+      {
+        "start": 507.919,
+        "duration": 4.161,
+        "text": "goes down into the disk so that's a"
+      },
+      {
+        "start": 509.28,
+        "duration": 4.639,
+        "text": "write event creates an ss table"
+      },
+      {
+        "start": 512.08,
+        "duration": 3.28,
+        "text": "that means a compaction starts up so"
+      },
+      {
+        "start": 513.919,
+        "duration": 2.8,
+        "text": "it's going to have to look to see okay"
+      },
+      {
+        "start": 515.36,
+        "duration": 3.679,
+        "text": "am i over my size"
+      },
+      {
+        "start": 516.719,
+        "duration": 4.0,
+        "text": "when mem tables are too large they just"
+      },
+      {
+        "start": 519.039,
+        "duration": 3.36,
+        "text": "go beyond their capacity"
+      },
+      {
+        "start": 520.719,
+        "duration": 3.68,
+        "text": "then they have to be written to disk as"
+      },
+      {
+        "start": 522.399,
+        "duration": 3.601,
+        "text": "well other things that can happen"
+      },
+      {
+        "start": 524.399,
+        "duration": 3.201,
+        "text": "are during like a streaming event like a"
+      },
+      {
+        "start": 526.0,
+        "duration": 3.44,
+        "text": "build or a repair"
+      },
+      {
+        "start": 527.6,
+        "duration": 3.6,
+        "text": "that triggers a compaction because"
+      },
+      {
+        "start": 529.44,
+        "duration": 2.959,
+        "text": "there's a lot of new data in there"
+      },
+      {
+        "start": 531.2,
+        "duration": 2.96,
+        "text": "just like if you're writing a lot of"
+      },
+      {
+        "start": 532.399,
+        "duration": 2.321,
+        "text": "data to your node but that triggers a"
+      },
+      {
+        "start": 534.16,
+        "duration": 2.799,
+        "text": "compaction"
+      },
+      {
+        "start": 534.72,
+        "duration": 3.52,
+        "text": "size to your compaction always runs"
+      },
+      {
+        "start": 536.959,
+        "duration": 3.681,
+        "text": "after one of these events"
+      },
+      {
+        "start": 538.24,
+        "duration": 4.159,
+        "text": "to organize and clean up your files the"
+      },
+      {
+        "start": 540.64,
+        "duration": 4.24,
+        "text": "compaction event will continue to run"
+      },
+      {
+        "start": 542.399,
+        "duration": 3.281,
+        "text": "until it meets the min threshold once it"
+      },
+      {
+        "start": 544.88,
+        "duration": 2.399,
+        "text": "hits that"
+      },
+      {
+        "start": 545.68,
+        "duration": 3.04,
+        "text": "then everything stops if you're not"
+      },
+      {
+        "start": 547.279,
+        "duration": 3.841,
+        "text": "writing data into your system"
+      },
+      {
+        "start": 548.72,
+        "duration": 4.0,
+        "text": "compaction will eventually quiesce stop"
+      },
+      {
+        "start": 551.12,
+        "duration": 2.159,
+        "text": "and it'll be waiting for more data to be"
+      },
+      {
+        "start": 552.72,
+        "duration": 1.92,
+        "text": "written"
+      },
+      {
+        "start": 553.279,
+        "duration": 3.12,
+        "text": "once you write more data in the"
+      },
+      {
+        "start": 554.64,
+        "duration": 4.16,
+        "text": "compaction process starts up again"
+      },
+      {
+        "start": 556.399,
+        "duration": 4.0,
+        "text": "and starts rewriting your data and then"
+      },
+      {
+        "start": 558.8,
+        "duration": 4.32,
+        "text": "everyone's dreaded topic"
+      },
+      {
+        "start": 560.399,
+        "duration": 4.88,
+        "text": "tombstones size tiered is really geared"
+      },
+      {
+        "start": 563.12,
+        "duration": 3.6,
+        "text": "around tombstones a lot better than some"
+      },
+      {
+        "start": 565.279,
+        "duration": 3.041,
+        "text": "so some of the things that can happen"
+      },
+      {
+        "start": 566.72,
+        "duration": 3.36,
+        "text": "there that really are important for"
+      },
+      {
+        "start": 568.32,
+        "duration": 3.04,
+        "text": "tombstones tombstones of course are"
+      },
+      {
+        "start": 570.08,
+        "duration": 4.08,
+        "text": "deleted data"
+      },
+      {
+        "start": 571.36,
+        "duration": 3.84,
+        "text": "that data could be in a file for a long"
+      },
+      {
+        "start": 574.16,
+        "duration": 2.4,
+        "text": "time"
+      },
+      {
+        "start": 575.2,
+        "duration": 3.52,
+        "text": "there is a thing called tombstone"
+      },
+      {
+        "start": 576.56,
+        "duration": 3.2,
+        "text": "compaction so what it's looking for is a"
+      },
+      {
+        "start": 578.72,
+        "duration": 3.36,
+        "text": "threshold"
+      },
+      {
+        "start": 579.76,
+        "duration": 3.759,
+        "text": "how many expired tombstones are inside"
+      },
+      {
+        "start": 582.08,
+        "duration": 4.4,
+        "text": "an ss table"
+      },
+      {
+        "start": 583.519,
+        "duration": 4.961,
+        "text": "so if it goes above 20 by default it"
+      },
+      {
+        "start": 586.48,
+        "duration": 4.24,
+        "text": "triggers a tombstone compaction"
+      },
+      {
+        "start": 588.48,
+        "duration": 3.84,
+        "text": "tombstone compaction is really built for"
+      },
+      {
+        "start": 590.72,
+        "duration": 2.96,
+        "text": "i got to clean up a lot of ss tables"
+      },
+      {
+        "start": 592.32,
+        "duration": 2.0,
+        "text": "because i got a lot of deleted data in"
+      },
+      {
+        "start": 593.68,
+        "duration": 1.839,
+        "text": "there"
+      },
+      {
+        "start": 594.32,
+        "duration": 3.199,
+        "text": "this is really good for you if you're"
+      },
+      {
+        "start": 595.519,
+        "duration": 3.201,
+        "text": "trying to conserve disk space"
+      },
+      {
+        "start": 597.519,
+        "duration": 2.561,
+        "text": "think about it you have a lot of"
+      },
+      {
+        "start": 598.72,
+        "duration": 2.08,
+        "text": "tombstones you have a lot of deleted"
+      },
+      {
+        "start": 600.08,
+        "duration": 2.319,
+        "text": "data"
+      },
+      {
+        "start": 600.8,
+        "duration": 3.52,
+        "text": "if you're not compacting it that data"
+      },
+      {
+        "start": 602.399,
+        "duration": 4.0,
+        "text": "will never disappear tombstone"
+      },
+      {
+        "start": 604.32,
+        "duration": 4.32,
+        "text": "compaction helps solve that problem"
+      },
+      {
+        "start": 606.399,
+        "duration": 3.601,
+        "text": "the table has to be at least one day old"
+      },
+      {
+        "start": 608.64,
+        "duration": 2.879,
+        "text": "or you could change that with the"
+      },
+      {
+        "start": 610.0,
+        "duration": 3.279,
+        "text": "tombstone compaction interval"
+      },
+      {
+        "start": 611.519,
+        "duration": 3.44,
+        "text": "say you want to do it two days or three"
+      },
+      {
+        "start": 613.279,
+        "duration": 4.161,
+        "text": "days or 10 days but"
+      },
+      {
+        "start": 614.959,
+        "duration": 3.12,
+        "text": "the default is one day the compaction"
+      },
+      {
+        "start": 617.44,
+        "duration": 2.959,
+        "text": "process is"
+      },
+      {
+        "start": 618.079,
+        "duration": 4.241,
+        "text": "really trying to ensure that that old"
+      },
+      {
+        "start": 620.399,
+        "duration": 3.68,
+        "text": "data just isn't laying around"
+      },
+      {
+        "start": 622.32,
+        "duration": 3.44,
+        "text": "this can be a huge problem whenever you"
+      },
+      {
+        "start": 624.079,
+        "duration": 3.76,
+        "text": "have really large files"
+      },
+      {
+        "start": 625.76,
+        "duration": 3.36,
+        "text": "that you're compacting if you have"
+      },
+      {
+        "start": 627.839,
+        "duration": 2.24,
+        "text": "something that's been compacted for a"
+      },
+      {
+        "start": 629.12,
+        "duration": 3.279,
+        "text": "long time"
+      },
+      {
+        "start": 630.079,
+        "duration": 3.121,
+        "text": "ss tables can store a lot of tombstones"
+      },
+      {
+        "start": 632.399,
+        "duration": 3.201,
+        "text": "over time"
+      },
+      {
+        "start": 633.2,
+        "duration": 4.0,
+        "text": "remember tombstones are a marker and"
+      },
+      {
+        "start": 635.6,
+        "duration": 3.52,
+        "text": "until they actually expire"
+      },
+      {
+        "start": 637.2,
+        "duration": 3.12,
+        "text": "that data isn't deleted until you run a"
+      },
+      {
+        "start": 639.12,
+        "duration": 3.52,
+        "text": "compaction this"
+      },
+      {
+        "start": 640.32,
+        "duration": 3.519,
+        "text": "forces that process so what are some of"
+      },
+      {
+        "start": 642.64,
+        "duration": 2.96,
+        "text": "the pros and cons"
+      },
+      {
+        "start": 643.839,
+        "duration": 2.881,
+        "text": "with size to your compaction like"
+      },
+      {
+        "start": 645.6,
+        "duration": 2.16,
+        "text": "everything else in the world there are"
+      },
+      {
+        "start": 646.72,
+        "duration": 2.88,
+        "text": "trade-offs"
+      },
+      {
+        "start": 647.76,
+        "duration": 3.68,
+        "text": "understanding what those are are really"
+      },
+      {
+        "start": 649.6,
+        "duration": 3.12,
+        "text": "important size to your compaction is a"
+      },
+      {
+        "start": 651.44,
+        "duration": 3.2,
+        "text": "default for a reason"
+      },
+      {
+        "start": 652.72,
+        "duration": 3.2,
+        "text": "it works in most cases it's the most"
+      },
+      {
+        "start": 654.64,
+        "duration": 3.92,
+        "text": "generalizable"
+      },
+      {
+        "start": 655.92,
+        "duration": 3.919,
+        "text": "compaction process it works in the small"
+      },
+      {
+        "start": 658.56,
+        "duration": 3.2,
+        "text": "and the large"
+      },
+      {
+        "start": 659.839,
+        "duration": 3.361,
+        "text": "now there are edge cases that are better"
+      },
+      {
+        "start": 661.76,
+        "duration": 2.48,
+        "text": "you'll learn about level compaction"
+      },
+      {
+        "start": 663.2,
+        "duration": 2.16,
+        "text": "you'll learn about time window"
+      },
+      {
+        "start": 664.24,
+        "duration": 4.159,
+        "text": "compaction"
+      },
+      {
+        "start": 665.36,
+        "duration": 5.2,
+        "text": "size tiered covers most of the bases the"
+      },
+      {
+        "start": 668.399,
+        "duration": 3.841,
+        "text": "key benefit for size tiered is how it"
+      },
+      {
+        "start": 670.56,
+        "duration": 3.519,
+        "text": "handles ingested data"
+      },
+      {
+        "start": 672.24,
+        "duration": 3.36,
+        "text": "it is really good for if you have a high"
+      },
+      {
+        "start": 674.079,
+        "duration": 3.601,
+        "text": "right system"
+      },
+      {
+        "start": 675.6,
+        "duration": 3.52,
+        "text": "if you have a high read system you may"
+      },
+      {
+        "start": 677.68,
+        "duration": 2.08,
+        "text": "consider something else like level"
+      },
+      {
+        "start": 679.12,
+        "duration": 2.24,
+        "text": "compaction"
+      },
+      {
+        "start": 679.76,
+        "duration": 3.68,
+        "text": "that gives you more performance in those"
+      },
+      {
+        "start": 681.36,
+        "duration": 3.76,
+        "text": "type of use cases or time window when"
+      },
+      {
+        "start": 683.44,
+        "duration": 2.32,
+        "text": "you have a very specific time window"
+      },
+      {
+        "start": 685.12,
+        "duration": 2.399,
+        "text": "data model"
+      },
+      {
+        "start": 685.76,
+        "duration": 3.199,
+        "text": "if you have a high right system size"
+      },
+      {
+        "start": 687.519,
+        "duration": 3.921,
+        "text": "tier gets the job done"
+      },
+      {
+        "start": 688.959,
+        "duration": 3.681,
+        "text": "and then finally if you are dealing with"
+      },
+      {
+        "start": 691.44,
+        "duration": 3.519,
+        "text": "too much compaction"
+      },
+      {
+        "start": 692.64,
+        "duration": 3.759,
+        "text": "or it's overwhelming my disk you could"
+      },
+      {
+        "start": 694.959,
+        "duration": 3.521,
+        "text": "throttle it back"
+      },
+      {
+        "start": 696.399,
+        "duration": 4.0,
+        "text": "there is a setting for that compaction"
+      },
+      {
+        "start": 698.48,
+        "duration": 4.56,
+        "text": "throughput megabyte per second"
+      },
+      {
+        "start": 700.399,
+        "duration": 4.321,
+        "text": "is your friend you could turn that down"
+      },
+      {
+        "start": 703.04,
+        "duration": 2.88,
+        "text": "and really keep the compaction from"
+      },
+      {
+        "start": 704.72,
+        "duration": 3.44,
+        "text": "eating up your disk"
+      },
+      {
+        "start": 705.92,
+        "duration": 3.28,
+        "text": "i will say though if compaction's eating"
+      },
+      {
+        "start": 708.16,
+        "duration": 2.4,
+        "text": "up your disk"
+      },
+      {
+        "start": 709.2,
+        "duration": 3.36,
+        "text": "then you should probably consider"
+      },
+      {
+        "start": 710.56,
+        "duration": 4.079,
+        "text": "getting a new disk compaction should run"
+      },
+      {
+        "start": 712.56,
+        "duration": 3.44,
+        "text": "fine in a normal operating system"
+      },
+      {
+        "start": 714.639,
+        "duration": 3.521,
+        "text": "sometimes if you don't have the luxury"
+      },
+      {
+        "start": 716.0,
+        "duration": 3.36,
+        "text": "of having the best discs this is a way"
+      },
+      {
+        "start": 718.16,
+        "duration": 3.52,
+        "text": "to throttle back"
+      },
+      {
+        "start": 719.36,
+        "duration": 4.4,
+        "text": "and keep it from eating up your system"
+      },
+      {
+        "start": 721.68,
+        "duration": 3.52,
+        "text": "and finally the whole idea of a major"
+      },
+      {
+        "start": 723.76,
+        "duration": 4.0,
+        "text": "compaction"
+      },
+      {
+        "start": 725.2,
+        "duration": 3.92,
+        "text": "major compaction is a term we use for"
+      },
+      {
+        "start": 727.76,
+        "duration": 4.4,
+        "text": "when you compact"
+      },
+      {
+        "start": 729.12,
+        "duration": 5.12,
+        "text": "all of the data let me explain"
+      },
+      {
+        "start": 732.16,
+        "duration": 3.919,
+        "text": "you can go to nodetool and type the word"
+      },
+      {
+        "start": 734.24,
+        "duration": 4.56,
+        "text": "nodetool compact"
+      },
+      {
+        "start": 736.079,
+        "duration": 3.2,
+        "text": "and what will happen is it will create"
+      },
+      {
+        "start": 738.8,
+        "duration": 3.839,
+        "text": "one"
+      },
+      {
+        "start": 739.279,
+        "duration": 5.36,
+        "text": "big ss table of all your data if that"
+      },
+      {
+        "start": 742.639,
+        "duration": 4.561,
+        "text": "sounds like an awesome idea"
+      },
+      {
+        "start": 744.639,
+        "duration": 3.681,
+        "text": "let me fix that it's not because what"
+      },
+      {
+        "start": 747.2,
+        "duration": 1.84,
+        "text": "you're going to get out of this"
+      },
+      {
+        "start": 748.32,
+        "duration": 2.8,
+        "text": "situation"
+      },
+      {
+        "start": 749.04,
+        "duration": 3.919,
+        "text": "is one big access table that will sit"
+      },
+      {
+        "start": 751.12,
+        "duration": 3.44,
+        "text": "there with anything that needs to be"
+      },
+      {
+        "start": 752.959,
+        "duration": 3.521,
+        "text": "deleted or stale data"
+      },
+      {
+        "start": 754.56,
+        "duration": 3.519,
+        "text": "it will take some time to get an essence"
+      },
+      {
+        "start": 756.48,
+        "duration": 3.76,
+        "text": "table as large as the one you just"
+      },
+      {
+        "start": 758.079,
+        "duration": 4.56,
+        "text": "created from doing a major compaction"
+      },
+      {
+        "start": 760.24,
+        "duration": 3.36,
+        "text": "that's bad news because in the end what"
+      },
+      {
+        "start": 762.639,
+        "duration": 3.44,
+        "text": "you're going to deal with"
+      },
+      {
+        "start": 763.6,
+        "duration": 3.44,
+        "text": "is an operations problem one big file"
+      },
+      {
+        "start": 766.079,
+        "duration": 2.641,
+        "text": "sitting there"
+      },
+      {
+        "start": 767.04,
+        "duration": 3.12,
+        "text": "laughing at all the other compaction"
+      },
+      {
+        "start": 768.72,
+        "duration": 2.64,
+        "text": "processes because it will never get"
+      },
+      {
+        "start": 770.16,
+        "duration": 3.44,
+        "text": "compacted"
+      },
+      {
+        "start": 771.36,
+        "duration": 3.76,
+        "text": "there is a way to undo this and this is"
+      },
+      {
+        "start": 773.6,
+        "duration": 3.919,
+        "text": "an anti-compaction"
+      },
+      {
+        "start": 775.12,
+        "duration": 4.159,
+        "text": "that's covered in another module if you"
+      },
+      {
+        "start": 777.519,
+        "duration": 2.641,
+        "text": "find yourself with a huge compaction on"
+      },
+      {
+        "start": 779.279,
+        "duration": 2.961,
+        "text": "your hands"
+      },
+      {
+        "start": 780.16,
+        "duration": 3.76,
+        "text": "then there is a way out of it don't"
+      },
+      {
+        "start": 782.24,
+        "duration": 3.44,
+        "text": "worry we can fix this"
+      },
+      {
+        "start": 783.92,
+        "duration": 3.2,
+        "text": "but just know that typing no tool"
+      },
+      {
+        "start": 785.68,
+        "duration": 3.52,
+        "text": "compact is a bad idea"
+      },
+      {
+        "start": 787.12,
+        "duration": 3.04,
+        "text": "so this is an overview of how size to"
+      },
+      {
+        "start": 789.2,
+        "duration": 2.879,
+        "text": "your compaction work"
+      },
+      {
+        "start": 790.16,
+        "duration": 3.919,
+        "text": "this is the steady eddy of cassandra"
+      },
+      {
+        "start": 792.079,
+        "duration": 3.44,
+        "text": "world it's used all over the place"
+      },
+      {
+        "start": 794.079,
+        "duration": 3.361,
+        "text": "even inside some other compaction"
+      },
+      {
+        "start": 795.519,
+        "duration": 3.361,
+        "text": "strategies hopefully this gave you a"
+      },
+      {
+        "start": 797.44,
+        "duration": 2.079,
+        "text": "good overview and you understand how it"
+      },
+      {
+        "start": 798.88,
+        "duration": 4.959,
+        "text": "works"
+      },
+      {
+        "start": 799.519,
+        "duration": 4.32,
+        "text": "so you can tune it properly if you need"
+      },
+      {
+        "start": 804.36,
+        "duration": 3.0,
+        "text": "to"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T01:31:27.098964+00:00"
+}

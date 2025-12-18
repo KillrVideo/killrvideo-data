@@ -1,0 +1,1814 @@
+{
+  "video_id": "dORMBq9KFZI",
+  "title": "DS310.27 Lucene | DataStax Enterprise 6 Search",
+  "description": "#DataStaxAcademy #DS310\nDS310.27 Lucene\nIn this section we will be looking at the structure of a Lucene index and how it gets creating from Cassandra data.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-15T20:54:24Z",
+  "thumbnail": "https://i.ytimg.com/vi/dORMBq9KFZI/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "search",
+    "tutorial",
+    "apache_cassandra",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=dORMBq9KFZI",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] hi my name is joe chu and welcome to lucian indexes in past videos we've talked a bit about how to create indexes where they are stored and even a bit about the calculations done to generate scores for each of our documents in this video we'll be talking about what actually gets indexed and how those indexes allow us to look up terms in a document field as we have mentioned throughout the course the technology behind the indexing engine in datasets enterprise search is apache lucene it is with leucine that we are able to create indexes on different columns and allows us to perform different types of searches using those indexes the lucine index is made up of index segment files where the combined total of the segment files make up the search index for a table each segment in turn is made up of several different indexes and data structures which may be saved in different file types as more data in the table are indexed the more index segments get created the segments themselves are immutable and index entries that are updated or are marked as deleted are written to the new index segment if you're familiar with the cassandra ss table the index segment is a very similar concept each segment would represent a ss table which itself is actually made up of several different files there are multiple files that make up a segment each which have a different purpose whether they serve as some sort of index or store statistics or bloom filters before we take a look at the files that make up the lucine index let's focus on one of the main components of the index the postings format which is basically our inverted index we generally say that the inverted index stores our values and points to the documents or rows that contain these values there are two parts to the postings format the terms dictionary and the postings list both which we'll get into more detail a bit later aside from the postings format there are several other formats that make up the dictionary which includes metadata the live docs format which marks when a document has been deleted and optional components such as the doc value format presiding over all of these formats is the codec which is a concrete class that implements the reading and writing of these formats and provides the api used by lucene to interact with the index there are many different versions of the codec and generally changes with each major release of apache lucien however you should not have to think too much about them the default codec is sufficient and shouldn't be changed in order to maintain compatibility with dlc search the first structure in the postings format that we'll be talking about is the terms dictionary this is a sorted skip list that contains all of the unique terms that can be found in a field across all of the indexed documents there would be a separate term dictionary for each index field for each unique term in the terms dictionary there is the document frequency which is the number of documents that contains the value in the field in addition there is also the postings list the postings list is also a sorted skip list though in this case the list contains all the document ids that contains a term note that the document id is an internal id that is generated for each document this means that the document ids are reused and changed as documents are deleted or indexed segments are merged or optimized of course for data that exists across replica nodes the document id will most likely be different as well the document id itself is a 32-bit integer which means that there is a maximum number of documents that can be stored on a node in a single search index which is approximately 2.1 billion documents this limit can be worked around by adding more dlc search nodes which will reduce the number of rows that need to be indexed for each node for each document id the postings list will also save the term frequency which is the number of times the term appears in the document field and an array with the term positions as an example let's take a look at the postings that is generated when we insert three rows here we are indexing two fields title and mpaa rating the three rows are titled the adventures of rocky and bullwinkle adventures in babysitting and the many adventures of winnie the pooh all with a different npa rating each row will also eventually have a document id which is shown here for visualization purposes the text analysis that we use also helps to determine what the index will look like so let's say we are tokenizing on spaces with no filters first we'll take a look at the terms dictionary for the mpaa rating field each term has an ordinal which is basically a term id followed by the term itself looking at our first term g it has a document frequency of 1 since it only shows up in one of the rows the postings list shows the document id the term shows up in the term frequency the document which is 1 and the term position which is 0 and is at the very beginning of the text the second term is pg which also has a document frequency of 1. the postings list shows the document id of 0 term frequency of 1 and a term position of 0. the last term is pg 13 with a document frequency of 1. the postings list shows the document id of 2 the term frequency of 1 and a term position of zero as well now let's take a look at a slightly more complicated example of a term dictionary which is built for the title field here you see that there are terms that show up across multiple documents and can be found in different positions in the text for example adventures has a document frequency of three which means it is actually in the title of all three of our rows the postings list reflects this with three document ids and a term frequency and the position that the term adventure can be found in in document 0 the term is found once and is found as the second term in the title the adventures of rocky and bullwinkle document 1 also has a term frequency of 1 but the term is in the very beginning of the title adventures in babysitting finally document 2 has a term frequency of 1 and turn position of 2 meaning it is the third term in the title the many adventures of winnie the pooh the other terms shown here are pretty straightforward again we are assuming in this example that there are no filters being used so there are actually two entries for the term the one that is capitalized and one that is not we mentioned doc values quite a bit in the different parts of the course and you should already have an understanding that you can enable or disable them in the search index schema and that they are used with sorting and passing queries let's also take a quick look at how they work doc values are a type of board index which is the inverse of an inverse index in other words this would represent the standard definition of an index where it is keyed by an id the document id in this case and points to the various values associated with the id what makes it useful is that the values are typically compressed and therefore reduces the consumption of memory needed when running search queries with sorting or faceting that would need to iterate through all of the values in a field there are several various types of doc value indexes however these will be transparent to the end user the type used will actually be dependent on the field type and whether the field is multi-valued an example of the simplest doc values type is numeric which are used by the tree fields and can be visualized as an array each index and array would refer to the corresponding document id and the element would be the field's value saved as a long value or some compressed form of it the sorteddoc values would be the one used for stringfield and uuid field and would also be an array of long values however the element value would represent the term as it is stored in another separate dictionary map the sorted set doc values is again very similar but the array elements would be a set of compressed integers that represents the term in a dictionary map this type would be used for pretty much any field type that is multi-valued there are other types that are not covered here as well but the three that we've mentioned are the ones primarily used in dlc search some other noteworthy data structures that are created with lucene indexes include the live documents which keeps track of documents on whether they have been deleted or still alive documents are not deleted in the traditional way since each index segment is immutable however with the live documents deleted documents can be marked as deleted and avoided from being included in search results the norm is a structure that contains the length normalization and boost factor saved for each field and document the values stored here are used for relevancy score calculation that helps determine the ranking of the documents in search results there may also be other structures included in the index depending on the search components registered in the search index config eventually the index segments will be written to disk as various files the default location for these files is in slash var lib slash cassandra data solar.data but this can be changed in the dlc.aml configuration file since index segments are immutable they are given an identifier which is a base36 integer which you would see in the file name as values from 0 through 9 and then a through z the lucene codec version used for the index would also be included in the file name instead of having to navigate through the file system to see the index files there is a dsc tool command called list index files to view the files for a search index simply pass in the name of the search index which would be the keyspace.table name and it'll return the individual files that make up the index segments and other statistics like whether the index files are encrypted in the table here you can see all of the different file types that make up each index segment the lucene field info and metadata is stored in the file with the extension.nfm the postings list is separated into several files including the doc and pos files the terms dictionary and an index for that would be in the dot tim and tip files there are also bloom filters created for the above files that are used to reduce the amount of unneeded access to those files after that you have the doc files saved in the dvd and dbm files finally there are live documents that would be in the liv file and the norms in the dot nvd and nvm files the pound sign in the file name represents where the identifier would go again this is a value represented with the numbers 0 through 9 and characters a for z as mentioned the codec version is included in the file name which for dlc6 would default to leucine 50 and lucene 54 codecs for viewers familiar with apache solar one set of files you won't see in dsc is the fdt and fdx file types which is used to hold field data of course the field data is actually saved in the database and would be read from there when needed for search results after viewing this video it's now time for some hands-on in this exercise you'll be taking a look at the various files that make up the index segment and also examining what is stored in the index and how",
+    "segments": [
+      {
+        "start": 2.13,
+        "duration": 2.35,
+        "text": "[Music]"
+      },
+      {
+        "start": 4.0,
+        "duration": 2.72,
+        "text": "hi"
+      },
+      {
+        "start": 4.48,
+        "duration": 3.2,
+        "text": "my name is joe chu and welcome to lucian"
+      },
+      {
+        "start": 6.72,
+        "duration": 2.64,
+        "text": "indexes"
+      },
+      {
+        "start": 7.68,
+        "duration": 3.039,
+        "text": "in past videos we've talked a bit about"
+      },
+      {
+        "start": 9.36,
+        "duration": 2.88,
+        "text": "how to create indexes"
+      },
+      {
+        "start": 10.719,
+        "duration": 3.201,
+        "text": "where they are stored and even a bit"
+      },
+      {
+        "start": 12.24,
+        "duration": 3.439,
+        "text": "about the calculations done to generate"
+      },
+      {
+        "start": 13.92,
+        "duration": 3.52,
+        "text": "scores for each of our documents"
+      },
+      {
+        "start": 15.679,
+        "duration": 3.281,
+        "text": "in this video we'll be talking about"
+      },
+      {
+        "start": 17.44,
+        "duration": 3.52,
+        "text": "what actually gets indexed"
+      },
+      {
+        "start": 18.96,
+        "duration": 3.68,
+        "text": "and how those indexes allow us to look"
+      },
+      {
+        "start": 20.96,
+        "duration": 2.96,
+        "text": "up terms in a document field"
+      },
+      {
+        "start": 22.64,
+        "duration": 2.879,
+        "text": "as we have mentioned throughout the"
+      },
+      {
+        "start": 23.92,
+        "duration": 3.439,
+        "text": "course the technology behind the"
+      },
+      {
+        "start": 25.519,
+        "duration": 2.321,
+        "text": "indexing engine in datasets enterprise"
+      },
+      {
+        "start": 27.359,
+        "duration": 3.121,
+        "text": "search"
+      },
+      {
+        "start": 27.84,
+        "duration": 4.239,
+        "text": "is apache lucene it is with leucine that"
+      },
+      {
+        "start": 30.48,
+        "duration": 3.52,
+        "text": "we are able to create indexes"
+      },
+      {
+        "start": 32.079,
+        "duration": 3.361,
+        "text": "on different columns and allows us to"
+      },
+      {
+        "start": 34.0,
+        "duration": 2.88,
+        "text": "perform different types of searches"
+      },
+      {
+        "start": 35.44,
+        "duration": 3.279,
+        "text": "using those indexes"
+      },
+      {
+        "start": 36.88,
+        "duration": 3.92,
+        "text": "the lucine index is made up of index"
+      },
+      {
+        "start": 38.719,
+        "duration": 3.761,
+        "text": "segment files where the combined total"
+      },
+      {
+        "start": 40.8,
+        "duration": 3.36,
+        "text": "of the segment files make up the search"
+      },
+      {
+        "start": 42.48,
+        "duration": 3.599,
+        "text": "index for a table"
+      },
+      {
+        "start": 44.16,
+        "duration": 3.36,
+        "text": "each segment in turn is made up of"
+      },
+      {
+        "start": 46.079,
+        "duration": 2.241,
+        "text": "several different indexes and data"
+      },
+      {
+        "start": 47.52,
+        "duration": 2.32,
+        "text": "structures"
+      },
+      {
+        "start": 48.32,
+        "duration": 3.6,
+        "text": "which may be saved in different file"
+      },
+      {
+        "start": 49.84,
+        "duration": 2.719,
+        "text": "types as more data in the table are"
+      },
+      {
+        "start": 51.92,
+        "duration": 3.119,
+        "text": "indexed"
+      },
+      {
+        "start": 52.559,
+        "duration": 4.081,
+        "text": "the more index segments get created the"
+      },
+      {
+        "start": 55.039,
+        "duration": 3.68,
+        "text": "segments themselves are immutable"
+      },
+      {
+        "start": 56.64,
+        "duration": 3.759,
+        "text": "and index entries that are updated or"
+      },
+      {
+        "start": 58.719,
+        "duration": 3.281,
+        "text": "are marked as deleted are written to the"
+      },
+      {
+        "start": 60.399,
+        "duration": 3.441,
+        "text": "new index segment"
+      },
+      {
+        "start": 62.0,
+        "duration": 3.84,
+        "text": "if you're familiar with the cassandra ss"
+      },
+      {
+        "start": 63.84,
+        "duration": 3.04,
+        "text": "table the index segment is a very"
+      },
+      {
+        "start": 65.84,
+        "duration": 3.36,
+        "text": "similar concept"
+      },
+      {
+        "start": 66.88,
+        "duration": 4.0,
+        "text": "each segment would represent a ss table"
+      },
+      {
+        "start": 69.2,
+        "duration": 2.959,
+        "text": "which itself is actually made up of"
+      },
+      {
+        "start": 70.88,
+        "duration": 2.8,
+        "text": "several different files"
+      },
+      {
+        "start": 72.159,
+        "duration": 3.121,
+        "text": "there are multiple files that make up a"
+      },
+      {
+        "start": 73.68,
+        "duration": 2.24,
+        "text": "segment each which have a different"
+      },
+      {
+        "start": 75.28,
+        "duration": 2.56,
+        "text": "purpose"
+      },
+      {
+        "start": 75.92,
+        "duration": 3.44,
+        "text": "whether they serve as some sort of index"
+      },
+      {
+        "start": 77.84,
+        "duration": 4.08,
+        "text": "or store statistics"
+      },
+      {
+        "start": 79.36,
+        "duration": 4.079,
+        "text": "or bloom filters before we take a look"
+      },
+      {
+        "start": 81.92,
+        "duration": 2.239,
+        "text": "at the files that make up the lucine"
+      },
+      {
+        "start": 83.439,
+        "duration": 2.081,
+        "text": "index"
+      },
+      {
+        "start": 84.159,
+        "duration": 3.201,
+        "text": "let's focus on one of the main"
+      },
+      {
+        "start": 85.52,
+        "duration": 2.56,
+        "text": "components of the index the postings"
+      },
+      {
+        "start": 87.36,
+        "duration": 3.28,
+        "text": "format"
+      },
+      {
+        "start": 88.08,
+        "duration": 4.24,
+        "text": "which is basically our inverted index we"
+      },
+      {
+        "start": 90.64,
+        "duration": 3.519,
+        "text": "generally say that the inverted index"
+      },
+      {
+        "start": 92.32,
+        "duration": 3.2,
+        "text": "stores our values and points to the"
+      },
+      {
+        "start": 94.159,
+        "duration": 3.521,
+        "text": "documents or rows"
+      },
+      {
+        "start": 95.52,
+        "duration": 3.76,
+        "text": "that contain these values there are two"
+      },
+      {
+        "start": 97.68,
+        "duration": 3.6,
+        "text": "parts to the postings format"
+      },
+      {
+        "start": 99.28,
+        "duration": 3.839,
+        "text": "the terms dictionary and the postings"
+      },
+      {
+        "start": 101.28,
+        "duration": 3.36,
+        "text": "list both which we'll get into more"
+      },
+      {
+        "start": 103.119,
+        "duration": 3.601,
+        "text": "detail a bit later"
+      },
+      {
+        "start": 104.64,
+        "duration": 3.6,
+        "text": "aside from the postings format there are"
+      },
+      {
+        "start": 106.72,
+        "duration": 3.679,
+        "text": "several other formats that make up the"
+      },
+      {
+        "start": 108.24,
+        "duration": 4.559,
+        "text": "dictionary which includes metadata"
+      },
+      {
+        "start": 110.399,
+        "duration": 3.841,
+        "text": "the live docs format which marks when a"
+      },
+      {
+        "start": 112.799,
+        "duration": 3.28,
+        "text": "document has been deleted"
+      },
+      {
+        "start": 114.24,
+        "duration": 3.04,
+        "text": "and optional components such as the doc"
+      },
+      {
+        "start": 116.079,
+        "duration": 3.04,
+        "text": "value format"
+      },
+      {
+        "start": 117.28,
+        "duration": 4.159,
+        "text": "presiding over all of these formats is"
+      },
+      {
+        "start": 119.119,
+        "duration": 3.68,
+        "text": "the codec which is a concrete class that"
+      },
+      {
+        "start": 121.439,
+        "duration": 2.241,
+        "text": "implements the reading and writing of"
+      },
+      {
+        "start": 122.799,
+        "duration": 3.441,
+        "text": "these formats"
+      },
+      {
+        "start": 123.68,
+        "duration": 4.719,
+        "text": "and provides the api used by lucene to"
+      },
+      {
+        "start": 126.24,
+        "duration": 3.6,
+        "text": "interact with the index there are many"
+      },
+      {
+        "start": 128.399,
+        "duration": 3.121,
+        "text": "different versions of the codec"
+      },
+      {
+        "start": 129.84,
+        "duration": 3.2,
+        "text": "and generally changes with each major"
+      },
+      {
+        "start": 131.52,
+        "duration": 3.359,
+        "text": "release of apache lucien"
+      },
+      {
+        "start": 133.04,
+        "duration": 3.839,
+        "text": "however you should not have to think too"
+      },
+      {
+        "start": 134.879,
+        "duration": 4.0,
+        "text": "much about them the default codec is"
+      },
+      {
+        "start": 136.879,
+        "duration": 4.08,
+        "text": "sufficient and shouldn't be changed in"
+      },
+      {
+        "start": 138.879,
+        "duration": 2.72,
+        "text": "order to maintain compatibility with dlc"
+      },
+      {
+        "start": 140.959,
+        "duration": 2.0,
+        "text": "search"
+      },
+      {
+        "start": 141.599,
+        "duration": 3.041,
+        "text": "the first structure in the postings"
+      },
+      {
+        "start": 142.959,
+        "duration": 3.36,
+        "text": "format that we'll be talking about is"
+      },
+      {
+        "start": 144.64,
+        "duration": 3.679,
+        "text": "the terms dictionary"
+      },
+      {
+        "start": 146.319,
+        "duration": 3.441,
+        "text": "this is a sorted skip list that contains"
+      },
+      {
+        "start": 148.319,
+        "duration": 2.481,
+        "text": "all of the unique terms that can be"
+      },
+      {
+        "start": 149.76,
+        "duration": 2.88,
+        "text": "found in a field"
+      },
+      {
+        "start": 150.8,
+        "duration": 2.96,
+        "text": "across all of the indexed documents"
+      },
+      {
+        "start": 152.64,
+        "duration": 3.04,
+        "text": "there would be a separate term"
+      },
+      {
+        "start": 153.76,
+        "duration": 3.52,
+        "text": "dictionary for each index field"
+      },
+      {
+        "start": 155.68,
+        "duration": 3.199,
+        "text": "for each unique term in the terms"
+      },
+      {
+        "start": 157.28,
+        "duration": 2.319,
+        "text": "dictionary there is the document"
+      },
+      {
+        "start": 158.879,
+        "duration": 2.241,
+        "text": "frequency"
+      },
+      {
+        "start": 159.599,
+        "duration": 3.441,
+        "text": "which is the number of documents that"
+      },
+      {
+        "start": 161.12,
+        "duration": 3.92,
+        "text": "contains the value in the field"
+      },
+      {
+        "start": 163.04,
+        "duration": 3.76,
+        "text": "in addition there is also the postings"
+      },
+      {
+        "start": 165.04,
+        "duration": 3.68,
+        "text": "list the postings list"
+      },
+      {
+        "start": 166.8,
+        "duration": 3.6,
+        "text": "is also a sorted skip list though in"
+      },
+      {
+        "start": 168.72,
+        "duration": 4.239,
+        "text": "this case the list contains all the"
+      },
+      {
+        "start": 170.4,
+        "duration": 4.72,
+        "text": "document ids that contains a term"
+      },
+      {
+        "start": 172.959,
+        "duration": 4.56,
+        "text": "note that the document id is an internal"
+      },
+      {
+        "start": 175.12,
+        "duration": 4.24,
+        "text": "id that is generated for each document"
+      },
+      {
+        "start": 177.519,
+        "duration": 3.921,
+        "text": "this means that the document ids are"
+      },
+      {
+        "start": 179.36,
+        "duration": 2.72,
+        "text": "reused and changed as documents are"
+      },
+      {
+        "start": 181.44,
+        "duration": 2.48,
+        "text": "deleted"
+      },
+      {
+        "start": 182.08,
+        "duration": 3.12,
+        "text": "or indexed segments are merged or"
+      },
+      {
+        "start": 183.92,
+        "duration": 3.44,
+        "text": "optimized"
+      },
+      {
+        "start": 185.2,
+        "duration": 3.2,
+        "text": "of course for data that exists across"
+      },
+      {
+        "start": 187.36,
+        "duration": 2.799,
+        "text": "replica nodes"
+      },
+      {
+        "start": 188.4,
+        "duration": 4.16,
+        "text": "the document id will most likely be"
+      },
+      {
+        "start": 190.159,
+        "duration": 4.561,
+        "text": "different as well the document id itself"
+      },
+      {
+        "start": 192.56,
+        "duration": 3.92,
+        "text": "is a 32-bit integer which means that"
+      },
+      {
+        "start": 194.72,
+        "duration": 3.439,
+        "text": "there is a maximum number of documents"
+      },
+      {
+        "start": 196.48,
+        "duration": 2.479,
+        "text": "that can be stored on a node in a single"
+      },
+      {
+        "start": 198.159,
+        "duration": 2.8,
+        "text": "search index"
+      },
+      {
+        "start": 198.959,
+        "duration": 3.681,
+        "text": "which is approximately 2.1 billion"
+      },
+      {
+        "start": 200.959,
+        "duration": 3.521,
+        "text": "documents this limit can be"
+      },
+      {
+        "start": 202.64,
+        "duration": 3.76,
+        "text": "worked around by adding more dlc search"
+      },
+      {
+        "start": 204.48,
+        "duration": 3.759,
+        "text": "nodes which will reduce the number of"
+      },
+      {
+        "start": 206.4,
+        "duration": 2.399,
+        "text": "rows that need to be indexed for each"
+      },
+      {
+        "start": 208.239,
+        "duration": 2.961,
+        "text": "node"
+      },
+      {
+        "start": 208.799,
+        "duration": 4.321,
+        "text": "for each document id the postings list"
+      },
+      {
+        "start": 211.2,
+        "duration": 3.599,
+        "text": "will also save the term frequency"
+      },
+      {
+        "start": 213.12,
+        "duration": 3.199,
+        "text": "which is the number of times the term"
+      },
+      {
+        "start": 214.799,
+        "duration": 3.921,
+        "text": "appears in the document field"
+      },
+      {
+        "start": 216.319,
+        "duration": 3.2,
+        "text": "and an array with the term positions as"
+      },
+      {
+        "start": 218.72,
+        "duration": 2.4,
+        "text": "an example"
+      },
+      {
+        "start": 219.519,
+        "duration": 4.08,
+        "text": "let's take a look at the postings that"
+      },
+      {
+        "start": 221.12,
+        "duration": 4.64,
+        "text": "is generated when we insert three rows"
+      },
+      {
+        "start": 223.599,
+        "duration": 4.0,
+        "text": "here we are indexing two fields title"
+      },
+      {
+        "start": 225.76,
+        "duration": 3.759,
+        "text": "and mpaa rating"
+      },
+      {
+        "start": 227.599,
+        "duration": 3.36,
+        "text": "the three rows are titled the adventures"
+      },
+      {
+        "start": 229.519,
+        "duration": 3.601,
+        "text": "of rocky and bullwinkle"
+      },
+      {
+        "start": 230.959,
+        "duration": 3.681,
+        "text": "adventures in babysitting and the many"
+      },
+      {
+        "start": 233.12,
+        "duration": 4.08,
+        "text": "adventures of winnie the pooh"
+      },
+      {
+        "start": 234.64,
+        "duration": 4.799,
+        "text": "all with a different npa rating each row"
+      },
+      {
+        "start": 237.2,
+        "duration": 4.0,
+        "text": "will also eventually have a document id"
+      },
+      {
+        "start": 239.439,
+        "duration": 4.16,
+        "text": "which is shown here for visualization"
+      },
+      {
+        "start": 241.2,
+        "duration": 4.239,
+        "text": "purposes the text analysis that we use"
+      },
+      {
+        "start": 243.599,
+        "duration": 3.681,
+        "text": "also helps to determine what the index"
+      },
+      {
+        "start": 245.439,
+        "duration": 4.401,
+        "text": "will look like so let's say we are"
+      },
+      {
+        "start": 247.28,
+        "duration": 4.0,
+        "text": "tokenizing on spaces with no filters"
+      },
+      {
+        "start": 249.84,
+        "duration": 4.16,
+        "text": "first we'll take a look at the terms"
+      },
+      {
+        "start": 251.28,
+        "duration": 4.72,
+        "text": "dictionary for the mpaa rating field"
+      },
+      {
+        "start": 254.0,
+        "duration": 3.359,
+        "text": "each term has an ordinal which is"
+      },
+      {
+        "start": 256.0,
+        "duration": 3.68,
+        "text": "basically a term id"
+      },
+      {
+        "start": 257.359,
+        "duration": 3.12,
+        "text": "followed by the term itself looking at"
+      },
+      {
+        "start": 259.68,
+        "duration": 3.68,
+        "text": "our first term"
+      },
+      {
+        "start": 260.479,
+        "duration": 4.961,
+        "text": "g it has a document frequency of 1 since"
+      },
+      {
+        "start": 263.36,
+        "duration": 4.24,
+        "text": "it only shows up in one of the rows"
+      },
+      {
+        "start": 265.44,
+        "duration": 3.759,
+        "text": "the postings list shows the document id"
+      },
+      {
+        "start": 267.6,
+        "duration": 3.68,
+        "text": "the term shows up in"
+      },
+      {
+        "start": 269.199,
+        "duration": 4.72,
+        "text": "the term frequency the document which is"
+      },
+      {
+        "start": 271.28,
+        "duration": 4.88,
+        "text": "1 and the term position which is 0"
+      },
+      {
+        "start": 273.919,
+        "duration": 3.84,
+        "text": "and is at the very beginning of the text"
+      },
+      {
+        "start": 276.16,
+        "duration": 3.44,
+        "text": "the second term is pg"
+      },
+      {
+        "start": 277.759,
+        "duration": 4.081,
+        "text": "which also has a document frequency of"
+      },
+      {
+        "start": 279.6,
+        "duration": 3.28,
+        "text": "1. the postings list shows the document"
+      },
+      {
+        "start": 281.84,
+        "duration": 3.44,
+        "text": "id of 0"
+      },
+      {
+        "start": 282.88,
+        "duration": 3.12,
+        "text": "term frequency of 1 and a term position"
+      },
+      {
+        "start": 285.28,
+        "duration": 3.28,
+        "text": "of 0."
+      },
+      {
+        "start": 286.0,
+        "duration": 3.84,
+        "text": "the last term is pg 13 with a document"
+      },
+      {
+        "start": 288.56,
+        "duration": 3.199,
+        "text": "frequency of 1."
+      },
+      {
+        "start": 289.84,
+        "duration": 4.24,
+        "text": "the postings list shows the document id"
+      },
+      {
+        "start": 291.759,
+        "duration": 5.041,
+        "text": "of 2 the term frequency of 1"
+      },
+      {
+        "start": 294.08,
+        "duration": 4.32,
+        "text": "and a term position of zero as well now"
+      },
+      {
+        "start": 296.8,
+        "duration": 3.76,
+        "text": "let's take a look at a slightly more"
+      },
+      {
+        "start": 298.4,
+        "duration": 4.079,
+        "text": "complicated example of a term dictionary"
+      },
+      {
+        "start": 300.56,
+        "duration": 3.6,
+        "text": "which is built for the title field"
+      },
+      {
+        "start": 302.479,
+        "duration": 3.521,
+        "text": "here you see that there are terms that"
+      },
+      {
+        "start": 304.16,
+        "duration": 3.44,
+        "text": "show up across multiple documents"
+      },
+      {
+        "start": 306.0,
+        "duration": 3.36,
+        "text": "and can be found in different positions"
+      },
+      {
+        "start": 307.6,
+        "duration": 3.599,
+        "text": "in the text for example"
+      },
+      {
+        "start": 309.36,
+        "duration": 3.92,
+        "text": "adventures has a document frequency of"
+      },
+      {
+        "start": 311.199,
+        "duration": 3.761,
+        "text": "three which means it is actually in the"
+      },
+      {
+        "start": 313.28,
+        "duration": 3.6,
+        "text": "title of all three of our rows"
+      },
+      {
+        "start": 314.96,
+        "duration": 4.32,
+        "text": "the postings list reflects this with"
+      },
+      {
+        "start": 316.88,
+        "duration": 4.64,
+        "text": "three document ids and a term frequency"
+      },
+      {
+        "start": 319.28,
+        "duration": 3.52,
+        "text": "and the position that the term adventure"
+      },
+      {
+        "start": 321.52,
+        "duration": 4.239,
+        "text": "can be found in"
+      },
+      {
+        "start": 322.8,
+        "duration": 3.52,
+        "text": "in document 0 the term is found once and"
+      },
+      {
+        "start": 325.759,
+        "duration": 2.481,
+        "text": "is found"
+      },
+      {
+        "start": 326.32,
+        "duration": 3.68,
+        "text": "as the second term in the title the"
+      },
+      {
+        "start": 328.24,
+        "duration": 3.92,
+        "text": "adventures of rocky and bullwinkle"
+      },
+      {
+        "start": 330.0,
+        "duration": 4.08,
+        "text": "document 1 also has a term frequency of"
+      },
+      {
+        "start": 332.16,
+        "duration": 2.64,
+        "text": "1 but the term is in the very beginning"
+      },
+      {
+        "start": 334.08,
+        "duration": 3.04,
+        "text": "of the title"
+      },
+      {
+        "start": 334.8,
+        "duration": 4.48,
+        "text": "adventures in babysitting finally"
+      },
+      {
+        "start": 337.12,
+        "duration": 3.68,
+        "text": "document 2 has a term frequency of 1 and"
+      },
+      {
+        "start": 339.28,
+        "duration": 3.12,
+        "text": "turn position of 2"
+      },
+      {
+        "start": 340.8,
+        "duration": 3.52,
+        "text": "meaning it is the third term in the"
+      },
+      {
+        "start": 342.4,
+        "duration": 2.48,
+        "text": "title the many adventures of winnie the"
+      },
+      {
+        "start": 344.32,
+        "duration": 2.719,
+        "text": "pooh"
+      },
+      {
+        "start": 344.88,
+        "duration": 3.44,
+        "text": "the other terms shown here are pretty"
+      },
+      {
+        "start": 347.039,
+        "duration": 3.041,
+        "text": "straightforward"
+      },
+      {
+        "start": 348.32,
+        "duration": 3.76,
+        "text": "again we are assuming in this example"
+      },
+      {
+        "start": 350.08,
+        "duration": 3.76,
+        "text": "that there are no filters being used"
+      },
+      {
+        "start": 352.08,
+        "duration": 4.16,
+        "text": "so there are actually two entries for"
+      },
+      {
+        "start": 353.84,
+        "duration": 4.4,
+        "text": "the term the one that is capitalized"
+      },
+      {
+        "start": 356.24,
+        "duration": 3.44,
+        "text": "and one that is not we mentioned doc"
+      },
+      {
+        "start": 358.24,
+        "duration": 2.399,
+        "text": "values quite a bit in the different"
+      },
+      {
+        "start": 359.68,
+        "duration": 2.32,
+        "text": "parts of the course"
+      },
+      {
+        "start": 360.639,
+        "duration": 3.12,
+        "text": "and you should already have an"
+      },
+      {
+        "start": 362.0,
+        "duration": 3.919,
+        "text": "understanding that you can enable or"
+      },
+      {
+        "start": 363.759,
+        "duration": 3.761,
+        "text": "disable them in the search index schema"
+      },
+      {
+        "start": 365.919,
+        "duration": 3.201,
+        "text": "and that they are used with sorting and"
+      },
+      {
+        "start": 367.52,
+        "duration": 3.2,
+        "text": "passing queries"
+      },
+      {
+        "start": 369.12,
+        "duration": 4.079,
+        "text": "let's also take a quick look at how they"
+      },
+      {
+        "start": 370.72,
+        "duration": 2.96,
+        "text": "work doc values are a type of board"
+      },
+      {
+        "start": 373.199,
+        "duration": 3.041,
+        "text": "index"
+      },
+      {
+        "start": 373.68,
+        "duration": 4.239,
+        "text": "which is the inverse of an inverse index"
+      },
+      {
+        "start": 376.24,
+        "duration": 3.36,
+        "text": "in other words this would represent the"
+      },
+      {
+        "start": 377.919,
+        "duration": 4.161,
+        "text": "standard definition of an index"
+      },
+      {
+        "start": 379.6,
+        "duration": 3.599,
+        "text": "where it is keyed by an id the document"
+      },
+      {
+        "start": 382.08,
+        "duration": 2.64,
+        "text": "id in this case"
+      },
+      {
+        "start": 383.199,
+        "duration": 3.28,
+        "text": "and points to the various values"
+      },
+      {
+        "start": 384.72,
+        "duration": 3.52,
+        "text": "associated with the id"
+      },
+      {
+        "start": 386.479,
+        "duration": 3.521,
+        "text": "what makes it useful is that the values"
+      },
+      {
+        "start": 388.24,
+        "duration": 3.679,
+        "text": "are typically compressed and therefore"
+      },
+      {
+        "start": 390.0,
+        "duration": 3.52,
+        "text": "reduces the consumption of memory needed"
+      },
+      {
+        "start": 391.919,
+        "duration": 2.4,
+        "text": "when running search queries with sorting"
+      },
+      {
+        "start": 393.52,
+        "duration": 2.239,
+        "text": "or faceting"
+      },
+      {
+        "start": 394.319,
+        "duration": 2.961,
+        "text": "that would need to iterate through all"
+      },
+      {
+        "start": 395.759,
+        "duration": 3.201,
+        "text": "of the values in a field there are"
+      },
+      {
+        "start": 397.28,
+        "duration": 2.479,
+        "text": "several various types of doc value"
+      },
+      {
+        "start": 398.96,
+        "duration": 2.64,
+        "text": "indexes"
+      },
+      {
+        "start": 399.759,
+        "duration": 3.841,
+        "text": "however these will be transparent to the"
+      },
+      {
+        "start": 401.6,
+        "duration": 3.36,
+        "text": "end user the type used will actually be"
+      },
+      {
+        "start": 403.6,
+        "duration": 3.52,
+        "text": "dependent on the field type"
+      },
+      {
+        "start": 404.96,
+        "duration": 4.079,
+        "text": "and whether the field is multi-valued an"
+      },
+      {
+        "start": 407.12,
+        "duration": 2.799,
+        "text": "example of the simplest doc values type"
+      },
+      {
+        "start": 409.039,
+        "duration": 2.88,
+        "text": "is numeric"
+      },
+      {
+        "start": 409.919,
+        "duration": 4.321,
+        "text": "which are used by the tree fields and"
+      },
+      {
+        "start": 411.919,
+        "duration": 4.161,
+        "text": "can be visualized as an array"
+      },
+      {
+        "start": 414.24,
+        "duration": 3.6,
+        "text": "each index and array would refer to the"
+      },
+      {
+        "start": 416.08,
+        "duration": 3.2,
+        "text": "corresponding document id"
+      },
+      {
+        "start": 417.84,
+        "duration": 3.28,
+        "text": "and the element would be the field's"
+      },
+      {
+        "start": 419.28,
+        "duration": 3.52,
+        "text": "value saved as a long value"
+      },
+      {
+        "start": 421.12,
+        "duration": 3.84,
+        "text": "or some compressed form of it the"
+      },
+      {
+        "start": 422.8,
+        "duration": 4.56,
+        "text": "sorteddoc values would be the one used"
+      },
+      {
+        "start": 424.96,
+        "duration": 4.079,
+        "text": "for stringfield and uuid field"
+      },
+      {
+        "start": 427.36,
+        "duration": 4.48,
+        "text": "and would also be an array of long"
+      },
+      {
+        "start": 429.039,
+        "duration": 3.841,
+        "text": "values however the element value would"
+      },
+      {
+        "start": 431.84,
+        "duration": 2.799,
+        "text": "represent the term"
+      },
+      {
+        "start": 432.88,
+        "duration": 4.319,
+        "text": "as it is stored in another separate"
+      },
+      {
+        "start": 434.639,
+        "duration": 4.56,
+        "text": "dictionary map the sorted set doc values"
+      },
+      {
+        "start": 437.199,
+        "duration": 3.761,
+        "text": "is again very similar but the array"
+      },
+      {
+        "start": 439.199,
+        "duration": 2.321,
+        "text": "elements would be a set of compressed"
+      },
+      {
+        "start": 440.96,
+        "duration": 2.48,
+        "text": "integers"
+      },
+      {
+        "start": 441.52,
+        "duration": 4.239,
+        "text": "that represents the term in a dictionary"
+      },
+      {
+        "start": 443.44,
+        "duration": 4.64,
+        "text": "map this type would be used for pretty"
+      },
+      {
+        "start": 445.759,
+        "duration": 3.521,
+        "text": "much any field type that is multi-valued"
+      },
+      {
+        "start": 448.08,
+        "duration": 2.959,
+        "text": "there are other types that are not"
+      },
+      {
+        "start": 449.28,
+        "duration": 3.44,
+        "text": "covered here as well but the three that"
+      },
+      {
+        "start": 451.039,
+        "duration": 3.041,
+        "text": "we've mentioned are the ones primarily"
+      },
+      {
+        "start": 452.72,
+        "duration": 3.199,
+        "text": "used in dlc search"
+      },
+      {
+        "start": 454.08,
+        "duration": 3.119,
+        "text": "some other noteworthy data structures"
+      },
+      {
+        "start": 455.919,
+        "duration": 3.68,
+        "text": "that are created with lucene"
+      },
+      {
+        "start": 457.199,
+        "duration": 4.081,
+        "text": "indexes include the live documents which"
+      },
+      {
+        "start": 459.599,
+        "duration": 3.521,
+        "text": "keeps track of documents on whether they"
+      },
+      {
+        "start": 461.28,
+        "duration": 3.28,
+        "text": "have been deleted or still alive"
+      },
+      {
+        "start": 463.12,
+        "duration": 3.759,
+        "text": "documents are not deleted in the"
+      },
+      {
+        "start": 464.56,
+        "duration": 3.199,
+        "text": "traditional way since each index segment"
+      },
+      {
+        "start": 466.879,
+        "duration": 2.88,
+        "text": "is immutable"
+      },
+      {
+        "start": 467.759,
+        "duration": 3.84,
+        "text": "however with the live documents deleted"
+      },
+      {
+        "start": 469.759,
+        "duration": 3.521,
+        "text": "documents can be marked as deleted and"
+      },
+      {
+        "start": 471.599,
+        "duration": 2.401,
+        "text": "avoided from being included in search"
+      },
+      {
+        "start": 473.28,
+        "duration": 2.56,
+        "text": "results"
+      },
+      {
+        "start": 474.0,
+        "duration": 3.36,
+        "text": "the norm is a structure that contains"
+      },
+      {
+        "start": 475.84,
+        "duration": 3.52,
+        "text": "the length normalization"
+      },
+      {
+        "start": 477.36,
+        "duration": 3.2,
+        "text": "and boost factor saved for each field"
+      },
+      {
+        "start": 479.36,
+        "duration": 2.88,
+        "text": "and document"
+      },
+      {
+        "start": 480.56,
+        "duration": 3.52,
+        "text": "the values stored here are used for"
+      },
+      {
+        "start": 482.24,
+        "duration": 3.519,
+        "text": "relevancy score calculation"
+      },
+      {
+        "start": 484.08,
+        "duration": 3.36,
+        "text": "that helps determine the ranking of the"
+      },
+      {
+        "start": 485.759,
+        "duration": 3.28,
+        "text": "documents in search results"
+      },
+      {
+        "start": 487.44,
+        "duration": 3.439,
+        "text": "there may also be other structures"
+      },
+      {
+        "start": 489.039,
+        "duration": 3.201,
+        "text": "included in the index depending on the"
+      },
+      {
+        "start": 490.879,
+        "duration": 3.6,
+        "text": "search components registered"
+      },
+      {
+        "start": 492.24,
+        "duration": 4.079,
+        "text": "in the search index config eventually"
+      },
+      {
+        "start": 494.479,
+        "duration": 3.601,
+        "text": "the index segments will be written to"
+      },
+      {
+        "start": 496.319,
+        "duration": 3.681,
+        "text": "disk as various files"
+      },
+      {
+        "start": 498.08,
+        "duration": 3.28,
+        "text": "the default location for these files is"
+      },
+      {
+        "start": 500.0,
+        "duration": 4.4,
+        "text": "in slash var"
+      },
+      {
+        "start": 501.36,
+        "duration": 5.04,
+        "text": "lib slash cassandra data solar.data"
+      },
+      {
+        "start": 504.4,
+        "duration": 3.199,
+        "text": "but this can be changed in the dlc.aml"
+      },
+      {
+        "start": 506.4,
+        "duration": 3.28,
+        "text": "configuration file"
+      },
+      {
+        "start": 507.599,
+        "duration": 3.681,
+        "text": "since index segments are immutable they"
+      },
+      {
+        "start": 509.68,
+        "duration": 3.2,
+        "text": "are given an identifier which is a"
+      },
+      {
+        "start": 511.28,
+        "duration": 3.28,
+        "text": "base36 integer"
+      },
+      {
+        "start": 512.88,
+        "duration": 3.279,
+        "text": "which you would see in the file name as"
+      },
+      {
+        "start": 514.56,
+        "duration": 4.159,
+        "text": "values from 0 through 9"
+      },
+      {
+        "start": 516.159,
+        "duration": 3.841,
+        "text": "and then a through z the lucene codec"
+      },
+      {
+        "start": 518.719,
+        "duration": 3.521,
+        "text": "version used for the index"
+      },
+      {
+        "start": 520.0,
+        "duration": 3.68,
+        "text": "would also be included in the file name"
+      },
+      {
+        "start": 522.24,
+        "duration": 3.599,
+        "text": "instead of having to navigate through"
+      },
+      {
+        "start": 523.68,
+        "duration": 4.32,
+        "text": "the file system to see the index files"
+      },
+      {
+        "start": 525.839,
+        "duration": 3.12,
+        "text": "there is a dsc tool command called list"
+      },
+      {
+        "start": 528.0,
+        "duration": 3.44,
+        "text": "index files"
+      },
+      {
+        "start": 528.959,
+        "duration": 3.921,
+        "text": "to view the files for a search index"
+      },
+      {
+        "start": 531.44,
+        "duration": 2.0,
+        "text": "simply pass in the name of the search"
+      },
+      {
+        "start": 532.88,
+        "duration": 3.04,
+        "text": "index"
+      },
+      {
+        "start": 533.44,
+        "duration": 4.16,
+        "text": "which would be the keyspace.table name"
+      },
+      {
+        "start": 535.92,
+        "duration": 3.2,
+        "text": "and it'll return the individual files"
+      },
+      {
+        "start": 537.6,
+        "duration": 3.679,
+        "text": "that make up the index segments"
+      },
+      {
+        "start": 539.12,
+        "duration": 3.68,
+        "text": "and other statistics like whether the"
+      },
+      {
+        "start": 541.279,
+        "duration": 3.361,
+        "text": "index files are encrypted"
+      },
+      {
+        "start": 542.8,
+        "duration": 3.44,
+        "text": "in the table here you can see all of the"
+      },
+      {
+        "start": 544.64,
+        "duration": 2.48,
+        "text": "different file types that make up each"
+      },
+      {
+        "start": 546.24,
+        "duration": 2.88,
+        "text": "index segment"
+      },
+      {
+        "start": 547.12,
+        "duration": 3.56,
+        "text": "the lucene field info and metadata is"
+      },
+      {
+        "start": 549.12,
+        "duration": 2.8,
+        "text": "stored in the file with the"
+      },
+      {
+        "start": 550.68,
+        "duration": 3.159,
+        "text": "extension.nfm"
+      },
+      {
+        "start": 551.92,
+        "duration": 3.599,
+        "text": "the postings list is separated into"
+      },
+      {
+        "start": 553.839,
+        "duration": 4.961,
+        "text": "several files including the"
+      },
+      {
+        "start": 555.519,
+        "duration": 4.961,
+        "text": "doc and pos files the terms dictionary"
+      },
+      {
+        "start": 558.8,
+        "duration": 3.12,
+        "text": "and an index for that would be in the"
+      },
+      {
+        "start": 560.48,
+        "duration": 4.16,
+        "text": "dot tim and"
+      },
+      {
+        "start": 561.92,
+        "duration": 4.4,
+        "text": "tip files there are also bloom filters"
+      },
+      {
+        "start": 564.64,
+        "duration": 3.44,
+        "text": "created for the above files that are"
+      },
+      {
+        "start": 566.32,
+        "duration": 3.28,
+        "text": "used to reduce the amount of unneeded"
+      },
+      {
+        "start": 568.08,
+        "duration": 3.439,
+        "text": "access to those files"
+      },
+      {
+        "start": 569.6,
+        "duration": 3.359,
+        "text": "after that you have the doc files saved"
+      },
+      {
+        "start": 571.519,
+        "duration": 4.081,
+        "text": "in the dvd and"
+      },
+      {
+        "start": 572.959,
+        "duration": 3.121,
+        "text": "dbm files finally there are live"
+      },
+      {
+        "start": 575.6,
+        "duration": 2.96,
+        "text": "documents"
+      },
+      {
+        "start": 576.08,
+        "duration": 3.04,
+        "text": "that would be in the liv file and the"
+      },
+      {
+        "start": 578.56,
+        "duration": 3.839,
+        "text": "norms"
+      },
+      {
+        "start": 579.12,
+        "duration": 4.64,
+        "text": "in the dot nvd and nvm files"
+      },
+      {
+        "start": 582.399,
+        "duration": 3.601,
+        "text": "the pound sign in the file name"
+      },
+      {
+        "start": 583.76,
+        "duration": 4.0,
+        "text": "represents where the identifier would go"
+      },
+      {
+        "start": 586.0,
+        "duration": 3.2,
+        "text": "again this is a value represented with"
+      },
+      {
+        "start": 587.76,
+        "duration": 4.24,
+        "text": "the numbers 0 through 9"
+      },
+      {
+        "start": 589.2,
+        "duration": 4.72,
+        "text": "and characters a for z as mentioned the"
+      },
+      {
+        "start": 592.0,
+        "duration": 2.24,
+        "text": "codec version is included in the file"
+      },
+      {
+        "start": 593.92,
+        "duration": 3.039,
+        "text": "name"
+      },
+      {
+        "start": 594.24,
+        "duration": 3.279,
+        "text": "which for dlc6 would default to leucine"
+      },
+      {
+        "start": 596.959,
+        "duration": 2.88,
+        "text": "50"
+      },
+      {
+        "start": 597.519,
+        "duration": 4.0,
+        "text": "and lucene 54 codecs for viewers"
+      },
+      {
+        "start": 599.839,
+        "duration": 4.0,
+        "text": "familiar with apache solar"
+      },
+      {
+        "start": 601.519,
+        "duration": 4.0,
+        "text": "one set of files you won't see in dsc is"
+      },
+      {
+        "start": 603.839,
+        "duration": 4.0,
+        "text": "the fdt and"
+      },
+      {
+        "start": 605.519,
+        "duration": 3.601,
+        "text": "fdx file types which is used to hold"
+      },
+      {
+        "start": 607.839,
+        "duration": 2.881,
+        "text": "field data"
+      },
+      {
+        "start": 609.12,
+        "duration": 3.6,
+        "text": "of course the field data is actually"
+      },
+      {
+        "start": 610.72,
+        "duration": 3.359,
+        "text": "saved in the database and would be read"
+      },
+      {
+        "start": 612.72,
+        "duration": 2.16,
+        "text": "from there when needed for search"
+      },
+      {
+        "start": 614.079,
+        "duration": 2.561,
+        "text": "results"
+      },
+      {
+        "start": 614.88,
+        "duration": 3.92,
+        "text": "after viewing this video it's now time"
+      },
+      {
+        "start": 616.64,
+        "duration": 3.68,
+        "text": "for some hands-on in this exercise"
+      },
+      {
+        "start": 618.8,
+        "duration": 3.279,
+        "text": "you'll be taking a look at the various"
+      },
+      {
+        "start": 620.32,
+        "duration": 3.68,
+        "text": "files that make up the index segment"
+      },
+      {
+        "start": 622.079,
+        "duration": 8.801,
+        "text": "and also examining what is stored in the"
+      },
+      {
+        "start": 624.0,
+        "duration": 6.88,
+        "text": "index and how"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:06:45.446205+00:00"
+}

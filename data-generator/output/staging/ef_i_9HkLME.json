@@ -1,0 +1,6085 @@
+{
+  "video_id": "ef_i_9HkLME",
+  "title": "Using Vector with Images",
+  "description": "Watch this tutorial from DataStax engineer, John Trimble, as he teaches how you can utilize deep learning and vector search to find artwork in similar styles.\n\nTo learn more about Astra DB Vector's capabilities visit this page: https://www.datastax.com/products/vector-search\n\n\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs?sub_confirmation=1 \nTwitter: https://twitter.com/datastaxdevs\nTwitch: https://www.twitch.tv/datastaxdevs\n\nAbout DataStax:\nDataStax is the company behind the massively scalable, highly available, cloud-native NoSQL data platform built on Apache Cassandra™. DataStax gives developers and enterprises the freedom to run data in any cloud, Kubernetes, hybrid or bare metal at global scale with zero downtime and zero lock-in. More than 450 of the world’s leading enterprises including Capital One, Cisco, Comcast, Delta Airlines, Macy’s, McDonald’s, Safeway, Sony, and Walmart use DataStax to build transformational data architectures for real-world outcomes. For more, visit DataStax.com and @DataStax.\n\nAbout DataStax Developer:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2023-10-30T16:25:34Z",
+  "thumbnail": "https://i.ytimg.com/vi/ef_i_9HkLME/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "scalable",
+    "workshop",
+    "cassandra",
+    "search",
+    "tutorial",
+    "apache_cassandra",
+    "vector",
+    "nosql",
+    "astra",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=ef_i_9HkLME",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "hi my name is John Trimble I'm one of the tech leads here at data stacks and I have a fun demo to share with you all today we're going to be using machine learning and Vector search to enable us to search for images that are in a similar style so what I want to be able to do is take an image of a piece of artwork say Vincent bango's starry night and search for all the artwork that shares a common style with it so what do I mean by style well style can be defined in a number of ways it can be based on the artistic movement say uh uh impressionism versus cubism can be based on the time period such as Gothic versus Renaissance art or the medium uh a photograph versus a sketch for our purposes we're going to Define style as just being the manner in which the content of an image is expressed so if you have a photo of notra and a sketch of notra both those images have the same content but they have a different style so if we're going to search for images based on their style we're going to need need embeddings that encode style information and to get those we're going to use the venerable vgg19 model now this is an older model it comes from around 2014 uh but it's still quite effective I chose to use it because a number of the papers uh I referenced on style transfer while making this demo uh use this particular model and the way it works in its normal operation is you feed images here to the input and at the output you get the category of the image right it's a cat it's a chair it's a duck it's a house it's a whatever uh now we're not particularly interested in the categories of images what we're interested with this model in is the outputs of the intermediate layers the feature Maps produced by the convolutional layers that's these yellow blocks in the diagram here so what is a feature map well a feature map in this in this context is a two-dimensional array of values that represent some feature with respect to the image that the model has learned to to detect now every image Starry Night for example effectively starts its life out with three feature Maps one feature map for each of its color channels red green and blue here are those feature maps for Star night now we then take these future maps and we feed them as input to the first convolution layer of vgg19 and we get 64 feature Maps as output and then those feature maps are passed to the next layer convolutional layer of vgg19 and we get 64 more feature maps and this continues throughout the network and as we get deeper into the network work the feature Maps become smaller and also more numerous so here's a a set of 256 feature Maps produced by a later layer in the model now the feature Maps produced early on tend to represent low-level information about the image things like edges and colors uh and you can actually almost make out the original image in some of these feature maps from early on in the network now as we progress through the network we get increasingly semantic features uh we get feature maps that uh uh represent textures um and shapes and so forth um and then eventually we can get feature maps that start detecting uh uh highly semantic information like this is a tree like thing or this is a cat like thing now while the values of the feature Maps tell us something about the content of the image uh surprisingly the statistics of the feature Maps can tell us something about the image's style even sta statistics is simple as the mean and standard deviation of each of the feature Maps so my thought is why don't we take some subset of the feature Maps produced by vgg19 uh compute their mean and standard deviation and create a vector out of that that we can use as our style embedding so let's do it now you can use V vd19 comes right out of the box with py torch uh here I'm just wrapping it I'm not really doing anything particularly sophisticated here I just need to collect the intermediate feature map outputs so that I can use them later so here in this forward function I'm going to pass in an image um run that image through vgg19 get the feature map outputs and then create a dictionary that Maps convolutional layer names to the feature Maps they produce and I'm going to return that here is the subset of convolutional layers I'm going to use the feature maps of uh uh to construct uh these embeddings and here's the function that builds the embedding it takes uh that dictionary that Maps convolutional layer names to feature map values for each for each of the uh uh layers it uh gets the feature maps and computes their mean and standard deviation and then puts them into a big old vector and returns it so now we have style embeddings now to persuade you all that uh these embeddings really do encode style information we're going to do a a small style transfer uh example now style trans transfer is the task of taking the style of one image and applying it to another image without changing its content so here what we're going to do is we're going to take the style of Starry Night and apply it to this photo of the Golden Gate Bridge now in order to do this we're going to need a repr presentation of not just style but also content for our content image um and to do that we can just pick one of the later convolutional layers in the model take the feature maps for that convolutional layer and just turn them into a giant Vector uh which is what we do here um we get that dictionary uh that Maps convolutional layer names to feature map outputs we grab one of the later uh convolutional layers out of that map and we turn it into a large Vector now in this case for the content Vector we're not Computing the mean and standard deviation we're just returning uh the feature map values as they are but as a vector okay and then what we're going to do is we're going to compute the content V of the content image the style Vector of the style image and then we're going to generate an image such that it's such that the generated images style Vector Maps this matches the style Vector of the style image and the generated images content Vector matches the content Vector of the content image here we're uh initializing Target image which is the image we're going to generate um we're initializing it to be the same as the content image but you could initialize it to random noise or the the the the content image plus some random noise if if you chose to this is Computing the style Vector of the style image and the content Vector of the content image here we're setting we're going to do Style transfer in um a bit of an older way with bat propagation there are much faster and and and uh uh better ways to do style transfer these days which you can find online uh this is just a a pretty basic example just to illustrate the style information is here um and when we're doing back propagation we just want to change the values in the image we're generating in order to minimize our loss so here we're uh setting up our Optimizer but telling it it's only supposed to update the values of our image okay uh and then this is pretty straightforward um we uh get the features of our Target image we get our Target images content Vector we get our Target images style Vector we compute a loss between the Target image style vector and the style Vector of the style image we compute another loss based on the the difference between the the target images content vector and the content images content vector and then we back propagate uh based on the loss which will modify our Target image and then we do that repeatedly for a period of time and at the end of it we get this this here is a picture of the Golden Gate Bridge but with elements of the style transferred over from Star KN we can see that the colors of the image look like those of star KN and we can see the swirl patterns in the sky and in the water that are similar to those found in Star night uh but we still see the same content right this is still the Golden Gate Bridge here okay so hopefully I've convinced you all that the style information is in these embeddings so now we can do a search and for that we're going to need a data set and to start with I got this uh uh best artworks of all time I'm data set I found on kaggle.com now I'm not an art critic uh I'm not judging the art I don't know if this is really the best artwork of all time it's just the the name of the data set um it contains about 9,000 images from 50 different artists it says 51 artists here because one of them had a most unfortunate incident with a Unicode character and got counted twice now we're not quite yet ready to be shoving stuff into the database uh because we're still kind ofing around to see uh uh if this is going to work um so I went ahead and made this Vector store class okay this is the worst implementation of vector search of vector search uh but it'll do for now uh you just put a bunch of vectors in it and then when you want to find the nearest neighbor of some some query Vector it just does a Brute Force search to find the nearest neighbors uh it's real slow but it'll do um and then we populate that Vector store uh with all the images from our data set using that extract style Vector uh function from earlier to create our embeddings oh and this is just some code for loading an image and searching the vector store and this this code here isn't very interesting is for displaying the image results we get um okay so now ready to do a search so we're ping passing the search and display function our Vector store uh a path to an image it's going to be that same starring night image and the uh uh function to use to extract and embedding from our query image and this is what we get back so here's our query image and here's our top search result star night star night is in the style of itself that's good news and then we get uh another van go painting uh and we should expect that uh Vincent Van go has a pretty distinctive style I said uh uh Vincent Van go is a pretty distinctive style but then who's this French dude uh too latrek well it it turns out that too latrek new Vincent Van go he even painted a a portrait of them and uh the two of them have been noted for having some similarities in their style uh so it's not surprising to see him in the search results and then we get a van go and a van go and a van go and a van go and a van go uh Picasso that got lost in the van go exhibit and a van go so eight van go one Bango doppelganger and a lost Picasso looks like it's working to me but there's a problem the embeddings we have are 3,000 dimensions in size uh which is a bit on the large side for reference chat GPT embeddings are about 1500 dimensions and really even that's kind of big um but why do we care about this well the runtime of vector search uh is in terms of the the number of ss tables times the number of vector Dimensions times the log of the number of vectors this means the the vector search performance is linear with respect to your vector Dimensions so if you can have the size of your embeddings you can actually double the performance at least on paper right so how do we do that um well there are a number of ways you could use principal component analysis for example uh but I have the pie torch hammer in my hand and I'm going to use it we're going to build an auto encoder oh here let me get my uh let me get my face out of the way of the diagram there we go so what is an auto encoder well this particular Auto encoder is just a fully connected Network and um we're going to set it up to have uh roughly uh 3,000 dimensions for its input the same size as our current style embeddings and roughly 3,000 Dimensions uh for the output again the same size as our current style embeddings and then we will train it such that when we put a style Vector in the input we'll get that same style vector back in the output now that sounds pretty useless right like what good is a model that just reproduces its inputs and its outputs well the secret is this bottleneck right here in the middle because why the in input and the output will be uh roughly 3,000 dimensions in size we're going to make this bottleneck about 500 dimensions in size so6 the size and since the only way information can get from the input to the output is through this bottleneck if we can train this model to successfully reproduce its inputs and its outputs then all the information needed to reproduce the inputs is necessarily available to us at this bottleneck so after we train the network we can throw out this decoder portion these yellow circles and just use the remainder encoder portion to take our 3,000 dimensional vectors and turn them into 500 dimensional vectors all right so let's do it let's build this thing so we're going to say the style Vector is 512 dimensions that's going to be the the the reduced size uh style Vector here's the code to to build the network this is actually pretty straightforward uh this here is the encoder uh part of the model and it's just a a couple of linear layers with some R activations here's the auto encoder um the encoder sections just and just from that class above we instantiate here and then the decoder portion of this actually looks very similar it is also just a couple of linear layers with some Rel activations and then when we uh uh invoke this thing we're going to pass it as input uh some uh style embeddings it'll pass those style embeddings to the encoder so we're going to get as input the larger style embeddings the 3,000 dimensional ones we're going to pass those 3,000 dimensional uh embeddings to our encoder which is going to return some 500 dimensional uh embeddings and then those embeddings will be passed to our decoder which will return 3,000 dimensional uh embeddings again which we will then return now to train this thing we're actually going to get a another uh larger uh image data set this one's the wiki art uh data set that comes from some uh data dump of wikiart.org there's about 880,000 images in this data set from about 130 different artists are all right now the trainings the training here is pretty straightforward we iterate over all the elements in our training data we get the images uh we get the uh uh features using the vgg19 uh model these features are again that that dictionary mapping convolutional layer names to feature map values we extract the style vectors these are the large style of vectors the uh the 3,000 dimensional ones we pass that to our Auto encoder which returns to us uh what we hope are the same uh embeddings we then compute a loss to that effect and then we back propagate to update the weights in our model and then we do that for some period of time when we're done training we save the model very important step and then here we load it again what we're loading this time is just the encoder portion of the model uh which we can use for doing dimensionality reduction okay now we create a new function to extract uh a sty style Vector called extract small style Vector it takes the same uh input of a dictionary of convolutional eror names to fature map values it calls the original style Vector function with that map to get the large style Vector right the 3,000 dimensional one it then passes that 3,000 dimensional Vector to our encoder which returns a 500 dimensional Vector which we then return and just like that we have embeddings of a reduced size of one six the size in fact um all right then we uh repopulate uh a a new Vector store with the images from that greatest artworks of all time data set um using the uh small style Vector this time to populate it and then we do our search again and what we're hoping to find is that we get search results that are basically the same so here we go here's our query image again star night and our top result star night star night still in the style of itself off to a good start next result Aang go Vang go doppelganger van goang goang go van go van go van go uh and a Picasso uh still lost in the vano exhibit so looks pretty good we're still getting you know eight van go a van go doppelganger and a lost Picasso but how do we quantify the results right that result looked pretty good uh but but how do we get a a kind of a robust uh uh metric for determining how good our results are uh when using this compression so for that we're going to use recall at K uh now now what Rec call it K gives you is effectively uh in this case uh it tells you what percentage of the results you get back when using your compressed embeddings are the same as what you've gotten back had you used the original uncompressed embedding okay so if we get a a score of 100% that means we get the same results with our compressed embedding as we would have using the original embeddings so we would get an optimal uh uh result um and whereas 0% means you're you're basically getting none of the same results at all okay I'm not going to go too much into EXA exactly how this is calculated um so I computed recall at 10 and that's because throughout this demo I'm really just going to be looking at the top 10 images uh when doing a search and what I found was that the uh recall was 79.6% so roughly 80% that means when we do a search with these compressed embeddings in those top 10 results on average eight of them would be the same eight images we would have gotten had we used the full size embedding so 80% not too bad um okay well we did that uh we did that with uh style embeddings but for uh comparison sake we'll go ahead and do it for uh content vectors as well um for these content vectors uh I'm just going to use the out of the penultimate layer which is just a fancy way of saying the second to last layer and the penultimate layer in this case is a layer right before the soft Max this layer right here uh scrolling down let going down and this is a large notebook all right top Rec okay okay so we're going to get these vectors for uh for we're going to get these content vectors as well and we've got all the same problems we had before the vectors are too big so we got to build an auto encoder to compress them um but we'll go ahead and Skip all that this is really all the same sort of stuff we saw before okay and at long last we have arrived at the the Cassandra Vector search portion so I'm going to start this off with a PSA so the way I am measuring how similar two vectors are is I'm I'm looking at the cosine similarity so I'm looking for for vectors that have very small angles between them to understand how related those vectors are R now when you're using Cassandra Vector search it's actually faster to use dot product similarity now the dot product and the cosine are the same so long as your vectors are unit vectors and and to see why that is if we look look at how the dot product is defined the dot product between vectors A and B is equal to the magnitude of vector a times the magnitude of vector B times the coine of the angle in between them but if vectors A and B are unit vectors then their magnitudes are just one right in which case the dotproduct and the cosine are the same now if the only thing you care about is the angles between your vectors then there really is no reason why you can't just turn them in to unit vectors and use dot product similarity uh for your for your search however let me show you the the code I have for for loading data into the database all right here we go you see I have these assertions here these assertions ensure that the vectors I have really are unit vectors and that's important because if you're using dotproduct similarity and uh your vectors are not unit vectors you're going to get some very confusing results now I could I wish I could say that these assertions I have here were original to this function but sadly they were not I had some very confusing and frustrating results uh until I realized that what I thought were unit vectors were in fact not and added these checks and then I got to reload all the data all over again so save yourself a few hours of frustration and test your code before you load a bunch of data into the database all right now this talk really isn't on uh best practices when when making a schema uh for Cassandra uh but I will show you what I did uh I made two tables one table I'm going to use for the style vectors and another table I'm going to use for the content vectors um and in these tables I store some basic information about the images like the file name the artist the artistic movement and I also store the compressed embedding the reduced sized embeddings as well as the original embeddings and I'll explain why uh later uh why I store both for the uh uh style table I actually index on both the full size embedded ings and the reduced size embeddings uh in practice I would not do that I would just index on the reduced size embeddings but for demonstration purposes I'm going to index on both and then for the the uh content vectors again I store both the the original uh embeddings and the reduced size ones uh but for the content vectors I I just index the reduced size uh embeddings okay this code insert the DAT is really not that interesting no one cares okay this here is the query I use to actually do the vector search you can see I select out uh uh the fields from the table I also get the uh distance of the uh embedding to the query vector this embedding column here is just going to be either the uh it's just going to be the name of the embedding I'm searching on is it the reduced size embedding or the original embedding this here is the query Vector itself and this is the limit time your results to get back um we're going to talk a little bit more about this later this query DB function really just executes this query I have another uh uh Vector store class this one has the same interface as the previous Vector store class and the real reason I have this is so that we can do some comparisons later on here's the search DV function it uh uh computes the embedding for your query image um searches the vector store for the image um and uh formats and Returns the results all right if the uh demo gods are feeling merciful this should be running now and here it is all right let's go ahead and do a search oh I should probably describe these options here at the top first so we have some options style is to do a search uh using the style embeddings using the reduced size Style embeddings Style full does a search using the uh full size style embeddings styled cheet I will uh explain later content does a search using the reduced size content embedding and content cheet I will also describe later all right so to start out with let's do use the full size embedding and search for Star Knight here let me move uh my face there we go all right okay Starry Night still in the style of itself getting off to a good start oh let me get a self-portrait of Vincent Van go himself another Van Go and another van go um and then we get this um not I'm not quite sure how these are related in terms of their Style again not not positive okay all right another van go and another Van Go all right again I'm not totally sure how this one's style is similar but we have a number of Vos here all right let's use the uh compressed sized embeddings okay good star night again that same uh self-portrait another Van Go another van go this first set of results is the exact same as the ones we got from the full size eddings okay interesting right another van go I'm not quite sure what it's picking up on here maybe it's the Swirls and the clouds that are causing it to think this this is in a similar style okay another van go oh another Van Go self-portrait okay this one I can see the swirls in the picture simar to those ones in the sky over here okay all right so there's a uh there's a style search uh using uh star KN what happens if we search on the content okay very good uh star night has its own content it's good to see oh well now this is interesting I did not know that uh Vincent Van go sketched out his paintings before he painted them I always thought he just uh picked up a paintbrush and just sort of winged it uh but I guess he planned it out first this is very different than than my work style where I kind of just Dive Right In and hope that 85 Jupiter cells later it'll all come together um okay here's another result based on content um now keep in mind this is looking at content and not style which is why this image here this sketch showed up when we were doing a search for Content but was absent when we did a search using style okay in this next result I'm not quite sure why this is showing up here maybe it's these circles here kind of like the stars maybe that's why this is getting picked up all right um well this one's interesting because we also saw it in the style search okay well um I will leave it to the audience to decide if these images have anything to do with each other uh content wise okay all right now this sketch was interesting for another reason originally while I was working on this demo this image actually did not get picked up during a search which is surprising because it's the closest result after Starry Night itself so why was it getting missed well Cassandra Vector search is an approximate nearest neighbor search um so we don't always get the optimal result um but there's uh kind of a little uh workaround that can improve results if uh if you should need to which is back here in this qu where we do our Vector search yeah right here originally I had set the limit to 10 because really I'm only interested in showing the top 10 results right there's only 10 images here but it turns out if you set the limit larger than what you need say 20 then the top 10 results you get back can actually become better results right so it can make sense to make the limit larger than the number of results you need so that the results you you do need are actually better so in this case I had switched uh my search query to use Li limit of 20 instead of 10 but then I only showed the top 10 of those 20 and as a result this image started getting picked up all right let's let's take a look at another image all right we'll do a full style search here's a Bob Ross painting all right and let's search and what do we get back yeah okay I can see how these are in a similar style yeah I mean these all look right okay yeah I say these results make a lot of sense well I mean I guess this one's pretty close to okay all right let's try using our reduced size embeddings for style well that didn't look quite right um so it's not this image is is totally unrelated to our query image right like there's similarities here like the sky and the water and the trees and this this mountain here and the background but the style seems uh you know not not nearly as close as those other images images we were looking at were um like this is this over here is a a an oil painting that's uh that we're searching with uh but this looks more like a I don't know like a like ink like an ink painting okay this result looks okay as does this one like this looks pretty close yeah looking good again right it looks a lot like this other uh result we got that didn't quite fit and again there's that mountain and the water and there are trees but it just doesn't it's not nearly as close in style as some of these other images are okay this result looks pretty good this one looks okay um all right and again a result that doesn't doesn't quite fit so uh what happened here as is that we've suffered some consequences from compressing these embeddings so we've got uh some less than optimal results as a consequence of that um but there's actually something we can do to improve the results we have so you'll recall that I don't actually when I query the database I actually get the top 20 result results back not just the top 10 um I just only display the top 10 of the 20 I get back well what we could do is we can store both the reduced size embedding and the full size embedding in our in our table we do a search on the small embedding which is faster and then when we get the results back we can Resort it on the client's side using the larger embedding and the hope is that these results that are perhaps not so great will be resorted below our cut off below our top 10 cut off uh and our top 10 results will actually be pretty good and it'll be like those bad results never happened so that's what this style cheat does it does a search using the smaller embedding and then Resorts using the full size embedding so let's see uh what happens when we do that Ah that's much better these look a lot more like the results we got when using the full size embedding yeah much better all those uh particularly not uh not so great results have disappeared okay awesome all right let's do the let's do the the same sort of treat with the content vectors and see what we get back uh from this Bob Ross painting uh mountains that makes sense this is a Content search the mountains are pretty uh prominent in our query image and so they are in one of the images we found and the next image also mountains uh notice these are very different stylistically but they con both contain mountains uh and hence they show up in the results uh more mountains mountains mountains mountains uh Hills mountains mountains mountains okay I think it's finding mountains uh and that makes sense all right let's do another one let's do this Picasso see what we get back okay uh that makes sense like these are these appear to be pretty similar in style um not the same artistic movement but we do see the same uh the same sorts of colors right very vibrant colors um same story here um another Picasso that makes sense um same artistic movement it's cubism okay okay very vibrant colors again okay well I actually think those results make sense even though they're not all from the same artistic movement okay let's do search with the with the content vectors oh that's interesting we have two people uh in our query image well one person and their uh mirror image and then we have two people here uh in this search result um interesting guess it's picking up the eyes in the query image I don't I don't have a story that explains this one in the search results uh okay all right yeah that makes sense okay well again uh I will leave it to the audience uh to decide if these images have anything in common content wise uh or not um and there we go uh that's uh that's Vector search uh on both uh style and content using Cassandra Vector search um all right so let's talk about recall with Cassandra Vector search so Cassandra Vector search is uh an approximate nearest neighbor search so how good is it compared to the optimal result well again we can compute uh recall and again we'll use recall at 10 uh to determine this so this is uh basically the same setup as the uh uh previous uh calculation of uh recall but now we're going to take we're going to do a search on using some number of images in this case we're going to use 50 images and we're going to do 50 searches and then compare those search results to what the optimal results would have been to calculate uh the recall and in this case for recall at 10 and I should say this is using the full size embeddings for style and we're also not getting any extra results so the limit in the query has been set to 10 as well um and when we compare that to the optimal results we get a recall at 10 of 100% now I happen to know that 100%'s not quite right because we're working on this demo I had uh a couple of results that were not quite optimal um I think part of the reason we're getting this result is because I'm only using uh 50 uh different query images when testing uh to compute the recall um and the reason I'm only using 50s because I'm I'm comp comparing it against that uh that uh uh uh previous Vector store implementation from the beginning of the demo that gives you exact results but it's incredibly slow right I don't want to do more than 50 uh uh image queries with that because it'll take forever if I do more um so realistically the recall at 10 is probably not 100% uh but it is very good and very close to Optimal uh at least in in this particular uh setup with these particular sorts of embeddings okay what about recall using our compressed embeddings so these are using our our reduced sized embeddings for style um we're doing uh a search using Cassandra Vector search uh with a limit set at 10 as well so we're not getting extra uh results to to to improve prove uh uh our search results and again we're comparing that to what the optimal results would be and we get a recall of about 76% and then I was interested for this resorting trick where we search using the smaller style embeddings and then we resort the results using the full size embeddings I wanted to know how many extra elements would I need to get in order to get a recall of 95% when compared to the optimal results um and I found that I would need to get 18 uh elements uh in total so eight more than the 10 that I actually uh needed to get um or to get recall of 95% all right well look at that 85 Jupiter cells later and it's all coming together um okay so you have a few options in this setup for what what embeddings you use when searching right you can use your full size embeddings you can use your compressed embeddings or you can use a combination of the two um and when deciding which one you know would work best in in your case uh it helps to keep in mind what the runtime performance of vector search is which is the number of ss tables times uh the vector Dimensions times the log of the number of vectors so again linear in terms of your vector Dimensions so if you search using the full size embeddings you get the best recall but it's the slowest and interestingly it also takes the most storage now why would it take the most storage to store only the full size embedding I mean you would think that if you stored both the full size embedding plus the smaller size embedding that that would be the case that would take the most space right well it turns out uh with Cassandra Vector search whichever embedding you index has to be stored twice so that's the reason it takes the most space to have just the large embedding okay so we can store only the compressed embedding uh that's the fastest and takes the least storage um the downside there is it's also got the worst recall as we saw with the Bob Ross painting uh search results and then of course our our next option is storing both of them um we still get a search this pretty fast right because we can use those smaller size embeddings um it's still got lower storage than storing just the large embedding and we can get good recall if we set that limit high enough uh but there are some cons it's still slower than using just the compressed embeddings um it takes more storage than using just the compressed embeddings and now we have to to pull more data down uh from the database right because we got to get those extra results to improve the recall plus we have to get the original embeddings somehow and if the solution to that somehow was to store the original embeddings in the database you're going to have to get those back with your search results so that you can Resort them so uh the good news is you have a lot of options here and a lot of flexibility uh to find the solution that that works best and you know whatever your use case happens to be um I would say though that the most important thing is to come up with a good metric like recall or whatever metric it makes sense uh for your use case so that you have some way to evaluate uh your various options all right so what did we learn well we learned that I cannot pronounce Vincent Van Go's name uh it turns out to seemingly every country has their own domestic mispronunciation of uh Vincent vango's name I have the American Mison anunciation um so there you go um uh we learned or at least I learned uh that Vincent Van go sketched star night before painting it I had no idea whe that was the case until it popped up in the search results um here's another thing I didn't know before uh that too latrek uh knew Vincent Van go and they had similar painting Styles honestly I don't even know who too the Trek was until I worked on this by using feature map statistics we can find uh artwork that's in a similar Style with some with some asterisks um we had some results that were maybe a little less clear how related they were in style nonetheless I think the results were good enough to be interesting at least uh certainly there was a lot of fun to do um for unit vectors the dot product and the coign are the same thing uh but do test your code to make sure you really do have unit vectors um uh small embeddings take up less space and make searches faster uh Auto encoders can be used to compress embeddings um which I think is perhaps the most generally useful thing uh from this demo um and it could make sense to use both compressed and uh uncompressed embeddings uh when using Vector search uh if you're interested in uh uh and looking at this notebook you can find it uh at this URL I will endeavor to get the that URL into the video description but failing that it will uh at least be here in the video and these are the papers that I refer to uh while working on this demo um well I hope you all found this educational uh certainly I had a lot of fun uh working on this demo uh using uh Cassandra Vector search is uh surprisingly straightforward and easy to do in fact it was the easiest part of this uh whole exercise and uh there it is",
+    "segments": [
+      {
+        "start": 2.44,
+        "duration": 4.839,
+        "text": "hi my name is John Trimble I'm one of"
+      },
+      {
+        "start": 4.56,
+        "duration": 5.68,
+        "text": "the tech leads here at data stacks and I"
+      },
+      {
+        "start": 7.279,
+        "duration": 5.081,
+        "text": "have a fun demo to share with you"
+      },
+      {
+        "start": 10.24,
+        "duration": 5.04,
+        "text": "all today we're going to be using"
+      },
+      {
+        "start": 12.36,
+        "duration": 5.679,
+        "text": "machine learning and Vector search to"
+      },
+      {
+        "start": 15.28,
+        "duration": 4.2,
+        "text": "enable us to search for images that are"
+      },
+      {
+        "start": 18.039,
+        "duration": 4.281,
+        "text": "in a similar"
+      },
+      {
+        "start": 19.48,
+        "duration": 5.32,
+        "text": "style so what I want to be able to do is"
+      },
+      {
+        "start": 22.32,
+        "duration": 5.92,
+        "text": "take an image of a piece of artwork say"
+      },
+      {
+        "start": 24.8,
+        "duration": 6.36,
+        "text": "Vincent bango's starry night and search"
+      },
+      {
+        "start": 28.24,
+        "duration": 4.479,
+        "text": "for all the artwork that shares a common"
+      },
+      {
+        "start": 31.16,
+        "duration": 6.079,
+        "text": "style with"
+      },
+      {
+        "start": 32.719,
+        "duration": 7.201,
+        "text": "it so what do I mean by style well style"
+      },
+      {
+        "start": 37.239,
+        "duration": 5.961,
+        "text": "can be defined in a number of ways it"
+      },
+      {
+        "start": 39.92,
+        "duration": 7.04,
+        "text": "can be based on the artistic movement"
+      },
+      {
+        "start": 43.2,
+        "duration": 7.08,
+        "text": "say uh uh impressionism versus cubism"
+      },
+      {
+        "start": 46.96,
+        "duration": 7.079,
+        "text": "can be based on the time period such as"
+      },
+      {
+        "start": 50.28,
+        "duration": 6.959,
+        "text": "Gothic versus Renaissance art or the"
+      },
+      {
+        "start": 54.039,
+        "duration": 6.721,
+        "text": "medium uh a photograph versus a"
+      },
+      {
+        "start": 57.239,
+        "duration": 6.761,
+        "text": "sketch for our purposes"
+      },
+      {
+        "start": 60.76,
+        "duration": 6.039,
+        "text": "we're going to Define style as just"
+      },
+      {
+        "start": 64.0,
+        "duration": 4.88,
+        "text": "being the manner in which the content of"
+      },
+      {
+        "start": 66.799,
+        "duration": 5.32,
+        "text": "an image is"
+      },
+      {
+        "start": 68.88,
+        "duration": 5.599,
+        "text": "expressed so if you have a photo of"
+      },
+      {
+        "start": 72.119,
+        "duration": 6.0,
+        "text": "notra and a sketch of"
+      },
+      {
+        "start": 74.479,
+        "duration": 7.6,
+        "text": "notra both those images have the same"
+      },
+      {
+        "start": 78.119,
+        "duration": 6.401,
+        "text": "content but they have a different"
+      },
+      {
+        "start": 82.079,
+        "duration": 5.641,
+        "text": "style so if we're going to search for"
+      },
+      {
+        "start": 84.52,
+        "duration": 6.44,
+        "text": "images based on their style we're going"
+      },
+      {
+        "start": 87.72,
+        "duration": 4.64,
+        "text": "to need need embeddings that encode"
+      },
+      {
+        "start": 90.96,
+        "duration": 4.08,
+        "text": "style"
+      },
+      {
+        "start": 92.36,
+        "duration": 4.84,
+        "text": "information and to get those we're going"
+      },
+      {
+        "start": 95.04,
+        "duration": 5.2,
+        "text": "to use the"
+      },
+      {
+        "start": 97.2,
+        "duration": 5.76,
+        "text": "venerable vgg19"
+      },
+      {
+        "start": 100.24,
+        "duration": 4.4,
+        "text": "model now this is an older model it"
+      },
+      {
+        "start": 102.96,
+        "duration": 4.56,
+        "text": "comes from around"
+      },
+      {
+        "start": 104.64,
+        "duration": 5.759,
+        "text": "2014 uh but it's still quite"
+      },
+      {
+        "start": 107.52,
+        "duration": 4.4,
+        "text": "effective I chose to use it because a"
+      },
+      {
+        "start": 110.399,
+        "duration": 5.04,
+        "text": "number of the"
+      },
+      {
+        "start": 111.92,
+        "duration": 6.36,
+        "text": "papers uh I referenced on style transfer"
+      },
+      {
+        "start": 115.439,
+        "duration": 5.0,
+        "text": "while making this demo uh use this"
+      },
+      {
+        "start": 118.28,
+        "duration": 5.68,
+        "text": "particular model"
+      },
+      {
+        "start": 120.439,
+        "duration": 6.721,
+        "text": "and the way it works in its normal"
+      },
+      {
+        "start": 123.96,
+        "duration": 5.68,
+        "text": "operation is you feed images here to the"
+      },
+      {
+        "start": 127.16,
+        "duration": 5.719,
+        "text": "input and at the output you get the"
+      },
+      {
+        "start": 129.64,
+        "duration": 5.16,
+        "text": "category of the image right it's a cat"
+      },
+      {
+        "start": 132.879,
+        "duration": 3.72,
+        "text": "it's a chair it's a duck it's a house"
+      },
+      {
+        "start": 134.8,
+        "duration": 6.04,
+        "text": "it's a"
+      },
+      {
+        "start": 136.599,
+        "duration": 7.0,
+        "text": "whatever uh now we're not particularly"
+      },
+      {
+        "start": 140.84,
+        "duration": 5.759,
+        "text": "interested in the categories of"
+      },
+      {
+        "start": 143.599,
+        "duration": 6.681,
+        "text": "images what we're interested with this"
+      },
+      {
+        "start": 146.599,
+        "duration": 6.561,
+        "text": "model in is the outputs"
+      },
+      {
+        "start": 150.28,
+        "duration": 5.239,
+        "text": "of the intermediate layers the feature"
+      },
+      {
+        "start": 153.16,
+        "duration": 4.48,
+        "text": "Maps produced by the convolutional"
+      },
+      {
+        "start": 155.519,
+        "duration": 4.161,
+        "text": "layers that's these yellow blocks in the"
+      },
+      {
+        "start": 157.64,
+        "duration": 5.28,
+        "text": "diagram"
+      },
+      {
+        "start": 159.68,
+        "duration": 6.6,
+        "text": "here so what is a feature map well a"
+      },
+      {
+        "start": 162.92,
+        "duration": 6.2,
+        "text": "feature map in this in this context is a"
+      },
+      {
+        "start": 166.28,
+        "duration": 7.28,
+        "text": "two-dimensional array of"
+      },
+      {
+        "start": 169.12,
+        "duration": 7.759,
+        "text": "values that represent"
+      },
+      {
+        "start": 173.56,
+        "duration": 8.2,
+        "text": "some feature with respect to the image"
+      },
+      {
+        "start": 176.879,
+        "duration": 4.881,
+        "text": "that the model has learned to to detect"
+      },
+      {
+        "start": 182.84,
+        "duration": 7.36,
+        "text": "now every image Starry Night for example"
+      },
+      {
+        "start": 187.599,
+        "duration": 4.401,
+        "text": "effectively starts its life out with"
+      },
+      {
+        "start": 190.2,
+        "duration": 4.319,
+        "text": "three feature"
+      },
+      {
+        "start": 192.0,
+        "duration": 5.159,
+        "text": "Maps one feature map for each of its"
+      },
+      {
+        "start": 194.519,
+        "duration": 5.161,
+        "text": "color channels red green and"
+      },
+      {
+        "start": 197.159,
+        "duration": 4.921,
+        "text": "blue here are those feature maps for"
+      },
+      {
+        "start": 199.68,
+        "duration": 2.4,
+        "text": "Star"
+      },
+      {
+        "start": 203.44,
+        "duration": 5.719,
+        "text": "night now we then take these future maps"
+      },
+      {
+        "start": 206.36,
+        "duration": 5.439,
+        "text": "and we feed them as input to the first"
+      },
+      {
+        "start": 209.159,
+        "duration": 5.881,
+        "text": "convolution layer of"
+      },
+      {
+        "start": 211.799,
+        "duration": 8.561,
+        "text": "vgg19 and we"
+      },
+      {
+        "start": 215.04,
+        "duration": 8.72,
+        "text": "get 64 feature Maps as"
+      },
+      {
+        "start": 220.36,
+        "duration": 5.56,
+        "text": "output and then those feature maps are"
+      },
+      {
+        "start": 223.76,
+        "duration": 6.679,
+        "text": "passed to the next layer convolutional"
+      },
+      {
+        "start": 225.92,
+        "duration": 6.959,
+        "text": "layer of vgg19 and we get 64 more"
+      },
+      {
+        "start": 230.439,
+        "duration": 2.44,
+        "text": "feature"
+      },
+      {
+        "start": 233.2,
+        "duration": 6.08,
+        "text": "maps and this continues throughout the"
+      },
+      {
+        "start": 236.239,
+        "duration": 5.92,
+        "text": "network and as we get deeper into the"
+      },
+      {
+        "start": 239.28,
+        "duration": 7.879,
+        "text": "network work the feature Maps"
+      },
+      {
+        "start": 242.159,
+        "duration": 9.761,
+        "text": "become smaller and also more"
+      },
+      {
+        "start": 247.159,
+        "duration": 5.881,
+        "text": "numerous so here's a a set of 256"
+      },
+      {
+        "start": 251.92,
+        "duration": 6.76,
+        "text": "feature"
+      },
+      {
+        "start": 253.04,
+        "duration": 5.64,
+        "text": "Maps produced by a later layer in the"
+      },
+      {
+        "start": 260.16,
+        "duration": 5.72,
+        "text": "model now the feature Maps produced"
+      },
+      {
+        "start": 262.8,
+        "duration": 6.0,
+        "text": "early on tend to represent low-level"
+      },
+      {
+        "start": 265.88,
+        "duration": 6.28,
+        "text": "information about the image things like"
+      },
+      {
+        "start": 268.8,
+        "duration": 7.16,
+        "text": "edges and colors uh and you can actually"
+      },
+      {
+        "start": 272.16,
+        "duration": 5.92,
+        "text": "almost make out the original image in"
+      },
+      {
+        "start": 275.96,
+        "duration": 4.44,
+        "text": "some of these feature maps from early on"
+      },
+      {
+        "start": 278.08,
+        "duration": 2.32,
+        "text": "in the"
+      },
+      {
+        "start": 280.6,
+        "duration": 5.039,
+        "text": "network now as we progress through the"
+      },
+      {
+        "start": 282.88,
+        "duration": 6.08,
+        "text": "network we get increasingly semantic"
+      },
+      {
+        "start": 285.639,
+        "duration": 8.321,
+        "text": "features uh we get feature maps that uh"
+      },
+      {
+        "start": 288.96,
+        "duration": 8.16,
+        "text": "uh represent textures um and shapes and"
+      },
+      {
+        "start": 293.96,
+        "duration": 7.48,
+        "text": "so forth um and then eventually we can"
+      },
+      {
+        "start": 297.12,
+        "duration": 7.919,
+        "text": "get feature maps that start detecting uh"
+      },
+      {
+        "start": 301.44,
+        "duration": 7.319,
+        "text": "uh highly semantic information like this"
+      },
+      {
+        "start": 305.039,
+        "duration": 6.121,
+        "text": "is a tree like thing or this is a cat"
+      },
+      {
+        "start": 308.759,
+        "duration": 2.401,
+        "text": "like"
+      },
+      {
+        "start": 312.639,
+        "duration": 6.361,
+        "text": "thing now while the values of the"
+      },
+      {
+        "start": 315.96,
+        "duration": 4.679,
+        "text": "feature Maps tell us something about the"
+      },
+      {
+        "start": 319.0,
+        "duration": 4.919,
+        "text": "content of the"
+      },
+      {
+        "start": 320.639,
+        "duration": 5.961,
+        "text": "image uh surprisingly the statistics of"
+      },
+      {
+        "start": 323.919,
+        "duration": 5.601,
+        "text": "the feature Maps can tell us something"
+      },
+      {
+        "start": 326.6,
+        "duration": 5.24,
+        "text": "about the image's style even sta"
+      },
+      {
+        "start": 329.52,
+        "duration": 3.44,
+        "text": "statistics is simple as the mean and"
+      },
+      {
+        "start": 331.84,
+        "duration": 4.4,
+        "text": "standard"
+      },
+      {
+        "start": 332.96,
+        "duration": 6.4,
+        "text": "deviation of each of the feature"
+      },
+      {
+        "start": 336.24,
+        "duration": 7.16,
+        "text": "Maps so my thought is why don't we take"
+      },
+      {
+        "start": 339.36,
+        "duration": 5.72,
+        "text": "some subset of the feature Maps produced"
+      },
+      {
+        "start": 343.4,
+        "duration": 5.56,
+        "text": "by"
+      },
+      {
+        "start": 345.08,
+        "duration": 7.76,
+        "text": "vgg19 uh compute their mean and standard"
+      },
+      {
+        "start": 348.96,
+        "duration": 7.0,
+        "text": "deviation and create a vector out of"
+      },
+      {
+        "start": 352.84,
+        "duration": 5.639,
+        "text": "that that we can use as our style"
+      },
+      {
+        "start": 355.96,
+        "duration": 5.359,
+        "text": "embedding so let's do"
+      },
+      {
+        "start": 358.479,
+        "duration": 5.16,
+        "text": "it"
+      },
+      {
+        "start": 361.319,
+        "duration": 6.201,
+        "text": "now you can use V"
+      },
+      {
+        "start": 363.639,
+        "duration": 6.96,
+        "text": "vd19 comes right out of the box with py"
+      },
+      {
+        "start": 367.52,
+        "duration": 4.88,
+        "text": "torch uh here I'm just wrapping it I'm"
+      },
+      {
+        "start": 370.599,
+        "duration": 5.0,
+        "text": "not really doing anything particularly"
+      },
+      {
+        "start": 372.4,
+        "duration": 6.16,
+        "text": "sophisticated here I just need to"
+      },
+      {
+        "start": 375.599,
+        "duration": 6.281,
+        "text": "collect the intermediate feature map"
+      },
+      {
+        "start": 378.56,
+        "duration": 6.84,
+        "text": "outputs so that I can use them"
+      },
+      {
+        "start": 381.88,
+        "duration": 5.599,
+        "text": "later so here in this forward function"
+      },
+      {
+        "start": 385.4,
+        "duration": 5.239,
+        "text": "I'm going to pass in an"
+      },
+      {
+        "start": 387.479,
+        "duration": 6.041,
+        "text": "image um"
+      },
+      {
+        "start": 390.639,
+        "duration": 6.56,
+        "text": "run that image through"
+      },
+      {
+        "start": 393.52,
+        "duration": 5.28,
+        "text": "vgg19 get the feature map outputs and"
+      },
+      {
+        "start": 397.199,
+        "duration": 4.761,
+        "text": "then create a"
+      },
+      {
+        "start": 398.8,
+        "duration": 6.839,
+        "text": "dictionary that Maps convolutional layer"
+      },
+      {
+        "start": 401.96,
+        "duration": 6.72,
+        "text": "names to the feature Maps they produce"
+      },
+      {
+        "start": 405.639,
+        "duration": 3.041,
+        "text": "and I'm going to return"
+      },
+      {
+        "start": 412.68,
+        "duration": 5.6,
+        "text": "that here is the subset of convolutional"
+      },
+      {
+        "start": 415.8,
+        "duration": 8.239,
+        "text": "layers I'm going to use the feature maps"
+      },
+      {
+        "start": 418.28,
+        "duration": 5.759,
+        "text": "of uh uh to construct uh these"
+      },
+      {
+        "start": 425.0,
+        "duration": 4.319,
+        "text": "embeddings and here's the function that"
+      },
+      {
+        "start": 426.96,
+        "duration": 5.2,
+        "text": "builds the embedding it"
+      },
+      {
+        "start": 429.319,
+        "duration": 7.361,
+        "text": "takes uh that dictionary that Maps"
+      },
+      {
+        "start": 432.16,
+        "duration": 10.84,
+        "text": "convolutional layer names to feature map"
+      },
+      {
+        "start": 436.68,
+        "duration": 9.88,
+        "text": "values for each for each of the uh uh"
+      },
+      {
+        "start": 443.0,
+        "duration": 5.319,
+        "text": "layers it uh gets the feature maps and"
+      },
+      {
+        "start": 446.56,
+        "duration": 4.759,
+        "text": "computes their mean and standard"
+      },
+      {
+        "start": 448.319,
+        "duration": 3.0,
+        "text": "deviation"
+      },
+      {
+        "start": 451.36,
+        "duration": 4.92,
+        "text": "and then puts them into a big old"
+      },
+      {
+        "start": 453.599,
+        "duration": 6.561,
+        "text": "vector and returns"
+      },
+      {
+        "start": 456.28,
+        "duration": 3.88,
+        "text": "it so now we have style"
+      },
+      {
+        "start": 461.68,
+        "duration": 6.32,
+        "text": "embeddings now to persuade you all that"
+      },
+      {
+        "start": 465.28,
+        "duration": 6.599,
+        "text": "uh these embeddings really do encode"
+      },
+      {
+        "start": 468.0,
+        "duration": 8.599,
+        "text": "style information we're going to do a a"
+      },
+      {
+        "start": 471.879,
+        "duration": 4.72,
+        "text": "small style transfer uh"
+      },
+      {
+        "start": 477.039,
+        "duration": 10.641,
+        "text": "example now style trans transfer is the"
+      },
+      {
+        "start": 482.599,
+        "duration": 9.04,
+        "text": "task of taking the style of one"
+      },
+      {
+        "start": 487.68,
+        "duration": 6.76,
+        "text": "image and applying it to another image"
+      },
+      {
+        "start": 491.639,
+        "duration": 4.041,
+        "text": "without changing its content so here"
+      },
+      {
+        "start": 494.44,
+        "duration": 4.719,
+        "text": "what we're going to do is we're going to"
+      },
+      {
+        "start": 495.68,
+        "duration": 8.68,
+        "text": "take the style of Starry Night and apply"
+      },
+      {
+        "start": 499.159,
+        "duration": 5.201,
+        "text": "it to this photo of the Golden Gate"
+      },
+      {
+        "start": 506.159,
+        "duration": 4.44,
+        "text": "Bridge now in order to do this we're"
+      },
+      {
+        "start": 508.44,
+        "duration": 5.88,
+        "text": "going to need a repr presentation of not"
+      },
+      {
+        "start": 510.599,
+        "duration": 4.841,
+        "text": "just style but also content for our"
+      },
+      {
+        "start": 514.32,
+        "duration": 5.199,
+        "text": "content"
+      },
+      {
+        "start": 515.44,
+        "duration": 6.719,
+        "text": "image um and to do that we can just pick"
+      },
+      {
+        "start": 519.519,
+        "duration": 3.76,
+        "text": "one of the later convolutional layers in"
+      },
+      {
+        "start": 522.159,
+        "duration": 3.721,
+        "text": "the"
+      },
+      {
+        "start": 523.279,
+        "duration": 4.521,
+        "text": "model take the feature maps for that"
+      },
+      {
+        "start": 525.88,
+        "duration": 3.24,
+        "text": "convolutional layer and just turn them"
+      },
+      {
+        "start": 527.8,
+        "duration": 5.52,
+        "text": "into a giant"
+      },
+      {
+        "start": 529.12,
+        "duration": 6.8,
+        "text": "Vector uh which is what we do here um we"
+      },
+      {
+        "start": 533.32,
+        "duration": 4.88,
+        "text": "get that dictionary uh that Maps"
+      },
+      {
+        "start": 535.92,
+        "duration": 4.32,
+        "text": "convolutional layer names to feature map"
+      },
+      {
+        "start": 538.2,
+        "duration": 3.8,
+        "text": "outputs"
+      },
+      {
+        "start": 540.24,
+        "duration": 4.08,
+        "text": "we grab one of the later uh"
+      },
+      {
+        "start": 542.0,
+        "duration": 6.12,
+        "text": "convolutional layers out of that"
+      },
+      {
+        "start": 544.32,
+        "duration": 6.88,
+        "text": "map and we turn it into a large Vector"
+      },
+      {
+        "start": 548.12,
+        "duration": 4.44,
+        "text": "now in this case for the content Vector"
+      },
+      {
+        "start": 551.2,
+        "duration": 4.319,
+        "text": "we're not Computing the mean and"
+      },
+      {
+        "start": 552.56,
+        "duration": 6.6,
+        "text": "standard deviation we're just"
+      },
+      {
+        "start": 555.519,
+        "duration": 7.32,
+        "text": "returning uh the feature map values as"
+      },
+      {
+        "start": 559.16,
+        "duration": 3.679,
+        "text": "they are but as a"
+      },
+      {
+        "start": 563.12,
+        "duration": 5.8,
+        "text": "vector okay and then what we're going to"
+      },
+      {
+        "start": 566.279,
+        "duration": 6.201,
+        "text": "do is we're going to compute the content"
+      },
+      {
+        "start": 568.92,
+        "duration": 6.0,
+        "text": "V of the content image the style Vector"
+      },
+      {
+        "start": 572.48,
+        "duration": 4.24,
+        "text": "of the style image and then we're going"
+      },
+      {
+        "start": 574.92,
+        "duration": 6.039,
+        "text": "to generate an"
+      },
+      {
+        "start": 576.72,
+        "duration": 7.4,
+        "text": "image such that it's such that the"
+      },
+      {
+        "start": 580.959,
+        "duration": 5.681,
+        "text": "generated images style Vector Maps this"
+      },
+      {
+        "start": 584.12,
+        "duration": 5.64,
+        "text": "matches the style Vector of the style"
+      },
+      {
+        "start": 586.64,
+        "duration": 6.199,
+        "text": "image and the generated images content"
+      },
+      {
+        "start": 589.76,
+        "duration": 5.639,
+        "text": "Vector matches the content Vector of the"
+      },
+      {
+        "start": 592.839,
+        "duration": 2.56,
+        "text": "content"
+      },
+      {
+        "start": 598.12,
+        "duration": 5.399,
+        "text": "image here we're uh initializing Target"
+      },
+      {
+        "start": 601.399,
+        "duration": 4.68,
+        "text": "image which is the image we're going to"
+      },
+      {
+        "start": 603.519,
+        "duration": 5.0,
+        "text": "generate um we're initializing it to be"
+      },
+      {
+        "start": 606.079,
+        "duration": 4.88,
+        "text": "the same as the content image but you"
+      },
+      {
+        "start": 608.519,
+        "duration": 5.281,
+        "text": "could initialize it to random noise or"
+      },
+      {
+        "start": 610.959,
+        "duration": 6.601,
+        "text": "the the the the content image plus some"
+      },
+      {
+        "start": 613.8,
+        "duration": 3.76,
+        "text": "random noise if if you chose"
+      },
+      {
+        "start": 618.399,
+        "duration": 4.481,
+        "text": "to this is Computing the style Vector of"
+      },
+      {
+        "start": 621.0,
+        "duration": 4.64,
+        "text": "the style image and the content Vector"
+      },
+      {
+        "start": 622.88,
+        "duration": 2.76,
+        "text": "of the content"
+      },
+      {
+        "start": 626.04,
+        "duration": 5.0,
+        "text": "image here we're setting we're going to"
+      },
+      {
+        "start": 628.32,
+        "duration": 5.199,
+        "text": "do Style transfer in um a bit of an"
+      },
+      {
+        "start": 631.04,
+        "duration": 5.32,
+        "text": "older way with bat propagation there are"
+      },
+      {
+        "start": 633.519,
+        "duration": 5.241,
+        "text": "much faster and and and uh uh better"
+      },
+      {
+        "start": 636.36,
+        "duration": 4.919,
+        "text": "ways to do style transfer these days"
+      },
+      {
+        "start": 638.76,
+        "duration": 5.759,
+        "text": "which you can find online uh this is"
+      },
+      {
+        "start": 641.279,
+        "duration": 6.441,
+        "text": "just a a pretty basic example just to"
+      },
+      {
+        "start": 644.519,
+        "duration": 5.801,
+        "text": "illustrate the style information is here"
+      },
+      {
+        "start": 647.72,
+        "duration": 5.119,
+        "text": "um and when we're doing back propagation"
+      },
+      {
+        "start": 650.32,
+        "duration": 5.319,
+        "text": "we just want to change the"
+      },
+      {
+        "start": 652.839,
+        "duration": 6.041,
+        "text": "values in the image we're generating in"
+      },
+      {
+        "start": 655.639,
+        "duration": 6.0,
+        "text": "order to minimize our loss so here we're"
+      },
+      {
+        "start": 658.88,
+        "duration": 5.399,
+        "text": "uh setting up our Optimizer but telling"
+      },
+      {
+        "start": 661.639,
+        "duration": 5.241,
+        "text": "it it's only supposed to update the"
+      },
+      {
+        "start": 664.279,
+        "duration": 6.12,
+        "text": "values of our"
+      },
+      {
+        "start": 666.88,
+        "duration": 5.44,
+        "text": "image okay uh and then this is pretty"
+      },
+      {
+        "start": 670.399,
+        "duration": 6.641,
+        "text": "straightforward"
+      },
+      {
+        "start": 672.32,
+        "duration": 7.92,
+        "text": "um we uh get the features of our Target"
+      },
+      {
+        "start": 677.04,
+        "duration": 6.84,
+        "text": "image we get our Target images content"
+      },
+      {
+        "start": 680.24,
+        "duration": 6.44,
+        "text": "Vector we get our Target images style"
+      },
+      {
+        "start": 683.88,
+        "duration": 6.399,
+        "text": "Vector we compute a"
+      },
+      {
+        "start": 686.68,
+        "duration": 7.159,
+        "text": "loss between the Target image style"
+      },
+      {
+        "start": 690.279,
+        "duration": 8.0,
+        "text": "vector and the style Vector of the style"
+      },
+      {
+        "start": 693.839,
+        "duration": 6.321,
+        "text": "image we compute another loss based on"
+      },
+      {
+        "start": 698.279,
+        "duration": 5.0,
+        "text": "the the difference between the the"
+      },
+      {
+        "start": 700.16,
+        "duration": 6.84,
+        "text": "target images content vector and the"
+      },
+      {
+        "start": 703.279,
+        "duration": 3.721,
+        "text": "content images content"
+      },
+      {
+        "start": 707.279,
+        "duration": 5.521,
+        "text": "vector and then we back"
+      },
+      {
+        "start": 710.079,
+        "duration": 5.681,
+        "text": "propagate uh based on the loss which"
+      },
+      {
+        "start": 712.8,
+        "duration": 7.4,
+        "text": "will modify our Target"
+      },
+      {
+        "start": 715.76,
+        "duration": 7.519,
+        "text": "image and then we do that"
+      },
+      {
+        "start": 720.2,
+        "duration": 8.199,
+        "text": "repeatedly for a period of"
+      },
+      {
+        "start": 723.279,
+        "duration": 8.841,
+        "text": "time and at the end of it we get"
+      },
+      {
+        "start": 728.399,
+        "duration": 4.841,
+        "text": "this this here is a picture of the"
+      },
+      {
+        "start": 732.12,
+        "duration": 3.959,
+        "text": "Golden Gate"
+      },
+      {
+        "start": 733.24,
+        "duration": 5.399,
+        "text": "Bridge but with elements of the style"
+      },
+      {
+        "start": 736.079,
+        "duration": 5.56,
+        "text": "transferred over from Star KN we can see"
+      },
+      {
+        "start": 738.639,
+        "duration": 5.64,
+        "text": "that the colors of the image look like"
+      },
+      {
+        "start": 741.639,
+        "duration": 5.681,
+        "text": "those of star KN and we can see the"
+      },
+      {
+        "start": 744.279,
+        "duration": 6.041,
+        "text": "swirl patterns in the sky and in the"
+      },
+      {
+        "start": 747.32,
+        "duration": 6.12,
+        "text": "water that are similar to those found in"
+      },
+      {
+        "start": 750.32,
+        "duration": 4.879,
+        "text": "Star night uh but we still see the same"
+      },
+      {
+        "start": 753.44,
+        "duration": 4.12,
+        "text": "content right this is still the Golden"
+      },
+      {
+        "start": 755.199,
+        "duration": 4.921,
+        "text": "Gate Bridge"
+      },
+      {
+        "start": 757.56,
+        "duration": 6.0,
+        "text": "here"
+      },
+      {
+        "start": 760.12,
+        "duration": 6.48,
+        "text": "okay so hopefully I've convinced you all"
+      },
+      {
+        "start": 763.56,
+        "duration": 6.8,
+        "text": "that the style information is in these"
+      },
+      {
+        "start": 766.6,
+        "duration": 6.16,
+        "text": "embeddings so now we can do a search and"
+      },
+      {
+        "start": 770.36,
+        "duration": 7.12,
+        "text": "for that we're going to need a data set"
+      },
+      {
+        "start": 772.76,
+        "duration": 7.439,
+        "text": "and to start with I got this uh uh best"
+      },
+      {
+        "start": 777.48,
+        "duration": 6.44,
+        "text": "artworks of all time I'm data set I"
+      },
+      {
+        "start": 780.199,
+        "duration": 6.32,
+        "text": "found on kaggle.com now I'm not an art"
+      },
+      {
+        "start": 783.92,
+        "duration": 4.08,
+        "text": "critic uh I'm not judging the art I"
+      },
+      {
+        "start": 786.519,
+        "duration": 4.361,
+        "text": "don't know if this is really the best"
+      },
+      {
+        "start": 788.0,
+        "duration": 4.399,
+        "text": "artwork of all time it's just the the"
+      },
+      {
+        "start": 790.88,
+        "duration": 6.8,
+        "text": "name of the data"
+      },
+      {
+        "start": 792.399,
+        "duration": 8.921,
+        "text": "set um it contains about 9,000 images"
+      },
+      {
+        "start": 797.68,
+        "duration": 5.56,
+        "text": "from 50 different artists it says 51"
+      },
+      {
+        "start": 801.32,
+        "duration": 4.48,
+        "text": "artists here because one of them had a"
+      },
+      {
+        "start": 803.24,
+        "duration": 7.52,
+        "text": "most unfortunate incident with a Unicode"
+      },
+      {
+        "start": 805.8,
+        "duration": 4.96,
+        "text": "character and got counted twice"
+      },
+      {
+        "start": 811.279,
+        "duration": 3.481,
+        "text": "now we're not quite yet ready to be"
+      },
+      {
+        "start": 813.12,
+        "duration": 3.399,
+        "text": "shoving stuff into the"
+      },
+      {
+        "start": 814.76,
+        "duration": 4.199,
+        "text": "database uh because we're still kind"
+      },
+      {
+        "start": 816.519,
+        "duration": 6.361,
+        "text": "ofing around to see uh uh if this is"
+      },
+      {
+        "start": 818.959,
+        "duration": 6.641,
+        "text": "going to work um so I went ahead and"
+      },
+      {
+        "start": 822.88,
+        "duration": 6.12,
+        "text": "made this Vector store class okay this"
+      },
+      {
+        "start": 825.6,
+        "duration": 6.08,
+        "text": "is the worst implementation of vector"
+      },
+      {
+        "start": 829.0,
+        "duration": 5.8,
+        "text": "search of vector search uh but it'll do"
+      },
+      {
+        "start": 831.68,
+        "duration": 5.399,
+        "text": "for now uh you just put a bunch of"
+      },
+      {
+        "start": 834.8,
+        "duration": 4.12,
+        "text": "vectors in it and then when you want to"
+      },
+      {
+        "start": 837.079,
+        "duration": 4.68,
+        "text": "find the nearest neighbor of some some"
+      },
+      {
+        "start": 838.92,
+        "duration": 5.88,
+        "text": "query Vector it just does a Brute Force"
+      },
+      {
+        "start": 841.759,
+        "duration": 5.681,
+        "text": "search to find the nearest"
+      },
+      {
+        "start": 844.8,
+        "duration": 6.92,
+        "text": "neighbors uh it's real"
+      },
+      {
+        "start": 847.44,
+        "duration": 6.519,
+        "text": "slow but it'll do"
+      },
+      {
+        "start": 851.72,
+        "duration": 6.08,
+        "text": "um and then we"
+      },
+      {
+        "start": 853.959,
+        "duration": 6.641,
+        "text": "populate that Vector store uh with all"
+      },
+      {
+        "start": 857.8,
+        "duration": 5.52,
+        "text": "the images from our data set using that"
+      },
+      {
+        "start": 860.6,
+        "duration": 5.76,
+        "text": "extract style Vector uh function from"
+      },
+      {
+        "start": 863.32,
+        "duration": 3.04,
+        "text": "earlier to create our"
+      },
+      {
+        "start": 867.68,
+        "duration": 3.519,
+        "text": "embeddings"
+      },
+      {
+        "start": 869.92,
+        "duration": 2.8,
+        "text": "oh and this is just some code for"
+      },
+      {
+        "start": 871.199,
+        "duration": 5.601,
+        "text": "loading an image"
+      },
+      {
+        "start": 872.72,
+        "duration": 4.08,
+        "text": "and searching the vector"
+      },
+      {
+        "start": 876.88,
+        "duration": 4.24,
+        "text": "store and this this code here isn't very"
+      },
+      {
+        "start": 879.32,
+        "duration": 7.72,
+        "text": "interesting is for displaying the image"
+      },
+      {
+        "start": 881.12,
+        "duration": 8.0,
+        "text": "results we get um okay so now ready to"
+      },
+      {
+        "start": 887.04,
+        "duration": 4.68,
+        "text": "do a"
+      },
+      {
+        "start": 889.12,
+        "duration": 5.48,
+        "text": "search so we're ping passing the search"
+      },
+      {
+        "start": 891.72,
+        "duration": 5.76,
+        "text": "and display function our Vector"
+      },
+      {
+        "start": 894.6,
+        "duration": 6.52,
+        "text": "store uh a path to an image it's going"
+      },
+      {
+        "start": 897.48,
+        "duration": 7.479,
+        "text": "to be that same starring night image and"
+      },
+      {
+        "start": 901.12,
+        "duration": 5.959,
+        "text": "the uh uh function to use to extract and"
+      },
+      {
+        "start": 904.959,
+        "duration": 4.641,
+        "text": "embedding from our query"
+      },
+      {
+        "start": 907.079,
+        "duration": 5.241,
+        "text": "image and this is what we get back so"
+      },
+      {
+        "start": 909.6,
+        "duration": 2.72,
+        "text": "here's our query"
+      },
+      {
+        "start": 912.36,
+        "duration": 6.52,
+        "text": "image and here's our top search result"
+      },
+      {
+        "start": 915.68,
+        "duration": 6.44,
+        "text": "star night star night is in the style of"
+      },
+      {
+        "start": 918.88,
+        "duration": 3.24,
+        "text": "itself that's good"
+      },
+      {
+        "start": 922.32,
+        "duration": 7.04,
+        "text": "news and then we get uh another van go"
+      },
+      {
+        "start": 926.199,
+        "duration": 7.841,
+        "text": "painting uh and we should expect that uh"
+      },
+      {
+        "start": 929.36,
+        "duration": 4.68,
+        "text": "Vincent Van go has a pretty distinctive"
+      },
+      {
+        "start": 935.48,
+        "duration": 6.56,
+        "text": "style I said uh uh Vincent Van go is a"
+      },
+      {
+        "start": 939.92,
+        "duration": 5.32,
+        "text": "pretty distinctive style but then who's"
+      },
+      {
+        "start": 942.04,
+        "duration": 6.719,
+        "text": "this French dude uh too"
+      },
+      {
+        "start": 945.24,
+        "duration": 6.599,
+        "text": "latrek well it it turns out that too"
+      },
+      {
+        "start": 948.759,
+        "duration": 6.241,
+        "text": "latrek new Vincent Van go he even"
+      },
+      {
+        "start": 951.839,
+        "duration": 5.521,
+        "text": "painted a a portrait of them and uh the"
+      },
+      {
+        "start": 955.0,
+        "duration": 5.8,
+        "text": "two of them have been noted for having"
+      },
+      {
+        "start": 957.36,
+        "duration": 6.12,
+        "text": "some similarities in their style uh so"
+      },
+      {
+        "start": 960.8,
+        "duration": 5.08,
+        "text": "it's not surprising to see him in the"
+      },
+      {
+        "start": 963.48,
+        "duration": 2.4,
+        "text": "search"
+      },
+      {
+        "start": 966.48,
+        "duration": 9.0,
+        "text": "results and then we get a van go and a"
+      },
+      {
+        "start": 970.04,
+        "duration": 6.68,
+        "text": "van go and a van go and a van go and a"
+      },
+      {
+        "start": 975.48,
+        "duration": 5.44,
+        "text": "van"
+      },
+      {
+        "start": 976.72,
+        "duration": 5.599,
+        "text": "go uh Picasso that got lost in the van"
+      },
+      {
+        "start": 980.92,
+        "duration": 5.2,
+        "text": "go"
+      },
+      {
+        "start": 982.319,
+        "duration": 7.361,
+        "text": "exhibit and a van go"
+      },
+      {
+        "start": 986.12,
+        "duration": 6.079,
+        "text": "so eight van go one Bango doppelganger"
+      },
+      {
+        "start": 989.68,
+        "duration": 4.519,
+        "text": "and a lost Picasso looks like it's"
+      },
+      {
+        "start": 992.199,
+        "duration": 5.64,
+        "text": "working to"
+      },
+      {
+        "start": 994.199,
+        "duration": 3.64,
+        "text": "me but there's a"
+      },
+      {
+        "start": 998.279,
+        "duration": 6.12,
+        "text": "problem the embeddings we have are 3,000"
+      },
+      {
+        "start": 1002.6,
+        "duration": 5.039,
+        "text": "dimensions in"
+      },
+      {
+        "start": 1004.399,
+        "duration": 7.401,
+        "text": "size uh which is a bit on the large side"
+      },
+      {
+        "start": 1007.639,
+        "duration": 7.68,
+        "text": "for reference chat GPT embeddings are"
+      },
+      {
+        "start": 1011.8,
+        "duration": 7.479,
+        "text": "about 1500 dimensions and really even"
+      },
+      {
+        "start": 1015.319,
+        "duration": 4.96,
+        "text": "that's kind of big um but why do we care"
+      },
+      {
+        "start": 1019.279,
+        "duration": 4.52,
+        "text": "about"
+      },
+      {
+        "start": 1020.279,
+        "duration": 6.28,
+        "text": "this well the runtime of vector"
+      },
+      {
+        "start": 1023.799,
+        "duration": 4.16,
+        "text": "search uh is in terms of the the number"
+      },
+      {
+        "start": 1026.559,
+        "duration": 4.28,
+        "text": "of ss"
+      },
+      {
+        "start": 1027.959,
+        "duration": 5.921,
+        "text": "tables times the number of vector"
+      },
+      {
+        "start": 1030.839,
+        "duration": 4.681,
+        "text": "Dimensions times the log of the number"
+      },
+      {
+        "start": 1033.88,
+        "duration": 4.52,
+        "text": "of"
+      },
+      {
+        "start": 1035.52,
+        "duration": 4.88,
+        "text": "vectors this means the the vector search"
+      },
+      {
+        "start": 1038.4,
+        "duration": 5.799,
+        "text": "performance is"
+      },
+      {
+        "start": 1040.4,
+        "duration": 8.36,
+        "text": "linear with respect to your vector"
+      },
+      {
+        "start": 1044.199,
+        "duration": 6.801,
+        "text": "Dimensions so if you can have the size"
+      },
+      {
+        "start": 1048.76,
+        "duration": 3.84,
+        "text": "of your embeddings you can actually"
+      },
+      {
+        "start": 1051.0,
+        "duration": 5.24,
+        "text": "double the"
+      },
+      {
+        "start": 1052.6,
+        "duration": 3.64,
+        "text": "performance at least on"
+      },
+      {
+        "start": 1056.88,
+        "duration": 4.64,
+        "text": "paper"
+      },
+      {
+        "start": 1058.799,
+        "duration": 5.841,
+        "text": "right so how do we do"
+      },
+      {
+        "start": 1061.52,
+        "duration": 4.88,
+        "text": "that um well there are a number of ways"
+      },
+      {
+        "start": 1064.64,
+        "duration": 3.6,
+        "text": "you could use principal component"
+      },
+      {
+        "start": 1066.4,
+        "duration": 5.36,
+        "text": "analysis for"
+      },
+      {
+        "start": 1068.24,
+        "duration": 8.36,
+        "text": "example uh but I have the pie torch"
+      },
+      {
+        "start": 1071.76,
+        "duration": 9.76,
+        "text": "hammer in my hand and I'm going to use"
+      },
+      {
+        "start": 1076.6,
+        "duration": 4.92,
+        "text": "it we're going to build an auto"
+      },
+      {
+        "start": 1088.72,
+        "duration": 4.68,
+        "text": "encoder oh here let me get my uh let me"
+      },
+      {
+        "start": 1092.08,
+        "duration": 3.959,
+        "text": "get my face out of the way of the"
+      },
+      {
+        "start": 1093.4,
+        "duration": 5.68,
+        "text": "diagram there we"
+      },
+      {
+        "start": 1096.039,
+        "duration": 6.721,
+        "text": "go so what is an auto"
+      },
+      {
+        "start": 1099.08,
+        "duration": 8.0,
+        "text": "encoder well this particular Auto"
+      },
+      {
+        "start": 1102.76,
+        "duration": 7.919,
+        "text": "encoder is just a fully connected"
+      },
+      {
+        "start": 1107.08,
+        "duration": 7.32,
+        "text": "Network and um we're going to set it up"
+      },
+      {
+        "start": 1110.679,
+        "duration": 6.601,
+        "text": "to have uh roughly uh 3,000 dimensions"
+      },
+      {
+        "start": 1114.4,
+        "duration": 4.279,
+        "text": "for its input the same size as our"
+      },
+      {
+        "start": 1117.28,
+        "duration": 4.56,
+        "text": "current style"
+      },
+      {
+        "start": 1118.679,
+        "duration": 5.36,
+        "text": "embeddings and roughly 3,000"
+      },
+      {
+        "start": 1121.84,
+        "duration": 4.8,
+        "text": "Dimensions uh for the"
+      },
+      {
+        "start": 1124.039,
+        "duration": 3.721,
+        "text": "output again the same size as our"
+      },
+      {
+        "start": 1126.64,
+        "duration": 4.44,
+        "text": "current style"
+      },
+      {
+        "start": 1127.76,
+        "duration": 4.56,
+        "text": "embeddings and then we will train it"
+      },
+      {
+        "start": 1131.08,
+        "duration": 4.52,
+        "text": "such"
+      },
+      {
+        "start": 1132.32,
+        "duration": 6.239,
+        "text": "that when we put a style Vector in the"
+      },
+      {
+        "start": 1135.6,
+        "duration": 5.16,
+        "text": "input we'll get that same style vector"
+      },
+      {
+        "start": 1138.559,
+        "duration": 3.801,
+        "text": "back in the"
+      },
+      {
+        "start": 1140.76,
+        "duration": 4.64,
+        "text": "output"
+      },
+      {
+        "start": 1142.36,
+        "duration": 6.04,
+        "text": "now that sounds pretty useless right"
+      },
+      {
+        "start": 1145.4,
+        "duration": 6.519,
+        "text": "like what good is a model that just"
+      },
+      {
+        "start": 1148.4,
+        "duration": 5.48,
+        "text": "reproduces its inputs and its"
+      },
+      {
+        "start": 1151.919,
+        "duration": 4.841,
+        "text": "outputs well the"
+      },
+      {
+        "start": 1153.88,
+        "duration": 3.919,
+        "text": "secret is this bottleneck right here in"
+      },
+      {
+        "start": 1156.76,
+        "duration": 4.36,
+        "text": "the"
+      },
+      {
+        "start": 1157.799,
+        "duration": 6.161,
+        "text": "middle because why the in input and the"
+      },
+      {
+        "start": 1161.12,
+        "duration": 5.24,
+        "text": "output will be uh roughly 3,000"
+      },
+      {
+        "start": 1163.96,
+        "duration": 5.52,
+        "text": "dimensions in size we're going to make"
+      },
+      {
+        "start": 1166.36,
+        "duration": 6.24,
+        "text": "this bottleneck about 500 dimensions in"
+      },
+      {
+        "start": 1169.48,
+        "duration": 6.16,
+        "text": "size so6 the"
+      },
+      {
+        "start": 1172.6,
+        "duration": 7.36,
+        "text": "size and since the only way information"
+      },
+      {
+        "start": 1175.64,
+        "duration": 6.0,
+        "text": "can get from the input to the output is"
+      },
+      {
+        "start": 1179.96,
+        "duration": 4.48,
+        "text": "through this"
+      },
+      {
+        "start": 1181.64,
+        "duration": 5.039,
+        "text": "bottleneck if we can train this model to"
+      },
+      {
+        "start": 1184.44,
+        "duration": 3.08,
+        "text": "successfully reproduce its inputs and"
+      },
+      {
+        "start": 1186.679,
+        "duration": 4.841,
+        "text": "its"
+      },
+      {
+        "start": 1187.52,
+        "duration": 8.44,
+        "text": "outputs then all the information needed"
+      },
+      {
+        "start": 1191.52,
+        "duration": 7.96,
+        "text": "to reproduce the inputs is necessarily"
+      },
+      {
+        "start": 1195.96,
+        "duration": 5.28,
+        "text": "available to us at this bottleneck"
+      },
+      {
+        "start": 1199.48,
+        "duration": 4.96,
+        "text": "so after we train the"
+      },
+      {
+        "start": 1201.24,
+        "duration": 4.919,
+        "text": "network we can throw out this decoder"
+      },
+      {
+        "start": 1204.44,
+        "duration": 4.52,
+        "text": "portion these yellow"
+      },
+      {
+        "start": 1206.159,
+        "duration": 6.4,
+        "text": "circles and just use the remainder"
+      },
+      {
+        "start": 1208.96,
+        "duration": 6.599,
+        "text": "encoder portion to take our 3,000"
+      },
+      {
+        "start": 1212.559,
+        "duration": 6.321,
+        "text": "dimensional vectors and turn them into"
+      },
+      {
+        "start": 1215.559,
+        "duration": 3.321,
+        "text": "500 dimensional"
+      },
+      {
+        "start": 1222.84,
+        "duration": 7.319,
+        "text": "vectors all right so let's do it let's"
+      },
+      {
+        "start": 1226.44,
+        "duration": 3.719,
+        "text": "build this thing"
+      },
+      {
+        "start": 1230.28,
+        "duration": 4.84,
+        "text": "so we're going to say the style Vector"
+      },
+      {
+        "start": 1232.559,
+        "duration": 7.841,
+        "text": "is 512 dimensions that's going to be the"
+      },
+      {
+        "start": 1235.12,
+        "duration": 5.28,
+        "text": "the the reduced size uh style"
+      },
+      {
+        "start": 1240.88,
+        "duration": 4.2,
+        "text": "Vector here's the code to to build the"
+      },
+      {
+        "start": 1243.24,
+        "duration": 4.439,
+        "text": "network this is actually pretty"
+      },
+      {
+        "start": 1245.08,
+        "duration": 5.8,
+        "text": "straightforward uh this here is the"
+      },
+      {
+        "start": 1247.679,
+        "duration": 6.961,
+        "text": "encoder uh part of the"
+      },
+      {
+        "start": 1250.88,
+        "duration": 6.24,
+        "text": "model and it's just a a couple of linear"
+      },
+      {
+        "start": 1254.64,
+        "duration": 5.48,
+        "text": "layers with some R"
+      },
+      {
+        "start": 1257.12,
+        "duration": 3.0,
+        "text": "activations"
+      },
+      {
+        "start": 1261.4,
+        "duration": 7.759,
+        "text": "here's the auto encoder um the encoder"
+      },
+      {
+        "start": 1265.48,
+        "duration": 7.0,
+        "text": "sections just and just from that class"
+      },
+      {
+        "start": 1269.159,
+        "duration": 5.081,
+        "text": "above we instantiate here and then the"
+      },
+      {
+        "start": 1272.48,
+        "duration": 3.679,
+        "text": "decoder portion of this actually looks"
+      },
+      {
+        "start": 1274.24,
+        "duration": 5.24,
+        "text": "very similar it is also just a couple of"
+      },
+      {
+        "start": 1276.159,
+        "duration": 3.321,
+        "text": "linear layers with some Rel"
+      },
+      {
+        "start": 1279.52,
+        "duration": 4.96,
+        "text": "activations and then when we uh uh"
+      },
+      {
+        "start": 1282.08,
+        "duration": 7.959,
+        "text": "invoke this thing we're going to pass it"
+      },
+      {
+        "start": 1284.48,
+        "duration": 9.48,
+        "text": "as input uh some uh style embeddings"
+      },
+      {
+        "start": 1290.039,
+        "duration": 6.76,
+        "text": "it'll pass those style embeddings to the"
+      },
+      {
+        "start": 1293.96,
+        "duration": 5.199,
+        "text": "encoder so we're going to get as input"
+      },
+      {
+        "start": 1296.799,
+        "duration": 4.76,
+        "text": "the larger style embeddings the 3,000"
+      },
+      {
+        "start": 1299.159,
+        "duration": 5.321,
+        "text": "dimensional ones we're going to pass"
+      },
+      {
+        "start": 1301.559,
+        "duration": 5.441,
+        "text": "those 3,000 dimensional uh embeddings to"
+      },
+      {
+        "start": 1304.48,
+        "duration": 6.76,
+        "text": "our encoder which is going to return"
+      },
+      {
+        "start": 1307.0,
+        "duration": 5.96,
+        "text": "some 500 dimensional uh embeddings and"
+      },
+      {
+        "start": 1311.24,
+        "duration": 5.96,
+        "text": "then those embeddings will be passed to"
+      },
+      {
+        "start": 1312.96,
+        "duration": 5.64,
+        "text": "our decoder which will return 3,000"
+      },
+      {
+        "start": 1317.2,
+        "duration": 5.28,
+        "text": "dimensional"
+      },
+      {
+        "start": 1318.6,
+        "duration": 3.88,
+        "text": "uh embeddings again which we will then"
+      },
+      {
+        "start": 1322.64,
+        "duration": 5.24,
+        "text": "return now to train this thing we're"
+      },
+      {
+        "start": 1324.919,
+        "duration": 6.36,
+        "text": "actually going to get a another uh"
+      },
+      {
+        "start": 1327.88,
+        "duration": 6.399,
+        "text": "larger uh image data set this one's the"
+      },
+      {
+        "start": 1331.279,
+        "duration": 7.721,
+        "text": "wiki art uh data set that comes from"
+      },
+      {
+        "start": 1334.279,
+        "duration": 4.721,
+        "text": "some uh data dump of wikiart.org"
+      },
+      {
+        "start": 1339.44,
+        "duration": 6.92,
+        "text": "there's about 880,000 images in this"
+      },
+      {
+        "start": 1342.32,
+        "duration": 4.04,
+        "text": "data set from about 130 different"
+      },
+      {
+        "start": 1346.679,
+        "duration": 5.281,
+        "text": "artists are all right now the trainings"
+      },
+      {
+        "start": 1349.919,
+        "duration": 4.521,
+        "text": "the training here is pretty"
+      },
+      {
+        "start": 1351.96,
+        "duration": 4.28,
+        "text": "straightforward we iterate over all the"
+      },
+      {
+        "start": 1354.44,
+        "duration": 4.839,
+        "text": "elements in our training"
+      },
+      {
+        "start": 1356.24,
+        "duration": 7.6,
+        "text": "data we get the"
+      },
+      {
+        "start": 1359.279,
+        "duration": 6.041,
+        "text": "images uh we get the uh uh features"
+      },
+      {
+        "start": 1363.84,
+        "duration": 5.12,
+        "text": "using the"
+      },
+      {
+        "start": 1365.32,
+        "duration": 5.68,
+        "text": "vgg19 uh model these features are again"
+      },
+      {
+        "start": 1368.96,
+        "duration": 6.36,
+        "text": "that that dictionary mapping"
+      },
+      {
+        "start": 1371.0,
+        "duration": 4.32,
+        "text": "convolutional layer names to feature map"
+      },
+      {
+        "start": 1375.36,
+        "duration": 5.52,
+        "text": "values we extract the style vectors"
+      },
+      {
+        "start": 1378.4,
+        "duration": 6.159,
+        "text": "these are the large style of vectors the"
+      },
+      {
+        "start": 1380.88,
+        "duration": 3.679,
+        "text": "uh the 3,000 dimensional"
+      },
+      {
+        "start": 1384.799,
+        "duration": 4.961,
+        "text": "ones we pass that to our Auto encoder"
+      },
+      {
+        "start": 1388.24,
+        "duration": 7.559,
+        "text": "which returns to"
+      },
+      {
+        "start": 1389.76,
+        "duration": 8.68,
+        "text": "us uh what we hope are the same uh"
+      },
+      {
+        "start": 1395.799,
+        "duration": 4.161,
+        "text": "embeddings we then compute a loss to"
+      },
+      {
+        "start": 1398.44,
+        "duration": 4.0,
+        "text": "that"
+      },
+      {
+        "start": 1399.96,
+        "duration": 6.12,
+        "text": "effect and then we back propagate to"
+      },
+      {
+        "start": 1402.44,
+        "duration": 8.0,
+        "text": "update the weights in our model and then"
+      },
+      {
+        "start": 1406.08,
+        "duration": 6.92,
+        "text": "we do that for some period of"
+      },
+      {
+        "start": 1410.44,
+        "duration": 5.56,
+        "text": "time when we're done training we save"
+      },
+      {
+        "start": 1413.0,
+        "duration": 5.919,
+        "text": "the model very important"
+      },
+      {
+        "start": 1416.0,
+        "duration": 4.84,
+        "text": "step and then here we load it again what"
+      },
+      {
+        "start": 1418.919,
+        "duration": 5.0,
+        "text": "we're loading this time is just the"
+      },
+      {
+        "start": 1420.84,
+        "duration": 5.199,
+        "text": "encoder portion of the"
+      },
+      {
+        "start": 1423.919,
+        "duration": 3.841,
+        "text": "model uh which we can use for doing"
+      },
+      {
+        "start": 1426.039,
+        "duration": 4.721,
+        "text": "dimensionality"
+      },
+      {
+        "start": 1427.76,
+        "duration": 3.0,
+        "text": "reduction"
+      },
+      {
+        "start": 1431.96,
+        "duration": 6.88,
+        "text": "okay now we create a new"
+      },
+      {
+        "start": 1434.76,
+        "duration": 8.159,
+        "text": "function to extract uh a sty style"
+      },
+      {
+        "start": 1438.84,
+        "duration": 7.52,
+        "text": "Vector called extract small style Vector"
+      },
+      {
+        "start": 1442.919,
+        "duration": 5.401,
+        "text": "it takes the same uh input of a"
+      },
+      {
+        "start": 1446.36,
+        "duration": 4.72,
+        "text": "dictionary of convolutional eror names"
+      },
+      {
+        "start": 1448.32,
+        "duration": 5.959,
+        "text": "to fature map"
+      },
+      {
+        "start": 1451.08,
+        "duration": 6.52,
+        "text": "values it calls the original style"
+      },
+      {
+        "start": 1454.279,
+        "duration": 6.041,
+        "text": "Vector function with that map to get the"
+      },
+      {
+        "start": 1457.6,
+        "duration": 3.8,
+        "text": "large style Vector right the 3,000"
+      },
+      {
+        "start": 1460.32,
+        "duration": 3.959,
+        "text": "dimensional"
+      },
+      {
+        "start": 1461.4,
+        "duration": 5.159,
+        "text": "one it then passes that 3,000"
+      },
+      {
+        "start": 1464.279,
+        "duration": 5.601,
+        "text": "dimensional Vector to our"
+      },
+      {
+        "start": 1466.559,
+        "duration": 5.401,
+        "text": "encoder which returns a 500 dimensional"
+      },
+      {
+        "start": 1469.88,
+        "duration": 4.399,
+        "text": "Vector which we then"
+      },
+      {
+        "start": 1471.96,
+        "duration": 5.199,
+        "text": "return and just like that we have"
+      },
+      {
+        "start": 1474.279,
+        "duration": 4.52,
+        "text": "embeddings of a reduced size of one six"
+      },
+      {
+        "start": 1477.159,
+        "duration": 4.64,
+        "text": "the size in"
+      },
+      {
+        "start": 1478.799,
+        "duration": 3.0,
+        "text": "fact"
+      },
+      {
+        "start": 1483.0,
+        "duration": 5.0,
+        "text": "um all"
+      },
+      {
+        "start": 1484.76,
+        "duration": 7.48,
+        "text": "right then we uh"
+      },
+      {
+        "start": 1488.0,
+        "duration": 6.32,
+        "text": "repopulate uh a a new Vector store with"
+      },
+      {
+        "start": 1492.24,
+        "duration": 5.0,
+        "text": "the images from"
+      },
+      {
+        "start": 1494.32,
+        "duration": 4.12,
+        "text": "that greatest artworks of all time data"
+      },
+      {
+        "start": 1497.24,
+        "duration": 5.6,
+        "text": "set"
+      },
+      {
+        "start": 1498.44,
+        "duration": 7.32,
+        "text": "um using the uh small style Vector this"
+      },
+      {
+        "start": 1502.84,
+        "duration": 5.04,
+        "text": "time to populate it and then we do our"
+      },
+      {
+        "start": 1505.76,
+        "duration": 4.88,
+        "text": "search again and what we're hoping to"
+      },
+      {
+        "start": 1507.88,
+        "duration": 6.64,
+        "text": "find is that we get search results that"
+      },
+      {
+        "start": 1510.64,
+        "duration": 6.88,
+        "text": "are basically the same so here we go"
+      },
+      {
+        "start": 1514.52,
+        "duration": 4.36,
+        "text": "here's our query image again star night"
+      },
+      {
+        "start": 1517.52,
+        "duration": 4.84,
+        "text": "and our top"
+      },
+      {
+        "start": 1518.88,
+        "duration": 6.519,
+        "text": "result star night star night still in"
+      },
+      {
+        "start": 1522.36,
+        "duration": 6.88,
+        "text": "the style of itself off to a good"
+      },
+      {
+        "start": 1525.399,
+        "duration": 5.88,
+        "text": "start next result Aang"
+      },
+      {
+        "start": 1529.24,
+        "duration": 8.679,
+        "text": "go Vang go"
+      },
+      {
+        "start": 1531.279,
+        "duration": 11.561,
+        "text": "doppelganger van goang goang go van go"
+      },
+      {
+        "start": 1537.919,
+        "duration": 8.161,
+        "text": "van go van go uh and a Picasso uh still"
+      },
+      {
+        "start": 1542.84,
+        "duration": 3.24,
+        "text": "lost in the vano"
+      },
+      {
+        "start": 1546.279,
+        "duration": 5.081,
+        "text": "exhibit so looks pretty good we're still"
+      },
+      {
+        "start": 1548.76,
+        "duration": 6.32,
+        "text": "getting you know eight van go a van go"
+      },
+      {
+        "start": 1551.36,
+        "duration": 3.72,
+        "text": "doppelganger and a lost"
+      },
+      {
+        "start": 1556.679,
+        "duration": 3.0,
+        "text": "Picasso"
+      },
+      {
+        "start": 1565.679,
+        "duration": 4.72,
+        "text": "but how do we quantify the"
+      },
+      {
+        "start": 1567.52,
+        "duration": 6.6,
+        "text": "results right that result looked pretty"
+      },
+      {
+        "start": 1570.399,
+        "duration": 4.921,
+        "text": "good uh but but how do we get a a kind"
+      },
+      {
+        "start": 1574.12,
+        "duration": 4.88,
+        "text": "of a"
+      },
+      {
+        "start": 1575.32,
+        "duration": 7.56,
+        "text": "robust uh uh metric for determining how"
+      },
+      {
+        "start": 1579.0,
+        "duration": 5.799,
+        "text": "good our results are uh when using this"
+      },
+      {
+        "start": 1582.88,
+        "duration": 3.44,
+        "text": "compression so for that we're going to"
+      },
+      {
+        "start": 1584.799,
+        "duration": 4.441,
+        "text": "use recall at"
+      },
+      {
+        "start": 1586.32,
+        "duration": 5.8,
+        "text": "K uh now now what Rec call it K gives"
+      },
+      {
+        "start": 1589.24,
+        "duration": 7.96,
+        "text": "you is"
+      },
+      {
+        "start": 1592.12,
+        "duration": 5.08,
+        "text": "effectively uh in this case"
+      },
+      {
+        "start": 1597.399,
+        "duration": 6.841,
+        "text": "uh it tells you what percentage of the"
+      },
+      {
+        "start": 1601.12,
+        "duration": 5.12,
+        "text": "results you get back when using your"
+      },
+      {
+        "start": 1604.24,
+        "duration": 4.6,
+        "text": "compressed"
+      },
+      {
+        "start": 1606.24,
+        "duration": 5.559,
+        "text": "embeddings are the same as what you've"
+      },
+      {
+        "start": 1608.84,
+        "duration": 4.319,
+        "text": "gotten back had you used the original"
+      },
+      {
+        "start": 1611.799,
+        "duration": 3.401,
+        "text": "uncompressed"
+      },
+      {
+        "start": 1613.159,
+        "duration": 6.601,
+        "text": "embedding"
+      },
+      {
+        "start": 1615.2,
+        "duration": 8.76,
+        "text": "okay so if we get a a score of"
+      },
+      {
+        "start": 1619.76,
+        "duration": 6.159,
+        "text": "100% that means we get the same results"
+      },
+      {
+        "start": 1623.96,
+        "duration": 5.079,
+        "text": "with our compressed embedding as we"
+      },
+      {
+        "start": 1625.919,
+        "duration": 7.681,
+        "text": "would have using the original embeddings"
+      },
+      {
+        "start": 1629.039,
+        "duration": 4.561,
+        "text": "so we would get an optimal uh uh"
+      },
+      {
+        "start": 1633.72,
+        "duration": 4.679,
+        "text": "result um and whereas 0% means you're"
+      },
+      {
+        "start": 1637.0,
+        "duration": 2.6,
+        "text": "you're basically getting none of the"
+      },
+      {
+        "start": 1638.399,
+        "duration": 3.321,
+        "text": "same results at"
+      },
+      {
+        "start": 1639.6,
+        "duration": 4.64,
+        "text": "all"
+      },
+      {
+        "start": 1641.72,
+        "duration": 4.8,
+        "text": "okay I'm not going to go too much into"
+      },
+      {
+        "start": 1644.24,
+        "duration": 6.52,
+        "text": "EXA exactly how this is"
+      },
+      {
+        "start": 1646.52,
+        "duration": 6.639,
+        "text": "calculated um so I computed recall at"
+      },
+      {
+        "start": 1650.76,
+        "duration": 3.919,
+        "text": "10 and that's because throughout this"
+      },
+      {
+        "start": 1653.159,
+        "duration": 5.721,
+        "text": "demo I'm really just going to be looking"
+      },
+      {
+        "start": 1654.679,
+        "duration": 9.321,
+        "text": "at the top 10 images uh when doing a"
+      },
+      {
+        "start": 1658.88,
+        "duration": 10.84,
+        "text": "search and what I found was that the uh"
+      },
+      {
+        "start": 1664.0,
+        "duration": 8.039,
+        "text": "recall was 79.6% so roughly"
+      },
+      {
+        "start": 1669.72,
+        "duration": 5.12,
+        "text": "80% that means when we do a search with"
+      },
+      {
+        "start": 1672.039,
+        "duration": 6.561,
+        "text": "these compressed embeddings in those top"
+      },
+      {
+        "start": 1674.84,
+        "duration": 5.64,
+        "text": "10 results on average eight of them"
+      },
+      {
+        "start": 1678.6,
+        "duration": 4.0,
+        "text": "would be the same eight images we would"
+      },
+      {
+        "start": 1680.48,
+        "duration": 7.28,
+        "text": "have gotten had we used the full size"
+      },
+      {
+        "start": 1682.6,
+        "duration": 5.16,
+        "text": "embedding so 80% not too"
+      },
+      {
+        "start": 1689.279,
+        "duration": 4.64,
+        "text": "bad"
+      },
+      {
+        "start": 1690.96,
+        "duration": 6.079,
+        "text": "um okay well we did that uh we did that"
+      },
+      {
+        "start": 1693.919,
+        "duration": 5.721,
+        "text": "with uh style embeddings but for uh"
+      },
+      {
+        "start": 1697.039,
+        "duration": 7.0,
+        "text": "comparison sake we'll go ahead and do it"
+      },
+      {
+        "start": 1699.64,
+        "duration": 6.6,
+        "text": "for uh content vectors as well um for"
+      },
+      {
+        "start": 1704.039,
+        "duration": 4.041,
+        "text": "these content vectors uh I'm just going"
+      },
+      {
+        "start": 1706.24,
+        "duration": 4.84,
+        "text": "to use the out"
+      },
+      {
+        "start": 1708.08,
+        "duration": 5.28,
+        "text": "of the penultimate layer which is just a"
+      },
+      {
+        "start": 1711.08,
+        "duration": 4.959,
+        "text": "fancy way of saying the second to last"
+      },
+      {
+        "start": 1713.36,
+        "duration": 6.12,
+        "text": "layer and the penultimate layer in this"
+      },
+      {
+        "start": 1716.039,
+        "duration": 7.721,
+        "text": "case is a layer right before the soft"
+      },
+      {
+        "start": 1719.48,
+        "duration": 4.28,
+        "text": "Max this layer right"
+      },
+      {
+        "start": 1727.84,
+        "duration": 6.0,
+        "text": "here uh scrolling down let going down"
+      },
+      {
+        "start": 1732.44,
+        "duration": 6.959,
+        "text": "and this is a large"
+      },
+      {
+        "start": 1733.84,
+        "duration": 5.559,
+        "text": "notebook all right top Rec okay okay"
+      },
+      {
+        "start": 1739.519,
+        "duration": 3.841,
+        "text": "so we're going to get these vectors for"
+      },
+      {
+        "start": 1741.799,
+        "duration": 3.88,
+        "text": "uh for we're going to get these content"
+      },
+      {
+        "start": 1743.36,
+        "duration": 4.039,
+        "text": "vectors as well and we've got all the"
+      },
+      {
+        "start": 1745.679,
+        "duration": 3.441,
+        "text": "same problems we had before the vectors"
+      },
+      {
+        "start": 1747.399,
+        "duration": 4.28,
+        "text": "are too big so we got to build an auto"
+      },
+      {
+        "start": 1749.12,
+        "duration": 4.279,
+        "text": "encoder to compress them um but we'll go"
+      },
+      {
+        "start": 1751.679,
+        "duration": 5.72,
+        "text": "ahead and Skip all that this is really"
+      },
+      {
+        "start": 1753.399,
+        "duration": 7.52,
+        "text": "all the same sort of stuff we saw"
+      },
+      {
+        "start": 1757.399,
+        "duration": 7.041,
+        "text": "before okay and at long"
+      },
+      {
+        "start": 1760.919,
+        "duration": 8.401,
+        "text": "last we have arrived at the the"
+      },
+      {
+        "start": 1764.44,
+        "duration": 4.88,
+        "text": "Cassandra Vector search portion"
+      },
+      {
+        "start": 1772.919,
+        "duration": 8.801,
+        "text": "so I'm going to start this off with a"
+      },
+      {
+        "start": 1777.519,
+        "duration": 8.081,
+        "text": "PSA so the way I am measuring how"
+      },
+      {
+        "start": 1781.72,
+        "duration": 6.679,
+        "text": "similar two vectors are is I'm I'm"
+      },
+      {
+        "start": 1785.6,
+        "duration": 7.04,
+        "text": "looking at the cosine similarity so I'm"
+      },
+      {
+        "start": 1788.399,
+        "duration": 7.4,
+        "text": "looking for for vectors that have very"
+      },
+      {
+        "start": 1792.64,
+        "duration": 6.68,
+        "text": "small angles between them to understand"
+      },
+      {
+        "start": 1795.799,
+        "duration": 3.521,
+        "text": "how related those vectors are"
+      },
+      {
+        "start": 1799.519,
+        "duration": 7.76,
+        "text": "R now when you're using Cassandra Vector"
+      },
+      {
+        "start": 1803.12,
+        "duration": 6.64,
+        "text": "search it's actually faster to use dot"
+      },
+      {
+        "start": 1807.279,
+        "duration": 5.481,
+        "text": "product"
+      },
+      {
+        "start": 1809.76,
+        "duration": 3.0,
+        "text": "similarity"
+      },
+      {
+        "start": 1813.6,
+        "duration": 6.079,
+        "text": "now the dot product and the cosine are"
+      },
+      {
+        "start": 1818.039,
+        "duration": 5.401,
+        "text": "the"
+      },
+      {
+        "start": 1819.679,
+        "duration": 7.401,
+        "text": "same so long as your vectors are unit"
+      },
+      {
+        "start": 1823.44,
+        "duration": 6.0,
+        "text": "vectors and and to see why that is if we"
+      },
+      {
+        "start": 1827.08,
+        "duration": 5.04,
+        "text": "look look at how the dot product is"
+      },
+      {
+        "start": 1829.44,
+        "duration": 3.8,
+        "text": "defined the dot product between vectors"
+      },
+      {
+        "start": 1832.12,
+        "duration": 4.96,
+        "text": "A and"
+      },
+      {
+        "start": 1833.24,
+        "duration": 6.76,
+        "text": "B is equal to the magnitude of vector a"
+      },
+      {
+        "start": 1837.08,
+        "duration": 5.439,
+        "text": "times the magnitude of vector B times"
+      },
+      {
+        "start": 1840.0,
+        "duration": 5.72,
+        "text": "the coine of the angle in between"
+      },
+      {
+        "start": 1842.519,
+        "duration": 5.561,
+        "text": "them but if vectors A and B are unit"
+      },
+      {
+        "start": 1845.72,
+        "duration": 6.12,
+        "text": "vectors then their magnitudes are just"
+      },
+      {
+        "start": 1848.08,
+        "duration": 7.199,
+        "text": "one right in which case the dotproduct"
+      },
+      {
+        "start": 1851.84,
+        "duration": 6.0,
+        "text": "and the cosine are the"
+      },
+      {
+        "start": 1855.279,
+        "duration": 6.52,
+        "text": "same now if the only thing you care"
+      },
+      {
+        "start": 1857.84,
+        "duration": 5.559,
+        "text": "about is the angles between your vectors"
+      },
+      {
+        "start": 1861.799,
+        "duration": 5.561,
+        "text": "then there really is no reason why you"
+      },
+      {
+        "start": 1863.399,
+        "duration": 7.801,
+        "text": "can't just turn them in to unit vectors"
+      },
+      {
+        "start": 1867.36,
+        "duration": 5.799,
+        "text": "and use dot product similarity uh for"
+      },
+      {
+        "start": 1871.2,
+        "duration": 4.959,
+        "text": "your for your"
+      },
+      {
+        "start": 1873.159,
+        "duration": 3.0,
+        "text": "search"
+      },
+      {
+        "start": 1876.32,
+        "duration": 5.68,
+        "text": "however let me show you the the code I"
+      },
+      {
+        "start": 1879.24,
+        "duration": 5.559,
+        "text": "have for for loading"
+      },
+      {
+        "start": 1882.0,
+        "duration": 6.44,
+        "text": "data into the database all right here we"
+      },
+      {
+        "start": 1884.799,
+        "duration": 7.041,
+        "text": "go you see I have these assertions"
+      },
+      {
+        "start": 1888.44,
+        "duration": 7.239,
+        "text": "here these assertions ensure that the"
+      },
+      {
+        "start": 1891.84,
+        "duration": 5.679,
+        "text": "vectors I have really are unit vectors"
+      },
+      {
+        "start": 1895.679,
+        "duration": 4.0,
+        "text": "and that's important because if you're"
+      },
+      {
+        "start": 1897.519,
+        "duration": 5.241,
+        "text": "using dotproduct"
+      },
+      {
+        "start": 1899.679,
+        "duration": 6.161,
+        "text": "similarity and uh your vectors are not"
+      },
+      {
+        "start": 1902.76,
+        "duration": 5.44,
+        "text": "unit vectors you're going to get some"
+      },
+      {
+        "start": 1905.84,
+        "duration": 5.12,
+        "text": "very confusing"
+      },
+      {
+        "start": 1908.2,
+        "duration": 5.599,
+        "text": "results now I could I wish I could say"
+      },
+      {
+        "start": 1910.96,
+        "duration": 6.36,
+        "text": "that these assertions I have here were"
+      },
+      {
+        "start": 1913.799,
+        "duration": 8.281,
+        "text": "original to this function but sadly they"
+      },
+      {
+        "start": 1917.32,
+        "duration": 6.079,
+        "text": "were not I had some very confusing and"
+      },
+      {
+        "start": 1922.08,
+        "duration": 4.52,
+        "text": "frustrating"
+      },
+      {
+        "start": 1923.399,
+        "duration": 5.28,
+        "text": "results uh until I realized that what I"
+      },
+      {
+        "start": 1926.6,
+        "duration": 4.48,
+        "text": "thought were unit vectors were in fact"
+      },
+      {
+        "start": 1928.679,
+        "duration": 4.161,
+        "text": "not and added these checks and then I"
+      },
+      {
+        "start": 1931.08,
+        "duration": 5.079,
+        "text": "got to reload all the data all over"
+      },
+      {
+        "start": 1932.84,
+        "duration": 6.12,
+        "text": "again so save yourself a few hours of"
+      },
+      {
+        "start": 1936.159,
+        "duration": 5.841,
+        "text": "frustration and test your code before"
+      },
+      {
+        "start": 1938.96,
+        "duration": 5.959,
+        "text": "you load a bunch of data into the"
+      },
+      {
+        "start": 1942.0,
+        "duration": 5.6,
+        "text": "database all"
+      },
+      {
+        "start": 1944.919,
+        "duration": 5.921,
+        "text": "right now this talk really isn't"
+      },
+      {
+        "start": 1947.6,
+        "duration": 6.64,
+        "text": "on uh best practices when when making a"
+      },
+      {
+        "start": 1950.84,
+        "duration": 8.04,
+        "text": "schema uh for Cassandra uh but I will"
+      },
+      {
+        "start": 1954.24,
+        "duration": 7.559,
+        "text": "show you what I did uh I made two"
+      },
+      {
+        "start": 1958.88,
+        "duration": 4.0,
+        "text": "tables one table I'm going to use for"
+      },
+      {
+        "start": 1961.799,
+        "duration": 3.48,
+        "text": "the style"
+      },
+      {
+        "start": 1962.88,
+        "duration": 6.279,
+        "text": "vectors and another table I'm going to"
+      },
+      {
+        "start": 1965.279,
+        "duration": 3.88,
+        "text": "use for the content"
+      },
+      {
+        "start": 1970.76,
+        "duration": 5.919,
+        "text": "vectors um and in these tables I store"
+      },
+      {
+        "start": 1974.559,
+        "duration": 4.36,
+        "text": "some basic information about the images"
+      },
+      {
+        "start": 1976.679,
+        "duration": 3.761,
+        "text": "like the file name the artist the"
+      },
+      {
+        "start": 1978.919,
+        "duration": 5.88,
+        "text": "artistic"
+      },
+      {
+        "start": 1980.44,
+        "duration": 7.079,
+        "text": "movement and I also store the compressed"
+      },
+      {
+        "start": 1984.799,
+        "duration": 6.36,
+        "text": "embedding the reduced sized"
+      },
+      {
+        "start": 1987.519,
+        "duration": 7.28,
+        "text": "embeddings as well as the original"
+      },
+      {
+        "start": 1991.159,
+        "duration": 6.681,
+        "text": "embeddings and I'll explain why uh later"
+      },
+      {
+        "start": 1994.799,
+        "duration": 7.641,
+        "text": "uh why I store"
+      },
+      {
+        "start": 1997.84,
+        "duration": 8.719,
+        "text": "both for the uh uh style table I"
+      },
+      {
+        "start": 2002.44,
+        "duration": 6.4,
+        "text": "actually index on both the full size"
+      },
+      {
+        "start": 2006.559,
+        "duration": 4.921,
+        "text": "embedded ings and the reduced size"
+      },
+      {
+        "start": 2008.84,
+        "duration": 5.48,
+        "text": "embeddings uh in practice I would not do"
+      },
+      {
+        "start": 2011.48,
+        "duration": 5.72,
+        "text": "that I would just index on the reduced"
+      },
+      {
+        "start": 2014.32,
+        "duration": 6.319,
+        "text": "size embeddings but for demonstration"
+      },
+      {
+        "start": 2017.2,
+        "duration": 6.599,
+        "text": "purposes I'm going to index on"
+      },
+      {
+        "start": 2020.639,
+        "duration": 5.92,
+        "text": "both and then for the the uh content"
+      },
+      {
+        "start": 2023.799,
+        "duration": 5.161,
+        "text": "vectors again I store both the the"
+      },
+      {
+        "start": 2026.559,
+        "duration": 4.921,
+        "text": "original uh embeddings and the reduced"
+      },
+      {
+        "start": 2028.96,
+        "duration": 7.0,
+        "text": "size ones uh but for the content vectors"
+      },
+      {
+        "start": 2031.48,
+        "duration": 7.48,
+        "text": "I I just index the reduced size uh"
+      },
+      {
+        "start": 2035.96,
+        "duration": 3.0,
+        "text": "embeddings"
+      },
+      {
+        "start": 2039.24,
+        "duration": 3.36,
+        "text": "okay this code insert the DAT is really"
+      },
+      {
+        "start": 2041.039,
+        "duration": 5.081,
+        "text": "not that"
+      },
+      {
+        "start": 2042.6,
+        "duration": 5.96,
+        "text": "interesting no one cares okay this here"
+      },
+      {
+        "start": 2046.12,
+        "duration": 4.16,
+        "text": "is the query I use to actually do the"
+      },
+      {
+        "start": 2048.56,
+        "duration": 6.16,
+        "text": "vector"
+      },
+      {
+        "start": 2050.28,
+        "duration": 8.319,
+        "text": "search you can see I select out uh uh"
+      },
+      {
+        "start": 2054.72,
+        "duration": 4.879,
+        "text": "the fields from the table I also get the"
+      },
+      {
+        "start": 2058.599,
+        "duration": 5.601,
+        "text": "uh"
+      },
+      {
+        "start": 2059.599,
+        "duration": 6.28,
+        "text": "distance of the uh embedding to the"
+      },
+      {
+        "start": 2064.2,
+        "duration": 4.679,
+        "text": "query"
+      },
+      {
+        "start": 2065.879,
+        "duration": 3.0,
+        "text": "vector"
+      },
+      {
+        "start": 2069.44,
+        "duration": 5.12,
+        "text": "this embedding column here is just going"
+      },
+      {
+        "start": 2071.56,
+        "duration": 4.68,
+        "text": "to be either the uh it's just going to"
+      },
+      {
+        "start": 2074.56,
+        "duration": 4.519,
+        "text": "be the name of the embedding I'm"
+      },
+      {
+        "start": 2076.24,
+        "duration": 5.839,
+        "text": "searching on is it the reduced size"
+      },
+      {
+        "start": 2079.079,
+        "duration": 3.0,
+        "text": "embedding or the original"
+      },
+      {
+        "start": 2082.44,
+        "duration": 6.159,
+        "text": "embedding this here is the query Vector"
+      },
+      {
+        "start": 2086.32,
+        "duration": 4.72,
+        "text": "itself and this is the limit time your"
+      },
+      {
+        "start": 2088.599,
+        "duration": 6.52,
+        "text": "results to get back um we're going to"
+      },
+      {
+        "start": 2091.04,
+        "duration": 4.079,
+        "text": "talk a little bit more about this"
+      },
+      {
+        "start": 2095.879,
+        "duration": 4.321,
+        "text": "later"
+      },
+      {
+        "start": 2097.599,
+        "duration": 5.401,
+        "text": "this query DB function really just"
+      },
+      {
+        "start": 2100.2,
+        "duration": 2.8,
+        "text": "executes this"
+      },
+      {
+        "start": 2105.64,
+        "duration": 7.28,
+        "text": "query I have another uh uh Vector store"
+      },
+      {
+        "start": 2109.8,
+        "duration": 6.24,
+        "text": "class this one has the same interface as"
+      },
+      {
+        "start": 2112.92,
+        "duration": 5.159,
+        "text": "the previous Vector store class and the"
+      },
+      {
+        "start": 2116.04,
+        "duration": 6.28,
+        "text": "real reason I have this is so that we"
+      },
+      {
+        "start": 2118.079,
+        "duration": 4.241,
+        "text": "can do some comparisons later"
+      },
+      {
+        "start": 2123.8,
+        "duration": 6.84,
+        "text": "on here's the search DV function it uh"
+      },
+      {
+        "start": 2130.68,
+        "duration": 6.8,
+        "text": "uh computes the embedding for your query"
+      },
+      {
+        "start": 2133.839,
+        "duration": 4.481,
+        "text": "image um searches the vector store for"
+      },
+      {
+        "start": 2137.48,
+        "duration": 2.48,
+        "text": "the"
+      },
+      {
+        "start": 2138.32,
+        "duration": 7.44,
+        "text": "image"
+      },
+      {
+        "start": 2139.96,
+        "duration": 5.8,
+        "text": "um and uh formats and Returns the"
+      },
+      {
+        "start": 2149.28,
+        "duration": 5.039,
+        "text": "results all right if the uh demo gods"
+      },
+      {
+        "start": 2152.839,
+        "duration": 5.961,
+        "text": "are feeling"
+      },
+      {
+        "start": 2154.319,
+        "duration": 4.481,
+        "text": "merciful this should be running now"
+      },
+      {
+        "start": 2162.319,
+        "duration": 5.241,
+        "text": "and here it is all"
+      },
+      {
+        "start": 2165.359,
+        "duration": 5.24,
+        "text": "right let's go"
+      },
+      {
+        "start": 2167.56,
+        "duration": 5.12,
+        "text": "ahead and do a"
+      },
+      {
+        "start": 2170.599,
+        "duration": 4.401,
+        "text": "search oh I should probably describe"
+      },
+      {
+        "start": 2172.68,
+        "duration": 3.48,
+        "text": "these options here at the top first so"
+      },
+      {
+        "start": 2175.0,
+        "duration": 2.96,
+        "text": "we have some"
+      },
+      {
+        "start": 2176.16,
+        "duration": 5.36,
+        "text": "options"
+      },
+      {
+        "start": 2177.96,
+        "duration": 6.48,
+        "text": "style is to do a search uh using the"
+      },
+      {
+        "start": 2181.52,
+        "duration": 4.2,
+        "text": "style embeddings using the reduced size"
+      },
+      {
+        "start": 2184.44,
+        "duration": 3.44,
+        "text": "Style"
+      },
+      {
+        "start": 2185.72,
+        "duration": 6.2,
+        "text": "embeddings Style"
+      },
+      {
+        "start": 2187.88,
+        "duration": 7.12,
+        "text": "full does a search using the uh full"
+      },
+      {
+        "start": 2191.92,
+        "duration": 3.08,
+        "text": "size style"
+      },
+      {
+        "start": 2195.04,
+        "duration": 5.44,
+        "text": "embeddings styled cheet I will uh"
+      },
+      {
+        "start": 2197.96,
+        "duration": 5.6,
+        "text": "explain"
+      },
+      {
+        "start": 2200.48,
+        "duration": 6.2,
+        "text": "later content does a search using the"
+      },
+      {
+        "start": 2203.56,
+        "duration": 5.92,
+        "text": "reduced size content embedding and"
+      },
+      {
+        "start": 2206.68,
+        "duration": 4.88,
+        "text": "content cheet I will also describe"
+      },
+      {
+        "start": 2209.48,
+        "duration": 4.879,
+        "text": "later all"
+      },
+      {
+        "start": 2211.56,
+        "duration": 4.12,
+        "text": "right so to start out with let's do use"
+      },
+      {
+        "start": 2214.359,
+        "duration": 3.121,
+        "text": "the full size"
+      },
+      {
+        "start": 2215.68,
+        "duration": 3.8,
+        "text": "embedding"
+      },
+      {
+        "start": 2217.48,
+        "duration": 4.4,
+        "text": "and search for Star"
+      },
+      {
+        "start": 2219.48,
+        "duration": 6.119,
+        "text": "Knight here let me"
+      },
+      {
+        "start": 2221.88,
+        "duration": 6.88,
+        "text": "move uh my face there we"
+      },
+      {
+        "start": 2225.599,
+        "duration": 3.161,
+        "text": "go all"
+      },
+      {
+        "start": 2230.0,
+        "duration": 4.28,
+        "text": "right okay Starry Night still in the"
+      },
+      {
+        "start": 2233.16,
+        "duration": 4.64,
+        "text": "style of"
+      },
+      {
+        "start": 2234.28,
+        "duration": 7.0,
+        "text": "itself getting off to a good"
+      },
+      {
+        "start": 2237.8,
+        "duration": 5.64,
+        "text": "start oh let me get a self-portrait of"
+      },
+      {
+        "start": 2241.28,
+        "duration": 4.319,
+        "text": "Vincent Van go"
+      },
+      {
+        "start": 2243.44,
+        "duration": 5.12,
+        "text": "himself another Van"
+      },
+      {
+        "start": 2245.599,
+        "duration": 5.041,
+        "text": "Go and another van"
+      },
+      {
+        "start": 2248.56,
+        "duration": 5.08,
+        "text": "go"
+      },
+      {
+        "start": 2250.64,
+        "duration": 5.679,
+        "text": "um and then we get"
+      },
+      {
+        "start": 2253.64,
+        "duration": 6.04,
+        "text": "this"
+      },
+      {
+        "start": 2256.319,
+        "duration": 6.441,
+        "text": "um not I'm not quite sure how these are"
+      },
+      {
+        "start": 2259.68,
+        "duration": 8.439,
+        "text": "related in terms of their"
+      },
+      {
+        "start": 2262.76,
+        "duration": 5.359,
+        "text": "Style again not not"
+      },
+      {
+        "start": 2268.64,
+        "duration": 6.12,
+        "text": "positive"
+      },
+      {
+        "start": 2271.16,
+        "duration": 7.439,
+        "text": "okay all right another van"
+      },
+      {
+        "start": 2274.76,
+        "duration": 3.839,
+        "text": "go and another Van Go"
+      },
+      {
+        "start": 2280.44,
+        "duration": 5.04,
+        "text": "all right again I'm not totally sure how"
+      },
+      {
+        "start": 2282.48,
+        "duration": 3.0,
+        "text": "this one's style is"
+      },
+      {
+        "start": 2285.72,
+        "duration": 4.639,
+        "text": "similar but we have a number of Vos"
+      },
+      {
+        "start": 2290.4,
+        "duration": 6.24,
+        "text": "here all right let's use the uh"
+      },
+      {
+        "start": 2292.76,
+        "duration": 3.88,
+        "text": "compressed sized"
+      },
+      {
+        "start": 2297.76,
+        "duration": 6.28,
+        "text": "embeddings okay good star night again"
+      },
+      {
+        "start": 2301.28,
+        "duration": 6.0,
+        "text": "that same uh"
+      },
+      {
+        "start": 2304.04,
+        "duration": 5.16,
+        "text": "self-portrait another Van Go another van"
+      },
+      {
+        "start": 2307.28,
+        "duration": 3.52,
+        "text": "go this first set of results is the"
+      },
+      {
+        "start": 2309.2,
+        "duration": 4.119,
+        "text": "exact same as the ones we got from the"
+      },
+      {
+        "start": 2310.8,
+        "duration": 2.519,
+        "text": "full size"
+      },
+      {
+        "start": 2313.44,
+        "duration": 3.0,
+        "text": "eddings"
+      },
+      {
+        "start": 2316.8,
+        "duration": 4.76,
+        "text": "okay"
+      },
+      {
+        "start": 2318.839,
+        "duration": 4.841,
+        "text": "interesting right another van"
+      },
+      {
+        "start": 2321.56,
+        "duration": 4.16,
+        "text": "go I'm not quite sure what it's picking"
+      },
+      {
+        "start": 2323.68,
+        "duration": 4.919,
+        "text": "up on here maybe it's"
+      },
+      {
+        "start": 2325.72,
+        "duration": 5.32,
+        "text": "the Swirls and the"
+      },
+      {
+        "start": 2328.599,
+        "duration": 4.281,
+        "text": "clouds that are causing it to think this"
+      },
+      {
+        "start": 2331.04,
+        "duration": 5.319,
+        "text": "this is in a similar"
+      },
+      {
+        "start": 2332.88,
+        "duration": 5.0,
+        "text": "style okay another van go oh another Van"
+      },
+      {
+        "start": 2336.359,
+        "duration": 3.681,
+        "text": "Go"
+      },
+      {
+        "start": 2337.88,
+        "duration": 4.239,
+        "text": "self-portrait okay this one I can see"
+      },
+      {
+        "start": 2340.04,
+        "duration": 4.44,
+        "text": "the swirls in the picture simar to those"
+      },
+      {
+        "start": 2342.119,
+        "duration": 3.841,
+        "text": "ones in the sky over here okay all right"
+      },
+      {
+        "start": 2344.48,
+        "duration": 3.96,
+        "text": "so there's a"
+      },
+      {
+        "start": 2345.96,
+        "duration": 7.28,
+        "text": "uh there's a style"
+      },
+      {
+        "start": 2348.44,
+        "duration": 7.679,
+        "text": "search uh using uh star KN what happens"
+      },
+      {
+        "start": 2353.24,
+        "duration": 2.879,
+        "text": "if we search on the"
+      },
+      {
+        "start": 2358.04,
+        "duration": 7.4,
+        "text": "content okay very good uh star night has"
+      },
+      {
+        "start": 2362.4,
+        "duration": 6.24,
+        "text": "its own content it's good to"
+      },
+      {
+        "start": 2365.44,
+        "duration": 7.879,
+        "text": "see oh well now this is"
+      },
+      {
+        "start": 2368.64,
+        "duration": 7.36,
+        "text": "interesting I did not know that uh"
+      },
+      {
+        "start": 2373.319,
+        "duration": 5.681,
+        "text": "Vincent Van go sketched out his"
+      },
+      {
+        "start": 2376.0,
+        "duration": 5.92,
+        "text": "paintings before he painted them I"
+      },
+      {
+        "start": 2379.0,
+        "duration": 5.88,
+        "text": "always thought he just uh picked up a"
+      },
+      {
+        "start": 2381.92,
+        "duration": 5.8,
+        "text": "paintbrush and just sort of winged it uh"
+      },
+      {
+        "start": 2384.88,
+        "duration": 5.4,
+        "text": "but I guess he planned it out"
+      },
+      {
+        "start": 2387.72,
+        "duration": 4.639,
+        "text": "first this is very different than than"
+      },
+      {
+        "start": 2390.28,
+        "duration": 4.839,
+        "text": "my work style where I kind of just Dive"
+      },
+      {
+        "start": 2392.359,
+        "duration": 6.041,
+        "text": "Right In and hope that 85 Jupiter cells"
+      },
+      {
+        "start": 2395.119,
+        "duration": 3.281,
+        "text": "later it'll all come together"
+      },
+      {
+        "start": 2398.56,
+        "duration": 4.84,
+        "text": "um okay here's another result based on"
+      },
+      {
+        "start": 2401.839,
+        "duration": 4.48,
+        "text": "content"
+      },
+      {
+        "start": 2403.4,
+        "duration": 6.52,
+        "text": "um now keep in mind this is looking at"
+      },
+      {
+        "start": 2406.319,
+        "duration": 5.841,
+        "text": "content and not style which is why this"
+      },
+      {
+        "start": 2409.92,
+        "duration": 5.439,
+        "text": "image here this sketch showed up when we"
+      },
+      {
+        "start": 2412.16,
+        "duration": 6.72,
+        "text": "were doing a search for Content but was"
+      },
+      {
+        "start": 2415.359,
+        "duration": 6.841,
+        "text": "absent when we did a search using"
+      },
+      {
+        "start": 2418.88,
+        "duration": 5.84,
+        "text": "style okay in this next result I'm not"
+      },
+      {
+        "start": 2422.2,
+        "duration": 5.48,
+        "text": "quite sure why this is showing up here"
+      },
+      {
+        "start": 2424.72,
+        "duration": 4.84,
+        "text": "maybe it's these circles here kind of"
+      },
+      {
+        "start": 2427.68,
+        "duration": 3.96,
+        "text": "like the stars maybe that's why this is"
+      },
+      {
+        "start": 2429.56,
+        "duration": 3.799,
+        "text": "getting picked"
+      },
+      {
+        "start": 2431.64,
+        "duration": 4.0,
+        "text": "up all"
+      },
+      {
+        "start": 2433.359,
+        "duration": 4.601,
+        "text": "right"
+      },
+      {
+        "start": 2435.64,
+        "duration": 5.76,
+        "text": "um well this one's interesting because"
+      },
+      {
+        "start": 2437.96,
+        "duration": 3.44,
+        "text": "we also saw it in the style"
+      },
+      {
+        "start": 2441.68,
+        "duration": 6.08,
+        "text": "search"
+      },
+      {
+        "start": 2443.72,
+        "duration": 6.84,
+        "text": "okay well um I will leave it to the"
+      },
+      {
+        "start": 2447.76,
+        "duration": 5.079,
+        "text": "audience to decide if these images have"
+      },
+      {
+        "start": 2450.56,
+        "duration": 4.12,
+        "text": "anything to do with each other uh"
+      },
+      {
+        "start": 2452.839,
+        "duration": 5.48,
+        "text": "content"
+      },
+      {
+        "start": 2454.68,
+        "duration": 3.639,
+        "text": "wise okay"
+      },
+      {
+        "start": 2458.839,
+        "duration": 7.0,
+        "text": "all right now this"
+      },
+      {
+        "start": 2461.56,
+        "duration": 6.92,
+        "text": "sketch was interesting for another"
+      },
+      {
+        "start": 2465.839,
+        "duration": 3.681,
+        "text": "reason originally while I was working on"
+      },
+      {
+        "start": 2468.48,
+        "duration": 4.28,
+        "text": "this"
+      },
+      {
+        "start": 2469.52,
+        "duration": 4.28,
+        "text": "demo this image actually did not get"
+      },
+      {
+        "start": 2472.76,
+        "duration": 5.839,
+        "text": "picked"
+      },
+      {
+        "start": 2473.8,
+        "duration": 7.6,
+        "text": "up during a search which is surprising"
+      },
+      {
+        "start": 2478.599,
+        "duration": 5.601,
+        "text": "because it's the closest result after"
+      },
+      {
+        "start": 2481.4,
+        "duration": 6.4,
+        "text": "Starry Night"
+      },
+      {
+        "start": 2484.2,
+        "duration": 7.08,
+        "text": "itself so why was it getting missed"
+      },
+      {
+        "start": 2487.8,
+        "duration": 6.24,
+        "text": "well Cassandra Vector search is an"
+      },
+      {
+        "start": 2491.28,
+        "duration": 7.4,
+        "text": "approximate nearest neighbor"
+      },
+      {
+        "start": 2494.04,
+        "duration": 7.24,
+        "text": "search um so we don't always get the"
+      },
+      {
+        "start": 2498.68,
+        "duration": 2.6,
+        "text": "optimal"
+      },
+      {
+        "start": 2502.4,
+        "duration": 6.32,
+        "text": "result um but there's uh kind of a"
+      },
+      {
+        "start": 2505.92,
+        "duration": 7.199,
+        "text": "little uh workaround that can improve"
+      },
+      {
+        "start": 2508.72,
+        "duration": 4.399,
+        "text": "results if uh if you should need"
+      },
+      {
+        "start": 2513.16,
+        "duration": 5.08,
+        "text": "to which is back here in this qu"
+      },
+      {
+        "start": 2519.44,
+        "duration": 5.8,
+        "text": "where we do our Vector"
+      },
+      {
+        "start": 2521.4,
+        "duration": 7.48,
+        "text": "search yeah right here"
+      },
+      {
+        "start": 2525.24,
+        "duration": 5.76,
+        "text": "originally I had set the limit to 10"
+      },
+      {
+        "start": 2528.88,
+        "duration": 5.92,
+        "text": "because really I'm only interested in"
+      },
+      {
+        "start": 2531.0,
+        "duration": 6.92,
+        "text": "showing the top 10 results right there's"
+      },
+      {
+        "start": 2534.8,
+        "duration": 3.12,
+        "text": "only 10 images"
+      },
+      {
+        "start": 2538.52,
+        "duration": 6.64,
+        "text": "here but it turns out if you set the"
+      },
+      {
+        "start": 2541.4,
+        "duration": 8.12,
+        "text": "limit larger than what you need say"
+      },
+      {
+        "start": 2545.16,
+        "duration": 8.56,
+        "text": "20 then the top 10 results you get"
+      },
+      {
+        "start": 2549.52,
+        "duration": 8.52,
+        "text": "back can actually become better"
+      },
+      {
+        "start": 2553.72,
+        "duration": 7.599,
+        "text": "results right so it can make sense to"
+      },
+      {
+        "start": 2558.04,
+        "duration": 7.44,
+        "text": "make the limit larger than the number of"
+      },
+      {
+        "start": 2561.319,
+        "duration": 8.321,
+        "text": "results you need so that the results you"
+      },
+      {
+        "start": 2565.48,
+        "duration": 4.16,
+        "text": "you do need are actually"
+      },
+      {
+        "start": 2570.52,
+        "duration": 5.64,
+        "text": "better so in this case I had"
+      },
+      {
+        "start": 2573.64,
+        "duration": 5.479,
+        "text": "switched uh my search query to use Li"
+      },
+      {
+        "start": 2576.16,
+        "duration": 6.76,
+        "text": "limit of 20 instead of 10 but then I"
+      },
+      {
+        "start": 2579.119,
+        "duration": 6.521,
+        "text": "only showed the top 10 of those 20 and"
+      },
+      {
+        "start": 2582.92,
+        "duration": 5.0,
+        "text": "as a result this image started getting"
+      },
+      {
+        "start": 2585.64,
+        "duration": 2.28,
+        "text": "picked"
+      },
+      {
+        "start": 2589.2,
+        "duration": 5.48,
+        "text": "up all right let's let's take a look at"
+      },
+      {
+        "start": 2592.64,
+        "duration": 5.76,
+        "text": "another"
+      },
+      {
+        "start": 2594.68,
+        "duration": 7.639,
+        "text": "image all right we'll do a full style"
+      },
+      {
+        "start": 2598.4,
+        "duration": 3.919,
+        "text": "search here's a Bob Ross"
+      },
+      {
+        "start": 2603.52,
+        "duration": 4.799,
+        "text": "painting all right and let's search and"
+      },
+      {
+        "start": 2607.119,
+        "duration": 4.72,
+        "text": "what do we get"
+      },
+      {
+        "start": 2608.319,
+        "duration": 6.24,
+        "text": "back yeah okay I can see how these are"
+      },
+      {
+        "start": 2611.839,
+        "duration": 2.72,
+        "text": "in a similar"
+      },
+      {
+        "start": 2614.92,
+        "duration": 6.159,
+        "text": "style"
+      },
+      {
+        "start": 2617.16,
+        "duration": 3.919,
+        "text": "yeah I mean these all look"
+      },
+      {
+        "start": 2623.04,
+        "duration": 5.6,
+        "text": "right"
+      },
+      {
+        "start": 2625.64,
+        "duration": 3.0,
+        "text": "okay"
+      },
+      {
+        "start": 2630.079,
+        "duration": 7.201,
+        "text": "yeah I say these results make a lot of"
+      },
+      {
+        "start": 2633.68,
+        "duration": 5.36,
+        "text": "sense well I mean I guess this one's"
+      },
+      {
+        "start": 2637.28,
+        "duration": 4.76,
+        "text": "pretty close"
+      },
+      {
+        "start": 2639.04,
+        "duration": 3.0,
+        "text": "to"
+      },
+      {
+        "start": 2643.04,
+        "duration": 7.2,
+        "text": "okay all right let's try using our"
+      },
+      {
+        "start": 2646.319,
+        "duration": 3.921,
+        "text": "reduced size embeddings for"
+      },
+      {
+        "start": 2654.04,
+        "duration": 10.279,
+        "text": "style well that didn't look quite right"
+      },
+      {
+        "start": 2659.559,
+        "duration": 7.321,
+        "text": "um so it's not this image is is totally"
+      },
+      {
+        "start": 2664.319,
+        "duration": 5.0,
+        "text": "unrelated to our query image right like"
+      },
+      {
+        "start": 2666.88,
+        "duration": 6.12,
+        "text": "there's similarities here like the sky"
+      },
+      {
+        "start": 2669.319,
+        "duration": 5.401,
+        "text": "and the water and the trees and this"
+      },
+      {
+        "start": 2673.0,
+        "duration": 5.88,
+        "text": "this mountain here and the"
+      },
+      {
+        "start": 2674.72,
+        "duration": 7.96,
+        "text": "background but the style seems"
+      },
+      {
+        "start": 2678.88,
+        "duration": 5.52,
+        "text": "uh you know not not nearly as close as"
+      },
+      {
+        "start": 2682.68,
+        "duration": 5.48,
+        "text": "those other images images we were"
+      },
+      {
+        "start": 2684.4,
+        "duration": 8.159,
+        "text": "looking at were um like this is this"
+      },
+      {
+        "start": 2688.16,
+        "duration": 6.8,
+        "text": "over here is a a an oil painting that's"
+      },
+      {
+        "start": 2692.559,
+        "duration": 4.52,
+        "text": "uh that we're searching with uh but this"
+      },
+      {
+        "start": 2694.96,
+        "duration": 5.8,
+        "text": "looks more like a I don't know like a"
+      },
+      {
+        "start": 2697.079,
+        "duration": 7.561,
+        "text": "like ink like an ink"
+      },
+      {
+        "start": 2700.76,
+        "duration": 6.4,
+        "text": "painting okay this result looks okay as"
+      },
+      {
+        "start": 2704.64,
+        "duration": 7.24,
+        "text": "does this one like this looks pretty"
+      },
+      {
+        "start": 2707.16,
+        "duration": 4.72,
+        "text": "close yeah looking"
+      },
+      {
+        "start": 2712.0,
+        "duration": 8.359,
+        "text": "good again"
+      },
+      {
+        "start": 2716.079,
+        "duration": 7.561,
+        "text": "right it looks a lot like this other uh"
+      },
+      {
+        "start": 2720.359,
+        "duration": 5.801,
+        "text": "result we got that didn't quite fit and"
+      },
+      {
+        "start": 2723.64,
+        "duration": 5.199,
+        "text": "again there's that mountain and the"
+      },
+      {
+        "start": 2726.16,
+        "duration": 5.28,
+        "text": "water and there are trees but it just"
+      },
+      {
+        "start": 2728.839,
+        "duration": 6.201,
+        "text": "doesn't it's not nearly as close in"
+      },
+      {
+        "start": 2731.44,
+        "duration": 3.6,
+        "text": "style as some of these other images"
+      },
+      {
+        "start": 2735.079,
+        "duration": 5.441,
+        "text": "are okay this result looks pretty"
+      },
+      {
+        "start": 2737.8,
+        "duration": 6.24,
+        "text": "good this one looks"
+      },
+      {
+        "start": 2740.52,
+        "duration": 7.2,
+        "text": "okay um all right"
+      },
+      {
+        "start": 2744.04,
+        "duration": 8.68,
+        "text": "and again a result that"
+      },
+      {
+        "start": 2747.72,
+        "duration": 5.0,
+        "text": "doesn't doesn't quite fit"
+      },
+      {
+        "start": 2753.119,
+        "duration": 5.641,
+        "text": "so uh what happened here"
+      },
+      {
+        "start": 2756.44,
+        "duration": 4.879,
+        "text": "as is that we've suffered some"
+      },
+      {
+        "start": 2758.76,
+        "duration": 6.76,
+        "text": "consequences from compressing these"
+      },
+      {
+        "start": 2761.319,
+        "duration": 8.081,
+        "text": "embeddings so we've got uh some less"
+      },
+      {
+        "start": 2765.52,
+        "duration": 6.799,
+        "text": "than optimal results as a consequence of"
+      },
+      {
+        "start": 2769.4,
+        "duration": 8.959,
+        "text": "that um but there's actually something"
+      },
+      {
+        "start": 2772.319,
+        "duration": 9.481,
+        "text": "we can do to improve the results we"
+      },
+      {
+        "start": 2778.359,
+        "duration": 5.681,
+        "text": "have so you'll recall that I don't"
+      },
+      {
+        "start": 2781.8,
+        "duration": 4.4,
+        "text": "actually when I query the database I"
+      },
+      {
+        "start": 2784.04,
+        "duration": 5.72,
+        "text": "actually get the top 20 result results"
+      },
+      {
+        "start": 2786.2,
+        "duration": 6.919,
+        "text": "back not just the top 10 um I just only"
+      },
+      {
+        "start": 2789.76,
+        "duration": 7.88,
+        "text": "display the top 10 of the 20 I get"
+      },
+      {
+        "start": 2793.119,
+        "duration": 8.841,
+        "text": "back well what we could do is we can"
+      },
+      {
+        "start": 2797.64,
+        "duration": 7.679,
+        "text": "store both the reduced size embedding"
+      },
+      {
+        "start": 2801.96,
+        "duration": 4.28,
+        "text": "and the full size embedding in our in"
+      },
+      {
+        "start": 2805.319,
+        "duration": 3.361,
+        "text": "our"
+      },
+      {
+        "start": 2806.24,
+        "duration": 6.76,
+        "text": "table we do a"
+      },
+      {
+        "start": 2808.68,
+        "duration": 6.76,
+        "text": "search on the small embedding which is"
+      },
+      {
+        "start": 2813.0,
+        "duration": 3.8,
+        "text": "faster and then when we get the results"
+      },
+      {
+        "start": 2815.44,
+        "duration": 4.679,
+        "text": "back"
+      },
+      {
+        "start": 2816.8,
+        "duration": 6.799,
+        "text": "we can Resort it on the client's side"
+      },
+      {
+        "start": 2820.119,
+        "duration": 7.121,
+        "text": "using the larger embedding and the hope"
+      },
+      {
+        "start": 2823.599,
+        "duration": 7.401,
+        "text": "is that these results that are perhaps"
+      },
+      {
+        "start": 2827.24,
+        "duration": 7.0,
+        "text": "not so great will be resorted below our"
+      },
+      {
+        "start": 2831.0,
+        "duration": 7.119,
+        "text": "cut off below our top 10 cut"
+      },
+      {
+        "start": 2834.24,
+        "duration": 5.56,
+        "text": "off uh and our top 10 results will"
+      },
+      {
+        "start": 2838.119,
+        "duration": 3.801,
+        "text": "actually be pretty good and it'll be"
+      },
+      {
+        "start": 2839.8,
+        "duration": 6.64,
+        "text": "like those bad results never"
+      },
+      {
+        "start": 2841.92,
+        "duration": 7.8,
+        "text": "happened so that's what this style cheat"
+      },
+      {
+        "start": 2846.44,
+        "duration": 5.8,
+        "text": "does it does a search using the smaller"
+      },
+      {
+        "start": 2849.72,
+        "duration": 3.76,
+        "text": "embedding and then Resorts using the"
+      },
+      {
+        "start": 2852.24,
+        "duration": 4.079,
+        "text": "full size"
+      },
+      {
+        "start": 2853.48,
+        "duration": 5.359,
+        "text": "embedding so let's see uh what happens"
+      },
+      {
+        "start": 2856.319,
+        "duration": 2.52,
+        "text": "when we do"
+      },
+      {
+        "start": 2859.24,
+        "duration": 5.44,
+        "text": "that Ah that's much"
+      },
+      {
+        "start": 2862.079,
+        "duration": 6.601,
+        "text": "better these look a lot more like the"
+      },
+      {
+        "start": 2864.68,
+        "duration": 6.32,
+        "text": "results we got when using the full size"
+      },
+      {
+        "start": 2868.68,
+        "duration": 6.04,
+        "text": "embedding"
+      },
+      {
+        "start": 2871.0,
+        "duration": 5.4,
+        "text": "yeah much better all"
+      },
+      {
+        "start": 2874.72,
+        "duration": 4.8,
+        "text": "those"
+      },
+      {
+        "start": 2876.4,
+        "duration": 6.159,
+        "text": "uh particularly not uh not so great"
+      },
+      {
+        "start": 2879.52,
+        "duration": 3.039,
+        "text": "results have"
+      },
+      {
+        "start": 2883.559,
+        "duration": 5.241,
+        "text": "disappeared okay awesome all right let's"
+      },
+      {
+        "start": 2886.52,
+        "duration": 4.319,
+        "text": "do the let's do the the same sort of"
+      },
+      {
+        "start": 2888.8,
+        "duration": 6.519,
+        "text": "treat with the content vectors and see"
+      },
+      {
+        "start": 2890.839,
+        "duration": 4.48,
+        "text": "what we get back uh from this Bob Ross"
+      },
+      {
+        "start": 2896.599,
+        "duration": 4.401,
+        "text": "painting uh mountains that makes sense"
+      },
+      {
+        "start": 2899.48,
+        "duration": 3.92,
+        "text": "this is a Content"
+      },
+      {
+        "start": 2901.0,
+        "duration": 4.839,
+        "text": "search the mountains are pretty uh"
+      },
+      {
+        "start": 2903.4,
+        "duration": 4.04,
+        "text": "prominent in our query image and so they"
+      },
+      {
+        "start": 2905.839,
+        "duration": 5.321,
+        "text": "are in one of the images we"
+      },
+      {
+        "start": 2907.44,
+        "duration": 5.28,
+        "text": "found and the next image also mountains"
+      },
+      {
+        "start": 2911.16,
+        "duration": 4.6,
+        "text": "uh notice these are very different"
+      },
+      {
+        "start": 2912.72,
+        "duration": 5.2,
+        "text": "stylistically but they con both contain"
+      },
+      {
+        "start": 2915.76,
+        "duration": 3.2,
+        "text": "mountains uh and hence they show up in"
+      },
+      {
+        "start": 2917.92,
+        "duration": 5.48,
+        "text": "the"
+      },
+      {
+        "start": 2918.96,
+        "duration": 6.599,
+        "text": "results uh more mountains mountains"
+      },
+      {
+        "start": 2923.4,
+        "duration": 5.439,
+        "text": "mountains"
+      },
+      {
+        "start": 2925.559,
+        "duration": 5.0,
+        "text": "mountains uh"
+      },
+      {
+        "start": 2928.839,
+        "duration": 5.361,
+        "text": "Hills"
+      },
+      {
+        "start": 2930.559,
+        "duration": 5.601,
+        "text": "mountains mountains mountains okay I"
+      },
+      {
+        "start": 2934.2,
+        "duration": 5.0,
+        "text": "think it's finding mountains"
+      },
+      {
+        "start": 2936.16,
+        "duration": 3.04,
+        "text": "uh and that makes"
+      },
+      {
+        "start": 2939.52,
+        "duration": 5.24,
+        "text": "sense all right let's do another"
+      },
+      {
+        "start": 2949.44,
+        "duration": 6.24,
+        "text": "one let's do this"
+      },
+      {
+        "start": 2952.599,
+        "duration": 7.24,
+        "text": "Picasso see what we get"
+      },
+      {
+        "start": 2955.68,
+        "duration": 8.439,
+        "text": "back okay uh that makes sense like these"
+      },
+      {
+        "start": 2959.839,
+        "duration": 4.28,
+        "text": "are these appear to be pretty similar in"
+      },
+      {
+        "start": 2964.359,
+        "duration": 4.081,
+        "text": "style um"
+      },
+      {
+        "start": 2966.2,
+        "duration": 7.2,
+        "text": "not the same artistic movement but we do"
+      },
+      {
+        "start": 2968.44,
+        "duration": 6.76,
+        "text": "see the same uh the same sorts of colors"
+      },
+      {
+        "start": 2973.4,
+        "duration": 4.04,
+        "text": "right very vibrant"
+      },
+      {
+        "start": 2975.2,
+        "duration": 5.08,
+        "text": "colors"
+      },
+      {
+        "start": 2977.44,
+        "duration": 7.56,
+        "text": "um same story"
+      },
+      {
+        "start": 2980.28,
+        "duration": 4.72,
+        "text": "here um another Picasso that makes"
+      },
+      {
+        "start": 2985.2,
+        "duration": 5.84,
+        "text": "sense um same artistic movement it's"
+      },
+      {
+        "start": 2994.359,
+        "duration": 7.361,
+        "text": "cubism okay okay very vibrant colors"
+      },
+      {
+        "start": 2998.48,
+        "duration": 4.839,
+        "text": "again okay well I actually think those"
+      },
+      {
+        "start": 3001.72,
+        "duration": 4.92,
+        "text": "results make sense even though they're"
+      },
+      {
+        "start": 3003.319,
+        "duration": 6.52,
+        "text": "not all from the same artistic"
+      },
+      {
+        "start": 3006.64,
+        "duration": 5.84,
+        "text": "movement okay let's do search with the"
+      },
+      {
+        "start": 3009.839,
+        "duration": 2.641,
+        "text": "with the content"
+      },
+      {
+        "start": 3012.559,
+        "duration": 6.0,
+        "text": "vectors oh that's interesting we have"
+      },
+      {
+        "start": 3015.559,
+        "duration": 5.921,
+        "text": "two people uh in our query image well"
+      },
+      {
+        "start": 3018.559,
+        "duration": 6.081,
+        "text": "one person and their uh mirror image and"
+      },
+      {
+        "start": 3021.48,
+        "duration": 5.96,
+        "text": "then we have two people here uh in this"
+      },
+      {
+        "start": 3024.64,
+        "duration": 2.8,
+        "text": "search result"
+      },
+      {
+        "start": 3028.76,
+        "duration": 2.359,
+        "text": "um"
+      },
+      {
+        "start": 3031.24,
+        "duration": 6.559,
+        "text": "interesting guess it's picking up the"
+      },
+      {
+        "start": 3034.119,
+        "duration": 3.68,
+        "text": "eyes in the query"
+      },
+      {
+        "start": 3037.92,
+        "duration": 5.919,
+        "text": "image I don't I don't have a story that"
+      },
+      {
+        "start": 3040.92,
+        "duration": 4.52,
+        "text": "explains this one in the search"
+      },
+      {
+        "start": 3043.839,
+        "duration": 3.52,
+        "text": "results"
+      },
+      {
+        "start": 3045.44,
+        "duration": 6.04,
+        "text": "uh"
+      },
+      {
+        "start": 3047.359,
+        "duration": 4.121,
+        "text": "okay all right yeah that makes"
+      },
+      {
+        "start": 3052.4,
+        "duration": 8.28,
+        "text": "sense okay well again uh I will leave it"
+      },
+      {
+        "start": 3057.16,
+        "duration": 6.52,
+        "text": "to the audience uh to decide if these"
+      },
+      {
+        "start": 3060.68,
+        "duration": 6.36,
+        "text": "images have anything in common content"
+      },
+      {
+        "start": 3063.68,
+        "duration": 3.36,
+        "text": "wise uh or"
+      },
+      {
+        "start": 3071.24,
+        "duration": 11.76,
+        "text": "not um and there we go uh that's uh"
+      },
+      {
+        "start": 3077.359,
+        "duration": 7.801,
+        "text": "that's Vector search uh on both uh style"
+      },
+      {
+        "start": 3083.0,
+        "duration": 4.359,
+        "text": "and content using Cassandra Vector"
+      },
+      {
+        "start": 3085.16,
+        "duration": 2.199,
+        "text": "search"
+      },
+      {
+        "start": 3090.0,
+        "duration": 4.559,
+        "text": "um all"
+      },
+      {
+        "start": 3092.0,
+        "duration": 6.28,
+        "text": "right so let's talk"
+      },
+      {
+        "start": 3094.559,
+        "duration": 8.52,
+        "text": "about recall with Cassandra Vector"
+      },
+      {
+        "start": 3098.28,
+        "duration": 7.36,
+        "text": "search so Cassandra Vector search is uh"
+      },
+      {
+        "start": 3103.079,
+        "duration": 4.081,
+        "text": "an approximate nearest neighbor"
+      },
+      {
+        "start": 3105.64,
+        "duration": 4.6,
+        "text": "search"
+      },
+      {
+        "start": 3107.16,
+        "duration": 6.24,
+        "text": "so how good is it compared to the"
+      },
+      {
+        "start": 3110.24,
+        "duration": 6.0,
+        "text": "optimal result well again we can compute"
+      },
+      {
+        "start": 3113.4,
+        "duration": 6.64,
+        "text": "uh recall and again we'll use recall at"
+      },
+      {
+        "start": 3116.24,
+        "duration": 3.8,
+        "text": "10 uh to determine"
+      },
+      {
+        "start": 3120.28,
+        "duration": 7.079,
+        "text": "this so this is uh basically the same"
+      },
+      {
+        "start": 3123.599,
+        "duration": 8.24,
+        "text": "setup as the uh uh"
+      },
+      {
+        "start": 3127.359,
+        "duration": 7.361,
+        "text": "previous uh calculation of uh"
+      },
+      {
+        "start": 3131.839,
+        "duration": 5.161,
+        "text": "recall but now we're going to take we're"
+      },
+      {
+        "start": 3134.72,
+        "duration": 3.639,
+        "text": "going to do a search on using some"
+      },
+      {
+        "start": 3137.0,
+        "duration": 3.799,
+        "text": "number of images in this case we're"
+      },
+      {
+        "start": 3138.359,
+        "duration": 5.601,
+        "text": "going to use 50 images and we're going"
+      },
+      {
+        "start": 3140.799,
+        "duration": 5.28,
+        "text": "to do 50 searches and then compare those"
+      },
+      {
+        "start": 3143.96,
+        "duration": 5.24,
+        "text": "search results to what the optimal"
+      },
+      {
+        "start": 3146.079,
+        "duration": 5.961,
+        "text": "results would have been to calculate uh"
+      },
+      {
+        "start": 3149.2,
+        "duration": 6.28,
+        "text": "the recall and in this case for recall"
+      },
+      {
+        "start": 3152.04,
+        "duration": 5.759,
+        "text": "at 10 and I should say this is using the"
+      },
+      {
+        "start": 3155.48,
+        "duration": 5.599,
+        "text": "full size embeddings for"
+      },
+      {
+        "start": 3157.799,
+        "duration": 6.361,
+        "text": "style and we're also not getting any"
+      },
+      {
+        "start": 3161.079,
+        "duration": 5.52,
+        "text": "extra results so the limit in the query"
+      },
+      {
+        "start": 3164.16,
+        "duration": 5.959,
+        "text": "has been set to 10 as"
+      },
+      {
+        "start": 3166.599,
+        "duration": 7.72,
+        "text": "well um and when we compare that to the"
+      },
+      {
+        "start": 3170.119,
+        "duration": 7.0,
+        "text": "optimal results we get a recall at 10 of"
+      },
+      {
+        "start": 3174.319,
+        "duration": 6.561,
+        "text": "100%"
+      },
+      {
+        "start": 3177.119,
+        "duration": 6.48,
+        "text": "now I happen to know that 100%'s not"
+      },
+      {
+        "start": 3180.88,
+        "duration": 6.8,
+        "text": "quite right because we're working on"
+      },
+      {
+        "start": 3183.599,
+        "duration": 5.96,
+        "text": "this demo I had uh a couple of results"
+      },
+      {
+        "start": 3187.68,
+        "duration": 4.48,
+        "text": "that were not quite"
+      },
+      {
+        "start": 3189.559,
+        "duration": 4.321,
+        "text": "optimal um I think part of the reason"
+      },
+      {
+        "start": 3192.16,
+        "duration": 5.84,
+        "text": "we're getting this result is because I'm"
+      },
+      {
+        "start": 3193.88,
+        "duration": 7.439,
+        "text": "only using uh 50 uh different query"
+      },
+      {
+        "start": 3198.0,
+        "duration": 5.72,
+        "text": "images when testing uh to compute the"
+      },
+      {
+        "start": 3201.319,
+        "duration": 4.48,
+        "text": "recall um and the reason I'm only using"
+      },
+      {
+        "start": 3203.72,
+        "duration": 6.359,
+        "text": "50s because I'm I'm comp comparing it"
+      },
+      {
+        "start": 3205.799,
+        "duration": 6.121,
+        "text": "against that uh that uh uh uh previous"
+      },
+      {
+        "start": 3210.079,
+        "duration": 4.04,
+        "text": "Vector store implementation from the"
+      },
+      {
+        "start": 3211.92,
+        "duration": 4.6,
+        "text": "beginning of the demo that gives you"
+      },
+      {
+        "start": 3214.119,
+        "duration": 4.24,
+        "text": "exact results but it's incredibly slow"
+      },
+      {
+        "start": 3216.52,
+        "duration": 5.52,
+        "text": "right I don't want to do more than"
+      },
+      {
+        "start": 3218.359,
+        "duration": 8.401,
+        "text": "50 uh uh image queries with that because"
+      },
+      {
+        "start": 3222.04,
+        "duration": 6.48,
+        "text": "it'll take forever if I do more um so"
+      },
+      {
+        "start": 3226.76,
+        "duration": 5.16,
+        "text": "realistically the recall at 10 is"
+      },
+      {
+        "start": 3228.52,
+        "duration": 6.64,
+        "text": "probably not 100% uh but it is very good"
+      },
+      {
+        "start": 3231.92,
+        "duration": 5.679,
+        "text": "and very close to Optimal uh at least in"
+      },
+      {
+        "start": 3235.16,
+        "duration": 5.36,
+        "text": "in this particular uh setup with these"
+      },
+      {
+        "start": 3237.599,
+        "duration": 2.921,
+        "text": "particular sorts of"
+      },
+      {
+        "start": 3242.0,
+        "duration": 5.359,
+        "text": "embeddings okay what about recall using"
+      },
+      {
+        "start": 3244.76,
+        "duration": 5.24,
+        "text": "our compressed embeddings so these are"
+      },
+      {
+        "start": 3247.359,
+        "duration": 3.641,
+        "text": "using our our reduced sized embeddings"
+      },
+      {
+        "start": 3250.0,
+        "duration": 5.559,
+        "text": "for"
+      },
+      {
+        "start": 3251.0,
+        "duration": 8.2,
+        "text": "style um we're doing uh a search using"
+      },
+      {
+        "start": 3255.559,
+        "duration": 6.441,
+        "text": "Cassandra Vector search uh with a limit"
+      },
+      {
+        "start": 3259.2,
+        "duration": 7.32,
+        "text": "set at 10 as well so we're not getting"
+      },
+      {
+        "start": 3262.0,
+        "duration": 7.319,
+        "text": "extra uh results to to to improve prove"
+      },
+      {
+        "start": 3266.52,
+        "duration": 5.039,
+        "text": "uh uh our search results and again we're"
+      },
+      {
+        "start": 3269.319,
+        "duration": 5.8,
+        "text": "comparing that to what the optimal"
+      },
+      {
+        "start": 3271.559,
+        "duration": 5.881,
+        "text": "results would be and we get a recall of"
+      },
+      {
+        "start": 3275.119,
+        "duration": 2.321,
+        "text": "about"
+      },
+      {
+        "start": 3280.96,
+        "duration": 7.599,
+        "text": "76% and then I was interested for this"
+      },
+      {
+        "start": 3284.599,
+        "duration": 6.601,
+        "text": "resorting trick where we search using"
+      },
+      {
+        "start": 3288.559,
+        "duration": 5.721,
+        "text": "the smaller style"
+      },
+      {
+        "start": 3291.2,
+        "duration": 4.399,
+        "text": "embeddings and then we resort the"
+      },
+      {
+        "start": 3294.28,
+        "duration": 4.72,
+        "text": "results"
+      },
+      {
+        "start": 3295.599,
+        "duration": 6.48,
+        "text": "using the full size embeddings I wanted"
+      },
+      {
+        "start": 3299.0,
+        "duration": 8.24,
+        "text": "to know how many extra elements would I"
+      },
+      {
+        "start": 3302.079,
+        "duration": 9.841,
+        "text": "need to get in order to get a recall of"
+      },
+      {
+        "start": 3307.24,
+        "duration": 7.359,
+        "text": "95% when compared to the optimal"
+      },
+      {
+        "start": 3311.92,
+        "duration": 4.199,
+        "text": "results um and I found that I would need"
+      },
+      {
+        "start": 3314.599,
+        "duration": 6.161,
+        "text": "to get"
+      },
+      {
+        "start": 3316.119,
+        "duration": 7.161,
+        "text": "18 uh elements uh in total so eight more"
+      },
+      {
+        "start": 3320.76,
+        "duration": 6.839,
+        "text": "than the 10 that I actually uh needed to"
+      },
+      {
+        "start": 3323.28,
+        "duration": 4.319,
+        "text": "get um or to get recall of"
+      },
+      {
+        "start": 3331.799,
+        "duration": 5.401,
+        "text": "95% all right well look at that 85"
+      },
+      {
+        "start": 3335.039,
+        "duration": 4.04,
+        "text": "Jupiter cells later and it's all coming"
+      },
+      {
+        "start": 3337.2,
+        "duration": 4.879,
+        "text": "together"
+      },
+      {
+        "start": 3339.079,
+        "duration": 5.52,
+        "text": "um okay so you have a few options in"
+      },
+      {
+        "start": 3342.079,
+        "duration": 6.72,
+        "text": "this setup"
+      },
+      {
+        "start": 3344.599,
+        "duration": 7.321,
+        "text": "for what what embeddings you use when"
+      },
+      {
+        "start": 3348.799,
+        "duration": 4.921,
+        "text": "searching right you can use your full"
+      },
+      {
+        "start": 3351.92,
+        "duration": 4.439,
+        "text": "size embeddings you can use your"
+      },
+      {
+        "start": 3353.72,
+        "duration": 4.04,
+        "text": "compressed embeddings or you can use a"
+      },
+      {
+        "start": 3356.359,
+        "duration": 5.2,
+        "text": "combination of the"
+      },
+      {
+        "start": 3357.76,
+        "duration": 7.039,
+        "text": "two um and when deciding which one you"
+      },
+      {
+        "start": 3361.559,
+        "duration": 4.961,
+        "text": "know would work best in in your case uh"
+      },
+      {
+        "start": 3364.799,
+        "duration": 5.0,
+        "text": "it helps to keep in mind what the"
+      },
+      {
+        "start": 3366.52,
+        "duration": 6.599,
+        "text": "runtime performance of vector search is"
+      },
+      {
+        "start": 3369.799,
+        "duration": 5.601,
+        "text": "which is the number of ss tables times"
+      },
+      {
+        "start": 3373.119,
+        "duration": 3.801,
+        "text": "uh the vector Dimensions times the log"
+      },
+      {
+        "start": 3375.4,
+        "duration": 5.12,
+        "text": "of the number of"
+      },
+      {
+        "start": 3376.92,
+        "duration": 5.919,
+        "text": "vectors so again linear in terms of your"
+      },
+      {
+        "start": 3380.52,
+        "duration": 2.319,
+        "text": "vector"
+      },
+      {
+        "start": 3383.0,
+        "duration": 5.2,
+        "text": "Dimensions so if you search using the"
+      },
+      {
+        "start": 3385.0,
+        "duration": 7.24,
+        "text": "full size embeddings you get the best"
+      },
+      {
+        "start": 3388.2,
+        "duration": 8.599,
+        "text": "recall but it's the slowest and"
+      },
+      {
+        "start": 3392.24,
+        "duration": 7.319,
+        "text": "interestingly it also takes the most"
+      },
+      {
+        "start": 3396.799,
+        "duration": 7.841,
+        "text": "storage now why would it take the most"
+      },
+      {
+        "start": 3399.559,
+        "duration": 7.081,
+        "text": "storage to store only the full size"
+      },
+      {
+        "start": 3404.64,
+        "duration": 4.76,
+        "text": "embedding I mean you would think that if"
+      },
+      {
+        "start": 3406.64,
+        "duration": 4.64,
+        "text": "you stored both the full size embedding"
+      },
+      {
+        "start": 3409.4,
+        "duration": 3.32,
+        "text": "plus the smaller size embedding that"
+      },
+      {
+        "start": 3411.28,
+        "duration": 5.319,
+        "text": "that would be the case that would take"
+      },
+      {
+        "start": 3412.72,
+        "duration": 6.399,
+        "text": "the most space right well it turns out"
+      },
+      {
+        "start": 3416.599,
+        "duration": 4.561,
+        "text": "uh with Cassandra Vector search"
+      },
+      {
+        "start": 3419.119,
+        "duration": 6.601,
+        "text": "whichever embedding you"
+      },
+      {
+        "start": 3421.16,
+        "duration": 7.24,
+        "text": "index has to be stored twice so that's"
+      },
+      {
+        "start": 3425.72,
+        "duration": 5.839,
+        "text": "the reason it takes the most space to"
+      },
+      {
+        "start": 3428.4,
+        "duration": 3.159,
+        "text": "have just the large"
+      },
+      {
+        "start": 3432.559,
+        "duration": 4.641,
+        "text": "embedding"
+      },
+      {
+        "start": 3434.28,
+        "duration": 5.16,
+        "text": "okay so we can store only the compressed"
+      },
+      {
+        "start": 3437.2,
+        "duration": 5.76,
+        "text": "embedding uh that's the fastest and"
+      },
+      {
+        "start": 3439.44,
+        "duration": 6.24,
+        "text": "takes the least storage um the downside"
+      },
+      {
+        "start": 3442.96,
+        "duration": 6.159,
+        "text": "there is it's also got the worst recall"
+      },
+      {
+        "start": 3445.68,
+        "duration": 5.56,
+        "text": "as we saw with the Bob Ross painting uh"
+      },
+      {
+        "start": 3449.119,
+        "duration": 5.041,
+        "text": "search"
+      },
+      {
+        "start": 3451.24,
+        "duration": 5.92,
+        "text": "results and then of course our our next"
+      },
+      {
+        "start": 3454.16,
+        "duration": 5.24,
+        "text": "option is storing both of them um we"
+      },
+      {
+        "start": 3457.16,
+        "duration": 3.919,
+        "text": "still get a search this pretty fast"
+      },
+      {
+        "start": 3459.4,
+        "duration": 2.6,
+        "text": "right because we can use those smaller"
+      },
+      {
+        "start": 3461.079,
+        "duration": 3.841,
+        "text": "size"
+      },
+      {
+        "start": 3462.0,
+        "duration": 5.4,
+        "text": "embeddings um it's still got lower"
+      },
+      {
+        "start": 3464.92,
+        "duration": 5.6,
+        "text": "storage than storing just the large"
+      },
+      {
+        "start": 3467.4,
+        "duration": 6.08,
+        "text": "embedding and we can get good recall if"
+      },
+      {
+        "start": 3470.52,
+        "duration": 5.0,
+        "text": "we set that limit high enough uh but"
+      },
+      {
+        "start": 3473.48,
+        "duration": 6.04,
+        "text": "there are some cons"
+      },
+      {
+        "start": 3475.52,
+        "duration": 5.24,
+        "text": "it's still slower than using just the"
+      },
+      {
+        "start": 3479.52,
+        "duration": 2.76,
+        "text": "compressed"
+      },
+      {
+        "start": 3480.76,
+        "duration": 4.72,
+        "text": "embeddings"
+      },
+      {
+        "start": 3482.28,
+        "duration": 4.799,
+        "text": "um it takes more storage than using just"
+      },
+      {
+        "start": 3485.48,
+        "duration": 4.4,
+        "text": "the compressed"
+      },
+      {
+        "start": 3487.079,
+        "duration": 6.321,
+        "text": "embeddings and now we have to to pull"
+      },
+      {
+        "start": 3489.88,
+        "duration": 4.959,
+        "text": "more data down uh from the database"
+      },
+      {
+        "start": 3493.4,
+        "duration": 4.0,
+        "text": "right because we got to get those extra"
+      },
+      {
+        "start": 3494.839,
+        "duration": 4.76,
+        "text": "results to improve the recall plus we"
+      },
+      {
+        "start": 3497.4,
+        "duration": 4.24,
+        "text": "have to get the original embeddings"
+      },
+      {
+        "start": 3499.599,
+        "duration": 3.681,
+        "text": "somehow and if the solution to that"
+      },
+      {
+        "start": 3501.64,
+        "duration": 3.8,
+        "text": "somehow was to store the original"
+      },
+      {
+        "start": 3503.28,
+        "duration": 3.44,
+        "text": "embeddings in the database you're going"
+      },
+      {
+        "start": 3505.44,
+        "duration": 5.32,
+        "text": "to have to get those back with your"
+      },
+      {
+        "start": 3506.72,
+        "duration": 4.04,
+        "text": "search results so that you can Resort"
+      },
+      {
+        "start": 3510.92,
+        "duration": 4.639,
+        "text": "them so uh the good news is you have a"
+      },
+      {
+        "start": 3513.52,
+        "duration": 4.76,
+        "text": "lot of options here and a lot of"
+      },
+      {
+        "start": 3515.559,
+        "duration": 4.601,
+        "text": "flexibility uh to find the solution that"
+      },
+      {
+        "start": 3518.28,
+        "duration": 5.68,
+        "text": "that works best and you know whatever"
+      },
+      {
+        "start": 3520.16,
+        "duration": 6.439,
+        "text": "your use case happens to be um I would"
+      },
+      {
+        "start": 3523.96,
+        "duration": 5.28,
+        "text": "say though that the most important thing"
+      },
+      {
+        "start": 3526.599,
+        "duration": 6.72,
+        "text": "is to come up with a good metric like"
+      },
+      {
+        "start": 3529.24,
+        "duration": 6.599,
+        "text": "recall or whatever metric it makes sense"
+      },
+      {
+        "start": 3533.319,
+        "duration": 3.881,
+        "text": "uh for your use case so that you have"
+      },
+      {
+        "start": 3535.839,
+        "duration": 5.24,
+        "text": "some way to"
+      },
+      {
+        "start": 3537.2,
+        "duration": 3.879,
+        "text": "evaluate uh your various"
+      },
+      {
+        "start": 3543.76,
+        "duration": 6.44,
+        "text": "options all right so what did we"
+      },
+      {
+        "start": 3546.92,
+        "duration": 6.24,
+        "text": "learn well we learned that I cannot"
+      },
+      {
+        "start": 3550.2,
+        "duration": 4.119,
+        "text": "pronounce Vincent Van Go's name uh it"
+      },
+      {
+        "start": 3553.16,
+        "duration": 4.439,
+        "text": "turns out"
+      },
+      {
+        "start": 3554.319,
+        "duration": 5.161,
+        "text": "to seemingly every country has their own"
+      },
+      {
+        "start": 3557.599,
+        "duration": 4.601,
+        "text": "domestic"
+      },
+      {
+        "start": 3559.48,
+        "duration": 6.04,
+        "text": "mispronunciation of uh Vincent vango's"
+      },
+      {
+        "start": 3562.2,
+        "duration": 7.159,
+        "text": "name I have the American Mison"
+      },
+      {
+        "start": 3565.52,
+        "duration": 7.0,
+        "text": "anunciation um so there you go"
+      },
+      {
+        "start": 3569.359,
+        "duration": 5.24,
+        "text": "um uh we learned or at least I learned"
+      },
+      {
+        "start": 3572.52,
+        "duration": 4.319,
+        "text": "uh that Vincent Van go sketched star"
+      },
+      {
+        "start": 3574.599,
+        "duration": 4.041,
+        "text": "night before painting it I had no idea"
+      },
+      {
+        "start": 3576.839,
+        "duration": 3.2,
+        "text": "whe that was the case until it popped up"
+      },
+      {
+        "start": 3578.64,
+        "duration": 3.919,
+        "text": "in the search"
+      },
+      {
+        "start": 3580.039,
+        "duration": 6.121,
+        "text": "results um here's another thing I didn't"
+      },
+      {
+        "start": 3582.559,
+        "duration": 5.8,
+        "text": "know before uh that too latrek uh knew"
+      },
+      {
+        "start": 3586.16,
+        "duration": 4.52,
+        "text": "Vincent Van go and they had similar"
+      },
+      {
+        "start": 3588.359,
+        "duration": 5.0,
+        "text": "painting Styles honestly I don't even"
+      },
+      {
+        "start": 3590.68,
+        "duration": 5.96,
+        "text": "know who too the Trek was until I worked"
+      },
+      {
+        "start": 3593.359,
+        "duration": 3.281,
+        "text": "on this"
+      },
+      {
+        "start": 3597.319,
+        "duration": 5.24,
+        "text": "by using feature map statistics we can"
+      },
+      {
+        "start": 3599.44,
+        "duration": 7.76,
+        "text": "find uh artwork that's in a similar"
+      },
+      {
+        "start": 3602.559,
+        "duration": 6.76,
+        "text": "Style with some with some asterisks um"
+      },
+      {
+        "start": 3607.2,
+        "duration": 4.28,
+        "text": "we had some results that were maybe a"
+      },
+      {
+        "start": 3609.319,
+        "duration": 5.04,
+        "text": "little less clear how related they were"
+      },
+      {
+        "start": 3611.48,
+        "duration": 5.04,
+        "text": "in style nonetheless I think the results"
+      },
+      {
+        "start": 3614.359,
+        "duration": 4.121,
+        "text": "were good enough to be interesting at"
+      },
+      {
+        "start": 3616.52,
+        "duration": 4.16,
+        "text": "least uh certainly there was a lot of"
+      },
+      {
+        "start": 3618.48,
+        "duration": 5.0,
+        "text": "fun to do"
+      },
+      {
+        "start": 3620.68,
+        "duration": 5.679,
+        "text": "um for unit vectors the dot product and"
+      },
+      {
+        "start": 3623.48,
+        "duration": 5.28,
+        "text": "the coign are the same thing uh but do"
+      },
+      {
+        "start": 3626.359,
+        "duration": 6.401,
+        "text": "test your code to make sure you really"
+      },
+      {
+        "start": 3628.76,
+        "duration": 6.96,
+        "text": "do have unit vectors"
+      },
+      {
+        "start": 3632.76,
+        "duration": 5.76,
+        "text": "um uh small embeddings take up less"
+      },
+      {
+        "start": 3635.72,
+        "duration": 5.399,
+        "text": "space and make searches"
+      },
+      {
+        "start": 3638.52,
+        "duration": 3.64,
+        "text": "faster uh Auto encoders can be used to"
+      },
+      {
+        "start": 3641.119,
+        "duration": 3.24,
+        "text": "compress"
+      },
+      {
+        "start": 3642.16,
+        "duration": 5.72,
+        "text": "embeddings um which I think is perhaps"
+      },
+      {
+        "start": 3644.359,
+        "duration": 4.76,
+        "text": "the most generally useful thing uh from"
+      },
+      {
+        "start": 3647.88,
+        "duration": 4.199,
+        "text": "this"
+      },
+      {
+        "start": 3649.119,
+        "duration": 3.841,
+        "text": "demo um and it could make sense to use"
+      },
+      {
+        "start": 3652.079,
+        "duration": 3.921,
+        "text": "both"
+      },
+      {
+        "start": 3652.96,
+        "duration": 6.399,
+        "text": "compressed and uh uncompressed"
+      },
+      {
+        "start": 3656.0,
+        "duration": 8.24,
+        "text": "embeddings uh when using Vector"
+      },
+      {
+        "start": 3659.359,
+        "duration": 6.881,
+        "text": "search uh if you're interested in uh uh"
+      },
+      {
+        "start": 3664.24,
+        "duration": 6.24,
+        "text": "and looking at this notebook you can"
+      },
+      {
+        "start": 3666.24,
+        "duration": 6.839,
+        "text": "find it uh at this URL I will endeavor"
+      },
+      {
+        "start": 3670.48,
+        "duration": 5.76,
+        "text": "to get the that URL into the video"
+      },
+      {
+        "start": 3673.079,
+        "duration": 5.561,
+        "text": "description but failing that it will uh"
+      },
+      {
+        "start": 3676.24,
+        "duration": 4.92,
+        "text": "at least be here in the"
+      },
+      {
+        "start": 3678.64,
+        "duration": 7.8,
+        "text": "video and these are the papers that I"
+      },
+      {
+        "start": 3681.16,
+        "duration": 5.28,
+        "text": "refer to uh while working on this demo"
+      },
+      {
+        "start": 3686.76,
+        "duration": 5.359,
+        "text": "um well I hope you all found this"
+      },
+      {
+        "start": 3689.599,
+        "duration": 4.881,
+        "text": "educational uh certainly I had a lot of"
+      },
+      {
+        "start": 3692.119,
+        "duration": 5.96,
+        "text": "fun uh working on this"
+      },
+      {
+        "start": 3694.48,
+        "duration": 6.559,
+        "text": "demo uh using uh Cassandra Vector search"
+      },
+      {
+        "start": 3698.079,
+        "duration": 5.841,
+        "text": "is uh surprisingly straightforward and"
+      },
+      {
+        "start": 3701.039,
+        "duration": 6.601,
+        "text": "easy to do in fact it was the easiest"
+      },
+      {
+        "start": 3703.92,
+        "duration": 5.6,
+        "text": "part of this uh whole"
+      },
+      {
+        "start": 3707.64,
+        "duration": 5.159,
+        "text": "exercise and"
+      },
+      {
+        "start": 3709.52,
+        "duration": 3.279,
+        "text": "uh there it"
+      },
+      {
+        "start": 3713.0,
+        "duration": 3.0,
+        "text": "is"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T17:33:35.734502+00:00"
+}

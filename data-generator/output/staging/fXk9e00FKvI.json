@@ -1,0 +1,1813 @@
+{
+  "video_id": "fXk9e00FKvI",
+  "title": "Course Intro | DS101: Introduction to Apache Cassandra™",
+  "description": "#DataStaxAcademy #DS101\nThis beginner level introduction to Apache Cassandra™ outlines challenges encountered when attempting to scale with relational databases, and how NoSQL databases like Apache Cassandra™ address those challenges. It reviews the Apache Cassandra™ architecture, benefits, and how to use the Apache Cassandra™ read and write paths. Finally, it reviews Apache Cassandra™ distributions and helps you determine the best fit for your needs.\n\nLEARN FOR FREE at https://www.datastax.com/dev -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2017-05-19T20:30:29Z",
+  "thumbnail": "https://i.ytimg.com/vi/fXk9e00FKvI/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "nosql_database",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "tutorial",
+    "nosql",
+    "introduction",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=fXk9e00FKvI",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "you [Music] hi everyone I'm John Haddad and I am Luke Tillman and we're Technical Evangelist with data stacks today we're going to be talking about an introduction to Cassandra during the talk today we're going to cover a few things so first of all talk a little bit about relational databases maybe some of the problems that you run into when you try to scale relational databases for high availability then we'll also cover some core concepts of Cassandra how Cassandra works internally some of the dials that it gives you as a developer to kind of control its fault tolerance and this notion of high availability and then lastly we'll kind of talk about the different distributions that you can choose of Cassandra so is open source Apache Cassandra right for you or should you maybe think about using data stacks enterprise distribution DSE when you're deploying Cassandra to production first thing we're going to talk about is small data this is when you've got maybe data and text files or on a small sequel live database and you're going to be using utilities like said and awk in order to analyze this may be you whip out the Python script or something in Ruby but in the end it generally means that it's a one-off and you don't need any concurrency you're not sharing this with anybody this is running on your laptop and it's okay like maybe the batch takes like 30 seconds if it's a really really big file but that's kind of what you're looking at with small data we've talked about small data so let's talk about medium data now so probably if you're a web application developer or web developer of some kind this is probably the typical data set that you're working with so this is data that fits on a single machine you're probably using a relational database of some kind maybe MySQL or Postgres undreds of concurrent users so you've got some concurrency going on now and the other kind of nice thing that we get when were working with a relational database is these acid guarantees acid standing for atomicity consistency isolation and durability and as a developer we've been taught for many years how to develop on top of machines like this one I go to put data into a relational database with these acid guarantees I can kind of feel warm and cuddly and I kind of know exactly what's going to happen with my data when I put it in the other thing to know about is the way we try to scale these typically first is by scaling vertically so we buy more expensive hardware like more memory or maybe a bigger processor that kind of thing and this can get expensive really really quickly question will now ask ourselves is can the relational database work for big data first thing we find when we start to use a relational database to try and apply it to big data is that acid is a lie we're no longer in developed in that cocoon of safety which is Adam SAT consistency isolation and durability so let's take our scenario over here we have a single master and we have a client that's talking to that master and we have a read heavy workload and what we do is we decide to add on replication so one of the things that's important to know about replication is that the data is replicated asynchronously and this is known as replication lag and so what happens is when the client decides to do a write to the master it takes a little while to propagate over to the slave and if the client decides to do a read to the slave before the data has been replicated it's going to get old data back and what we find is that we have lost our consistency completely in the scope of our database so that whole thing that we built our entire application around that certainty that we had that we were always going to get up-to-date data is completely gone all the operations that we do are no longer in isolation they're definitely not atomic so we have to recode our entire app to take advantage or at least to accommodate the fact that we have replication and there is replication lag another thing that we run into when we start to deal with performance problems on a relational databases is something like maybe this query that you see on the right side of the slide here so probably most of us that have worked with relational databases see these crazy queries lots of joins maybe it's been generated by an ORM behind the scenes kind of thing in fact at a company I used to work for we had this problem where every day at 1 o'clock we'd have a lot of users try to log on to the system and nobody would be able to log in and when we actually went and looked at what was going on behind the scenes it was some crazy queries like this with lots of joins essentially locking up the database behind the scenes so queries like this can cause lots of problems it's kind of one of the side effects of using third normal form to do all of our data modeling and so what we try to do when we're dealing with queries like this that have unpredictable performance or poor performance a lot of times as we do normalize so we'll create a table and that table is built specifically to answer that query so at right time what we'll do is do you normalize at write time maybe write that data into that table specifically so that at read time we can do is sort of a select star very simple query that doesn't have a lot of expensive joins in it and that means that now we've probably got duplicate copies of our data we kind of violated this sort of third normal form that we're used to using and that has been drilled into our heads as developers for a really long time as we continue to scale our application the next thing that we're going to have to do is implement charting charting is when you take your data and instead of having an all-in-one database and one master you split it up into multiple databases and this works okay for a little while the big problems with this is that now your data is all over the place and even if you were relying on let's say a single master to do your OLAP queries you can't do it anymore all of your joins all of your aggregations all that stuff is history you absolutely cannot do it and you have to keep building different denormalized views of the data that you have in order to answer queries efficiently we also find that as we start to query secondary indexes that doesn't scale well either so if we take our servers and we say I'm going to split my users into four different shards and then I haven't shorted users on something like state and I want to do a query I want to say I want all the users in the state of Massachusetts that means I have to hit all the shards this is extremely non performant means if there was a hundred shards I have to do a hundred queries this does not scale well at all as a result we end up doing or malaises again so now we store two copies of our users one by user ID and another by state whenever we decide to add shards to our cluster if we want to double the number from four to eight we now have to write a tool that will manually move everything over this requires a lot of coordination between developers and operations and is an absolutely nightmare because there's dozens of edge cases that can come up when you're moving your data around so you have to think about all of them in your application and your ops team has to be aware of them as well the last thing that we find is that managing your schema is a huge pain if you have 20 shards all with the same schema on it you have to now come up with tools to apply schema changes to all the different shards in your system and remember it's not just a master that has to take it but all of your slaves this is a huge burden it is an absolute mess at the end of the day you look like this guy on the phone like he's just absolutely out of his mind earlier John mentioned using master-slave replication to kind of scale out when you have a read heavy workload another reason why people will introduce this sort of master slave architecture with replication is for high availability or maybe higher availability the thing is when you when you introduce this replication a lot of times you have to decide how you're going to do the failover so maybe you build some sort of automatic process to do the failover maybe it's a manual process where somebody has to notice that the database has gone down and push a button to failover to the slave server if you build an automatic process of some kind then what's going to watch the automatic process to make sure it doesn't crash and ultimately not end up being able to fail over your database and in any scenario the the problem is that you still end up with downtime because whether it's a manual failover process or an automatic failover process that implies that it's something's going to have to detect that the database is down and that you're having downtime before the failover can kick in the other thing is that trying to do this with the relational database and do multiple data centers is a disaster it's really really hard to do and we're not just talking about downtime as far as unplanned downtime you know we know the hardware fails Amazon reboots your servers as a service sort of thing that kind of stuff happens but then there's also planned downtime as well so there's things like OS upgrades or upgrades to your database server software so you've got a plan for those as well so it'd be really nice to have some way to have higher availability than what the master/slave kind of architecture gives to us let's summarize the ways of the relational database fails us handling Big Data we know that scaling is an absolute pain right we want to put bigger bigger hardware that costs a lot of money we want a shard that's an absolute mess we've got replication it's falling behind we have to keep changing our application to account for the things that we give up in the relational database acid you know that cocoon of safety we're not in that thing anymore we are basically treating our relational database pretty much like a glorified key value store we know that when we want to double the size of our cluster and we have to recharge that is an absolute nightmare to deal with nobody wants to do this it requires way too much coordination we know that we're going to have to denormalize all of our cool third normal form queries that we'd love to do our there's things that we were so proud to write in the first place they're gone now we're just writing our data in a bunch of different tables and some of the times we're just going to JSON serialize it and whatever it's an absolute disaster high-availability it's not happening right if you want to do multi DC with my sequel or Postgres it is absolutely not happening unless you in and have an entire dedicated engineering team to try and solve all the problems those are going to come up along the way so if we were to take some of the lessons that we've learned you know some of the points of failure that John just summarized and apply it to a new database if we were trying to build something maybe from scratch that would kind of be good for handling big data what are some of the lessons that we've learned from those failure so the first thing is that consistency is not practical this whole idea of acid consistency probably not practical in a big distributed system so we're going to give it up we also noticed that manual sharding and rebalancing is really hard right we had to write a lot of code just to move data from place to place and handle all these error conditions so instead what we're going to do is push that responsibility to our cluster our dream database can go from 3 to 20 machines and we as developers don't have to worry about it we don't have to write any special code to accommodate that next thing we know is that every moving part that we add to the system so this idea of master-slave replication that we get in a lot of databases that makes things more complex and all this failover and processes to watch the failover and everything so we want our system to be as simple as possible as few moving parts as possible none of this master/slave architecture sort of thing we also find that scaling up is really expensive if you want to vertically scale your database you're going to have to put things like a sand in place you're going to have to get bigger and bigger servers every time you do it it's more and more expensive it's a lot of money and it's really not worth it in the end so what we would do in our dream database is to only use commodity hardware we want to spend five ten thousand dollars per machine instead of a hundred thousand dollars and what we want to do is buy more machines that way when we want to double the capacity of our cluster we're not going from a hundred thousand dollar machine to a two hundred thousand dollar machine we're just doubling the number of cheap machines that we use well sort of last lesson learned here is that scattered gathered queries are not going to be any good so we want to have something that kind of tries to push us maybe in its data modeling or something like that towards data locality where queries will only hit a single machine so that we're efficient we don't introduce a whole bunch of extra latency where we're instead doing a full table scan now we're doing a full cluster scan sort of thing you",
+    "segments": [
+      {
+        "start": 0.0,
+        "duration": 3.52,
+        "text": "you"
+      },
+      {
+        "start": 0.07,
+        "duration": 3.45,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.6,
+        "duration": 4.199,
+        "text": "hi everyone I'm John Haddad and I am"
+      },
+      {
+        "start": 10.36,
+        "duration": 3.24,
+        "text": "Luke Tillman and we're Technical"
+      },
+      {
+        "start": 11.799,
+        "duration": 3.0,
+        "text": "Evangelist with data stacks today we're"
+      },
+      {
+        "start": 13.6,
+        "duration": 3.36,
+        "text": "going to be talking about an"
+      },
+      {
+        "start": 14.799,
+        "duration": 3.841,
+        "text": "introduction to Cassandra during the"
+      },
+      {
+        "start": 16.96,
+        "duration": 3.69,
+        "text": "talk today we're going to cover a few"
+      },
+      {
+        "start": 18.64,
+        "duration": 4.32,
+        "text": "things so first of all talk a little bit"
+      },
+      {
+        "start": 20.65,
+        "duration": 3.69,
+        "text": "about relational databases maybe some of"
+      },
+      {
+        "start": 22.96,
+        "duration": 3.48,
+        "text": "the problems that you run into when you"
+      },
+      {
+        "start": 24.34,
+        "duration": 3.84,
+        "text": "try to scale relational databases for"
+      },
+      {
+        "start": 26.44,
+        "duration": 3.42,
+        "text": "high availability then we'll also cover"
+      },
+      {
+        "start": 28.18,
+        "duration": 3.6,
+        "text": "some core concepts of Cassandra how"
+      },
+      {
+        "start": 29.86,
+        "duration": 3.269,
+        "text": "Cassandra works internally some of the"
+      },
+      {
+        "start": 31.78,
+        "duration": 3.63,
+        "text": "dials that it gives you as a developer"
+      },
+      {
+        "start": 33.129,
+        "duration": 4.741,
+        "text": "to kind of control its fault tolerance"
+      },
+      {
+        "start": 35.41,
+        "duration": 4.8,
+        "text": "and this notion of high availability and"
+      },
+      {
+        "start": 37.87,
+        "duration": 3.809,
+        "text": "then lastly we'll kind of talk about the"
+      },
+      {
+        "start": 40.21,
+        "duration": 3.57,
+        "text": "different distributions that you can"
+      },
+      {
+        "start": 41.679,
+        "duration": 4.59,
+        "text": "choose of Cassandra so is open source"
+      },
+      {
+        "start": 43.78,
+        "duration": 4.89,
+        "text": "Apache Cassandra right for you or should"
+      },
+      {
+        "start": 46.269,
+        "duration": 4.261,
+        "text": "you maybe think about using data stacks"
+      },
+      {
+        "start": 48.67,
+        "duration": 3.63,
+        "text": "enterprise distribution DSE when you're"
+      },
+      {
+        "start": 50.53,
+        "duration": 3.0,
+        "text": "deploying Cassandra to production first"
+      },
+      {
+        "start": 52.3,
+        "duration": 3.269,
+        "text": "thing we're going to talk about is small"
+      },
+      {
+        "start": 53.53,
+        "duration": 3.84,
+        "text": "data this is when you've got maybe data"
+      },
+      {
+        "start": 55.569,
+        "duration": 3.36,
+        "text": "and text files or on a small sequel live"
+      },
+      {
+        "start": 57.37,
+        "duration": 4.439,
+        "text": "database and you're going to be using"
+      },
+      {
+        "start": 58.929,
+        "duration": 4.56,
+        "text": "utilities like said and awk in order to"
+      },
+      {
+        "start": 61.809,
+        "duration": 3.661,
+        "text": "analyze this may be you whip out the"
+      },
+      {
+        "start": 63.489,
+        "duration": 4.17,
+        "text": "Python script or something in Ruby but"
+      },
+      {
+        "start": 65.47,
+        "duration": 3.93,
+        "text": "in the end it generally means that it's"
+      },
+      {
+        "start": 67.659,
+        "duration": 3.331,
+        "text": "a one-off and you don't need any"
+      },
+      {
+        "start": 69.4,
+        "duration": 3.78,
+        "text": "concurrency you're not sharing this with"
+      },
+      {
+        "start": 70.99,
+        "duration": 4.47,
+        "text": "anybody this is running on your laptop"
+      },
+      {
+        "start": 73.18,
+        "duration": 4.02,
+        "text": "and it's okay like maybe the batch takes"
+      },
+      {
+        "start": 75.46,
+        "duration": 3.63,
+        "text": "like 30 seconds if it's a really really"
+      },
+      {
+        "start": 77.2,
+        "duration": 3.33,
+        "text": "big file but that's kind of what you're"
+      },
+      {
+        "start": 79.09,
+        "duration": 2.699,
+        "text": "looking at with small data we've talked"
+      },
+      {
+        "start": 80.53,
+        "duration": 3.15,
+        "text": "about small data so let's talk about"
+      },
+      {
+        "start": 81.789,
+        "duration": 3.54,
+        "text": "medium data now so probably if you're a"
+      },
+      {
+        "start": 83.68,
+        "duration": 3.06,
+        "text": "web application developer or web"
+      },
+      {
+        "start": 85.329,
+        "duration": 2.79,
+        "text": "developer of some kind this is probably"
+      },
+      {
+        "start": 86.74,
+        "duration": 2.97,
+        "text": "the typical data set that you're working"
+      },
+      {
+        "start": 88.119,
+        "duration": 3.871,
+        "text": "with so this is data that fits on a"
+      },
+      {
+        "start": 89.71,
+        "duration": 4.619,
+        "text": "single machine you're probably using a"
+      },
+      {
+        "start": 91.99,
+        "duration": 4.43,
+        "text": "relational database of some kind maybe"
+      },
+      {
+        "start": 94.329,
+        "duration": 4.08,
+        "text": "MySQL or Postgres"
+      },
+      {
+        "start": 96.42,
+        "duration": 3.58,
+        "text": "undreds of concurrent users so you've"
+      },
+      {
+        "start": 98.409,
+        "duration": 3.06,
+        "text": "got some concurrency going on now and"
+      },
+      {
+        "start": 100.0,
+        "duration": 2.549,
+        "text": "the other kind of nice thing that we get"
+      },
+      {
+        "start": 101.469,
+        "duration": 3.75,
+        "text": "when were working with a relational"
+      },
+      {
+        "start": 102.549,
+        "duration": 4.291,
+        "text": "database is these acid guarantees acid"
+      },
+      {
+        "start": 105.219,
+        "duration": 4.5,
+        "text": "standing for atomicity consistency"
+      },
+      {
+        "start": 106.84,
+        "duration": 4.589,
+        "text": "isolation and durability and as a"
+      },
+      {
+        "start": 109.719,
+        "duration": 3.96,
+        "text": "developer we've been taught for many"
+      },
+      {
+        "start": 111.429,
+        "duration": 4.141,
+        "text": "years how to develop on top of machines"
+      },
+      {
+        "start": 113.679,
+        "duration": 3.36,
+        "text": "like this one I go to put data into a"
+      },
+      {
+        "start": 115.57,
+        "duration": 3.359,
+        "text": "relational database with these acid"
+      },
+      {
+        "start": 117.039,
+        "duration": 3.631,
+        "text": "guarantees I can kind of feel warm and"
+      },
+      {
+        "start": 118.929,
+        "duration": 3.271,
+        "text": "cuddly and I kind of know exactly what's"
+      },
+      {
+        "start": 120.67,
+        "duration": 3.329,
+        "text": "going to happen with my data when I put"
+      },
+      {
+        "start": 122.2,
+        "duration": 3.629,
+        "text": "it in the other thing to know about is"
+      },
+      {
+        "start": 123.999,
+        "duration": 3.93,
+        "text": "the way we try to scale these typically"
+      },
+      {
+        "start": 125.829,
+        "duration": 5.131,
+        "text": "first is by scaling vertically so we buy"
+      },
+      {
+        "start": 127.929,
+        "duration": 5.251,
+        "text": "more expensive hardware like more memory"
+      },
+      {
+        "start": 130.96,
+        "duration": 3.72,
+        "text": "or maybe a bigger processor that kind of"
+      },
+      {
+        "start": 133.18,
+        "duration": 3.33,
+        "text": "thing and this can get expensive really"
+      },
+      {
+        "start": 134.68,
+        "duration": 3.9,
+        "text": "really quickly question will now ask"
+      },
+      {
+        "start": 136.51,
+        "duration": 4.12,
+        "text": "ourselves is can the relational database"
+      },
+      {
+        "start": 138.58,
+        "duration": 3.34,
+        "text": "work for big data first thing"
+      },
+      {
+        "start": 140.63,
+        "duration": 2.82,
+        "text": "we find when we start to use a"
+      },
+      {
+        "start": 141.92,
+        "duration": 4.26,
+        "text": "relational database to try and apply it"
+      },
+      {
+        "start": 143.45,
+        "duration": 4.74,
+        "text": "to big data is that acid is a lie we're"
+      },
+      {
+        "start": 146.18,
+        "duration": 4.83,
+        "text": "no longer in developed in that cocoon of"
+      },
+      {
+        "start": 148.19,
+        "duration": 4.95,
+        "text": "safety which is Adam SAT consistency"
+      },
+      {
+        "start": 151.01,
+        "duration": 4.5,
+        "text": "isolation and durability so let's take"
+      },
+      {
+        "start": 153.14,
+        "duration": 4.08,
+        "text": "our scenario over here we have a single"
+      },
+      {
+        "start": 155.51,
+        "duration": 3.72,
+        "text": "master and we have a client that's"
+      },
+      {
+        "start": 157.22,
+        "duration": 3.99,
+        "text": "talking to that master and we have a"
+      },
+      {
+        "start": 159.23,
+        "duration": 4.26,
+        "text": "read heavy workload and what we do is we"
+      },
+      {
+        "start": 161.21,
+        "duration": 3.36,
+        "text": "decide to add on replication so one of"
+      },
+      {
+        "start": 163.49,
+        "duration": 2.97,
+        "text": "the things that's important to know"
+      },
+      {
+        "start": 164.57,
+        "duration": 4.26,
+        "text": "about replication is that the data is"
+      },
+      {
+        "start": 166.46,
+        "duration": 4.23,
+        "text": "replicated asynchronously and this is"
+      },
+      {
+        "start": 168.83,
+        "duration": 4.44,
+        "text": "known as replication lag and so what"
+      },
+      {
+        "start": 170.69,
+        "duration": 4.26,
+        "text": "happens is when the client decides to do"
+      },
+      {
+        "start": 173.27,
+        "duration": 3.45,
+        "text": "a write to the master it takes a little"
+      },
+      {
+        "start": 174.95,
+        "duration": 4.41,
+        "text": "while to propagate over to the slave and"
+      },
+      {
+        "start": 176.72,
+        "duration": 4.32,
+        "text": "if the client decides to do a read to"
+      },
+      {
+        "start": 179.36,
+        "duration": 3.3,
+        "text": "the slave before the data has been"
+      },
+      {
+        "start": 181.04,
+        "duration": 4.71,
+        "text": "replicated it's going to get old data"
+      },
+      {
+        "start": 182.66,
+        "duration": 5.7,
+        "text": "back and what we find is that we have"
+      },
+      {
+        "start": 185.75,
+        "duration": 4.8,
+        "text": "lost our consistency completely in the"
+      },
+      {
+        "start": 188.36,
+        "duration": 3.75,
+        "text": "scope of our database so that whole"
+      },
+      {
+        "start": 190.55,
+        "duration": 3.45,
+        "text": "thing that we built our entire"
+      },
+      {
+        "start": 192.11,
+        "duration": 3.33,
+        "text": "application around that certainty that"
+      },
+      {
+        "start": 194.0,
+        "duration": 3.69,
+        "text": "we had that we were always going to get"
+      },
+      {
+        "start": 195.44,
+        "duration": 4.29,
+        "text": "up-to-date data is completely gone all"
+      },
+      {
+        "start": 197.69,
+        "duration": 3.6,
+        "text": "the operations that we do are no longer"
+      },
+      {
+        "start": 199.73,
+        "duration": 3.93,
+        "text": "in isolation they're definitely not"
+      },
+      {
+        "start": 201.29,
+        "duration": 4.71,
+        "text": "atomic so we have to recode our entire"
+      },
+      {
+        "start": 203.66,
+        "duration": 3.72,
+        "text": "app to take advantage or at least to"
+      },
+      {
+        "start": 206.0,
+        "duration": 3.36,
+        "text": "accommodate the fact that we have"
+      },
+      {
+        "start": 207.38,
+        "duration": 4.89,
+        "text": "replication and there is replication lag"
+      },
+      {
+        "start": 209.36,
+        "duration": 4.44,
+        "text": "another thing that we run into when we"
+      },
+      {
+        "start": 212.27,
+        "duration": 3.45,
+        "text": "start to deal with performance problems"
+      },
+      {
+        "start": 213.8,
+        "duration": 3.45,
+        "text": "on a relational databases is something"
+      },
+      {
+        "start": 215.72,
+        "duration": 3.12,
+        "text": "like maybe this query that you see on"
+      },
+      {
+        "start": 217.25,
+        "duration": 3.42,
+        "text": "the right side of the slide here so"
+      },
+      {
+        "start": 218.84,
+        "duration": 2.94,
+        "text": "probably most of us that have worked"
+      },
+      {
+        "start": 220.67,
+        "duration": 3.87,
+        "text": "with relational databases see these"
+      },
+      {
+        "start": 221.78,
+        "duration": 4.98,
+        "text": "crazy queries lots of joins maybe it's"
+      },
+      {
+        "start": 224.54,
+        "duration": 3.48,
+        "text": "been generated by an ORM behind the"
+      },
+      {
+        "start": 226.76,
+        "duration": 3.51,
+        "text": "scenes kind of thing in fact at a"
+      },
+      {
+        "start": 228.02,
+        "duration": 3.9,
+        "text": "company I used to work for we had this"
+      },
+      {
+        "start": 230.27,
+        "duration": 3.27,
+        "text": "problem where every day at 1 o'clock"
+      },
+      {
+        "start": 231.92,
+        "duration": 3.75,
+        "text": "we'd have a lot of users try to log on"
+      },
+      {
+        "start": 233.54,
+        "duration": 3.87,
+        "text": "to the system and nobody would be able"
+      },
+      {
+        "start": 235.67,
+        "duration": 3.66,
+        "text": "to log in and when we actually went and"
+      },
+      {
+        "start": 237.41,
+        "duration": 4.32,
+        "text": "looked at what was going on behind the"
+      },
+      {
+        "start": 239.33,
+        "duration": 4.17,
+        "text": "scenes it was some crazy queries like"
+      },
+      {
+        "start": 241.73,
+        "duration": 3.54,
+        "text": "this with lots of joins essentially"
+      },
+      {
+        "start": 243.5,
+        "duration": 4.02,
+        "text": "locking up the database behind the"
+      },
+      {
+        "start": 245.27,
+        "duration": 4.56,
+        "text": "scenes so queries like this can cause"
+      },
+      {
+        "start": 247.52,
+        "duration": 4.29,
+        "text": "lots of problems it's kind of one of the"
+      },
+      {
+        "start": 249.83,
+        "duration": 4.98,
+        "text": "side effects of using third normal form"
+      },
+      {
+        "start": 251.81,
+        "duration": 4.41,
+        "text": "to do all of our data modeling and so"
+      },
+      {
+        "start": 254.81,
+        "duration": 3.48,
+        "text": "what we try to do when we're dealing"
+      },
+      {
+        "start": 256.22,
+        "duration": 3.51,
+        "text": "with queries like this that have"
+      },
+      {
+        "start": 258.29,
+        "duration": 3.36,
+        "text": "unpredictable performance or poor"
+      },
+      {
+        "start": 259.73,
+        "duration": 4.2,
+        "text": "performance a lot of times as we do"
+      },
+      {
+        "start": 261.65,
+        "duration": 5.16,
+        "text": "normalize so we'll create a table and"
+      },
+      {
+        "start": 263.93,
+        "duration": 5.46,
+        "text": "that table is built specifically to"
+      },
+      {
+        "start": 266.81,
+        "duration": 4.29,
+        "text": "answer that query so at right time what"
+      },
+      {
+        "start": 269.39,
+        "duration": 3.39,
+        "text": "we'll do is do you normalize at write"
+      },
+      {
+        "start": 271.1,
+        "duration": 2.659,
+        "text": "time maybe write that data into that"
+      },
+      {
+        "start": 272.78,
+        "duration": 3.02,
+        "text": "table"
+      },
+      {
+        "start": 273.759,
+        "duration": 4.02,
+        "text": "specifically so that at read time we can"
+      },
+      {
+        "start": 275.8,
+        "duration": 3.119,
+        "text": "do is sort of a select star very simple"
+      },
+      {
+        "start": 277.779,
+        "duration": 3.75,
+        "text": "query that doesn't have a lot of"
+      },
+      {
+        "start": 278.919,
+        "duration": 4.53,
+        "text": "expensive joins in it and that means"
+      },
+      {
+        "start": 281.529,
+        "duration": 3.901,
+        "text": "that now we've probably got duplicate"
+      },
+      {
+        "start": 283.449,
+        "duration": 3.93,
+        "text": "copies of our data we kind of violated"
+      },
+      {
+        "start": 285.43,
+        "duration": 3.9,
+        "text": "this sort of third normal form that"
+      },
+      {
+        "start": 287.379,
+        "duration": 3.84,
+        "text": "we're used to using and that has been"
+      },
+      {
+        "start": 289.33,
+        "duration": 3.899,
+        "text": "drilled into our heads as developers for"
+      },
+      {
+        "start": 291.219,
+        "duration": 3.51,
+        "text": "a really long time as we continue to"
+      },
+      {
+        "start": 293.229,
+        "duration": 2.52,
+        "text": "scale our application the next thing"
+      },
+      {
+        "start": 294.729,
+        "duration": 3.06,
+        "text": "that we're going to have to do is"
+      },
+      {
+        "start": 295.749,
+        "duration": 3.75,
+        "text": "implement charting charting is when you"
+      },
+      {
+        "start": 297.789,
+        "duration": 3.96,
+        "text": "take your data and instead of having an"
+      },
+      {
+        "start": 299.499,
+        "duration": 4.35,
+        "text": "all-in-one database and one master you"
+      },
+      {
+        "start": 301.749,
+        "duration": 4.53,
+        "text": "split it up into multiple databases and"
+      },
+      {
+        "start": 303.849,
+        "duration": 4.141,
+        "text": "this works okay for a little while the"
+      },
+      {
+        "start": 306.279,
+        "duration": 4.021,
+        "text": "big problems with this is that now your"
+      },
+      {
+        "start": 307.99,
+        "duration": 5.039,
+        "text": "data is all over the place and even if"
+      },
+      {
+        "start": 310.3,
+        "duration": 4.829,
+        "text": "you were relying on let's say a single"
+      },
+      {
+        "start": 313.029,
+        "duration": 4.081,
+        "text": "master to do your OLAP queries you can't"
+      },
+      {
+        "start": 315.129,
+        "duration": 3.331,
+        "text": "do it anymore all of your joins all of"
+      },
+      {
+        "start": 317.11,
+        "duration": 3.419,
+        "text": "your aggregations all that stuff is"
+      },
+      {
+        "start": 318.46,
+        "duration": 3.72,
+        "text": "history you absolutely cannot do it and"
+      },
+      {
+        "start": 320.529,
+        "duration": 3.841,
+        "text": "you have to keep building different"
+      },
+      {
+        "start": 322.18,
+        "duration": 3.419,
+        "text": "denormalized views of the data that you"
+      },
+      {
+        "start": 324.37,
+        "duration": 3.24,
+        "text": "have in order to answer queries"
+      },
+      {
+        "start": 325.599,
+        "duration": 4.29,
+        "text": "efficiently we also find that as we"
+      },
+      {
+        "start": 327.61,
+        "duration": 4.35,
+        "text": "start to query secondary indexes that"
+      },
+      {
+        "start": 329.889,
+        "duration": 3.84,
+        "text": "doesn't scale well either so if we take"
+      },
+      {
+        "start": 331.96,
+        "duration": 3.72,
+        "text": "our servers and we say I'm going to"
+      },
+      {
+        "start": 333.729,
+        "duration": 5.37,
+        "text": "split my users into four different"
+      },
+      {
+        "start": 335.68,
+        "duration": 5.13,
+        "text": "shards and then I haven't shorted users"
+      },
+      {
+        "start": 339.099,
+        "duration": 3.66,
+        "text": "on something like state and I want to do"
+      },
+      {
+        "start": 340.81,
+        "duration": 3.599,
+        "text": "a query I want to say I want all the"
+      },
+      {
+        "start": 342.759,
+        "duration": 4.051,
+        "text": "users in the state of Massachusetts that"
+      },
+      {
+        "start": 344.409,
+        "duration": 4.59,
+        "text": "means I have to hit all the shards this"
+      },
+      {
+        "start": 346.81,
+        "duration": 3.539,
+        "text": "is extremely non performant means if"
+      },
+      {
+        "start": 348.999,
+        "duration": 3.45,
+        "text": "there was a hundred shards I have to do"
+      },
+      {
+        "start": 350.349,
+        "duration": 2.761,
+        "text": "a hundred queries this does not scale"
+      },
+      {
+        "start": 352.449,
+        "duration": 3.3,
+        "text": "well at all"
+      },
+      {
+        "start": 353.11,
+        "duration": 4.44,
+        "text": "as a result we end up doing or malaises"
+      },
+      {
+        "start": 355.749,
+        "duration": 4.23,
+        "text": "again so now we store two copies of our"
+      },
+      {
+        "start": 357.55,
+        "duration": 4.739,
+        "text": "users one by user ID and another by"
+      },
+      {
+        "start": 359.979,
+        "duration": 3.69,
+        "text": "state whenever we decide to add shards"
+      },
+      {
+        "start": 362.289,
+        "duration": 3.331,
+        "text": "to our cluster if we want to double the"
+      },
+      {
+        "start": 363.669,
+        "duration": 3.39,
+        "text": "number from four to eight we now have to"
+      },
+      {
+        "start": 365.62,
+        "duration": 3.359,
+        "text": "write a tool that will manually move"
+      },
+      {
+        "start": 367.059,
+        "duration": 3.66,
+        "text": "everything over this requires a lot of"
+      },
+      {
+        "start": 368.979,
+        "duration": 3.75,
+        "text": "coordination between developers and"
+      },
+      {
+        "start": 370.719,
+        "duration": 3.51,
+        "text": "operations and is an absolutely"
+      },
+      {
+        "start": 372.729,
+        "duration": 3.69,
+        "text": "nightmare because there's dozens of edge"
+      },
+      {
+        "start": 374.229,
+        "duration": 3.48,
+        "text": "cases that can come up when you're"
+      },
+      {
+        "start": 376.419,
+        "duration": 2.79,
+        "text": "moving your data around so you have to"
+      },
+      {
+        "start": 377.709,
+        "duration": 3.57,
+        "text": "think about all of them in your"
+      },
+      {
+        "start": 379.209,
+        "duration": 3.63,
+        "text": "application and your ops team has to be"
+      },
+      {
+        "start": 381.279,
+        "duration": 3.331,
+        "text": "aware of them as well the last thing"
+      },
+      {
+        "start": 382.839,
+        "duration": 4.89,
+        "text": "that we find is that managing your"
+      },
+      {
+        "start": 384.61,
+        "duration": 5.339,
+        "text": "schema is a huge pain if you have 20"
+      },
+      {
+        "start": 387.729,
+        "duration": 4.261,
+        "text": "shards all with the same schema on it"
+      },
+      {
+        "start": 389.949,
+        "duration": 4.321,
+        "text": "you have to now come up with tools to"
+      },
+      {
+        "start": 391.99,
+        "duration": 3.599,
+        "text": "apply schema changes to all the"
+      },
+      {
+        "start": 394.27,
+        "duration": 3.149,
+        "text": "different shards in your system and"
+      },
+      {
+        "start": 395.589,
+        "duration": 3.6,
+        "text": "remember it's not just a master that has"
+      },
+      {
+        "start": 397.419,
+        "duration": 3.93,
+        "text": "to take it but all of your slaves this"
+      },
+      {
+        "start": 399.189,
+        "duration": 4.14,
+        "text": "is a huge burden it is an absolute mess"
+      },
+      {
+        "start": 401.349,
+        "duration": 3.18,
+        "text": "at the end of the day you look like this"
+      },
+      {
+        "start": 403.329,
+        "duration": 3.24,
+        "text": "guy on the phone like he's just"
+      },
+      {
+        "start": 404.529,
+        "duration": 2.951,
+        "text": "absolutely out of his mind earlier John"
+      },
+      {
+        "start": 406.569,
+        "duration": 2.831,
+        "text": "mentioned"
+      },
+      {
+        "start": 407.48,
+        "duration": 3.45,
+        "text": "using master-slave replication to kind"
+      },
+      {
+        "start": 409.4,
+        "duration": 3.87,
+        "text": "of scale out when you have a read heavy"
+      },
+      {
+        "start": 410.93,
+        "duration": 3.81,
+        "text": "workload another reason why people will"
+      },
+      {
+        "start": 413.27,
+        "duration": 3.57,
+        "text": "introduce this sort of master slave"
+      },
+      {
+        "start": 414.74,
+        "duration": 4.2,
+        "text": "architecture with replication is for"
+      },
+      {
+        "start": 416.84,
+        "duration": 4.62,
+        "text": "high availability or maybe higher"
+      },
+      {
+        "start": 418.94,
+        "duration": 5.25,
+        "text": "availability the thing is when you when"
+      },
+      {
+        "start": 421.46,
+        "duration": 4.2,
+        "text": "you introduce this replication a lot of"
+      },
+      {
+        "start": 424.19,
+        "duration": 3.24,
+        "text": "times you have to decide how you're"
+      },
+      {
+        "start": 425.66,
+        "duration": 4.38,
+        "text": "going to do the failover so maybe you"
+      },
+      {
+        "start": 427.43,
+        "duration": 4.83,
+        "text": "build some sort of automatic process to"
+      },
+      {
+        "start": 430.04,
+        "duration": 3.75,
+        "text": "do the failover maybe it's a manual"
+      },
+      {
+        "start": 432.26,
+        "duration": 2.97,
+        "text": "process where somebody has to notice"
+      },
+      {
+        "start": 433.79,
+        "duration": 3.81,
+        "text": "that the database has gone down and push"
+      },
+      {
+        "start": 435.23,
+        "duration": 4.11,
+        "text": "a button to failover to the slave server"
+      },
+      {
+        "start": 437.6,
+        "duration": 3.69,
+        "text": "if you build an automatic process of"
+      },
+      {
+        "start": 439.34,
+        "duration": 3.33,
+        "text": "some kind then what's going to watch the"
+      },
+      {
+        "start": 441.29,
+        "duration": 3.66,
+        "text": "automatic process to make sure it"
+      },
+      {
+        "start": 442.67,
+        "duration": 4.23,
+        "text": "doesn't crash and ultimately not end up"
+      },
+      {
+        "start": 444.95,
+        "duration": 5.13,
+        "text": "being able to fail over your database"
+      },
+      {
+        "start": 446.9,
+        "duration": 5.13,
+        "text": "and in any scenario the the problem is"
+      },
+      {
+        "start": 450.08,
+        "duration": 3.57,
+        "text": "that you still end up with downtime"
+      },
+      {
+        "start": 452.03,
+        "duration": 4.02,
+        "text": "because whether it's a manual failover"
+      },
+      {
+        "start": 453.65,
+        "duration": 4.11,
+        "text": "process or an automatic failover process"
+      },
+      {
+        "start": 456.05,
+        "duration": 3.27,
+        "text": "that implies that it's something's going"
+      },
+      {
+        "start": 457.76,
+        "duration": 3.09,
+        "text": "to have to detect that the database is"
+      },
+      {
+        "start": 459.32,
+        "duration": 3.24,
+        "text": "down and that you're having downtime"
+      },
+      {
+        "start": 460.85,
+        "duration": 3.15,
+        "text": "before the failover can kick in the"
+      },
+      {
+        "start": 462.56,
+        "duration": 2.46,
+        "text": "other thing is that trying to do this"
+      },
+      {
+        "start": 464.0,
+        "duration": 3.33,
+        "text": "with the relational database and do"
+      },
+      {
+        "start": 465.02,
+        "duration": 4.77,
+        "text": "multiple data centers is a disaster it's"
+      },
+      {
+        "start": 467.33,
+        "duration": 4.62,
+        "text": "really really hard to do and we're not"
+      },
+      {
+        "start": 469.79,
+        "duration": 4.83,
+        "text": "just talking about downtime as far as"
+      },
+      {
+        "start": 471.95,
+        "duration": 4.92,
+        "text": "unplanned downtime you know we know the"
+      },
+      {
+        "start": 474.62,
+        "duration": 5.01,
+        "text": "hardware fails Amazon reboots your"
+      },
+      {
+        "start": 476.87,
+        "duration": 3.99,
+        "text": "servers as a service sort of thing that"
+      },
+      {
+        "start": 479.63,
+        "duration": 3.03,
+        "text": "kind of stuff happens but then there's"
+      },
+      {
+        "start": 480.86,
+        "duration": 4.71,
+        "text": "also planned downtime as well so there's"
+      },
+      {
+        "start": 482.66,
+        "duration": 4.89,
+        "text": "things like OS upgrades or upgrades to"
+      },
+      {
+        "start": 485.57,
+        "duration": 3.69,
+        "text": "your database server software so you've"
+      },
+      {
+        "start": 487.55,
+        "duration": 3.33,
+        "text": "got a plan for those as well so it'd be"
+      },
+      {
+        "start": 489.26,
+        "duration": 3.72,
+        "text": "really nice to have some way to have"
+      },
+      {
+        "start": 490.88,
+        "duration": 4.23,
+        "text": "higher availability than what the"
+      },
+      {
+        "start": 492.98,
+        "duration": 5.04,
+        "text": "master/slave kind of architecture gives"
+      },
+      {
+        "start": 495.11,
+        "duration": 5.1,
+        "text": "to us let's summarize the ways of the"
+      },
+      {
+        "start": 498.02,
+        "duration": 4.44,
+        "text": "relational database fails us handling"
+      },
+      {
+        "start": 500.21,
+        "duration": 4.02,
+        "text": "Big Data we know that scaling is an"
+      },
+      {
+        "start": 502.46,
+        "duration": 4.17,
+        "text": "absolute pain right we want to put"
+      },
+      {
+        "start": 504.23,
+        "duration": 4.41,
+        "text": "bigger bigger hardware that costs a lot"
+      },
+      {
+        "start": 506.63,
+        "duration": 4.56,
+        "text": "of money we want a shard that's an"
+      },
+      {
+        "start": 508.64,
+        "duration": 4.17,
+        "text": "absolute mess we've got replication it's"
+      },
+      {
+        "start": 511.19,
+        "duration": 3.12,
+        "text": "falling behind we have to keep changing"
+      },
+      {
+        "start": 512.81,
+        "duration": 3.419,
+        "text": "our application to account for the"
+      },
+      {
+        "start": 514.31,
+        "duration": 4.26,
+        "text": "things that we give up in the relational"
+      },
+      {
+        "start": 516.229,
+        "duration": 4.201,
+        "text": "database acid you know that cocoon of"
+      },
+      {
+        "start": 518.57,
+        "duration": 3.51,
+        "text": "safety we're not in that thing anymore"
+      },
+      {
+        "start": 520.43,
+        "duration": 3.48,
+        "text": "we are basically treating our relational"
+      },
+      {
+        "start": 522.08,
+        "duration": 3.75,
+        "text": "database pretty much like a glorified"
+      },
+      {
+        "start": 523.91,
+        "duration": 3.48,
+        "text": "key value store we know that when we"
+      },
+      {
+        "start": 525.83,
+        "duration": 3.81,
+        "text": "want to double the size of our cluster"
+      },
+      {
+        "start": 527.39,
+        "duration": 4.35,
+        "text": "and we have to recharge that is an"
+      },
+      {
+        "start": 529.64,
+        "duration": 2.91,
+        "text": "absolute nightmare to deal with nobody"
+      },
+      {
+        "start": 531.74,
+        "duration": 3.06,
+        "text": "wants to do this"
+      },
+      {
+        "start": 532.55,
+        "duration": 2.94,
+        "text": "it requires way too much coordination we"
+      },
+      {
+        "start": 534.8,
+        "duration": 3.0,
+        "text": "know that we're going to have to"
+      },
+      {
+        "start": 535.49,
+        "duration": 5.519,
+        "text": "denormalize all of our cool third normal"
+      },
+      {
+        "start": 537.8,
+        "duration": 4.979,
+        "text": "form queries that we'd love to do our"
+      },
+      {
+        "start": 541.009,
+        "duration": 3.18,
+        "text": "there's things that we were so proud to"
+      },
+      {
+        "start": 542.779,
+        "duration": 2.91,
+        "text": "write in the first place they're gone"
+      },
+      {
+        "start": 544.189,
+        "duration": 3.93,
+        "text": "now we're just writing our data in a"
+      },
+      {
+        "start": 545.689,
+        "duration": 3.87,
+        "text": "bunch of different tables and some of"
+      },
+      {
+        "start": 548.119,
+        "duration": 4.05,
+        "text": "the times we're just going to JSON"
+      },
+      {
+        "start": 549.559,
+        "duration": 4.8,
+        "text": "serialize it and whatever it's an"
+      },
+      {
+        "start": 552.169,
+        "duration": 4.59,
+        "text": "absolute disaster high-availability"
+      },
+      {
+        "start": 554.359,
+        "duration": 5.1,
+        "text": "it's not happening right if you want to"
+      },
+      {
+        "start": 556.759,
+        "duration": 4.53,
+        "text": "do multi DC with my sequel or Postgres"
+      },
+      {
+        "start": 559.459,
+        "duration": 4.17,
+        "text": "it is absolutely not happening unless"
+      },
+      {
+        "start": 561.289,
+        "duration": 4.11,
+        "text": "you in and have an entire dedicated"
+      },
+      {
+        "start": 563.629,
+        "duration": 3.09,
+        "text": "engineering team to try and solve all"
+      },
+      {
+        "start": 565.399,
+        "duration": 3.63,
+        "text": "the problems those are going to come up"
+      },
+      {
+        "start": 566.719,
+        "duration": 3.84,
+        "text": "along the way so if we were to take some"
+      },
+      {
+        "start": 569.029,
+        "duration": 2.82,
+        "text": "of the lessons that we've learned you"
+      },
+      {
+        "start": 570.559,
+        "duration": 3.06,
+        "text": "know some of the points of failure that"
+      },
+      {
+        "start": 571.849,
+        "duration": 3.51,
+        "text": "John just summarized and apply it to a"
+      },
+      {
+        "start": 573.619,
+        "duration": 3.6,
+        "text": "new database if we were trying to build"
+      },
+      {
+        "start": 575.359,
+        "duration": 4.41,
+        "text": "something maybe from scratch that would"
+      },
+      {
+        "start": 577.219,
+        "duration": 3.87,
+        "text": "kind of be good for handling big data"
+      },
+      {
+        "start": 579.769,
+        "duration": 3.6,
+        "text": "what are some of the lessons that we've"
+      },
+      {
+        "start": 581.089,
+        "duration": 3.93,
+        "text": "learned from those failure so the first"
+      },
+      {
+        "start": 583.369,
+        "duration": 3.66,
+        "text": "thing is that consistency is not"
+      },
+      {
+        "start": 585.019,
+        "duration": 3.66,
+        "text": "practical this whole idea of acid"
+      },
+      {
+        "start": 587.029,
+        "duration": 3.3,
+        "text": "consistency probably not practical in a"
+      },
+      {
+        "start": 588.679,
+        "duration": 3.66,
+        "text": "big distributed system so we're going to"
+      },
+      {
+        "start": 590.329,
+        "duration": 3.66,
+        "text": "give it up we also noticed that manual"
+      },
+      {
+        "start": 592.339,
+        "duration": 4.08,
+        "text": "sharding and rebalancing is really hard"
+      },
+      {
+        "start": 593.989,
+        "duration": 3.84,
+        "text": "right we had to write a lot of code just"
+      },
+      {
+        "start": 596.419,
+        "duration": 3.36,
+        "text": "to move data from place to place and"
+      },
+      {
+        "start": 597.829,
+        "duration": 3.36,
+        "text": "handle all these error conditions so"
+      },
+      {
+        "start": 599.779,
+        "duration": 3.48,
+        "text": "instead what we're going to do is push"
+      },
+      {
+        "start": 601.189,
+        "duration": 5.43,
+        "text": "that responsibility to our cluster our"
+      },
+      {
+        "start": 603.259,
+        "duration": 5.64,
+        "text": "dream database can go from 3 to 20"
+      },
+      {
+        "start": 606.619,
+        "duration": 4.05,
+        "text": "machines and we as developers don't have"
+      },
+      {
+        "start": 608.899,
+        "duration": 3.42,
+        "text": "to worry about it we don't have to write"
+      },
+      {
+        "start": 610.669,
+        "duration": 3.42,
+        "text": "any special code to accommodate that"
+      },
+      {
+        "start": 612.319,
+        "duration": 3.48,
+        "text": "next thing we know is that every moving"
+      },
+      {
+        "start": 614.089,
+        "duration": 3.45,
+        "text": "part that we add to the system so this"
+      },
+      {
+        "start": 615.799,
+        "duration": 3.78,
+        "text": "idea of master-slave replication that we"
+      },
+      {
+        "start": 617.539,
+        "duration": 3.3,
+        "text": "get in a lot of databases that makes"
+      },
+      {
+        "start": 619.579,
+        "duration": 3.72,
+        "text": "things more complex and all this"
+      },
+      {
+        "start": 620.839,
+        "duration": 4.59,
+        "text": "failover and processes to watch the"
+      },
+      {
+        "start": 623.299,
+        "duration": 3.96,
+        "text": "failover and everything so we want our"
+      },
+      {
+        "start": 625.429,
+        "duration": 3.81,
+        "text": "system to be as simple as possible as"
+      },
+      {
+        "start": 627.259,
+        "duration": 3.6,
+        "text": "few moving parts as possible none of"
+      },
+      {
+        "start": 629.239,
+        "duration": 3.54,
+        "text": "this master/slave architecture sort of"
+      },
+      {
+        "start": 630.859,
+        "duration": 3.78,
+        "text": "thing we also find that scaling up is"
+      },
+      {
+        "start": 632.779,
+        "duration": 3.57,
+        "text": "really expensive if you want to"
+      },
+      {
+        "start": 634.639,
+        "duration": 3.09,
+        "text": "vertically scale your database you're"
+      },
+      {
+        "start": 636.349,
+        "duration": 2.52,
+        "text": "going to have to put things like a sand"
+      },
+      {
+        "start": 637.729,
+        "duration": 3.15,
+        "text": "in place you're going to have to get"
+      },
+      {
+        "start": 638.869,
+        "duration": 3.9,
+        "text": "bigger and bigger servers every time you"
+      },
+      {
+        "start": 640.879,
+        "duration": 4.35,
+        "text": "do it it's more and more expensive it's"
+      },
+      {
+        "start": 642.769,
+        "duration": 5.82,
+        "text": "a lot of money and it's really not worth"
+      },
+      {
+        "start": 645.229,
+        "duration": 6.3,
+        "text": "it in the end so what we would do in our"
+      },
+      {
+        "start": 648.589,
+        "duration": 4.59,
+        "text": "dream database is to only use commodity"
+      },
+      {
+        "start": 651.529,
+        "duration": 3.15,
+        "text": "hardware we want to spend five ten"
+      },
+      {
+        "start": 653.179,
+        "duration": 3.27,
+        "text": "thousand dollars per machine instead of"
+      },
+      {
+        "start": 654.679,
+        "duration": 3.93,
+        "text": "a hundred thousand dollars and what we"
+      },
+      {
+        "start": 656.449,
+        "duration": 3.72,
+        "text": "want to do is buy more machines that way"
+      },
+      {
+        "start": 658.609,
+        "duration": 3.39,
+        "text": "when we want to double the capacity of"
+      },
+      {
+        "start": 660.169,
+        "duration": 3.36,
+        "text": "our cluster we're not going from a"
+      },
+      {
+        "start": 661.999,
+        "duration": 3.0,
+        "text": "hundred thousand dollar machine to a two"
+      },
+      {
+        "start": 663.529,
+        "duration": 2.73,
+        "text": "hundred thousand dollar machine we're"
+      },
+      {
+        "start": 664.999,
+        "duration": 3.3,
+        "text": "just doubling the number of cheap"
+      },
+      {
+        "start": 666.259,
+        "duration": 4.65,
+        "text": "machines that we use well sort of last"
+      },
+      {
+        "start": 668.299,
+        "duration": 4.551,
+        "text": "lesson learned here is that scattered"
+      },
+      {
+        "start": 670.909,
+        "duration": 4.281,
+        "text": "gathered queries are not going to be"
+      },
+      {
+        "start": 672.85,
+        "duration": 4.799,
+        "text": "any good so we want to have something"
+      },
+      {
+        "start": 675.19,
+        "duration": 3.889,
+        "text": "that kind of tries to push us maybe in"
+      },
+      {
+        "start": 677.649,
+        "duration": 4.56,
+        "text": "its data modeling or something like that"
+      },
+      {
+        "start": 679.079,
+        "duration": 5.2,
+        "text": "towards data locality where queries will"
+      },
+      {
+        "start": 682.209,
+        "duration": 3.151,
+        "text": "only hit a single machine so that we're"
+      },
+      {
+        "start": 684.279,
+        "duration": 2.55,
+        "text": "efficient we don't introduce a whole"
+      },
+      {
+        "start": 685.36,
+        "duration": 3.539,
+        "text": "bunch of extra latency where we're"
+      },
+      {
+        "start": 686.829,
+        "duration": 3.69,
+        "text": "instead doing a full table scan now"
+      },
+      {
+        "start": 688.899,
+        "duration": 3.831,
+        "text": "we're doing a full cluster scan sort of"
+      },
+      {
+        "start": 690.519,
+        "duration": 2.211,
+        "text": "thing"
+      },
+      {
+        "start": 697.85,
+        "duration": 2.06,
+        "text": "you"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T07:41:52.181588+00:00"
+}

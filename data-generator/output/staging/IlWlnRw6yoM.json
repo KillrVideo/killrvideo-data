@@ -1,0 +1,2031 @@
+{
+  "video_id": "IlWlnRw6yoM",
+  "title": "Distributed Data Show Episode 17: Apache Kudu Architecture Analysis with DuyHai Doan",
+  "description": "DuyHai Doan takes us inside of Apache Kudu, a data store designed to support fast access for analytics in the Hadoop ecosystem. We compare Kudu’s architecture with Apache Cassandra and discuss why effective design patterns for distributed systems show up again and again.\n\nABOUT DATASTAX ENTERPRISE 5\nDataStax Enterprise 5.0, the database platform for cloud applications, includes Apache Cassandra 3.x with materialized views, tiered storage and advanced replication. Introduced in 5.0 is DataStax Enterprise Graph, the first graph database fast enough to power customer-facing applications, scale to massive datasets and integrate advanced tools to power deep analytical queries.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://academy.datastax.com/resources/whats-new-datastax-enterprise-50\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax \nLinkedin: https://www.linkedin.com/company/datastax\nhttp://feeds.feedburner.com/datastax \nhttps://github.com/datastax \n\nABOUT DATASTAX ACADEMY\nOn the DataStax Academy YouTube channel, you can find tutorials, webinars and much more to help you learn and stay updated with the latest information on DataStax Enterprise©.  Create an account on https://academy.datastax.com to watch our free online courses, tutorials, and more.",
+  "published_at": "2017-10-17T15:00:02Z",
+  "thumbnail": "https://i.ytimg.com/vi/IlWlnRw6yoM/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "tutorial",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=IlWlnRw6yoM",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems hey it's Jeff carpenter I'm here in the studio with we hide one and OH so once again we are going to have a super deep dive technical talk which we know our audience loves get down and dirty with the details here so today we'd like to talk about Apache cootie yeah okay so first of all what is it Patrick you you and then we'll talk about why we're talking about it so why yet another piece of technology right we have a bunch of them already in the Big Data landscape the the idea of Apache Kulu is to offer a happy medium between very efficient and fast analytic access pattern but also to allow you to have a low latency random access and random updates after data and those two contradicting Gould normally do you don't have both of them but could do offer both of those features right so I mean that's one of the great things about this open source world is that if we need you know new technology to fit specific use cases those databases will get created and then there in the marketplace and compete with everything else so why are we you know like we love Cassandra and that's kind of in our wheelhouse and what we're used to talking about why are we talking about kudu why should we look at that well the idea of this show is also to to talk about Big Data technologies and you will realize that in fact all those news supposedly new technology they are just reusing known distributed system techniques and also we will learn how to analyze the claims on papers like some they claim something what are the implications when you are reading those claims and also we can make some parallel with Apache Cassandra because good ideas get to use all the time that's right yeah there there's definitely a set of perimeter or architectural constructs they get reused over and over so yeah this is good to come back and look at our own architectures as well and be able to like you said critically evaluate when you're seeing some newfangled thing with which is making all these claims about how great it is well we can read the white papers and really dig into and understand the implication so you're gonna help us do that so let's start out by why don't you describe for us Apache kudu at a high level so at higher level first let's start up with the schema so kudu offer you a strong schema it means that you can they are using a kind of subset of SQL right so you can have a create table to define your table you have strongly typed columns of course you can define primary keys and what is interesting is kudu distinguishes between insert and update it's not exactly the same I like the Cassandra observe no not at all and in fact with insert kudu does enforce uniqueness constraint it means what does it mean if you are reading the paper it means that they need to have some kind of read before right yeah yeah how can you know before writing that the key eggs already exists right this is the implication so this is for schema for writing it's pretty classical you just provide primary key of course when you are inserting or updating some piece of data and for reading you can read either by primary key with equality they also offer a range query so you can have inequality on some column of your primary keys we will get into detail later and you can also access some of your data on by a predicate equality and some columns which are not part of your primary key so I think in this case they are leveraging the columnar format to be able to skip scroll very fast okay so yeah implying maybe a different storage model which will get to you yeah but I want to talk about consistency because this is one of the key differentiating factor between some of these no sequel databases so what are the consistency guarantees the Apache kudu offers so by default they say that they they offer what I call snapshot consistency so in the lead in the literature in fact it there is nothing called snapshot consistency what we can find in the literature is snapshot isolation what does it imply it implies that if you have causally related events this causality will not be violated right and how can they enforce it they are using what they call hybrid time which is a new paper so there they are defining a new protocol to propagate a timestamp we will not get into details if the audience is interested they can Google for it and in fact using this happy time they claim that they can enforce snapshot isolation contrary to Google spanner they they get inspired by Google Spanish okay they do not offer external consistency unless so if you want external consistency you have to propagate their time stone the hybrid time between servers and clients so it has a huge implication because okay propagating the timestamp bit to in service is easy you can have a kind of gossip protocol or whatever right but propagating the time sum between client is much harder because at any time each client should know okay there are two other clients connecting to the cluster so I need to discuss with them so this is a hole so this has implications for drivers exactly you get it and the last consistency mode the offer is the commit wait so the idea is very similar to Google spanner if you know that there is some maximum bound on the time stone the time rift you can say okay before committing each transaction each batch of insert update I will wait for this time bound right and with Google spanner they are using their true time so they have synchronized autumn o'clock with GPS so they can reduce the the time era toots seven milliseconds but if you don't have this specialized hardware which is the case of anyone here the time bound can be very huge if you are using NTP can be between 100 millisecond up to one second so if you are using commit wait well it will kill your latency of course but it isn't right off you have a choice to up into this right okay so yeah these are some of the trade-offs that we're gonna observe as clients now let's start talking about what's happening within the cluster in terms of interactions between notes kind of take us inside there so first very similar to many no sequel database out there they are splitting their data into short or partitions so they call them tablets ok tablets all right it is very similar to customer token range same idea and in fact they have different roles with the the machines there are some machine they are called tablet server so those machines are managing the data and they have a role which is called master so the master server is responsible for the catalog by catalog they mean the myth about your schema right you are creating on table you are dropping a table the master server also manages the cluster coordination ok adding new machines into the cluster removing fare nodes and so on and it is also responsible for tablet repository so basically it is equivalent to the gossip information we carry in Cassandra so which machine which tablets a work contain which range of data ok so this is not a masterless architecture this a no not at all this is all I would say master Steve a multi master multi master ok let's go back to that yeah they also for the partitioning of data they reuse some idea from Cassandra very so you defined your primary key some part of your primary key used for the distribution of data so it is equivalent to the cassandra party Genki right and some part of the primary keys is the Didache it dedicated for Rams queries so I see pastoring Collins yeah but so for them the distribution of data they are using some hashing algorithm I find kind of naive so the idea is to you take those partition columns you hash that you take the hash code and then you do take the modulo of the bucket count so when you create you define your table you say that create table using you define also know number of pockets for your partitioning okay and they are just taking the modulo of the the hash code module or about cut count so in my in my opinion it is not as distributive as our mama 3 hash okay because it's very simple hashing algorithm and that makes sense and we do we do allow opinions here distributed data so this is my own opinion but people can prove me wrong and for one interesting piece of information I read from the paper is they said for for heavy workload they recommend between 10 and 100 tablets per machine and each tablet can be tens of gigabytes so if you do some math it means that the density on each tablet server is around one terabyte to the right so instant so there's a practical limit on the size it's their recommendation so it's okay but it's not that huge either I mean we used to see density of not of 10 or 20 terabytes you know when using Apache park' uh-huh so yeah 1 to 5 terabyte is not that huge ok so let's talk now about replication how does replication work in queue so they have um what I call a multi mask master architecture so you know you speak your data between tablets and inside of each tablet you have some replicas you know you define a kind of replication factor like it doesn't run three or five or whatever okay so that always the same yeah you have three replicas and contra the difference with Cassandra is each Erica is not equal you have am a kind of master or primary replication master and backup practice exactly and in fact they use the the raft consensus protocol to reach agreement so every time a client need to access a piece of data in this tablet it has to go through the draft leader for this tablet and then the rough leader will Sarai's the operation and then we push it to the order pikas okay so we've been talking about interactions between nodes and how they coordinate now let's let's dive into is what's happening on a single node and talk about the storage engine and the data format on disk so since the beginning when you read the abstract of koodoo and the objective of could do is to be able to to support a heavy analytics workload right and also random update of the data it seems contradicting goals and in fact there is no magic to be able to to answer those two contradicting goals they have a draw what what I will call a dual storage engine so for the data file they have two notion the rosette and the Delta set so rosette is basically a just of format very similar to Apache Park a columnar format right very similar okay so you can skip columns very fast and to accommodate the ability to to update randomly on the flight some of the data they also need to keep another data structure they call the Delta Delta set which is okay what is the Delta between my rosette and the current value and also you know always good ideas get reused they have room filter right and our primary key index files using v3 right so nothing really new here okay but that is interesting that there is sort of this hybrid storage format with the immutable files and then Delta the Delta files okay okay do we high so let's talk performance this is where the rubber meets the road right what are the performance characteristics of the common operations like insert update select so for insert as I said before because there is an uniqueness constraint they need a read before right so and in fact the writ is quite complicated first they need to read the bloom filter to check if it exists and you know that the rower exists and you know that the bloom filter can give you from positive right to negative or positive so it's not sufficient enough they also need to read into the partition key index to be absolutely sure that it doesn't exist so yeah for insert for updates so update also need to go through the bloom filter plus partition key index Y to get the offset from the rosette so suppose that you have already a row in your rosette data file the columnar format data file and when if you want to update a value they need to get the offset from the beginning of the file of this row and then they put the the new value of the column plus the offset in the Delta Y that's the trade okay so it means that they need to go through the whole read pass to fetch the offset before being able to write to the data file and for select so selects they of course they reuse prom filter to skip files they reuse power but your primary key index they have also other very interesting things which they call interval 3 so it's a kind of interval and if you give this is my primary key it can help you to know to to skip a lot of profit so you don't need to read those prom filter you can just focus on some subset of your proofing so it gives you a cap about how many blue fitters you need to read for checking okay so with this sort of hybrid or two-level storage format that we have we still have these mutable files and then we have these data files so there's some kind of compaction process that needs to occur right of course of course there is no magic and in fact there are two kind of compaction you have the row set compaction so which is pretty similar to what happened in Cassandra from time to time you have a background process that just pick some of them and wash them together but because you have also the Delta fry you need to compact the Delta Phi back into the row set Ram so they define some kind of ratio so if the ratio of my Delta fine is if the size of my Delta Phi is half of the rosette corresponding row set I need to compact it back to the route set so yes I think that it creates a kind of write amplification of course because now you have to kind of compaction to the width excellent so I this is great analysis and it's really helpful to us to think critically about you know the systems that we love and work on when we compare them with others and see the good ideas and see what ideas are reused and what new ideas might be coming out so why don't you wrap this up for us what's the takeaway well in the takeaway is the the they achieved their happy meet you I mean they did they did their own benchmark and they just show that for real-time workload like real-time update random access they are not as fast as Apache has been HBase so of course not as fast as Cassandra but the big the biggest advantage from HBase and Cassandra is they are able to provide very fast analytics workload with their called mass storage ok so this is a trade-off yeah alright and that's the conclusion all right well thanks a lot to be hi thank you Jeff all right join us next time for another episode see you soon see you thank you for joining us again for the distributed data show we love your feedback so go to distributed data show page on data stacks Academy and tell us what you think you can also find us on the data stacks Academy YouTube channel or find our podcast on iTunes Google Play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.37,
+        "duration": 4.23,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.6,
+        "duration": 4.05,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 8.1,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 7.32,
+        "text": "large-scale distributed systems hey it's"
+      },
+      {
+        "start": 16.56,
+        "duration": 5.85,
+        "text": "Jeff carpenter I'm here in the studio"
+      },
+      {
+        "start": 17.97,
+        "duration": 5.88,
+        "text": "with we hide one and OH so once again we"
+      },
+      {
+        "start": 22.41,
+        "duration": 3.81,
+        "text": "are going to have a super deep dive"
+      },
+      {
+        "start": 23.85,
+        "duration": 4.019,
+        "text": "technical talk which we know our"
+      },
+      {
+        "start": 26.22,
+        "duration": 3.629,
+        "text": "audience loves get down and dirty with"
+      },
+      {
+        "start": 27.869,
+        "duration": 5.811,
+        "text": "the details here so today we'd like to"
+      },
+      {
+        "start": 29.849,
+        "duration": 6.751,
+        "text": "talk about Apache cootie yeah okay so"
+      },
+      {
+        "start": 33.68,
+        "duration": 4.51,
+        "text": "first of all what is it Patrick you you"
+      },
+      {
+        "start": 36.6,
+        "duration": 5.49,
+        "text": "and then we'll talk about why we're"
+      },
+      {
+        "start": 38.19,
+        "duration": 5.73,
+        "text": "talking about it so why yet another"
+      },
+      {
+        "start": 42.09,
+        "duration": 3.6,
+        "text": "piece of technology right we have a"
+      },
+      {
+        "start": 43.92,
+        "duration": 5.28,
+        "text": "bunch of them already in the Big Data"
+      },
+      {
+        "start": 45.69,
+        "duration": 7.139,
+        "text": "landscape the the idea of Apache Kulu is"
+      },
+      {
+        "start": 49.2,
+        "duration": 6.629,
+        "text": "to offer a happy medium between very"
+      },
+      {
+        "start": 52.829,
+        "duration": 6.331,
+        "text": "efficient and fast analytic access"
+      },
+      {
+        "start": 55.829,
+        "duration": 7.561,
+        "text": "pattern but also to allow you to have a"
+      },
+      {
+        "start": 59.16,
+        "duration": 7.56,
+        "text": "low latency random access and random"
+      },
+      {
+        "start": 63.39,
+        "duration": 5.4,
+        "text": "updates after data and those two"
+      },
+      {
+        "start": 66.72,
+        "duration": 4.11,
+        "text": "contradicting Gould normally do you"
+      },
+      {
+        "start": 68.79,
+        "duration": 6.09,
+        "text": "don't have both of them but could do"
+      },
+      {
+        "start": 70.83,
+        "duration": 5.13,
+        "text": "offer both of those features right so I"
+      },
+      {
+        "start": 74.88,
+        "duration": 2.64,
+        "text": "mean that's one of the great things"
+      },
+      {
+        "start": 75.96,
+        "duration": 3.72,
+        "text": "about this open source world is that if"
+      },
+      {
+        "start": 77.52,
+        "duration": 5.25,
+        "text": "we need you know new technology to fit"
+      },
+      {
+        "start": 79.68,
+        "duration": 4.439,
+        "text": "specific use cases those databases will"
+      },
+      {
+        "start": 82.77,
+        "duration": 3.27,
+        "text": "get created and then there in the"
+      },
+      {
+        "start": 84.119,
+        "duration": 4.86,
+        "text": "marketplace and compete with everything"
+      },
+      {
+        "start": 86.04,
+        "duration": 4.32,
+        "text": "else so why are we you know like we love"
+      },
+      {
+        "start": 88.979,
+        "duration": 3.271,
+        "text": "Cassandra and that's kind of in our"
+      },
+      {
+        "start": 90.36,
+        "duration": 3.09,
+        "text": "wheelhouse and what we're used to"
+      },
+      {
+        "start": 92.25,
+        "duration": 2.759,
+        "text": "talking about why are we talking about"
+      },
+      {
+        "start": 93.45,
+        "duration": 5.64,
+        "text": "kudu why should we look at that"
+      },
+      {
+        "start": 95.009,
+        "duration": 7.921,
+        "text": "well the idea of this show is also to to"
+      },
+      {
+        "start": 99.09,
+        "duration": 8.419,
+        "text": "talk about Big Data technologies and you"
+      },
+      {
+        "start": 102.93,
+        "duration": 7.649,
+        "text": "will realize that in fact all those news"
+      },
+      {
+        "start": 107.509,
+        "duration": 6.22,
+        "text": "supposedly new technology they are just"
+      },
+      {
+        "start": 110.579,
+        "duration": 5.64,
+        "text": "reusing known distributed system"
+      },
+      {
+        "start": 113.729,
+        "duration": 5.791,
+        "text": "techniques and also we will learn how to"
+      },
+      {
+        "start": 116.219,
+        "duration": 4.981,
+        "text": "analyze the claims on papers like some"
+      },
+      {
+        "start": 119.52,
+        "duration": 3.629,
+        "text": "they claim something what are the"
+      },
+      {
+        "start": 121.2,
+        "duration": 4.44,
+        "text": "implications when you are reading those"
+      },
+      {
+        "start": 123.149,
+        "duration": 4.411,
+        "text": "claims and also we can make some"
+      },
+      {
+        "start": 125.64,
+        "duration": 4.289,
+        "text": "parallel with Apache Cassandra because"
+      },
+      {
+        "start": 127.56,
+        "duration": 4.2,
+        "text": "good ideas get to use all the time"
+      },
+      {
+        "start": 129.929,
+        "duration": 3.161,
+        "text": "that's right yeah there there's"
+      },
+      {
+        "start": 131.76,
+        "duration": 3.67,
+        "text": "definitely a set of perimeter"
+      },
+      {
+        "start": 133.09,
+        "duration": 4.47,
+        "text": "or architectural constructs they get"
+      },
+      {
+        "start": 135.43,
+        "duration": 3.809,
+        "text": "reused over and over so yeah this is"
+      },
+      {
+        "start": 137.56,
+        "duration": 4.95,
+        "text": "good to come back and look at our own"
+      },
+      {
+        "start": 139.239,
+        "duration": 5.071,
+        "text": "architectures as well and be able to"
+      },
+      {
+        "start": 142.51,
+        "duration": 3.839,
+        "text": "like you said critically evaluate when"
+      },
+      {
+        "start": 144.31,
+        "duration": 3.69,
+        "text": "you're seeing some newfangled thing with"
+      },
+      {
+        "start": 146.349,
+        "duration": 3.691,
+        "text": "which is making all these claims about"
+      },
+      {
+        "start": 148.0,
+        "duration": 3.75,
+        "text": "how great it is well we can read the"
+      },
+      {
+        "start": 150.04,
+        "duration": 3.15,
+        "text": "white papers and really dig into and"
+      },
+      {
+        "start": 151.75,
+        "duration": 4.83,
+        "text": "understand the implication so you're"
+      },
+      {
+        "start": 153.19,
+        "duration": 5.49,
+        "text": "gonna help us do that so let's start out"
+      },
+      {
+        "start": 156.58,
+        "duration": 4.98,
+        "text": "by why don't you describe for us"
+      },
+      {
+        "start": 158.68,
+        "duration": 6.33,
+        "text": "Apache kudu at a high level so at higher"
+      },
+      {
+        "start": 161.56,
+        "duration": 6.899,
+        "text": "level first let's start up with the"
+      },
+      {
+        "start": 165.01,
+        "duration": 6.12,
+        "text": "schema so kudu offer you a strong schema"
+      },
+      {
+        "start": 168.459,
+        "duration": 6.03,
+        "text": "it means that you can they are using a"
+      },
+      {
+        "start": 171.13,
+        "duration": 5.579,
+        "text": "kind of subset of SQL right so you can"
+      },
+      {
+        "start": 174.489,
+        "duration": 4.47,
+        "text": "have a create table to define your table"
+      },
+      {
+        "start": 176.709,
+        "duration": 4.681,
+        "text": "you have strongly typed columns of"
+      },
+      {
+        "start": 178.959,
+        "duration": 5.761,
+        "text": "course you can define primary keys and"
+      },
+      {
+        "start": 181.39,
+        "duration": 5.87,
+        "text": "what is interesting is kudu"
+      },
+      {
+        "start": 184.72,
+        "duration": 5.7,
+        "text": "distinguishes between insert and update"
+      },
+      {
+        "start": 187.26,
+        "duration": 7.6,
+        "text": "it's not exactly the same I like the"
+      },
+      {
+        "start": 190.42,
+        "duration": 8.84,
+        "text": "Cassandra observe no not at all and in"
+      },
+      {
+        "start": 194.86,
+        "duration": 7.71,
+        "text": "fact with insert kudu does enforce"
+      },
+      {
+        "start": 199.26,
+        "duration": 5.289,
+        "text": "uniqueness constraint it means what does"
+      },
+      {
+        "start": 202.57,
+        "duration": 3.99,
+        "text": "it mean if you are reading the paper it"
+      },
+      {
+        "start": 204.549,
+        "duration": 5.341,
+        "text": "means that they need to have some kind"
+      },
+      {
+        "start": 206.56,
+        "duration": 5.489,
+        "text": "of read before right yeah yeah how can"
+      },
+      {
+        "start": 209.89,
+        "duration": 4.71,
+        "text": "you know before writing that the key"
+      },
+      {
+        "start": 212.049,
+        "duration": 6.961,
+        "text": "eggs already exists right this is the"
+      },
+      {
+        "start": 214.6,
+        "duration": 7.169,
+        "text": "implication so this is for schema for"
+      },
+      {
+        "start": 219.01,
+        "duration": 5.28,
+        "text": "writing it's pretty classical you just"
+      },
+      {
+        "start": 221.769,
+        "duration": 4.951,
+        "text": "provide primary key of course when you"
+      },
+      {
+        "start": 224.29,
+        "duration": 6.08,
+        "text": "are inserting or updating some piece of"
+      },
+      {
+        "start": 226.72,
+        "duration": 8.099,
+        "text": "data and for reading you can read either"
+      },
+      {
+        "start": 230.37,
+        "duration": 6.19,
+        "text": "by primary key with equality they also"
+      },
+      {
+        "start": 234.819,
+        "duration": 4.2,
+        "text": "offer a range query so you can have"
+      },
+      {
+        "start": 236.56,
+        "duration": 4.59,
+        "text": "inequality on some column of your"
+      },
+      {
+        "start": 239.019,
+        "duration": 4.741,
+        "text": "primary keys we will get into detail"
+      },
+      {
+        "start": 241.15,
+        "duration": 5.429,
+        "text": "later and you can also access some of"
+      },
+      {
+        "start": 243.76,
+        "duration": 6.39,
+        "text": "your data on by a predicate equality and"
+      },
+      {
+        "start": 246.579,
+        "duration": 5.581,
+        "text": "some columns which are not part of your"
+      },
+      {
+        "start": 250.15,
+        "duration": 5.52,
+        "text": "primary key so I think in this case they"
+      },
+      {
+        "start": 252.16,
+        "duration": 6.9,
+        "text": "are leveraging the columnar format to be"
+      },
+      {
+        "start": 255.67,
+        "duration": 5.099,
+        "text": "able to skip scroll very fast okay so"
+      },
+      {
+        "start": 259.06,
+        "duration": 3.359,
+        "text": "yeah implying maybe a different storage"
+      },
+      {
+        "start": 260.769,
+        "duration": 3.481,
+        "text": "model which will get to you yeah"
+      },
+      {
+        "start": 262.419,
+        "duration": 3.12,
+        "text": "but I want to talk about consistency"
+      },
+      {
+        "start": 264.25,
+        "duration": 2.639,
+        "text": "because this is one of the key"
+      },
+      {
+        "start": 265.539,
+        "duration": 3.421,
+        "text": "differentiating factor"
+      },
+      {
+        "start": 266.889,
+        "duration": 4.56,
+        "text": "between some of these no sequel"
+      },
+      {
+        "start": 268.96,
+        "duration": 5.97,
+        "text": "databases so what are the consistency"
+      },
+      {
+        "start": 271.449,
+        "duration": 6.09,
+        "text": "guarantees the Apache kudu offers so by"
+      },
+      {
+        "start": 274.93,
+        "duration": 5.549,
+        "text": "default they say that they they offer"
+      },
+      {
+        "start": 277.539,
+        "duration": 6.391,
+        "text": "what I call snapshot consistency so in"
+      },
+      {
+        "start": 280.479,
+        "duration": 4.981,
+        "text": "the lead in the literature in fact it"
+      },
+      {
+        "start": 283.93,
+        "duration": 3.84,
+        "text": "there is nothing called snapshot"
+      },
+      {
+        "start": 285.46,
+        "duration": 4.979,
+        "text": "consistency what we can find in the"
+      },
+      {
+        "start": 287.77,
+        "duration": 4.47,
+        "text": "literature is snapshot isolation what"
+      },
+      {
+        "start": 290.439,
+        "duration": 5.491,
+        "text": "does it imply it implies that if you"
+      },
+      {
+        "start": 292.24,
+        "duration": 6.84,
+        "text": "have causally related events this"
+      },
+      {
+        "start": 295.93,
+        "duration": 7.41,
+        "text": "causality will not be violated right and"
+      },
+      {
+        "start": 299.08,
+        "duration": 6.299,
+        "text": "how can they enforce it they are using"
+      },
+      {
+        "start": 303.34,
+        "duration": 4.74,
+        "text": "what they call hybrid time which is a"
+      },
+      {
+        "start": 305.379,
+        "duration": 4.981,
+        "text": "new paper so there they are defining a"
+      },
+      {
+        "start": 308.08,
+        "duration": 4.649,
+        "text": "new protocol to propagate a timestamp we"
+      },
+      {
+        "start": 310.36,
+        "duration": 4.89,
+        "text": "will not get into details if the"
+      },
+      {
+        "start": 312.729,
+        "duration": 5.4,
+        "text": "audience is interested they can Google"
+      },
+      {
+        "start": 315.25,
+        "duration": 4.77,
+        "text": "for it and in fact using this happy time"
+      },
+      {
+        "start": 318.129,
+        "duration": 6.75,
+        "text": "they claim that they can enforce"
+      },
+      {
+        "start": 320.02,
+        "duration": 6.869,
+        "text": "snapshot isolation contrary to Google"
+      },
+      {
+        "start": 324.879,
+        "duration": 6.0,
+        "text": "spanner they they get inspired by Google"
+      },
+      {
+        "start": 326.889,
+        "duration": 7.53,
+        "text": "Spanish okay they do not offer external"
+      },
+      {
+        "start": 330.879,
+        "duration": 6.181,
+        "text": "consistency unless so if you want"
+      },
+      {
+        "start": 334.419,
+        "duration": 4.8,
+        "text": "external consistency you have to"
+      },
+      {
+        "start": 337.06,
+        "duration": 5.159,
+        "text": "propagate their time stone the hybrid"
+      },
+      {
+        "start": 339.219,
+        "duration": 5.401,
+        "text": "time between servers and clients so it"
+      },
+      {
+        "start": 342.219,
+        "duration": 4.111,
+        "text": "has a huge implication because okay"
+      },
+      {
+        "start": 344.62,
+        "duration": 4.019,
+        "text": "propagating the timestamp bit to in"
+      },
+      {
+        "start": 346.33,
+        "duration": 4.619,
+        "text": "service is easy you can have a kind of"
+      },
+      {
+        "start": 348.639,
+        "duration": 4.381,
+        "text": "gossip protocol or whatever right but"
+      },
+      {
+        "start": 350.949,
+        "duration": 4.44,
+        "text": "propagating the time sum between client"
+      },
+      {
+        "start": 353.02,
+        "duration": 4.53,
+        "text": "is much harder because at any time each"
+      },
+      {
+        "start": 355.389,
+        "duration": 4.261,
+        "text": "client should know okay there are two"
+      },
+      {
+        "start": 357.55,
+        "duration": 4.53,
+        "text": "other clients connecting to the cluster"
+      },
+      {
+        "start": 359.65,
+        "duration": 4.56,
+        "text": "so I need to discuss with them so this"
+      },
+      {
+        "start": 362.08,
+        "duration": 6.559,
+        "text": "is a hole so this has implications for"
+      },
+      {
+        "start": 364.21,
+        "duration": 7.739,
+        "text": "drivers exactly you get it and the last"
+      },
+      {
+        "start": 368.639,
+        "duration": 6.881,
+        "text": "consistency mode the offer is the commit"
+      },
+      {
+        "start": 371.949,
+        "duration": 5.851,
+        "text": "wait so the idea is very similar to"
+      },
+      {
+        "start": 375.52,
+        "duration": 5.28,
+        "text": "Google spanner if you know that there is"
+      },
+      {
+        "start": 377.8,
+        "duration": 5.94,
+        "text": "some maximum bound on the time stone the"
+      },
+      {
+        "start": 380.8,
+        "duration": 6.57,
+        "text": "time rift you can say okay before"
+      },
+      {
+        "start": 383.74,
+        "duration": 5.91,
+        "text": "committing each transaction each batch"
+      },
+      {
+        "start": 387.37,
+        "duration": 5.849,
+        "text": "of insert update I will wait for this"
+      },
+      {
+        "start": 389.65,
+        "duration": 6.059,
+        "text": "time bound right and with Google spanner"
+      },
+      {
+        "start": 393.219,
+        "duration": 4.38,
+        "text": "they are using their true time so they"
+      },
+      {
+        "start": 395.709,
+        "duration": 4.971,
+        "text": "have synchronized autumn o'clock with"
+      },
+      {
+        "start": 397.599,
+        "duration": 5.331,
+        "text": "GPS so they can reduce the"
+      },
+      {
+        "start": 400.68,
+        "duration": 5.04,
+        "text": "the time era toots seven milliseconds"
+      },
+      {
+        "start": 402.93,
+        "duration": 5.07,
+        "text": "but if you don't have this specialized"
+      },
+      {
+        "start": 405.72,
+        "duration": 6.03,
+        "text": "hardware which is the case of anyone"
+      },
+      {
+        "start": 408.0,
+        "duration": 6.6,
+        "text": "here the time bound can be very huge if"
+      },
+      {
+        "start": 411.75,
+        "duration": 4.83,
+        "text": "you are using NTP can be between 100"
+      },
+      {
+        "start": 414.6,
+        "duration": 4.71,
+        "text": "millisecond up to one second so if you"
+      },
+      {
+        "start": 416.58,
+        "duration": 5.4,
+        "text": "are using commit wait well it will kill"
+      },
+      {
+        "start": 419.31,
+        "duration": 4.5,
+        "text": "your latency of course but it isn't"
+      },
+      {
+        "start": 421.98,
+        "duration": 4.17,
+        "text": "right off you have a choice to up into"
+      },
+      {
+        "start": 423.81,
+        "duration": 3.359,
+        "text": "this right okay so yeah these are some"
+      },
+      {
+        "start": 426.15,
+        "duration": 3.36,
+        "text": "of the trade-offs that we're gonna"
+      },
+      {
+        "start": 427.169,
+        "duration": 3.811,
+        "text": "observe as clients now let's start"
+      },
+      {
+        "start": 429.51,
+        "duration": 4.11,
+        "text": "talking about what's happening within"
+      },
+      {
+        "start": 430.98,
+        "duration": 3.99,
+        "text": "the cluster in terms of interactions"
+      },
+      {
+        "start": 433.62,
+        "duration": 6.81,
+        "text": "between notes kind of take us inside"
+      },
+      {
+        "start": 434.97,
+        "duration": 7.169,
+        "text": "there so first very similar to many no"
+      },
+      {
+        "start": 440.43,
+        "duration": 5.04,
+        "text": "sequel database out there they are"
+      },
+      {
+        "start": 442.139,
+        "duration": 6.631,
+        "text": "splitting their data into short or"
+      },
+      {
+        "start": 445.47,
+        "duration": 5.4,
+        "text": "partitions so they call them tablets ok"
+      },
+      {
+        "start": 448.77,
+        "duration": 6.18,
+        "text": "tablets all right it is very similar to"
+      },
+      {
+        "start": 450.87,
+        "duration": 6.09,
+        "text": "customer token range same idea and in"
+      },
+      {
+        "start": 454.95,
+        "duration": 4.74,
+        "text": "fact they have different roles with the"
+      },
+      {
+        "start": 456.96,
+        "duration": 5.459,
+        "text": "the machines there are some machine they"
+      },
+      {
+        "start": 459.69,
+        "duration": 5.07,
+        "text": "are called tablet server so those"
+      },
+      {
+        "start": 462.419,
+        "duration": 5.341,
+        "text": "machines are managing the data and they"
+      },
+      {
+        "start": 464.76,
+        "duration": 6.029,
+        "text": "have a role which is called master so"
+      },
+      {
+        "start": 467.76,
+        "duration": 6.42,
+        "text": "the master server is responsible for the"
+      },
+      {
+        "start": 470.789,
+        "duration": 5.341,
+        "text": "catalog by catalog they mean the myth"
+      },
+      {
+        "start": 474.18,
+        "duration": 5.489,
+        "text": "about your schema right you are creating"
+      },
+      {
+        "start": 476.13,
+        "duration": 6.36,
+        "text": "on table you are dropping a table the"
+      },
+      {
+        "start": 479.669,
+        "duration": 6.511,
+        "text": "master server also manages the cluster"
+      },
+      {
+        "start": 482.49,
+        "duration": 6.15,
+        "text": "coordination ok adding new machines into"
+      },
+      {
+        "start": 486.18,
+        "duration": 6.299,
+        "text": "the cluster removing fare nodes and so"
+      },
+      {
+        "start": 488.64,
+        "duration": 6.69,
+        "text": "on and it is also responsible for tablet"
+      },
+      {
+        "start": 492.479,
+        "duration": 6.571,
+        "text": "repository so basically it is equivalent"
+      },
+      {
+        "start": 495.33,
+        "duration": 6.63,
+        "text": "to the gossip information we carry in"
+      },
+      {
+        "start": 499.05,
+        "duration": 6.42,
+        "text": "Cassandra so which machine which tablets"
+      },
+      {
+        "start": 501.96,
+        "duration": 5.37,
+        "text": "a work contain which range of data ok so"
+      },
+      {
+        "start": 505.47,
+        "duration": 5.19,
+        "text": "this is not a masterless architecture"
+      },
+      {
+        "start": 507.33,
+        "duration": 5.82,
+        "text": "this a no not at all this is all I would"
+      },
+      {
+        "start": 510.66,
+        "duration": 5.7,
+        "text": "say master Steve a multi master multi"
+      },
+      {
+        "start": 513.15,
+        "duration": 7.59,
+        "text": "master ok let's go back to that yeah"
+      },
+      {
+        "start": 516.36,
+        "duration": 7.02,
+        "text": "they also for the partitioning of data"
+      },
+      {
+        "start": 520.74,
+        "duration": 6.48,
+        "text": "they reuse some idea from Cassandra very"
+      },
+      {
+        "start": 523.38,
+        "duration": 6.39,
+        "text": "so you defined your primary key some"
+      },
+      {
+        "start": 527.22,
+        "duration": 5.22,
+        "text": "part of your primary key used for the"
+      },
+      {
+        "start": 529.77,
+        "duration": 4.26,
+        "text": "distribution of data so it is equivalent"
+      },
+      {
+        "start": 532.44,
+        "duration": 5.28,
+        "text": "to the cassandra party"
+      },
+      {
+        "start": 534.03,
+        "duration": 7.23,
+        "text": "Genki right and some part of the primary"
+      },
+      {
+        "start": 537.72,
+        "duration": 8.76,
+        "text": "keys is the Didache it dedicated for"
+      },
+      {
+        "start": 541.26,
+        "duration": 9.18,
+        "text": "Rams queries so I see pastoring Collins"
+      },
+      {
+        "start": 546.48,
+        "duration": 6.54,
+        "text": "yeah but so for them the distribution of"
+      },
+      {
+        "start": 550.44,
+        "duration": 5.67,
+        "text": "data they are using some hashing"
+      },
+      {
+        "start": 553.02,
+        "duration": 6.36,
+        "text": "algorithm I find kind of naive so the"
+      },
+      {
+        "start": 556.11,
+        "duration": 5.34,
+        "text": "idea is to you take those partition"
+      },
+      {
+        "start": 559.38,
+        "duration": 5.94,
+        "text": "columns you hash that you take the hash"
+      },
+      {
+        "start": 561.45,
+        "duration": 6.15,
+        "text": "code and then you do take the modulo of"
+      },
+      {
+        "start": 565.32,
+        "duration": 4.53,
+        "text": "the bucket count so when you create you"
+      },
+      {
+        "start": 567.6,
+        "duration": 6.72,
+        "text": "define your table you say that create"
+      },
+      {
+        "start": 569.85,
+        "duration": 7.26,
+        "text": "table using you define also know number"
+      },
+      {
+        "start": 574.32,
+        "duration": 4.98,
+        "text": "of pockets for your partitioning okay"
+      },
+      {
+        "start": 577.11,
+        "duration": 4.95,
+        "text": "and they are just taking the modulo of"
+      },
+      {
+        "start": 579.3,
+        "duration": 8.19,
+        "text": "the the hash code module or about cut"
+      },
+      {
+        "start": 582.06,
+        "duration": 9.72,
+        "text": "count so in my in my opinion it is not"
+      },
+      {
+        "start": 587.49,
+        "duration": 6.39,
+        "text": "as distributive as our mama 3 hash okay"
+      },
+      {
+        "start": 591.78,
+        "duration": 4.23,
+        "text": "because it's very simple hashing"
+      },
+      {
+        "start": 593.88,
+        "duration": 4.59,
+        "text": "algorithm and that makes sense and we do"
+      },
+      {
+        "start": 596.01,
+        "duration": 4.8,
+        "text": "we do allow opinions here distributed"
+      },
+      {
+        "start": 598.47,
+        "duration": 6.42,
+        "text": "data so this is my own opinion but"
+      },
+      {
+        "start": 600.81,
+        "duration": 6.33,
+        "text": "people can prove me wrong and for one"
+      },
+      {
+        "start": 604.89,
+        "duration": 5.01,
+        "text": "interesting piece of information I read"
+      },
+      {
+        "start": 607.14,
+        "duration": 7.08,
+        "text": "from the paper is they said for for"
+      },
+      {
+        "start": 609.9,
+        "duration": 7.47,
+        "text": "heavy workload they recommend between 10"
+      },
+      {
+        "start": 614.22,
+        "duration": 6.36,
+        "text": "and 100 tablets per machine and each"
+      },
+      {
+        "start": 617.37,
+        "duration": 4.98,
+        "text": "tablet can be tens of gigabytes so if"
+      },
+      {
+        "start": 620.58,
+        "duration": 4.68,
+        "text": "you do some math it means that the"
+      },
+      {
+        "start": 622.35,
+        "duration": 6.09,
+        "text": "density on each tablet server is around"
+      },
+      {
+        "start": 625.26,
+        "duration": 5.61,
+        "text": "one terabyte to the right so instant so"
+      },
+      {
+        "start": 628.44,
+        "duration": 5.37,
+        "text": "there's a practical limit on the size"
+      },
+      {
+        "start": 630.87,
+        "duration": 6.3,
+        "text": "it's their recommendation so it's okay"
+      },
+      {
+        "start": 633.81,
+        "duration": 7.86,
+        "text": "but it's not that huge either I mean we"
+      },
+      {
+        "start": 637.17,
+        "duration": 5.25,
+        "text": "used to see density of not of 10 or 20"
+      },
+      {
+        "start": 641.67,
+        "duration": 3.09,
+        "text": "terabytes"
+      },
+      {
+        "start": 642.42,
+        "duration": 6.74,
+        "text": "you know when using Apache park' uh-huh"
+      },
+      {
+        "start": 644.76,
+        "duration": 9.6,
+        "text": "so yeah 1 to 5 terabyte is not that huge"
+      },
+      {
+        "start": 649.16,
+        "duration": 8.2,
+        "text": "ok so let's talk now about replication"
+      },
+      {
+        "start": 654.36,
+        "duration": 5.67,
+        "text": "how does replication work in queue so"
+      },
+      {
+        "start": 657.36,
+        "duration": 5.79,
+        "text": "they have um what I call a multi mask"
+      },
+      {
+        "start": 660.03,
+        "duration": 5.37,
+        "text": "master architecture so you know you"
+      },
+      {
+        "start": 663.15,
+        "duration": 4.02,
+        "text": "speak your data between tablets and"
+      },
+      {
+        "start": 665.4,
+        "duration": 5.28,
+        "text": "inside of each tablet"
+      },
+      {
+        "start": 667.17,
+        "duration": 5.58,
+        "text": "you have some replicas you know you"
+      },
+      {
+        "start": 670.68,
+        "duration": 3.779,
+        "text": "define a kind of replication factor like"
+      },
+      {
+        "start": 672.75,
+        "duration": 3.839,
+        "text": "it doesn't run three or five or whatever"
+      },
+      {
+        "start": 674.459,
+        "duration": 5.19,
+        "text": "okay so that always the same yeah"
+      },
+      {
+        "start": 676.589,
+        "duration": 6.841,
+        "text": "you have three replicas and contra the"
+      },
+      {
+        "start": 679.649,
+        "duration": 7.261,
+        "text": "difference with Cassandra is each Erica"
+      },
+      {
+        "start": 683.43,
+        "duration": 5.94,
+        "text": "is not equal you have am a kind of"
+      },
+      {
+        "start": 686.91,
+        "duration": 4.95,
+        "text": "master or primary replication master and"
+      },
+      {
+        "start": 689.37,
+        "duration": 7.29,
+        "text": "backup practice exactly and in fact they"
+      },
+      {
+        "start": 691.86,
+        "duration": 6.089,
+        "text": "use the the raft consensus protocol to"
+      },
+      {
+        "start": 696.66,
+        "duration": 4.619,
+        "text": "reach agreement"
+      },
+      {
+        "start": 697.949,
+        "duration": 6.51,
+        "text": "so every time a client need to access a"
+      },
+      {
+        "start": 701.279,
+        "duration": 6.291,
+        "text": "piece of data in this tablet it has to"
+      },
+      {
+        "start": 704.459,
+        "duration": 5.82,
+        "text": "go through the draft leader for this"
+      },
+      {
+        "start": 707.57,
+        "duration": 4.93,
+        "text": "tablet and then the rough leader will"
+      },
+      {
+        "start": 710.279,
+        "duration": 7.201,
+        "text": "Sarai's the operation and then we push"
+      },
+      {
+        "start": 712.5,
+        "duration": 7.019,
+        "text": "it to the order pikas okay so we've been"
+      },
+      {
+        "start": 717.48,
+        "duration": 3.78,
+        "text": "talking about interactions between nodes"
+      },
+      {
+        "start": 719.519,
+        "duration": 3.271,
+        "text": "and how they coordinate now let's let's"
+      },
+      {
+        "start": 721.26,
+        "duration": 3.629,
+        "text": "dive into is what's happening on a"
+      },
+      {
+        "start": 722.79,
+        "duration": 6.289,
+        "text": "single node and talk about the storage"
+      },
+      {
+        "start": 724.889,
+        "duration": 7.351,
+        "text": "engine and the data format on disk so"
+      },
+      {
+        "start": 729.079,
+        "duration": 5.831,
+        "text": "since the beginning when you read the"
+      },
+      {
+        "start": 732.24,
+        "duration": 5.73,
+        "text": "abstract of koodoo and the objective of"
+      },
+      {
+        "start": 734.91,
+        "duration": 5.97,
+        "text": "could do is to be able to to support a"
+      },
+      {
+        "start": 737.97,
+        "duration": 5.64,
+        "text": "heavy analytics workload right and also"
+      },
+      {
+        "start": 740.88,
+        "duration": 5.43,
+        "text": "random update of the data it seems"
+      },
+      {
+        "start": 743.61,
+        "duration": 6.12,
+        "text": "contradicting goals and in fact there is"
+      },
+      {
+        "start": 746.31,
+        "duration": 6.779,
+        "text": "no magic to be able to to answer those"
+      },
+      {
+        "start": 749.73,
+        "duration": 5.91,
+        "text": "two contradicting goals they have a draw"
+      },
+      {
+        "start": 753.089,
+        "duration": 5.61,
+        "text": "what what I will call a dual storage"
+      },
+      {
+        "start": 755.64,
+        "duration": 6.35,
+        "text": "engine so for the data file they have"
+      },
+      {
+        "start": 758.699,
+        "duration": 8.25,
+        "text": "two notion the rosette and the Delta set"
+      },
+      {
+        "start": 761.99,
+        "duration": 7.24,
+        "text": "so rosette is basically a just of format"
+      },
+      {
+        "start": 766.949,
+        "duration": 5.221,
+        "text": "very similar to Apache Park a columnar"
+      },
+      {
+        "start": 769.23,
+        "duration": 5.549,
+        "text": "format right very similar okay so you"
+      },
+      {
+        "start": 772.17,
+        "duration": 6.06,
+        "text": "can skip columns very fast and to"
+      },
+      {
+        "start": 774.779,
+        "duration": 6.18,
+        "text": "accommodate the ability to to update"
+      },
+      {
+        "start": 778.23,
+        "duration": 5.969,
+        "text": "randomly on the flight some of the data"
+      },
+      {
+        "start": 780.959,
+        "duration": 5.761,
+        "text": "they also need to keep another data"
+      },
+      {
+        "start": 784.199,
+        "duration": 4.741,
+        "text": "structure they call the Delta Delta set"
+      },
+      {
+        "start": 786.72,
+        "duration": 5.58,
+        "text": "which is okay what is the Delta between"
+      },
+      {
+        "start": 788.94,
+        "duration": 7.649,
+        "text": "my rosette and the current value and"
+      },
+      {
+        "start": 792.3,
+        "duration": 8.25,
+        "text": "also you know always good ideas get"
+      },
+      {
+        "start": 796.589,
+        "duration": 6.391,
+        "text": "reused they have room filter right and"
+      },
+      {
+        "start": 800.55,
+        "duration": 5.37,
+        "text": "our primary key index files using v3"
+      },
+      {
+        "start": 802.98,
+        "duration": 4.26,
+        "text": "right so nothing really new here okay"
+      },
+      {
+        "start": 805.92,
+        "duration": 3.03,
+        "text": "but that is interesting that there is"
+      },
+      {
+        "start": 807.24,
+        "duration": 4.92,
+        "text": "sort of this hybrid storage format with"
+      },
+      {
+        "start": 808.95,
+        "duration": 5.73,
+        "text": "the immutable files and then Delta the"
+      },
+      {
+        "start": 812.16,
+        "duration": 5.1,
+        "text": "Delta files okay okay do we high so"
+      },
+      {
+        "start": 814.68,
+        "duration": 4.17,
+        "text": "let's talk performance this is where the"
+      },
+      {
+        "start": 817.26,
+        "duration": 3.36,
+        "text": "rubber meets the road right what are the"
+      },
+      {
+        "start": 818.85,
+        "duration": 3.81,
+        "text": "performance characteristics of the"
+      },
+      {
+        "start": 820.62,
+        "duration": 5.279,
+        "text": "common operations like insert update"
+      },
+      {
+        "start": 822.66,
+        "duration": 5.549,
+        "text": "select so for insert as I said before"
+      },
+      {
+        "start": 825.899,
+        "duration": 4.62,
+        "text": "because there is an uniqueness"
+      },
+      {
+        "start": 828.209,
+        "duration": 6.181,
+        "text": "constraint they need a read before right"
+      },
+      {
+        "start": 830.519,
+        "duration": 6.451,
+        "text": "so and in fact the writ is quite"
+      },
+      {
+        "start": 834.39,
+        "duration": 8.1,
+        "text": "complicated first they need to read the"
+      },
+      {
+        "start": 836.97,
+        "duration": 7.65,
+        "text": "bloom filter to check if it exists and"
+      },
+      {
+        "start": 842.49,
+        "duration": 4.789,
+        "text": "you know that the rower exists and you"
+      },
+      {
+        "start": 844.62,
+        "duration": 6.3,
+        "text": "know that the bloom filter can give you"
+      },
+      {
+        "start": 847.279,
+        "duration": 5.74,
+        "text": "from positive right to negative or"
+      },
+      {
+        "start": 850.92,
+        "duration": 5.55,
+        "text": "positive so it's not sufficient enough"
+      },
+      {
+        "start": 853.019,
+        "duration": 5.911,
+        "text": "they also need to read into the"
+      },
+      {
+        "start": 856.47,
+        "duration": 6.54,
+        "text": "partition key index to be absolutely"
+      },
+      {
+        "start": 858.93,
+        "duration": 7.05,
+        "text": "sure that it doesn't exist so yeah for"
+      },
+      {
+        "start": 863.01,
+        "duration": 6.5,
+        "text": "insert for updates so update also need"
+      },
+      {
+        "start": 865.98,
+        "duration": 6.96,
+        "text": "to go through the bloom filter plus"
+      },
+      {
+        "start": 869.51,
+        "duration": 5.829,
+        "text": "partition key index Y to get the offset"
+      },
+      {
+        "start": 872.94,
+        "duration": 4.98,
+        "text": "from the rosette so suppose that you"
+      },
+      {
+        "start": 875.339,
+        "duration": 5.101,
+        "text": "have already a row in your rosette data"
+      },
+      {
+        "start": 877.92,
+        "duration": 5.85,
+        "text": "file the columnar format data file and"
+      },
+      {
+        "start": 880.44,
+        "duration": 5.28,
+        "text": "when if you want to update a value they"
+      },
+      {
+        "start": 883.77,
+        "duration": 3.96,
+        "text": "need to get the offset from the"
+      },
+      {
+        "start": 885.72,
+        "duration": 5.67,
+        "text": "beginning of the file of this row and"
+      },
+      {
+        "start": 887.73,
+        "duration": 6.21,
+        "text": "then they put the the new value of the"
+      },
+      {
+        "start": 891.39,
+        "duration": 5.22,
+        "text": "column plus the offset in the Delta Y"
+      },
+      {
+        "start": 893.94,
+        "duration": 4.86,
+        "text": "that's the trade okay so it means that"
+      },
+      {
+        "start": 896.61,
+        "duration": 5.58,
+        "text": "they need to go through the whole read"
+      },
+      {
+        "start": 898.8,
+        "duration": 6.27,
+        "text": "pass to fetch the offset before being"
+      },
+      {
+        "start": 902.19,
+        "duration": 5.94,
+        "text": "able to write to the data file and for"
+      },
+      {
+        "start": 905.07,
+        "duration": 6.03,
+        "text": "select so selects they of course they"
+      },
+      {
+        "start": 908.13,
+        "duration": 5.55,
+        "text": "reuse prom filter to skip files they"
+      },
+      {
+        "start": 911.1,
+        "duration": 4.71,
+        "text": "reuse power but your primary key index"
+      },
+      {
+        "start": 913.68,
+        "duration": 6.12,
+        "text": "they have also other very interesting"
+      },
+      {
+        "start": 915.81,
+        "duration": 6.51,
+        "text": "things which they call interval 3 so"
+      },
+      {
+        "start": 919.8,
+        "duration": 6.06,
+        "text": "it's a kind of interval and if you give"
+      },
+      {
+        "start": 922.32,
+        "duration": 6.69,
+        "text": "this is my primary key it can help you"
+      },
+      {
+        "start": 925.86,
+        "duration": 4.86,
+        "text": "to know to to skip a lot of profit so"
+      },
+      {
+        "start": 929.01,
+        "duration": 4.74,
+        "text": "you don't need to read those prom filter"
+      },
+      {
+        "start": 930.72,
+        "duration": 3.79,
+        "text": "you can just focus on some subset of"
+      },
+      {
+        "start": 933.75,
+        "duration": 3.61,
+        "text": "your proofing"
+      },
+      {
+        "start": 934.51,
+        "duration": 4.98,
+        "text": "so it gives you a cap about how many"
+      },
+      {
+        "start": 937.36,
+        "duration": 5.61,
+        "text": "blue fitters you need to read for"
+      },
+      {
+        "start": 939.49,
+        "duration": 5.19,
+        "text": "checking okay so with this sort of"
+      },
+      {
+        "start": 942.97,
+        "duration": 3.809,
+        "text": "hybrid or two-level storage format that"
+      },
+      {
+        "start": 944.68,
+        "duration": 3.87,
+        "text": "we have we still have these mutable"
+      },
+      {
+        "start": 946.779,
+        "duration": 3.391,
+        "text": "files and then we have these data files"
+      },
+      {
+        "start": 948.55,
+        "duration": 3.87,
+        "text": "so there's some kind of compaction"
+      },
+      {
+        "start": 950.17,
+        "duration": 4.529,
+        "text": "process that needs to occur right"
+      },
+      {
+        "start": 952.42,
+        "duration": 4.289,
+        "text": "of course of course there is no magic"
+      },
+      {
+        "start": 954.699,
+        "duration": 4.621,
+        "text": "and in fact there are two kind of"
+      },
+      {
+        "start": 956.709,
+        "duration": 5.611,
+        "text": "compaction you have the row set"
+      },
+      {
+        "start": 959.32,
+        "duration": 5.04,
+        "text": "compaction so which is pretty similar to"
+      },
+      {
+        "start": 962.32,
+        "duration": 4.5,
+        "text": "what happened in Cassandra from time to"
+      },
+      {
+        "start": 964.36,
+        "duration": 3.87,
+        "text": "time you have a background process that"
+      },
+      {
+        "start": 966.82,
+        "duration": 3.87,
+        "text": "just pick some of them and wash them"
+      },
+      {
+        "start": 968.23,
+        "duration": 6.24,
+        "text": "together but because you have also the"
+      },
+      {
+        "start": 970.69,
+        "duration": 6.54,
+        "text": "Delta fry you need to compact the Delta"
+      },
+      {
+        "start": 974.47,
+        "duration": 5.16,
+        "text": "Phi back into the row set Ram so they"
+      },
+      {
+        "start": 977.23,
+        "duration": 5.37,
+        "text": "define some kind of ratio so if the"
+      },
+      {
+        "start": 979.63,
+        "duration": 6.0,
+        "text": "ratio of my Delta fine is if the size of"
+      },
+      {
+        "start": 982.6,
+        "duration": 5.07,
+        "text": "my Delta Phi is half of the rosette"
+      },
+      {
+        "start": 985.63,
+        "duration": 4.86,
+        "text": "corresponding row set I need to compact"
+      },
+      {
+        "start": 987.67,
+        "duration": 5.34,
+        "text": "it back to the route set so yes I think"
+      },
+      {
+        "start": 990.49,
+        "duration": 4.62,
+        "text": "that it creates a kind of write"
+      },
+      {
+        "start": 993.01,
+        "duration": 5.569,
+        "text": "amplification of course because now you"
+      },
+      {
+        "start": 995.11,
+        "duration": 6.93,
+        "text": "have to kind of compaction to the width"
+      },
+      {
+        "start": 998.579,
+        "duration": 5.291,
+        "text": "excellent so I this is great analysis"
+      },
+      {
+        "start": 1002.04,
+        "duration": 3.63,
+        "text": "and it's really helpful to us to think"
+      },
+      {
+        "start": 1003.87,
+        "duration": 3.779,
+        "text": "critically about you know the systems"
+      },
+      {
+        "start": 1005.67,
+        "duration": 3.899,
+        "text": "that we love and work on when we compare"
+      },
+      {
+        "start": 1007.649,
+        "duration": 3.781,
+        "text": "them with others and see the good ideas"
+      },
+      {
+        "start": 1009.569,
+        "duration": 4.561,
+        "text": "and see what ideas are reused and what"
+      },
+      {
+        "start": 1011.43,
+        "duration": 4.05,
+        "text": "new ideas might be coming out so why"
+      },
+      {
+        "start": 1014.13,
+        "duration": 5.55,
+        "text": "don't you wrap this up for us what's the"
+      },
+      {
+        "start": 1015.48,
+        "duration": 6.57,
+        "text": "takeaway well in the takeaway is the the"
+      },
+      {
+        "start": 1019.68,
+        "duration": 4.29,
+        "text": "they achieved their happy meet you I"
+      },
+      {
+        "start": 1022.05,
+        "duration": 5.81,
+        "text": "mean they did they did their own"
+      },
+      {
+        "start": 1023.97,
+        "duration": 7.229,
+        "text": "benchmark and they just show that for"
+      },
+      {
+        "start": 1027.86,
+        "duration": 5.949,
+        "text": "real-time workload like real-time update"
+      },
+      {
+        "start": 1031.199,
+        "duration": 5.821,
+        "text": "random access they are not as fast as"
+      },
+      {
+        "start": 1033.809,
+        "duration": 6.811,
+        "text": "Apache has been HBase so of course not"
+      },
+      {
+        "start": 1037.02,
+        "duration": 5.76,
+        "text": "as fast as Cassandra but the big the"
+      },
+      {
+        "start": 1040.62,
+        "duration": 4.799,
+        "text": "biggest advantage from HBase and"
+      },
+      {
+        "start": 1042.78,
+        "duration": 5.279,
+        "text": "Cassandra is they are able to provide"
+      },
+      {
+        "start": 1045.419,
+        "duration": 5.581,
+        "text": "very fast analytics workload with their"
+      },
+      {
+        "start": 1048.059,
+        "duration": 5.161,
+        "text": "called mass storage ok so this is a"
+      },
+      {
+        "start": 1051.0,
+        "duration": 4.23,
+        "text": "trade-off yeah alright and that's the"
+      },
+      {
+        "start": 1053.22,
+        "duration": 4.41,
+        "text": "conclusion all right well thanks a lot"
+      },
+      {
+        "start": 1055.23,
+        "duration": 4.17,
+        "text": "to be hi thank you Jeff all right join"
+      },
+      {
+        "start": 1057.63,
+        "duration": 2.22,
+        "text": "us next time for another episode see you"
+      },
+      {
+        "start": 1059.4,
+        "duration": 3.33,
+        "text": "soon"
+      },
+      {
+        "start": 1059.85,
+        "duration": 5.1,
+        "text": "see you thank you for joining us again"
+      },
+      {
+        "start": 1062.73,
+        "duration": 3.42,
+        "text": "for the distributed data show we love"
+      },
+      {
+        "start": 1064.95,
+        "duration": 2.91,
+        "text": "your feedback so go to"
+      },
+      {
+        "start": 1066.15,
+        "duration": 3.12,
+        "text": "distributed data show page on data"
+      },
+      {
+        "start": 1067.86,
+        "duration": 3.27,
+        "text": "stacks Academy and tell us what you"
+      },
+      {
+        "start": 1069.27,
+        "duration": 4.35,
+        "text": "think you can also find us on the data"
+      },
+      {
+        "start": 1071.13,
+        "duration": 4.62,
+        "text": "stacks Academy YouTube channel or find"
+      },
+      {
+        "start": 1073.62,
+        "duration": 4.53,
+        "text": "our podcast on iTunes Google Play or"
+      },
+      {
+        "start": 1075.75,
+        "duration": 4.35,
+        "text": "wherever you get great podcast while"
+      },
+      {
+        "start": 1078.15,
+        "duration": 4.83,
+        "text": "you're there make sure and subscribe so"
+      },
+      {
+        "start": 1080.1,
+        "duration": 5.989,
+        "text": "you don't miss a single episode"
+      },
+      {
+        "start": 1082.98,
+        "duration": 3.109,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T07:11:37.848249+00:00"
+}
