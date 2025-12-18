@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from .relationships import RelationshipTracker
 from .embeddings import EmbeddingGenerator
+from .enhanced_loader import get_video_description
 
 
 class DataGenerator:
@@ -137,6 +138,81 @@ class DataGenerator:
         # Generate embeddings for video descriptions
         if self.embedder.is_available():
             print("\n🧠 Generating embeddings for video descriptions...")
+            descriptions = [v['description'] for v in videos]
+            embeddings = self.embedder.generate_batch(descriptions)
+
+            for video, embedding in zip(videos, embeddings):
+                video['content_features'] = embedding
+
+        return videos
+
+    def process_enhanced_videos(self, enhanced_videos: List[Dict], users: List[Dict]) -> List[Dict]:
+        """
+        Convert enhanced video metadata (from JSON files) to KillrVideo schema.
+
+        Uses enhanced_description for embeddings instead of original YouTube description.
+
+        Args:
+            enhanced_videos: List of enhanced video dictionaries from JSON files
+            users: List of users to assign as video uploaders
+
+        Returns:
+            List of video dictionaries in KillrVideo format
+        """
+        videos = []
+
+        print(f"\n🎬 Processing {len(enhanced_videos)} enhanced videos...")
+
+        # Weight users - some are more active uploaders
+        active_users = random.sample(users, max(1, len(users) // 3))
+        user_weights = [3 if u in active_users else 1 for u in users]
+
+        for enhanced_video in tqdm(enhanced_videos):
+            video_id = str(uuid.uuid4())
+
+            # Parse published date
+            try:
+                added_date = parse_date(enhanced_video['published_at'])
+            except:
+                added_date = datetime.now() - timedelta(days=random.randint(1, 730))
+
+            # Categorize video
+            title_lower = enhanced_video['title'].lower()
+            category = self._categorize_video(title_lower)
+
+            # Get description - prefer enhanced_description
+            description = get_video_description(enhanced_video)
+
+            # Convert YouTube watch URL to embed URL
+            location = enhanced_video.get('url', '')
+            if 'watch?v=' in location:
+                location = location.replace('watch?v=', 'embed/')
+
+            # Get tags as a set
+            tags = set(enhanced_video.get('tags', []))
+
+            video = {
+                'videoid': video_id,
+                'userid': random.choices(users, weights=user_weights)[0]['userid'],
+                'added_date': added_date,
+                'name': enhanced_video['title'][:255],
+                'description': description[:2000] if description else '',
+                'location': location,
+                'location_type': 1,
+                'preview_image_location': enhanced_video.get('thumbnail', ''),
+                'tags': tags,
+                'category': category,
+                'content_rating': 'G',
+                'language': 'en',
+                'content_features': None  # Will be populated with embeddings
+            }
+
+            videos.append(video)
+            self.tracker.add_video(video)
+
+        # Generate embeddings for video descriptions (using enhanced descriptions)
+        if self.embedder.is_available():
+            print("\n🧠 Generating embeddings for enhanced video descriptions...")
             descriptions = [v['description'] for v in videos]
             embeddings = self.embedder.generate_batch(descriptions)
 
