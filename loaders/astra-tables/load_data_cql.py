@@ -15,7 +15,7 @@ from cassandra.cluster import Cluster
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.query import BatchStatement, SimpleStatement
 from cassandra import ConsistencyLevel
-import os
+import os, sys
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Data directory
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent / "../data/csv"
 
 # Get Astra DB credentials from environment
 ASTRA_DB_ID = os.getenv("ASTRA_DB_ID", "d32f1a9d-7395-4344-94e0-310ca9a6a96d")
@@ -212,9 +212,11 @@ def load_user_credentials(session):
 
 def load_videos(session):
     """Load videos_cleaned.csv or videos.csv."""
-    csv_file = DATA_DIR / "videos_cleaned.csv"
-    if not csv_file.exists():
-        csv_file = DATA_DIR / "videos.csv"
+    #csv_file = DATA_DIR / "videos_cleaned.csv"
+    #if not csv_file.exists():
+    csv_file = DATA_DIR / "videos.csv"
+
+    logger.info(f"csv_file: {csv_file}")
     if not csv_file.exists():
         logger.warning("No videos CSV found, skipping")
         return 0
@@ -363,16 +365,30 @@ https://docs.datastax.com/en/astra-serverless/docs/manage/dsbulk.html
         """)
         return
 
+    table = sys.argv[1]
+
     try:
         session, cluster = get_session()
         logger.info("✓ Connected to Astra DB")
 
         total = 0
-        total += load_users(session)
-        total += load_user_credentials(session)
-        total += load_videos(session)
-        total += load_tags(session)
-        total += load_comments(session)
+
+        if not table:
+            total += load_users(session)
+            total += load_user_credentials(session)
+            total += load_videos(session)
+            total += load_tags(session)
+            total += load_comments(session)
+        elif table == "users":
+            total += load_users(session)
+        elif table == "user_credentials":
+            total += load_user_credentials(session)
+        elif table == "videos":
+            total += load_videos(session)
+        elif table == "tags":
+            total += load_tags(session)
+        elif table == "comments":
+            total += load_comments(session)
 
         logger.info("=" * 60)
         logger.info(f"✓ COMPLETE: Loaded {total} total records")
