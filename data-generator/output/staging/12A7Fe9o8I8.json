@@ -1,0 +1,1509 @@
+{
+  "video_id": "12A7Fe9o8I8",
+  "title": "DS220.21 Read Techniques | Data Modeling with Apache Cassandra",
+  "description": "#DataStaxAcademy #DS220\nDS220.21 Read Techniques\nIn this unit, we will be taking a look at some alternate ways to perform reads in Apache Cassandra. For example, in some cases using an index may be helpful. Or if certain requirements or queries change, it may be possible to enable these changes without completely overhauling your data model. \n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-14T09:28:52Z",
+  "thumbnail": "https://i.ytimg.com/vi/12A7Fe9o8I8/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "data_modeling",
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=12A7Fe9o8I8",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] in this video we'll be taking a look at some alternate ways to perform reads although the data modeling methodology we have shown stresses on making sure that your tables are modeled so that your known queries work there are times when it makes more sense to just make use of an index or if certain requirements or queries change it may be possible to enable these changes without having to completely overhaul your data model the first way we can perform reads is through the use of a secondary index this is something that needs to be manually defined by the user but allows datasex enterprise to create and maintain an index that can then be used to more quickly and efficiently retrieve data especially for columns that do not make up part of the primary key as this is a separate data structure that is created it does not have any effect on the structure of the table there are some limitations to using secondary indexes however which is that it can't be created for counter columns or for columns declared as static as mentioned the secondary index is a separate data structure that exists alongside the actual data each node will have its own local index which collectively makes up a particular secondary index and contains index entries for the partition stored locally on that node since the secondary index is divided up into local indexes it means that a query generally needs to go to every node in order to check each local index making sure that the entire secondary index is consulted this tends to be a relatively expensive query in terms of efficiency the most efficient use cases for a secondary indexes is when quarian for rows inside a specific partition meaning that the partition key is provided in the query this allows direct access to the node that has the data and only needs to check that local index on the node to retrieve the appropriate rows as far as how it works the client sends a query to a coordinator node if the query involves a column that has a secondary index and no partition key is provided then the coordinator will have to send the request to all nodes when each node receives the request it searches its local index to find the required partitions and rows and returns the results to the coordinator once the coordinator has received a response from all nodes it then combines the results and then returns that to the client now when we mention all nodes here that's just a general idea when there is no replication when there is replication being used you don't need all the nodes to retrieve the entire result set and so only a subset of the nodes is contacted whatever number is needed to make up the entire token range here we have some guidelines on when to use and when not to use secondary indexes small data sets are fine or whenever you can provide a partition key to make secondary index usage more efficient secondary indexes don't work with counter columns and they don't make sense with columns that are frequently updated or deleted since that is additional work maintaining the secondary index in the background as well a more complex topic is deciding to use secondary indexes depending on the cardinality of the column this refers to the number of unique values that can be found for the column with smaller unique values being low cardinality and large number of unique values being high cardinality with low cardinality having less possible values for the column generally means that there are more rows that are returned and makes it worth having to check all of the nodes to retrieve the query results in the case of high cardinality having a large number of unique values make it more probable that there are less rows with that value with less rows that means you may be checking all the nodes for a few rows that could have been found on just one or two that makes it pretty inefficient and there are other ways that this type of query could have been done instead this leads us to materialized views a different type of index that is more suitable for high cardinality data basically a materialized view is a separate table built from the original one with the same data but with a different primary key the new primary key particularly the partition key would be set to the column that you want to search on since materialized views are created from a base table there is a requirement that the primary key for the materialized view must include the primary key from the base table so that there is a 101 correlation between the rows and the base table and the materialized view only one new column can be added to the primary key with the restriction that it is not a static column in this example we are making a materialized view based on a user's table which has a primary key using the user id in order to be able to search for users by their email address we would need to create the materialized view with the email column as part of the new primary key from the create materialized view example the as select part determines which column we want to include in the materialized view the from specifies the base table and the where must specify that all primary key columns is not null since it's possible that the base users table has rows without an email it should not actually be included in the materialized view finally with the primary key for the materialized view we have to make sure that it includes the original primary key of the base table which is user id along with the column we want to search on which is email once the materialized view is created you can then treat it just like any other table in your query here we are trying to retrieve the first name last name and email the user in the materialize view user by email where their email is ilab bigdata datastax.com the result will return the row as normal as can be seen below as far as things to watch out for with materialized views you cannot actually write to a materialized view it is updated only when the base table is updated as well the updates from the base table to the materialized views are also asynchronous meaning that there is always some sort of delay when updating since the partition key for the base table is different from the materialized view that can mean that the node where the base table is updated is not necessarily the same node where the materialized view is updated in edge conditions the delay and update may be more noticeable finally note that read repairs are not a two-way street for materialized views if triggering a read repair when reading from the base table it will repair both the base table and the materialized view however when a read repair is triggered when reading the materialized view it will only repair the materialized view itself data aggregation is another type of read that is commonly used in databases and datasets enterprise does support some of the most common aggregates in dsc6 this means sum average count min and max are all supported note that prior to dsc 5.0 only count was available keep in mind that these aggregates are calculated at query time meaning that dse goes through the result set to calculate these aggregates instead of just pulling statistics from an index this should be suitable for many use cases but if you're looking to get the count of the number of rows in a table this would not be the best way to do so fortunately there are several techniques that can be used that can possibly get you the aggregates that you want some can be done purely through the cassandra core part of datasets enterprise one is using lightweight transactions to check and replace aggregates as rows get added or updated another might be to make use of the counter type to implement certain aggregates such as count or sum otherwise aggregates can also be done outside of cassandra either being done as part of the application logic or making use of dataset enterprises analytics or search features here's an example of using the counter type to implement aggregations for count and sum let's say that we want to be able to track the ratings given by users for a specific video in our ratings by video table we create two counters a num ratings and a sum ratings then whenever a new rating is submitted we can increment the num rating countered by one and the sum rating is countered by the rating given by the user there are some caveats to this technique though one being that updating the counter is slower than a normal write since it does do a read before a write in the background the other is that incrementing counters is not an item-potent operation what that means is that if an update to a counter does not return a response there is no way to retry the operation so that we know the counter reflects the true intended value in this case the value stored is a very good approximation but not necessarily accurate to perform an aggregate in an application you are basically performing calculations on the client side one common way is by retrieving the data needed for the aggregate calculation from the database then doing the calculation and storing it back in the database using our counters example from the previous slide we can make use of the num ratings and sum ratings counter to get the average we just query the value of the num ratings column and some ratings column and then perform the calculation on the application side if we want we can also store that average as a average rating column in the videos table",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 7.65,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.44,
+        "duration": 4.239,
+        "text": "in this video we'll be taking a look at"
+      },
+      {
+        "start": 9.12,
+        "duration": 4.08,
+        "text": "some alternate ways to perform reads"
+      },
+      {
+        "start": 11.679,
+        "duration": 3.441,
+        "text": "although the data modeling methodology"
+      },
+      {
+        "start": 13.2,
+        "duration": 3.36,
+        "text": "we have shown stresses on making sure"
+      },
+      {
+        "start": 15.12,
+        "duration": 3.12,
+        "text": "that your tables are modeled so that"
+      },
+      {
+        "start": 16.56,
+        "duration": 3.36,
+        "text": "your known queries work"
+      },
+      {
+        "start": 18.24,
+        "duration": 3.68,
+        "text": "there are times when it makes more sense"
+      },
+      {
+        "start": 19.92,
+        "duration": 4.0,
+        "text": "to just make use of an index"
+      },
+      {
+        "start": 21.92,
+        "duration": 3.92,
+        "text": "or if certain requirements or queries"
+      },
+      {
+        "start": 23.92,
+        "duration": 2.72,
+        "text": "change it may be possible to enable"
+      },
+      {
+        "start": 25.84,
+        "duration": 2.56,
+        "text": "these changes"
+      },
+      {
+        "start": 26.64,
+        "duration": 3.36,
+        "text": "without having to completely overhaul"
+      },
+      {
+        "start": 28.4,
+        "duration": 3.279,
+        "text": "your data model the first way"
+      },
+      {
+        "start": 30.0,
+        "duration": 3.36,
+        "text": "we can perform reads is through the use"
+      },
+      {
+        "start": 31.679,
+        "duration": 2.88,
+        "text": "of a secondary index"
+      },
+      {
+        "start": 33.36,
+        "duration": 3.199,
+        "text": "this is something that needs to be"
+      },
+      {
+        "start": 34.559,
+        "duration": 3.68,
+        "text": "manually defined by the user but allows"
+      },
+      {
+        "start": 36.559,
+        "duration": 2.801,
+        "text": "datasex enterprise to create and"
+      },
+      {
+        "start": 38.239,
+        "duration": 2.881,
+        "text": "maintain an index"
+      },
+      {
+        "start": 39.36,
+        "duration": 3.359,
+        "text": "that can then be used to more quickly"
+      },
+      {
+        "start": 41.12,
+        "duration": 3.279,
+        "text": "and efficiently retrieve data"
+      },
+      {
+        "start": 42.719,
+        "duration": 3.52,
+        "text": "especially for columns that do not make"
+      },
+      {
+        "start": 44.399,
+        "duration": 3.521,
+        "text": "up part of the primary key"
+      },
+      {
+        "start": 46.239,
+        "duration": 3.84,
+        "text": "as this is a separate data structure"
+      },
+      {
+        "start": 47.92,
+        "duration": 3.84,
+        "text": "that is created it does not have any"
+      },
+      {
+        "start": 50.079,
+        "duration": 3.201,
+        "text": "effect on the structure of the table"
+      },
+      {
+        "start": 51.76,
+        "duration": 3.2,
+        "text": "there are some limitations to using"
+      },
+      {
+        "start": 53.28,
+        "duration": 3.36,
+        "text": "secondary indexes however"
+      },
+      {
+        "start": 54.96,
+        "duration": 3.759,
+        "text": "which is that it can't be created for"
+      },
+      {
+        "start": 56.64,
+        "duration": 3.599,
+        "text": "counter columns or for columns declared"
+      },
+      {
+        "start": 58.719,
+        "duration": 3.68,
+        "text": "as static"
+      },
+      {
+        "start": 60.239,
+        "duration": 3.681,
+        "text": "as mentioned the secondary index is a"
+      },
+      {
+        "start": 62.399,
+        "duration": 3.521,
+        "text": "separate data structure that exists"
+      },
+      {
+        "start": 63.92,
+        "duration": 4.0,
+        "text": "alongside the actual data"
+      },
+      {
+        "start": 65.92,
+        "duration": 3.92,
+        "text": "each node will have its own local index"
+      },
+      {
+        "start": 67.92,
+        "duration": 3.199,
+        "text": "which collectively makes up a particular"
+      },
+      {
+        "start": 69.84,
+        "duration": 3.04,
+        "text": "secondary index"
+      },
+      {
+        "start": 71.119,
+        "duration": 4.64,
+        "text": "and contains index entries for the"
+      },
+      {
+        "start": 72.88,
+        "duration": 4.72,
+        "text": "partition stored locally on that node"
+      },
+      {
+        "start": 75.759,
+        "duration": 3.121,
+        "text": "since the secondary index is divided up"
+      },
+      {
+        "start": 77.6,
+        "duration": 3.12,
+        "text": "into local indexes"
+      },
+      {
+        "start": 78.88,
+        "duration": 3.04,
+        "text": "it means that a query generally needs to"
+      },
+      {
+        "start": 80.72,
+        "duration": 3.28,
+        "text": "go to every node"
+      },
+      {
+        "start": 81.92,
+        "duration": 3.6,
+        "text": "in order to check each local index"
+      },
+      {
+        "start": 84.0,
+        "duration": 3.119,
+        "text": "making sure that the entire secondary"
+      },
+      {
+        "start": 85.52,
+        "duration": 3.44,
+        "text": "index is consulted"
+      },
+      {
+        "start": 87.119,
+        "duration": 3.68,
+        "text": "this tends to be a relatively expensive"
+      },
+      {
+        "start": 88.96,
+        "duration": 3.6,
+        "text": "query in terms of efficiency"
+      },
+      {
+        "start": 90.799,
+        "duration": 3.921,
+        "text": "the most efficient use cases for a"
+      },
+      {
+        "start": 92.56,
+        "duration": 4.239,
+        "text": "secondary indexes is when quarian for"
+      },
+      {
+        "start": 94.72,
+        "duration": 3.439,
+        "text": "rows inside a specific partition"
+      },
+      {
+        "start": 96.799,
+        "duration": 4.081,
+        "text": "meaning that the partition key is"
+      },
+      {
+        "start": 98.159,
+        "duration": 4.64,
+        "text": "provided in the query this allows direct"
+      },
+      {
+        "start": 100.88,
+        "duration": 3.84,
+        "text": "access to the node that has the data"
+      },
+      {
+        "start": 102.799,
+        "duration": 3.6,
+        "text": "and only needs to check that local index"
+      },
+      {
+        "start": 104.72,
+        "duration": 2.48,
+        "text": "on the node to retrieve the appropriate"
+      },
+      {
+        "start": 106.399,
+        "duration": 2.72,
+        "text": "rows"
+      },
+      {
+        "start": 107.2,
+        "duration": 3.919,
+        "text": "as far as how it works the client sends"
+      },
+      {
+        "start": 109.119,
+        "duration": 3.68,
+        "text": "a query to a coordinator node"
+      },
+      {
+        "start": 111.119,
+        "duration": 4.0,
+        "text": "if the query involves a column that has"
+      },
+      {
+        "start": 112.799,
+        "duration": 3.121,
+        "text": "a secondary index and no partition key"
+      },
+      {
+        "start": 115.119,
+        "duration": 2.241,
+        "text": "is provided"
+      },
+      {
+        "start": 115.92,
+        "duration": 3.04,
+        "text": "then the coordinator will have to send"
+      },
+      {
+        "start": 117.36,
+        "duration": 3.6,
+        "text": "the request to all nodes"
+      },
+      {
+        "start": 118.96,
+        "duration": 3.6,
+        "text": "when each node receives the request it"
+      },
+      {
+        "start": 120.96,
+        "duration": 3.119,
+        "text": "searches its local index to find the"
+      },
+      {
+        "start": 122.56,
+        "duration": 2.8,
+        "text": "required partitions and rows"
+      },
+      {
+        "start": 124.079,
+        "duration": 3.121,
+        "text": "and returns the results to the"
+      },
+      {
+        "start": 125.36,
+        "duration": 3.84,
+        "text": "coordinator once the coordinator has"
+      },
+      {
+        "start": 127.2,
+        "duration": 3.679,
+        "text": "received a response from all nodes"
+      },
+      {
+        "start": 129.2,
+        "duration": 3.44,
+        "text": "it then combines the results and then"
+      },
+      {
+        "start": 130.879,
+        "duration": 3.681,
+        "text": "returns that to the client"
+      },
+      {
+        "start": 132.64,
+        "duration": 3.52,
+        "text": "now when we mention all nodes here"
+      },
+      {
+        "start": 134.56,
+        "duration": 2.96,
+        "text": "that's just a general idea when there is"
+      },
+      {
+        "start": 136.16,
+        "duration": 3.52,
+        "text": "no replication"
+      },
+      {
+        "start": 137.52,
+        "duration": 3.68,
+        "text": "when there is replication being used you"
+      },
+      {
+        "start": 139.68,
+        "duration": 2.32,
+        "text": "don't need all the nodes to retrieve the"
+      },
+      {
+        "start": 141.2,
+        "duration": 3.28,
+        "text": "entire result"
+      },
+      {
+        "start": 142.0,
+        "duration": 3.2,
+        "text": "set and so only a subset of the nodes is"
+      },
+      {
+        "start": 144.48,
+        "duration": 2.399,
+        "text": "contacted"
+      },
+      {
+        "start": 145.2,
+        "duration": 3.119,
+        "text": "whatever number is needed to make up the"
+      },
+      {
+        "start": 146.879,
+        "duration": 3.201,
+        "text": "entire token range"
+      },
+      {
+        "start": 148.319,
+        "duration": 3.441,
+        "text": "here we have some guidelines on when to"
+      },
+      {
+        "start": 150.08,
+        "duration": 2.56,
+        "text": "use and when not to use secondary"
+      },
+      {
+        "start": 151.76,
+        "duration": 3.119,
+        "text": "indexes"
+      },
+      {
+        "start": 152.64,
+        "duration": 3.44,
+        "text": "small data sets are fine or whenever you"
+      },
+      {
+        "start": 154.879,
+        "duration": 3.36,
+        "text": "can provide a partition"
+      },
+      {
+        "start": 156.08,
+        "duration": 3.04,
+        "text": "key to make secondary index usage more"
+      },
+      {
+        "start": 158.239,
+        "duration": 2.561,
+        "text": "efficient"
+      },
+      {
+        "start": 159.12,
+        "duration": 3.36,
+        "text": "secondary indexes don't work with"
+      },
+      {
+        "start": 160.8,
+        "duration": 3.2,
+        "text": "counter columns and they don't make"
+      },
+      {
+        "start": 162.48,
+        "duration": 2.88,
+        "text": "sense with columns that are frequently"
+      },
+      {
+        "start": 164.0,
+        "duration": 2.8,
+        "text": "updated or deleted"
+      },
+      {
+        "start": 165.36,
+        "duration": 2.959,
+        "text": "since that is additional work"
+      },
+      {
+        "start": 166.8,
+        "duration": 2.96,
+        "text": "maintaining the secondary index in the"
+      },
+      {
+        "start": 168.319,
+        "duration": 3.521,
+        "text": "background as well"
+      },
+      {
+        "start": 169.76,
+        "duration": 3.68,
+        "text": "a more complex topic is deciding to use"
+      },
+      {
+        "start": 171.84,
+        "duration": 3.36,
+        "text": "secondary indexes depending on the"
+      },
+      {
+        "start": 173.44,
+        "duration": 3.36,
+        "text": "cardinality of the column"
+      },
+      {
+        "start": 175.2,
+        "duration": 3.44,
+        "text": "this refers to the number of unique"
+      },
+      {
+        "start": 176.8,
+        "duration": 3.439,
+        "text": "values that can be found for the column"
+      },
+      {
+        "start": 178.64,
+        "duration": 3.76,
+        "text": "with smaller unique values being low"
+      },
+      {
+        "start": 180.239,
+        "duration": 4.08,
+        "text": "cardinality and large number of unique"
+      },
+      {
+        "start": 182.4,
+        "duration": 3.919,
+        "text": "values being high cardinality"
+      },
+      {
+        "start": 184.319,
+        "duration": 3.601,
+        "text": "with low cardinality having less"
+      },
+      {
+        "start": 186.319,
+        "duration": 3.28,
+        "text": "possible values for the column"
+      },
+      {
+        "start": 187.92,
+        "duration": 3.76,
+        "text": "generally means that there are more rows"
+      },
+      {
+        "start": 189.599,
+        "duration": 3.441,
+        "text": "that are returned and makes it worth"
+      },
+      {
+        "start": 191.68,
+        "duration": 2.72,
+        "text": "having to check all of the nodes to"
+      },
+      {
+        "start": 193.04,
+        "duration": 3.36,
+        "text": "retrieve the query results"
+      },
+      {
+        "start": 194.4,
+        "duration": 3.44,
+        "text": "in the case of high cardinality having a"
+      },
+      {
+        "start": 196.4,
+        "duration": 2.96,
+        "text": "large number of unique values"
+      },
+      {
+        "start": 197.84,
+        "duration": 3.28,
+        "text": "make it more probable that there are"
+      },
+      {
+        "start": 199.36,
+        "duration": 3.84,
+        "text": "less rows with that value"
+      },
+      {
+        "start": 201.12,
+        "duration": 4.08,
+        "text": "with less rows that means you may be"
+      },
+      {
+        "start": 203.2,
+        "duration": 3.52,
+        "text": "checking all the nodes for a few rows"
+      },
+      {
+        "start": 205.2,
+        "duration": 3.84,
+        "text": "that could have been found on just one"
+      },
+      {
+        "start": 206.72,
+        "duration": 3.599,
+        "text": "or two that makes it pretty inefficient"
+      },
+      {
+        "start": 209.04,
+        "duration": 3.119,
+        "text": "and there are other ways that this type"
+      },
+      {
+        "start": 210.319,
+        "duration": 3.92,
+        "text": "of query could have been done instead"
+      },
+      {
+        "start": 212.159,
+        "duration": 3.761,
+        "text": "this leads us to materialized views a"
+      },
+      {
+        "start": 214.239,
+        "duration": 4.161,
+        "text": "different type of index that is more"
+      },
+      {
+        "start": 215.92,
+        "duration": 4.08,
+        "text": "suitable for high cardinality data"
+      },
+      {
+        "start": 218.4,
+        "duration": 3.44,
+        "text": "basically a materialized view is a"
+      },
+      {
+        "start": 220.0,
+        "duration": 2.4,
+        "text": "separate table built from the original"
+      },
+      {
+        "start": 221.84,
+        "duration": 2.72,
+        "text": "one"
+      },
+      {
+        "start": 222.4,
+        "duration": 3.36,
+        "text": "with the same data but with a different"
+      },
+      {
+        "start": 224.56,
+        "duration": 3.2,
+        "text": "primary key"
+      },
+      {
+        "start": 225.76,
+        "duration": 3.119,
+        "text": "the new primary key particularly the"
+      },
+      {
+        "start": 227.76,
+        "duration": 2.72,
+        "text": "partition key"
+      },
+      {
+        "start": 228.879,
+        "duration": 4.321,
+        "text": "would be set to the column that you want"
+      },
+      {
+        "start": 230.48,
+        "duration": 4.399,
+        "text": "to search on since materialized views"
+      },
+      {
+        "start": 233.2,
+        "duration": 3.52,
+        "text": "are created from a base table"
+      },
+      {
+        "start": 234.879,
+        "duration": 3.601,
+        "text": "there is a requirement that the primary"
+      },
+      {
+        "start": 236.72,
+        "duration": 3.36,
+        "text": "key for the materialized view"
+      },
+      {
+        "start": 238.48,
+        "duration": 3.6,
+        "text": "must include the primary key from the"
+      },
+      {
+        "start": 240.08,
+        "duration": 3.519,
+        "text": "base table so that there is a 101"
+      },
+      {
+        "start": 242.08,
+        "duration": 2.32,
+        "text": "correlation between the rows and the"
+      },
+      {
+        "start": 243.599,
+        "duration": 3.441,
+        "text": "base table"
+      },
+      {
+        "start": 244.4,
+        "duration": 4.64,
+        "text": "and the materialized view only one new"
+      },
+      {
+        "start": 247.04,
+        "duration": 3.68,
+        "text": "column can be added to the primary key"
+      },
+      {
+        "start": 249.04,
+        "duration": 3.279,
+        "text": "with the restriction that it is not a"
+      },
+      {
+        "start": 250.72,
+        "duration": 3.12,
+        "text": "static column"
+      },
+      {
+        "start": 252.319,
+        "duration": 3.28,
+        "text": "in this example we are making a"
+      },
+      {
+        "start": 253.84,
+        "duration": 2.239,
+        "text": "materialized view based on a user's"
+      },
+      {
+        "start": 255.599,
+        "duration": 2.48,
+        "text": "table"
+      },
+      {
+        "start": 256.079,
+        "duration": 4.241,
+        "text": "which has a primary key using the user"
+      },
+      {
+        "start": 258.079,
+        "duration": 3.921,
+        "text": "id in order to be able to search for"
+      },
+      {
+        "start": 260.32,
+        "duration": 3.28,
+        "text": "users by their email address"
+      },
+      {
+        "start": 262.0,
+        "duration": 3.44,
+        "text": "we would need to create the materialized"
+      },
+      {
+        "start": 263.6,
+        "duration": 3.44,
+        "text": "view with the email column as part of"
+      },
+      {
+        "start": 265.44,
+        "duration": 3.12,
+        "text": "the new primary key"
+      },
+      {
+        "start": 267.04,
+        "duration": 3.04,
+        "text": "from the create materialized view"
+      },
+      {
+        "start": 268.56,
+        "duration": 3.6,
+        "text": "example the as"
+      },
+      {
+        "start": 270.08,
+        "duration": 4.64,
+        "text": "select part determines which column we"
+      },
+      {
+        "start": 272.16,
+        "duration": 5.52,
+        "text": "want to include in the materialized view"
+      },
+      {
+        "start": 274.72,
+        "duration": 3.759,
+        "text": "the from specifies the base table and"
+      },
+      {
+        "start": 277.68,
+        "duration": 2.64,
+        "text": "the where"
+      },
+      {
+        "start": 278.479,
+        "duration": 3.601,
+        "text": "must specify that all primary key"
+      },
+      {
+        "start": 280.32,
+        "duration": 3.52,
+        "text": "columns is not null"
+      },
+      {
+        "start": 282.08,
+        "duration": 4.16,
+        "text": "since it's possible that the base users"
+      },
+      {
+        "start": 283.84,
+        "duration": 3.919,
+        "text": "table has rows without an email"
+      },
+      {
+        "start": 286.24,
+        "duration": 3.44,
+        "text": "it should not actually be included in"
+      },
+      {
+        "start": 287.759,
+        "duration": 4.081,
+        "text": "the materialized view finally with the"
+      },
+      {
+        "start": 289.68,
+        "duration": 3.6,
+        "text": "primary key for the materialized view"
+      },
+      {
+        "start": 291.84,
+        "duration": 3.12,
+        "text": "we have to make sure that it includes"
+      },
+      {
+        "start": 293.28,
+        "duration": 2.24,
+        "text": "the original primary key of the base"
+      },
+      {
+        "start": 294.96,
+        "duration": 2.72,
+        "text": "table"
+      },
+      {
+        "start": 295.52,
+        "duration": 3.119,
+        "text": "which is user id along with the column"
+      },
+      {
+        "start": 297.68,
+        "duration": 3.04,
+        "text": "we want to search on"
+      },
+      {
+        "start": 298.639,
+        "duration": 3.201,
+        "text": "which is email once the materialized"
+      },
+      {
+        "start": 300.72,
+        "duration": 2.64,
+        "text": "view is created"
+      },
+      {
+        "start": 301.84,
+        "duration": 3.199,
+        "text": "you can then treat it just like any"
+      },
+      {
+        "start": 303.36,
+        "duration": 3.52,
+        "text": "other table in your query"
+      },
+      {
+        "start": 305.039,
+        "duration": 3.121,
+        "text": "here we are trying to retrieve the first"
+      },
+      {
+        "start": 306.88,
+        "duration": 3.44,
+        "text": "name last name"
+      },
+      {
+        "start": 308.16,
+        "duration": 4.0,
+        "text": "and email the user in the materialize"
+      },
+      {
+        "start": 310.32,
+        "duration": 4.12,
+        "text": "view user by email"
+      },
+      {
+        "start": 312.16,
+        "duration": 4.16,
+        "text": "where their email is ilab bigdata"
+      },
+      {
+        "start": 314.44,
+        "duration": 4.199,
+        "text": "datastax.com"
+      },
+      {
+        "start": 316.32,
+        "duration": 4.08,
+        "text": "the result will return the row as normal"
+      },
+      {
+        "start": 318.639,
+        "duration": 3.361,
+        "text": "as can be seen below"
+      },
+      {
+        "start": 320.4,
+        "duration": 3.12,
+        "text": "as far as things to watch out for with"
+      },
+      {
+        "start": 322.0,
+        "duration": 2.8,
+        "text": "materialized views"
+      },
+      {
+        "start": 323.52,
+        "duration": 3.44,
+        "text": "you cannot actually write to a"
+      },
+      {
+        "start": 324.8,
+        "duration": 4.08,
+        "text": "materialized view it is updated only"
+      },
+      {
+        "start": 326.96,
+        "duration": 3.679,
+        "text": "when the base table is updated as well"
+      },
+      {
+        "start": 328.88,
+        "duration": 4.159,
+        "text": "the updates from the base table to the"
+      },
+      {
+        "start": 330.639,
+        "duration": 3.921,
+        "text": "materialized views are also asynchronous"
+      },
+      {
+        "start": 333.039,
+        "duration": 3.041,
+        "text": "meaning that there is always some sort"
+      },
+      {
+        "start": 334.56,
+        "duration": 2.96,
+        "text": "of delay when updating"
+      },
+      {
+        "start": 336.08,
+        "duration": 3.04,
+        "text": "since the partition key for the base"
+      },
+      {
+        "start": 337.52,
+        "duration": 2.48,
+        "text": "table is different from the materialized"
+      },
+      {
+        "start": 339.12,
+        "duration": 2.24,
+        "text": "view"
+      },
+      {
+        "start": 340.0,
+        "duration": 3.44,
+        "text": "that can mean that the node where the"
+      },
+      {
+        "start": 341.36,
+        "duration": 3.6,
+        "text": "base table is updated is not necessarily"
+      },
+      {
+        "start": 343.44,
+        "duration": 2.56,
+        "text": "the same node where the materialized"
+      },
+      {
+        "start": 344.96,
+        "duration": 3.36,
+        "text": "view is updated"
+      },
+      {
+        "start": 346.0,
+        "duration": 3.68,
+        "text": "in edge conditions the delay and update"
+      },
+      {
+        "start": 348.32,
+        "duration": 3.92,
+        "text": "may be more noticeable"
+      },
+      {
+        "start": 349.68,
+        "duration": 4.72,
+        "text": "finally note that read repairs are not a"
+      },
+      {
+        "start": 352.24,
+        "duration": 4.079,
+        "text": "two-way street for materialized views"
+      },
+      {
+        "start": 354.4,
+        "duration": 3.04,
+        "text": "if triggering a read repair when reading"
+      },
+      {
+        "start": 356.319,
+        "duration": 3.121,
+        "text": "from the base table"
+      },
+      {
+        "start": 357.44,
+        "duration": 3.599,
+        "text": "it will repair both the base table and"
+      },
+      {
+        "start": 359.44,
+        "duration": 3.68,
+        "text": "the materialized view"
+      },
+      {
+        "start": 361.039,
+        "duration": 3.841,
+        "text": "however when a read repair is triggered"
+      },
+      {
+        "start": 363.12,
+        "duration": 3.519,
+        "text": "when reading the materialized view"
+      },
+      {
+        "start": 364.88,
+        "duration": 4.24,
+        "text": "it will only repair the materialized"
+      },
+      {
+        "start": 366.639,
+        "duration": 4.481,
+        "text": "view itself data aggregation is another"
+      },
+      {
+        "start": 369.12,
+        "duration": 2.88,
+        "text": "type of read that is commonly used in"
+      },
+      {
+        "start": 371.12,
+        "duration": 2.799,
+        "text": "databases"
+      },
+      {
+        "start": 372.0,
+        "duration": 3.919,
+        "text": "and datasets enterprise does support"
+      },
+      {
+        "start": 373.919,
+        "duration": 5.361,
+        "text": "some of the most common aggregates"
+      },
+      {
+        "start": 375.919,
+        "duration": 6.4,
+        "text": "in dsc6 this means sum average"
+      },
+      {
+        "start": 379.28,
+        "duration": 4.8,
+        "text": "count min and max are all supported note"
+      },
+      {
+        "start": 382.319,
+        "duration": 4.401,
+        "text": "that prior to dsc 5.0"
+      },
+      {
+        "start": 384.08,
+        "duration": 4.64,
+        "text": "only count was available keep in mind"
+      },
+      {
+        "start": 386.72,
+        "duration": 2.96,
+        "text": "that these aggregates are calculated at"
+      },
+      {
+        "start": 388.72,
+        "duration": 2.72,
+        "text": "query time"
+      },
+      {
+        "start": 389.68,
+        "duration": 3.92,
+        "text": "meaning that dse goes through the result"
+      },
+      {
+        "start": 391.44,
+        "duration": 4.0,
+        "text": "set to calculate these aggregates"
+      },
+      {
+        "start": 393.6,
+        "duration": 3.28,
+        "text": "instead of just pulling statistics from"
+      },
+      {
+        "start": 395.44,
+        "duration": 3.12,
+        "text": "an index"
+      },
+      {
+        "start": 396.88,
+        "duration": 3.439,
+        "text": "this should be suitable for many use"
+      },
+      {
+        "start": 398.56,
+        "duration": 3.919,
+        "text": "cases but if you're looking to get the"
+      },
+      {
+        "start": 400.319,
+        "duration": 4.241,
+        "text": "count of the number of rows in a table"
+      },
+      {
+        "start": 402.479,
+        "duration": 4.0,
+        "text": "this would not be the best way to do so"
+      },
+      {
+        "start": 404.56,
+        "duration": 3.44,
+        "text": "fortunately there are several techniques"
+      },
+      {
+        "start": 406.479,
+        "duration": 3.681,
+        "text": "that can be used that can possibly"
+      },
+      {
+        "start": 408.0,
+        "duration": 3.52,
+        "text": "get you the aggregates that you want"
+      },
+      {
+        "start": 410.16,
+        "duration": 3.12,
+        "text": "some can be done purely through the"
+      },
+      {
+        "start": 411.52,
+        "duration": 2.72,
+        "text": "cassandra core part of datasets"
+      },
+      {
+        "start": 413.28,
+        "duration": 3.28,
+        "text": "enterprise"
+      },
+      {
+        "start": 414.24,
+        "duration": 3.2,
+        "text": "one is using lightweight transactions to"
+      },
+      {
+        "start": 416.56,
+        "duration": 3.44,
+        "text": "check and replace"
+      },
+      {
+        "start": 417.44,
+        "duration": 3.199,
+        "text": "aggregates as rows get added or updated"
+      },
+      {
+        "start": 420.0,
+        "duration": 2.639,
+        "text": "another"
+      },
+      {
+        "start": 420.639,
+        "duration": 3.68,
+        "text": "might be to make use of the counter type"
+      },
+      {
+        "start": 422.639,
+        "duration": 3.921,
+        "text": "to implement certain aggregates"
+      },
+      {
+        "start": 424.319,
+        "duration": 3.681,
+        "text": "such as count or sum otherwise"
+      },
+      {
+        "start": 426.56,
+        "duration": 3.359,
+        "text": "aggregates can also be done"
+      },
+      {
+        "start": 428.0,
+        "duration": 3.599,
+        "text": "outside of cassandra either being done"
+      },
+      {
+        "start": 429.919,
+        "duration": 3.68,
+        "text": "as part of the application logic"
+      },
+      {
+        "start": 431.599,
+        "duration": 4.401,
+        "text": "or making use of dataset enterprises"
+      },
+      {
+        "start": 433.599,
+        "duration": 4.081,
+        "text": "analytics or search features"
+      },
+      {
+        "start": 436.0,
+        "duration": 3.759,
+        "text": "here's an example of using the counter"
+      },
+      {
+        "start": 437.68,
+        "duration": 3.44,
+        "text": "type to implement aggregations for count"
+      },
+      {
+        "start": 439.759,
+        "duration": 2.88,
+        "text": "and sum"
+      },
+      {
+        "start": 441.12,
+        "duration": 3.6,
+        "text": "let's say that we want to be able to"
+      },
+      {
+        "start": 442.639,
+        "duration": 3.68,
+        "text": "track the ratings given by users for a"
+      },
+      {
+        "start": 444.72,
+        "duration": 3.84,
+        "text": "specific video"
+      },
+      {
+        "start": 446.319,
+        "duration": 3.121,
+        "text": "in our ratings by video table we create"
+      },
+      {
+        "start": 448.56,
+        "duration": 3.28,
+        "text": "two counters"
+      },
+      {
+        "start": 449.44,
+        "duration": 4.24,
+        "text": "a num ratings and a sum ratings then"
+      },
+      {
+        "start": 451.84,
+        "duration": 3.52,
+        "text": "whenever a new rating is submitted"
+      },
+      {
+        "start": 453.68,
+        "duration": 3.76,
+        "text": "we can increment the num rating"
+      },
+      {
+        "start": 455.36,
+        "duration": 3.6,
+        "text": "countered by one and the sum rating is"
+      },
+      {
+        "start": 457.44,
+        "duration": 2.159,
+        "text": "countered by the rating given by the"
+      },
+      {
+        "start": 458.96,
+        "duration": 2.4,
+        "text": "user"
+      },
+      {
+        "start": 459.599,
+        "duration": 3.44,
+        "text": "there are some caveats to this technique"
+      },
+      {
+        "start": 461.36,
+        "duration": 2.32,
+        "text": "though one being that updating the"
+      },
+      {
+        "start": 463.039,
+        "duration": 2.481,
+        "text": "counter"
+      },
+      {
+        "start": 463.68,
+        "duration": 3.519,
+        "text": "is slower than a normal write since it"
+      },
+      {
+        "start": 465.52,
+        "duration": 2.959,
+        "text": "does do a read before a write in the"
+      },
+      {
+        "start": 467.199,
+        "duration": 3.12,
+        "text": "background"
+      },
+      {
+        "start": 468.479,
+        "duration": 4.081,
+        "text": "the other is that incrementing counters"
+      },
+      {
+        "start": 470.319,
+        "duration": 4.16,
+        "text": "is not an item-potent operation"
+      },
+      {
+        "start": 472.56,
+        "duration": 4.0,
+        "text": "what that means is that if an update to"
+      },
+      {
+        "start": 474.479,
+        "duration": 4.241,
+        "text": "a counter does not return a response"
+      },
+      {
+        "start": 476.56,
+        "duration": 3.84,
+        "text": "there is no way to retry the operation"
+      },
+      {
+        "start": 478.72,
+        "duration": 2.08,
+        "text": "so that we know the counter reflects the"
+      },
+      {
+        "start": 480.4,
+        "duration": 3.199,
+        "text": "true"
+      },
+      {
+        "start": 480.8,
+        "duration": 4.88,
+        "text": "intended value in this case the value"
+      },
+      {
+        "start": 483.599,
+        "duration": 4.561,
+        "text": "stored is a very good approximation"
+      },
+      {
+        "start": 485.68,
+        "duration": 4.16,
+        "text": "but not necessarily accurate to perform"
+      },
+      {
+        "start": 488.16,
+        "duration": 2.8,
+        "text": "an aggregate in an application"
+      },
+      {
+        "start": 489.84,
+        "duration": 3.12,
+        "text": "you are basically performing"
+      },
+      {
+        "start": 490.96,
+        "duration": 4.0,
+        "text": "calculations on the client side"
+      },
+      {
+        "start": 492.96,
+        "duration": 3.519,
+        "text": "one common way is by retrieving the data"
+      },
+      {
+        "start": 494.96,
+        "duration": 2.799,
+        "text": "needed for the aggregate calculation"
+      },
+      {
+        "start": 496.479,
+        "duration": 3.681,
+        "text": "from the database"
+      },
+      {
+        "start": 497.759,
+        "duration": 3.761,
+        "text": "then doing the calculation and storing"
+      },
+      {
+        "start": 500.16,
+        "duration": 2.879,
+        "text": "it back in the database"
+      },
+      {
+        "start": 501.52,
+        "duration": 3.6,
+        "text": "using our counters example from the"
+      },
+      {
+        "start": 503.039,
+        "duration": 4.16,
+        "text": "previous slide we can make use of the"
+      },
+      {
+        "start": 505.12,
+        "duration": 3.12,
+        "text": "num ratings and sum ratings counter to"
+      },
+      {
+        "start": 507.199,
+        "duration": 2.641,
+        "text": "get the average"
+      },
+      {
+        "start": 508.24,
+        "duration": 3.84,
+        "text": "we just query the value of the num"
+      },
+      {
+        "start": 509.84,
+        "duration": 3.92,
+        "text": "ratings column and some ratings column"
+      },
+      {
+        "start": 512.08,
+        "duration": 3.92,
+        "text": "and then perform the calculation on the"
+      },
+      {
+        "start": 513.76,
+        "duration": 4.159,
+        "text": "application side if we want"
+      },
+      {
+        "start": 516.0,
+        "duration": 3.2,
+        "text": "we can also store that average as a"
+      },
+      {
+        "start": 517.919,
+        "duration": 6.881,
+        "text": "average rating column"
+      },
+      {
+        "start": 519.2,
+        "duration": 5.6,
+        "text": "in the videos table"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:41:01.966802+00:00"
+}

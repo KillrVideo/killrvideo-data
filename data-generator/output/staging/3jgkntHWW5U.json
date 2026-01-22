@@ -1,0 +1,3033 @@
+{
+  "video_id": "3jgkntHWW5U",
+  "title": "How to Deploy Cassandra-Based Applications on AWS",
+  "description": "In this video, DataStax dev rel engineer Aaron Ploetz details the necessary steps for deploying a Cassandra-driven application on Amazon's Elastic Container Service (ECS). Follow along as he shows how to leverage the Java version of DataStax's Data API, while building a Docker image for deployment. You'll also see how to deploy and run that image as a container on ECS, and watch as it pulls its data from a DataStax Enterprise (DSE) cluster running in the same Amazon region.\n\nDSAlbums Github repo: https://github.com/aar0np/DSAlbums\n\nChapters\n00:01:05 Expose the Data API service\n00:03:12 Testing the Data API\n00:04:43 Building the front end with Vaadin\n00:06:50 Building the Spring Boot controller\n00:14:16 Building the Docker image\n00:18:50 Push the Docker image to AWS\n00:24:08 Create a new ECS task definition\n00:26:40 Create a new ECS service\n\n\nAdditional Resources:\n- DataStax Developer Hub: https://dtsx.io/devhub\n- DataStax Blog: https://dtsx.io/howto\n- Try Langflow: https://dtsx.io/trylangflow\n- Try Astra DB: https://dtsx.io/40kQpI6\n____________________\n\nStay in touch:\n- Join our Discord Community: https://discord.gg/datastax\n- Follow us on X: https://x.com/DataStaxDevs",
+  "published_at": "2024-11-12T16:13:36Z",
+  "thumbnail": "https://i.ytimg.com/vi/3jgkntHWW5U/hqdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "dse",
+    "cassandra",
+    "datastax",
+    "astra"
+  ],
+  "url": "https://www.youtube.com/watch?v=3jgkntHWW5U",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "hello everyone I'm Ain from data stacks and in this video I'm going to take you through building and deploying a Cassandra based application on top of Amazon ECS or elastic container services all right let's go all right everyone so in our last video we had our new dsse cluster uh called moving pictures uh just like this on the kubernetes side of things when we go ahead and do a uh a list of our services you'll see that we have um you know like cql shell and for the data API um the data API is the one that we're going to work with today in the last video at the end of it we actually did work with the um the data API as well too um the important part in being able to work with the data API however uh first of all you need either hcd or dsse in order for that to even be an installable option but secondly you need to expose that service as a load balancer um so I've already done this but um I'm going to show you how anyway so if um if I run the command Cube control um expose service and I want the um right here the moving pictures Spirit of the Radio Data API service and I'm going to say type load balancer and then we'll do a name and I'll say the same thing again with just a-h lb on the end to make sure that's unique I'm going to make sure that's in my um project Nam space in mission control so namespace um errands Gage and then the unique slug on the end which for me is 5H C 6 u e XB all right and then um I want that on Port 8181 Target Port of 8181 just like that all right um so if I needed to do this this is the command that I would run right here um but again I've already run this command so I'm just going to uh backspace Over All this and instead we'll just do a coup control get service namespace erand PR wow keep mistyping the same thing don't I and then we want um 5 hc6 U XB you can see that the um moving pictures data API has indeed been exposed as a load balancer and this is the external DNS entry that I can use on Port 8181 to go ahead and reach that so one thing that I've done here is dropped the um load balancer DNS entry um up here for some Services inside of Postman um specifically what we're going to do is create an application that allows us to maintain a data library of um music albums um so in this case you know I'm going to uh go ahead and do a post out to the uh default keyspace and the album's collection um and I'm going to do a find filter of band Pink Floyd just like that and we can send that through and sure enough we get The Division Bell Dark Side of the Moon pulse Final Cut uh momentary laps or Reason yep yep yep yep we get all of the uh we get all the Pig Floyd albums this way then too so really creating this was pretty simple um again it was just another post call out to that load balancer endpoint um with a V1 default keyspace and all we really did was just run this create collection command um with a name of albums that's it and um the data API did the rest in terms of creating the table structure um as well as any indexes that uh that go along with it um so yeah so we absolutely have all of our data out there and uh we're ready to go now we need the application so to build our albums library application we are just going to use um Java voden and spring boot to build a full stack application and what we're looking at right here is the code for the uh the main view uh for VOD and uh the idea here is that um you know we're going to have a search button and you know we'll show an image of the album maybe have the title we'll we'll also have like the the year and the name of the band as properties as well um and then we'll have a search field here where we can search by Band you know to kind of get all albums by Band like um like I just demonstrated before uh with the uh the rest calls we're going to go ahead and instantiate the controller that's necessary because the front end is going to have to call controller methods I'm going to um have an H1 title up here of Aaron's albums you know easy enough uh we're going to have our album index as our our left nav and uh what that's going to do is actually hold like the list of the albums that we can like click on to um you know cycle through all the different albums and the information um and like I said we'll have a search bar and that's it you know then we just have kind of some private uh methods here to go ahead and do things like load the albums you know get the album components and and build them out um you know view the album components and um actually this part of it as well uh builds and pulls in like the uh the file name of the images based on like the band name um so it's pretty simple stuff here the uh the build search bar um really all that does is um you know it has a click listener that goes ahead and calls that get albums by Band Method on the controller so yes using the uh using the voden library you can see voden is all over this thing to um go ahead and build out a simple front end now if we have a look at the controller uh this is where instead of using the data Stacks Java driver we are going to use the data Stacks Astra data API client um this will actually let us work with um you know like our tables and our key spaces in a document oriented document oriented way where we'll have like name spaces and collections so what I'm going to do is first of all we have our controller and um you know we're going to actually um have that out with a restful endpoint of DS albums here um that's what we're going to name like kind of the root at the controller level we're going to pull in two environment variables so I have this um DB application token and I have this API endpoint environment variable uh the API endpoint is pretty simple it's exactly what we were using inside of Postman and is really just the um you know the the URL of the data API load balancer the token um if you remember from the uh the previous video is compiled by taking like the word Cassandra and then taking the 64-bit encoded versions of um the username and the password um all kind of put together in a single string anyway so this has to be an environment variable for the controller uh there are some things that need to happen here this is where we kind of need to instantiate our um our client and the API and um and actually go ahead and uh address the collection as well so you know here let's see we're using that uh that data API client import why don't I start with that and we'll just call that client and I can say that's going to be a new data API client and I want to initialize that with the token now additionally we want the um the API and in that case I'm going to need the uh the database class here then I can say DB API and I want that equal to client. get database and yes we're going to use that API endpoint I love that that auto filled right there that's awesome okay and next we're going to create a variable to reference the collection itself so you know we'll just be kind of simple and you know notice that we have a um a private variable in this class called collection that's of collection of type document um and you notice that uh that document is also up here as well to be pulled in from the the data API um import so let's initialize that so we can say collection um because it's already defined as a uh private variable for the class and we can just say have that equal DB API and we want. getet collection and we're just going to use the collection name of albums and put a semicolon on the end just like that there now our controller is all set and defined um so let's move on so we have three public methods here that we do want to fill out so we have this um you know get one album so get by like album ID as the unique identifier we have get albums by band that we've used a couple of times already here on the uh the postman API side and then we just have one for get all albums um to fill these out it's really pretty simple I don't need to do anything fancy with a lot of this data um so really all I need to worry about doing is just retrieving it and then sending it back to the voden front end so in this case I'm going to do a return and I just want to do collection find by ID and yeah album ID just like that easy easy for this one find by Band I'm going to do a um return and we want collection Dot and I'm going to just do a simple find here now you'll notice I also have an import here for the um data Stacks Astra client model filters um with the EQ or the equality operator so essentially what I'm going to do is down here I'm going to kind of build this out as an expression by saying find equals and I'm going to want to uh use the uh the field name of band all right and I want to send it the value of the variable band uh basically the same variable that's sent to this method up here so really what this is going to do is go through my collection and return all entries that have a band property value of whatever band I'm trying to search by easy enough uh and really this is the the easiest one of all get all albums um I'm just going to do a return collection find oh and that's it uh this will go ahead and send a finder Quest through without any filter and it'll just kind of pull everything back um now I know you've probably been told if you worked with Cassandra in the past that this this is the equivalent of a select star from without a wear clause and this probably isn't a good idea but in our case where we're not going to have billions and billions of albums or or rows of data you know a find for for everything here with um with the new storage attach indexes are going to work really is going to work really well so I'm not too concerned about that all right controller is all done so now um I can go over to my DS albums and I can do run as Java application let's go ahead and watch that build out if I scroll over oh yeah look at that you can see it started out on port 8080 all right so now I go over here and say Local Host 8080 all right really simple front end here you know nothing nothing terribly fancy uh but I could I have a list of albums here that I can kind of scroll through and um you know I can uh click on some of these and you'll see yeah brothers and arms this is by Dire Straits from 1985 and this is the album cover well easy easy um you know I can also search by uh the band name so I can say hey give me all the albums by rush and you know we can see all the albums that Rush is put out here so I can look at like Vapor Trails or 2112 or Clockwork Angels moving pictures all right so hey this is uh this is working next inside of our Java project on the command line I'm just going to list this out and you'll see that um I have a Docker file here so let me go ahead and do a cat Docker file on that and um you can see that in order to build out this stalker file I'm pulling down the uh Amazon coretto image for uh for Java 21 so that's going to be our uh our jdk or JRE uh we're going to copy the um the build of our jar into the um into the docker project and essentially we're going to expose port 8080 because we know that that's what um you know spring and um Tom cat like to run on and then we're going to Define our Docker entry point as the command that runs our um our application which is just Java jar and then DS albums jar on the end there uh that's really all our Docker file is going to have and quite frankly that's that's really all it should need so what I'm going to do next is to actually build my Docker file into an image so let's go ahead and say dock [Music] build um and I'm going to tag this as DS albums and I'm going to put a dot on the end because I want it built like essentially with um with the contents of this directory there you go oh and that was fast you can see it uh pulled everything down it needed to uh probably because I had a whole lot of it cached from uh trying this out a few times now if we jump up to here inside um you know inside Docker desktop you can see that I have this DS albums image that was built right here all right so now I'm going to say hey let's uh let's run this image I'm going to get a uh dialogue up here with some optional settings and I'm definitely going to use them first of all internally as you can see we're exposing port 8080 but of course there are so many things that use port 8080 so I'm just going to go Port 9090 here uh that way when this runs it'll expose port 8080 internally as 9090 externally um and there there shouldn't be a whole lot of conflicts on that I'm going to need two environment variables now remember we kind of talked about this first of all we going to need our DB API endpoint um that has to be a defined variable in the environment for our um application to find that endpoint for the data API and then I'm going to paste in that uh that data API endpoint just like that likewise we're also going to need the token that that we've built as well so I'm going to have my token there which is again is really just the word Cassandra um with my 64-bit encoded username followed by my 64-bit encoded password and this should be all I need to um to run a container based on the docker image that we just built so let's go ahead and run this all right it looks like so I see it started on 8080 but if you go up here inside of Docker desktop you'll see that um you know I have a uh I have a link here that'll pop open a browser window on Local Host 9090 so it's making that that translation from 9090 to 9080 in this container so if I click this there we go Local Host 990 aon's albums piece of cake right so now I could go up here and I could say Pink Floyd oh actually that's right I have to match case Pink Floyd there we go and we can search all right and yeah we see animals momentary laps of Reason wish you were here Dark Side of the Moon all right hey this is this is working great um the only issue though is that as I'm sure you can tell this is running on my laptop but our database is running out in Amazon Us West 2 so now we need to go ahead and get the image we just built to run as a container out in Amazon's Us West 2 so for this next step we are going to use Amazon's ECR or elastic container registry so you can click into that um you actually do have to create a repository here to um to kind of store all your available images that you can run I'm going to use this one here this data Stacks reinvent 2024 one which is what I've been using for our our demos that we're going to run at uh reinvent however the important part here is to get this URI um this specifically allows us to link to or to to push our images from the command line um through the AWS CLI um up here to uh to ECR so I'm going to go ahead and copy that to my clipboard next we need to retag our Docker image because right now it's just tagged as DS albums but in order to get it out into our repository we have to tag it with our repository URI so we're going to do Docker and we're going to say tag and we're going to we want to tag DS albums just like that then I'm going to paste that URL there or Ur and I'm going to do colon and then DS albums on the end of that okay so that's retagging our image next we're going to push that out so I I can do a Docker push and let's go ahead and put our repository URI in there oh looks like I have to relog in you ever get this message it uh it's basically just asking you to uh to reverifying so let's see here once let's go um AWS uh ECR get login password and I'm going to say us West 2 um and then we want to say Docker login AWS password standard in and then we'll paste our uh our URL oh let's back over that yeah that should be good right there let's see what that gets us here oh it didn't like something there oh I see what I did for this Docker login AWS um AWS is actually our username in terms of this command so let me just uh do a username just like that hey there we go login succeeded now I should be able to up Arrow back to my Docker push with our repository URI [Music] and oh that didn't work how about we uh do a colon DS albums on the end hey there we go okay that looks like that was successful so now if we head back out here and we have a look at our repository oh look at that DS albums right there at the top outstanding okay so we have our image out here and uh now we just need to be able to use it so the next step we're going to do is to go to um Amazon's ECS or elastic container service likewise here I have a cluster that's also set up for reinvent 2024 and if I click into here you can see that uh yeah these are the the things that I've put together for our uh for our demos you know if I want to take a look at one of these like the uh the Astra apparel shopping assistant here um and go to configuration and networking you'll notice that we have an AWS security group that is attached to this as well as all of the other all of the other running containers inside of our ECS cluster so if I click into this just to have a look you can see what we've done here is opened some ports so that we can go ahead and reach the containers that are on the other side or connected to these ports um and you'll notice that we have ports for 78 8 60 88090 8080 8100 and that should be okay all right I'm going to go ahead and click on create new task definition and for task definition family I'm going to say DS albums Aon um we do want AWS fargate um for operating system architecture you have to remember that what you need to pick here is what your image was built on uh I have a Mac M2 which is a uh you know an arm system so I'm going to pick Linux arm 64 um arm of course is short for advanced risk machine um risk you know for those of you scoring at home is uh you know reduced instruction set computer versus the traditional x86 architecture of cisk or complex instruction set computer anyway uh for resources you know one CPU 3 gigs of RAM is fine we don't need to mess with the uh the task execution okay container we'll just go with Ds albums actually for image URI what I'm going to do is real quick jump over to or jump back to the ECR and we'll have a look at DS albums for images and right here you can see is my image URI so I am going to copy that jump back to here and paste all right now I know when we ran the container on Docker on my local we ran it on Port 9090 um but for this one we're going to stick with 880 let's see here um so environment variables uh we have a couple we need to add if you remember so let's go ahead and and create entries for our DB API endpoint as well as our DB application token and of course we're going to uh paste in our data API load balancer just like that and then we're also going to paste in our uh clusters Cassandra token there we go and then we can scroll down I think the rest of this is all okay yep let's hit create let's go back to our um ECS cluster and under Services we're going to do create all right so that's going to be on our existing cluster uh we're going to use fargate for that yeah latest to platform version we do want want to use a service um we are going to select a task definition family and we specified DS albums Aaron as our task definition family so let's click on that uh we only have one version so revision one the latest um and we can just say DS albums here so under here on networking we get to pick our security group down here now this is our default Security Group for our entire AWS account here we definitely don't want that if I go to here and say rein oh look at that AWS reinvent demos all right rest of that looks okay let's say create and as you can see our DS albums service is indeed defined we have zero of one tasks running it is in progress okay our task has elevated status uh up to running we have a look at the logs here um yeah you can see that it does look like our application is indeed running out there so uh with that in mind let's have a look uh let's go back here oh yeah one running task that's good have a look at our task and you can see that we do in fact have a public IP address here so we have our address up here let's make sure that is on port 8080 hey look at that we have our albums no problem all right these uh yeah yeah this is uh this is working look at that and search for Rush rce Under Pressure counterparts yeah yeah this is all good hey there we go we've now deployed a Cassandra based application out to Amazon ECS which of course is using a dsse cluster that was built on Amazon eks and it's all running out in US West 2 for more information on data Stacks Enterprise just head out to data.com products datastax-enterprise there you can find all the information you need including downloads and documentation thank you and have a great day",
+    "segments": [
+      {
+        "start": 3.879,
+        "duration": 4.881,
+        "text": "hello everyone I'm Ain from data stacks"
+      },
+      {
+        "start": 6.56,
+        "duration": 4.28,
+        "text": "and in this video I'm going to take you"
+      },
+      {
+        "start": 8.76,
+        "duration": 6.48,
+        "text": "through building and deploying a"
+      },
+      {
+        "start": 10.84,
+        "duration": 8.56,
+        "text": "Cassandra based application on top of"
+      },
+      {
+        "start": 15.24,
+        "duration": 6.72,
+        "text": "Amazon ECS or elastic container services"
+      },
+      {
+        "start": 19.4,
+        "duration": 5.32,
+        "text": "all right let's go all right everyone so"
+      },
+      {
+        "start": 21.96,
+        "duration": 5.639,
+        "text": "in our last video we had our new dsse"
+      },
+      {
+        "start": 24.72,
+        "duration": 5.959,
+        "text": "cluster uh called moving pictures uh"
+      },
+      {
+        "start": 27.599,
+        "duration": 6.881,
+        "text": "just like this"
+      },
+      {
+        "start": 30.679,
+        "duration": 5.88,
+        "text": "on the kubernetes side of things when we"
+      },
+      {
+        "start": 34.48,
+        "duration": 5.399,
+        "text": "go ahead and do a uh a list of our"
+      },
+      {
+        "start": 36.559,
+        "duration": 7.201,
+        "text": "services you'll see that we have um you"
+      },
+      {
+        "start": 39.879,
+        "duration": 6.281,
+        "text": "know like cql shell and for the data"
+      },
+      {
+        "start": 43.76,
+        "duration": 4.52,
+        "text": "API um the data API is the one that"
+      },
+      {
+        "start": 46.16,
+        "duration": 3.76,
+        "text": "we're going to work with today in the"
+      },
+      {
+        "start": 48.28,
+        "duration": 4.64,
+        "text": "last video at the end of it we actually"
+      },
+      {
+        "start": 49.92,
+        "duration": 6.2,
+        "text": "did work with the um the data API as"
+      },
+      {
+        "start": 52.92,
+        "duration": 6.24,
+        "text": "well too um the important part in being"
+      },
+      {
+        "start": 56.12,
+        "duration": 5.079,
+        "text": "able to work with the data API however"
+      },
+      {
+        "start": 59.16,
+        "duration": 4.039,
+        "text": "uh first of all you need either hcd or"
+      },
+      {
+        "start": 61.199,
+        "duration": 5.761,
+        "text": "dsse in order for that to even be an"
+      },
+      {
+        "start": 63.199,
+        "duration": 6.761,
+        "text": "installable option but secondly you need"
+      },
+      {
+        "start": 66.96,
+        "duration": 6.04,
+        "text": "to expose that service as a load"
+      },
+      {
+        "start": 69.96,
+        "duration": 5.479,
+        "text": "balancer um so I've already done this"
+      },
+      {
+        "start": 73.0,
+        "duration": 6.4,
+        "text": "but um I'm going to show you how anyway"
+      },
+      {
+        "start": 75.439,
+        "duration": 8.04,
+        "text": "so if um if I run the command Cube"
+      },
+      {
+        "start": 79.4,
+        "duration": 10.52,
+        "text": "control um expose"
+      },
+      {
+        "start": 83.479,
+        "duration": 8.561,
+        "text": "service and I want the um right here the"
+      },
+      {
+        "start": 89.92,
+        "duration": 3.159,
+        "text": "moving pictures Spirit of the Radio Data"
+      },
+      {
+        "start": 92.04,
+        "duration": 5.8,
+        "text": "API"
+      },
+      {
+        "start": 93.079,
+        "duration": 7.72,
+        "text": "service and I'm going to say type load"
+      },
+      {
+        "start": 97.84,
+        "duration": 4.319,
+        "text": "balancer and then we'll do a name and"
+      },
+      {
+        "start": 100.799,
+        "duration": 4.161,
+        "text": "I'll say the same thing again with just"
+      },
+      {
+        "start": 102.159,
+        "duration": 5.401,
+        "text": "a-h lb on the end to make sure that's"
+      },
+      {
+        "start": 104.96,
+        "duration": 5.199,
+        "text": "unique I'm going to make sure that's in"
+      },
+      {
+        "start": 107.56,
+        "duration": 3.8,
+        "text": "my um project Nam space in mission"
+      },
+      {
+        "start": 110.159,
+        "duration": 4.88,
+        "text": "control so"
+      },
+      {
+        "start": 111.36,
+        "duration": 6.52,
+        "text": "namespace um errands"
+      },
+      {
+        "start": 115.039,
+        "duration": 10.44,
+        "text": "Gage and then the unique slug on the end"
+      },
+      {
+        "start": 117.88,
+        "duration": 7.599,
+        "text": "which for me is 5H C 6 u e"
+      },
+      {
+        "start": 126.159,
+        "duration": 5.881,
+        "text": "XB all right and then um I want that on"
+      },
+      {
+        "start": 129.879,
+        "duration": 8.561,
+        "text": "Port"
+      },
+      {
+        "start": 132.04,
+        "duration": 9.64,
+        "text": "8181 Target Port of 8181 just like that"
+      },
+      {
+        "start": 138.44,
+        "duration": 4.799,
+        "text": "all right um so if I needed to do this"
+      },
+      {
+        "start": 141.68,
+        "duration": 3.839,
+        "text": "this is the command that I would run"
+      },
+      {
+        "start": 143.239,
+        "duration": 5.201,
+        "text": "right here um but again I've already run"
+      },
+      {
+        "start": 145.519,
+        "duration": 6.321,
+        "text": "this command so I'm just going to uh"
+      },
+      {
+        "start": 148.44,
+        "duration": 3.4,
+        "text": "backspace Over All"
+      },
+      {
+        "start": 152.04,
+        "duration": 5.4,
+        "text": "this and instead we'll just do a coup"
+      },
+      {
+        "start": 154.599,
+        "duration": 5.36,
+        "text": "control get service"
+      },
+      {
+        "start": 157.44,
+        "duration": 5.439,
+        "text": "namespace erand"
+      },
+      {
+        "start": 159.959,
+        "duration": 7.56,
+        "text": "PR wow keep mistyping the same thing"
+      },
+      {
+        "start": 162.879,
+        "duration": 7.041,
+        "text": "don't I and then we want um 5"
+      },
+      {
+        "start": 167.519,
+        "duration": 5.8,
+        "text": "hc6 U"
+      },
+      {
+        "start": 169.92,
+        "duration": 7.12,
+        "text": "XB you can see that the um moving"
+      },
+      {
+        "start": 173.319,
+        "duration": 8.241,
+        "text": "pictures data API has indeed been"
+      },
+      {
+        "start": 177.04,
+        "duration": 8.919,
+        "text": "exposed as a load balancer and this is"
+      },
+      {
+        "start": 181.56,
+        "duration": 5.319,
+        "text": "the external DNS entry that I can use on"
+      },
+      {
+        "start": 185.959,
+        "duration": 5.681,
+        "text": "Port"
+      },
+      {
+        "start": 186.879,
+        "duration": 6.881,
+        "text": "8181 to go ahead and reach that so one"
+      },
+      {
+        "start": 191.64,
+        "duration": 5.44,
+        "text": "thing that I've done here is dropped the"
+      },
+      {
+        "start": 193.76,
+        "duration": 6.039,
+        "text": "um load balancer DNS entry um up here"
+      },
+      {
+        "start": 197.08,
+        "duration": 4.56,
+        "text": "for some Services inside of Postman um"
+      },
+      {
+        "start": 199.799,
+        "duration": 6.72,
+        "text": "specifically what we're going to do is"
+      },
+      {
+        "start": 201.64,
+        "duration": 8.76,
+        "text": "create an application that allows us to"
+      },
+      {
+        "start": 206.519,
+        "duration": 6.72,
+        "text": "maintain a data library of um music"
+      },
+      {
+        "start": 210.4,
+        "duration": 5.64,
+        "text": "albums um so in this case you know I'm"
+      },
+      {
+        "start": 213.239,
+        "duration": 5.041,
+        "text": "going to uh go ahead and do a post out"
+      },
+      {
+        "start": 216.04,
+        "duration": 3.52,
+        "text": "to the uh default keyspace and the"
+      },
+      {
+        "start": 218.28,
+        "duration": 4.879,
+        "text": "album's"
+      },
+      {
+        "start": 219.56,
+        "duration": 7.72,
+        "text": "collection um and I'm going to do a find"
+      },
+      {
+        "start": 223.159,
+        "duration": 6.321,
+        "text": "filter of band Pink Floyd just like that"
+      },
+      {
+        "start": 227.28,
+        "duration": 4.519,
+        "text": "and we can send that through and sure"
+      },
+      {
+        "start": 229.48,
+        "duration": 6.0,
+        "text": "enough we get The Division Bell Dark"
+      },
+      {
+        "start": 231.799,
+        "duration": 8.16,
+        "text": "Side of the Moon pulse Final"
+      },
+      {
+        "start": 235.48,
+        "duration": 6.479,
+        "text": "Cut uh momentary laps or Reason yep yep"
+      },
+      {
+        "start": 239.959,
+        "duration": 3.761,
+        "text": "yep yep we get all of the uh we get all"
+      },
+      {
+        "start": 241.959,
+        "duration": 3.961,
+        "text": "the Pig Floyd albums this way then too"
+      },
+      {
+        "start": 243.72,
+        "duration": 4.64,
+        "text": "so really creating this was pretty"
+      },
+      {
+        "start": 245.92,
+        "duration": 5.319,
+        "text": "simple um again it was just another post"
+      },
+      {
+        "start": 248.36,
+        "duration": 5.76,
+        "text": "call out to that load balancer endpoint"
+      },
+      {
+        "start": 251.239,
+        "duration": 4.96,
+        "text": "um with a V1 default"
+      },
+      {
+        "start": 254.12,
+        "duration": 5.119,
+        "text": "keyspace and all we really did was just"
+      },
+      {
+        "start": 256.199,
+        "duration": 6.681,
+        "text": "run this create collection command um"
+      },
+      {
+        "start": 259.239,
+        "duration": 6.721,
+        "text": "with a name of albums that's"
+      },
+      {
+        "start": 262.88,
+        "duration": 6.28,
+        "text": "it and um the data API did the rest in"
+      },
+      {
+        "start": 265.96,
+        "duration": 6.2,
+        "text": "terms of creating the table structure um"
+      },
+      {
+        "start": 269.16,
+        "duration": 6.759,
+        "text": "as well as any indexes that uh that go"
+      },
+      {
+        "start": 272.16,
+        "duration": 5.72,
+        "text": "along with it um so yeah so we"
+      },
+      {
+        "start": 275.919,
+        "duration": 4.12,
+        "text": "absolutely have all of our data out"
+      },
+      {
+        "start": 277.88,
+        "duration": 3.319,
+        "text": "there and uh we're ready to go now we"
+      },
+      {
+        "start": 280.039,
+        "duration": 3.961,
+        "text": "need the"
+      },
+      {
+        "start": 281.199,
+        "duration": 5.801,
+        "text": "application so to build our albums"
+      },
+      {
+        "start": 284.0,
+        "duration": 6.96,
+        "text": "library application we are just going to"
+      },
+      {
+        "start": 287.0,
+        "duration": 6.84,
+        "text": "use um Java voden and spring boot to"
+      },
+      {
+        "start": 290.96,
+        "duration": 5.04,
+        "text": "build a full stack"
+      },
+      {
+        "start": 293.84,
+        "duration": 3.919,
+        "text": "application and what we're looking at"
+      },
+      {
+        "start": 296.0,
+        "duration": 4.8,
+        "text": "right here is the code for the uh the"
+      },
+      {
+        "start": 297.759,
+        "duration": 6.401,
+        "text": "main view uh for VOD"
+      },
+      {
+        "start": 300.8,
+        "duration": 6.239,
+        "text": "and uh the idea here is that um you know"
+      },
+      {
+        "start": 304.16,
+        "duration": 4.28,
+        "text": "we're going to have a search button and"
+      },
+      {
+        "start": 307.039,
+        "duration": 3.921,
+        "text": "you know we'll show an image of the"
+      },
+      {
+        "start": 308.44,
+        "duration": 4.92,
+        "text": "album maybe have the title we'll we'll"
+      },
+      {
+        "start": 310.96,
+        "duration": 5.519,
+        "text": "also have like the the year and the name"
+      },
+      {
+        "start": 313.36,
+        "duration": 4.32,
+        "text": "of the band as properties as well um and"
+      },
+      {
+        "start": 316.479,
+        "duration": 3.321,
+        "text": "then we'll have a search field here"
+      },
+      {
+        "start": 317.68,
+        "duration": 4.239,
+        "text": "where we can search by Band you know to"
+      },
+      {
+        "start": 319.8,
+        "duration": 4.48,
+        "text": "kind of get all albums by Band like um"
+      },
+      {
+        "start": 321.919,
+        "duration": 4.241,
+        "text": "like I just demonstrated before uh with"
+      },
+      {
+        "start": 324.28,
+        "duration": 3.919,
+        "text": "the uh the rest calls we're going to go"
+      },
+      {
+        "start": 326.16,
+        "duration": 4.0,
+        "text": "ahead and instantiate the controller"
+      },
+      {
+        "start": 328.199,
+        "duration": 4.081,
+        "text": "that's necessary because the front end"
+      },
+      {
+        "start": 330.16,
+        "duration": 5.479,
+        "text": "is going to have to call controller"
+      },
+      {
+        "start": 332.28,
+        "duration": 6.039,
+        "text": "methods I'm going to um have an H1 title"
+      },
+      {
+        "start": 335.639,
+        "duration": 5.4,
+        "text": "up here of Aaron's albums you know easy"
+      },
+      {
+        "start": 338.319,
+        "duration": 6.401,
+        "text": "enough uh we're going to have our album"
+      },
+      {
+        "start": 341.039,
+        "duration": 6.481,
+        "text": "index as our our left nav and uh what"
+      },
+      {
+        "start": 344.72,
+        "duration": 5.16,
+        "text": "that's going to do is actually hold like"
+      },
+      {
+        "start": 347.52,
+        "duration": 4.399,
+        "text": "the list of the albums that we can like"
+      },
+      {
+        "start": 349.88,
+        "duration": 4.2,
+        "text": "click on to um you know cycle through"
+      },
+      {
+        "start": 351.919,
+        "duration": 4.0,
+        "text": "all the different albums and the"
+      },
+      {
+        "start": 354.08,
+        "duration": 5.239,
+        "text": "information um and like I said we'll"
+      },
+      {
+        "start": 355.919,
+        "duration": 5.161,
+        "text": "have a search bar and that's it you know"
+      },
+      {
+        "start": 359.319,
+        "duration": 3.16,
+        "text": "then we just have kind of some private"
+      },
+      {
+        "start": 361.08,
+        "duration": 4.28,
+        "text": "uh methods here to go ahead and do"
+      },
+      {
+        "start": 362.479,
+        "duration": 5.401,
+        "text": "things like load the albums you know get"
+      },
+      {
+        "start": 365.36,
+        "duration": 6.399,
+        "text": "the album components and and build them"
+      },
+      {
+        "start": 367.88,
+        "duration": 6.719,
+        "text": "out um you know view the album"
+      },
+      {
+        "start": 371.759,
+        "duration": 6.081,
+        "text": "components and um actually this part of"
+      },
+      {
+        "start": 374.599,
+        "duration": 5.72,
+        "text": "it as well uh builds and pulls in like"
+      },
+      {
+        "start": 377.84,
+        "duration": 4.28,
+        "text": "the uh the file name of the images based"
+      },
+      {
+        "start": 380.319,
+        "duration": 4.921,
+        "text": "on like the band"
+      },
+      {
+        "start": 382.12,
+        "duration": 5.919,
+        "text": "name um so it's pretty simple stuff here"
+      },
+      {
+        "start": 385.24,
+        "duration": 5.079,
+        "text": "the uh the build search bar um really"
+      },
+      {
+        "start": 388.039,
+        "duration": 4.961,
+        "text": "all that does is um you know it has a"
+      },
+      {
+        "start": 390.319,
+        "duration": 5.481,
+        "text": "click listener that goes ahead and calls"
+      },
+      {
+        "start": 393.0,
+        "duration": 5.44,
+        "text": "that get albums by Band Method on the"
+      },
+      {
+        "start": 395.8,
+        "duration": 6.0,
+        "text": "controller so yes using the uh using the"
+      },
+      {
+        "start": 398.44,
+        "duration": 4.52,
+        "text": "voden library you can see voden is all"
+      },
+      {
+        "start": 401.8,
+        "duration": 4.04,
+        "text": "over this"
+      },
+      {
+        "start": 402.96,
+        "duration": 4.359,
+        "text": "thing to um go ahead and build out a"
+      },
+      {
+        "start": 405.84,
+        "duration": 3.88,
+        "text": "simple front"
+      },
+      {
+        "start": 407.319,
+        "duration": 5.241,
+        "text": "end now if we have a look at the"
+      },
+      {
+        "start": 409.72,
+        "duration": 6.56,
+        "text": "controller uh this is where instead of"
+      },
+      {
+        "start": 412.56,
+        "duration": 7.359,
+        "text": "using the data Stacks Java driver we are"
+      },
+      {
+        "start": 416.28,
+        "duration": 8.0,
+        "text": "going to use the data Stacks Astra data"
+      },
+      {
+        "start": 419.919,
+        "duration": 7.641,
+        "text": "API client um this will actually let us"
+      },
+      {
+        "start": 424.28,
+        "duration": 7.56,
+        "text": "work with um you know like our tables"
+      },
+      {
+        "start": 427.56,
+        "duration": 6.84,
+        "text": "and our key spaces in a document"
+      },
+      {
+        "start": 431.84,
+        "duration": 4.639,
+        "text": "oriented document oriented way where"
+      },
+      {
+        "start": 434.4,
+        "duration": 4.6,
+        "text": "we'll have like name spaces and"
+      },
+      {
+        "start": 436.479,
+        "duration": 3.4,
+        "text": "collections so what I'm going to do is"
+      },
+      {
+        "start": 439.0,
+        "duration": 3.759,
+        "text": "first of"
+      },
+      {
+        "start": 439.879,
+        "duration": 4.841,
+        "text": "all we have our controller and um you"
+      },
+      {
+        "start": 442.759,
+        "duration": 3.88,
+        "text": "know we're going to actually um have"
+      },
+      {
+        "start": 444.72,
+        "duration": 3.24,
+        "text": "that out with a restful endpoint of DS"
+      },
+      {
+        "start": 446.639,
+        "duration": 3.641,
+        "text": "albums"
+      },
+      {
+        "start": 447.96,
+        "duration": 4.2,
+        "text": "here um that's what we're going to name"
+      },
+      {
+        "start": 450.28,
+        "duration": 4.16,
+        "text": "like kind of the root at the controller"
+      },
+      {
+        "start": 452.16,
+        "duration": 5.36,
+        "text": "level we're going to pull in two"
+      },
+      {
+        "start": 454.44,
+        "duration": 7.159,
+        "text": "environment variables so I have this um"
+      },
+      {
+        "start": 457.52,
+        "duration": 7.239,
+        "text": "DB application token and I have this API"
+      },
+      {
+        "start": 461.599,
+        "duration": 5.761,
+        "text": "endpoint environment variable uh the API"
+      },
+      {
+        "start": 464.759,
+        "duration": 4.761,
+        "text": "endpoint is pretty simple it's exactly"
+      },
+      {
+        "start": 467.36,
+        "duration": 5.44,
+        "text": "what we were using inside of"
+      },
+      {
+        "start": 469.52,
+        "duration": 8.72,
+        "text": "Postman and is really just the um you"
+      },
+      {
+        "start": 472.8,
+        "duration": 8.72,
+        "text": "know the the URL of the data API load"
+      },
+      {
+        "start": 478.24,
+        "duration": 6.76,
+        "text": "balancer the token um if you remember"
+      },
+      {
+        "start": 481.52,
+        "duration": 5.6,
+        "text": "from the uh the previous video is"
+      },
+      {
+        "start": 485.0,
+        "duration": 5.08,
+        "text": "compiled by taking like the word"
+      },
+      {
+        "start": 487.12,
+        "duration": 6.12,
+        "text": "Cassandra and then taking the 64-bit"
+      },
+      {
+        "start": 490.08,
+        "duration": 5.32,
+        "text": "encoded versions of um the username and"
+      },
+      {
+        "start": 493.24,
+        "duration": 4.44,
+        "text": "the password um all kind of put together"
+      },
+      {
+        "start": 495.4,
+        "duration": 5.32,
+        "text": "in a single string anyway so this has to"
+      },
+      {
+        "start": 497.68,
+        "duration": 3.04,
+        "text": "be an environment"
+      },
+      {
+        "start": 500.84,
+        "duration": 4.4,
+        "text": "variable for the controller uh there are"
+      },
+      {
+        "start": 504.0,
+        "duration": 2.759,
+        "text": "some things that need to happen here"
+      },
+      {
+        "start": 505.24,
+        "duration": 4.28,
+        "text": "this is where we kind of need to"
+      },
+      {
+        "start": 506.759,
+        "duration": 6.121,
+        "text": "instantiate our um our client and the"
+      },
+      {
+        "start": 509.52,
+        "duration": 5.999,
+        "text": "API and um and actually go ahead and uh"
+      },
+      {
+        "start": 512.88,
+        "duration": 5.519,
+        "text": "address the collection as well so you"
+      },
+      {
+        "start": 515.519,
+        "duration": 6.801,
+        "text": "know here let's see we're using that uh"
+      },
+      {
+        "start": 518.399,
+        "duration": 6.201,
+        "text": "that data API client import why don't I"
+      },
+      {
+        "start": 522.32,
+        "duration": 4.68,
+        "text": "start with that and we'll just call that"
+      },
+      {
+        "start": 524.6,
+        "duration": 5.48,
+        "text": "client and I can say that's going to be"
+      },
+      {
+        "start": 527.0,
+        "duration": 7.12,
+        "text": "a new data API client and I want to"
+      },
+      {
+        "start": 530.08,
+        "duration": 7.6,
+        "text": "initialize that with the"
+      },
+      {
+        "start": 534.12,
+        "duration": 6.719,
+        "text": "token now additionally we want the um"
+      },
+      {
+        "start": 537.68,
+        "duration": 5.0,
+        "text": "the API and in that case I'm going to"
+      },
+      {
+        "start": 540.839,
+        "duration": 6.481,
+        "text": "need the uh the"
+      },
+      {
+        "start": 542.68,
+        "duration": 9.0,
+        "text": "database class here then I can say DB"
+      },
+      {
+        "start": 547.32,
+        "duration": 7.12,
+        "text": "API and I want that equal to"
+      },
+      {
+        "start": 551.68,
+        "duration": 4.76,
+        "text": "client. get database and yes we're going"
+      },
+      {
+        "start": 554.44,
+        "duration": 4.72,
+        "text": "to use that API endpoint I love that"
+      },
+      {
+        "start": 556.44,
+        "duration": 5.68,
+        "text": "that auto filled right there that's"
+      },
+      {
+        "start": 559.16,
+        "duration": 5.48,
+        "text": "awesome okay and next we're going to"
+      },
+      {
+        "start": 562.12,
+        "duration": 4.64,
+        "text": "create a variable to reference the"
+      },
+      {
+        "start": 564.64,
+        "duration": 4.28,
+        "text": "collection itself so you know we'll just"
+      },
+      {
+        "start": 566.76,
+        "duration": 5.8,
+        "text": "be kind of simple and you know notice"
+      },
+      {
+        "start": 568.92,
+        "duration": 6.2,
+        "text": "that we have a um a private variable in"
+      },
+      {
+        "start": 572.56,
+        "duration": 5.839,
+        "text": "this class called collection that's of"
+      },
+      {
+        "start": 575.12,
+        "duration": 6.24,
+        "text": "collection of type document um and you"
+      },
+      {
+        "start": 578.399,
+        "duration": 4.761,
+        "text": "notice that uh that document is also up"
+      },
+      {
+        "start": 581.36,
+        "duration": 4.96,
+        "text": "here as well to be pulled in from the"
+      },
+      {
+        "start": 583.16,
+        "duration": 5.72,
+        "text": "the data API um"
+      },
+      {
+        "start": 586.32,
+        "duration": 5.44,
+        "text": "import so let's initialize that so we"
+      },
+      {
+        "start": 588.88,
+        "duration": 4.92,
+        "text": "can say collection um because it's"
+      },
+      {
+        "start": 591.76,
+        "duration": 4.04,
+        "text": "already defined as a uh private variable"
+      },
+      {
+        "start": 593.8,
+        "duration": 6.32,
+        "text": "for the class and we can just say have"
+      },
+      {
+        "start": 595.8,
+        "duration": 6.36,
+        "text": "that equal DB API and we want. getet"
+      },
+      {
+        "start": 600.12,
+        "duration": 4.48,
+        "text": "collection and we're just going to use"
+      },
+      {
+        "start": 602.16,
+        "duration": 5.08,
+        "text": "the collection name of"
+      },
+      {
+        "start": 604.6,
+        "duration": 5.16,
+        "text": "albums and put a semicolon on the end"
+      },
+      {
+        "start": 607.24,
+        "duration": 5.719,
+        "text": "just like that there now our controller"
+      },
+      {
+        "start": 609.76,
+        "duration": 6.4,
+        "text": "is all set and defined um so let's move"
+      },
+      {
+        "start": 612.959,
+        "duration": 6.32,
+        "text": "on so we have three public methods here"
+      },
+      {
+        "start": 616.16,
+        "duration": 6.679,
+        "text": "that we do want to fill out so we have"
+      },
+      {
+        "start": 619.279,
+        "duration": 6.68,
+        "text": "this um you know get one album so get by"
+      },
+      {
+        "start": 622.839,
+        "duration": 5.0,
+        "text": "like album ID as the unique identifier"
+      },
+      {
+        "start": 625.959,
+        "duration": 4.241,
+        "text": "we have get albums by band that we've"
+      },
+      {
+        "start": 627.839,
+        "duration": 5.521,
+        "text": "used a couple of times already here on"
+      },
+      {
+        "start": 630.2,
+        "duration": 6.12,
+        "text": "the uh the postman API side and then we"
+      },
+      {
+        "start": 633.36,
+        "duration": 5.919,
+        "text": "just have one for get all albums um to"
+      },
+      {
+        "start": 636.32,
+        "duration": 5.04,
+        "text": "fill these out it's really pretty simple"
+      },
+      {
+        "start": 639.279,
+        "duration": 4.881,
+        "text": "I don't need to do anything fancy with a"
+      },
+      {
+        "start": 641.36,
+        "duration": 4.719,
+        "text": "lot of this data um so really all I need"
+      },
+      {
+        "start": 644.16,
+        "duration": 4.28,
+        "text": "to worry about doing is just retrieving"
+      },
+      {
+        "start": 646.079,
+        "duration": 4.841,
+        "text": "it and then sending it back to the voden"
+      },
+      {
+        "start": 648.44,
+        "duration": 5.959,
+        "text": "front end so in this case I'm going to"
+      },
+      {
+        "start": 650.92,
+        "duration": 7.76,
+        "text": "do a return and I just want to do"
+      },
+      {
+        "start": 654.399,
+        "duration": 7.761,
+        "text": "collection find by ID and yeah album ID"
+      },
+      {
+        "start": 658.68,
+        "duration": 8.08,
+        "text": "just like that easy easy for this one"
+      },
+      {
+        "start": 662.16,
+        "duration": 5.919,
+        "text": "find by Band I'm going to do a um return"
+      },
+      {
+        "start": 666.76,
+        "duration": 3.639,
+        "text": "and we want"
+      },
+      {
+        "start": 668.079,
+        "duration": 5.801,
+        "text": "collection Dot and I'm going to just do"
+      },
+      {
+        "start": 670.399,
+        "duration": 7.721,
+        "text": "a simple find here now you'll notice I"
+      },
+      {
+        "start": 673.88,
+        "duration": 8.28,
+        "text": "also have an import here for the um data"
+      },
+      {
+        "start": 678.12,
+        "duration": 7.64,
+        "text": "Stacks Astra client model filters um"
+      },
+      {
+        "start": 682.16,
+        "duration": 5.239,
+        "text": "with the EQ or the equality operator so"
+      },
+      {
+        "start": 685.76,
+        "duration": 4.8,
+        "text": "essentially what I'm going to"
+      },
+      {
+        "start": 687.399,
+        "duration": 4.921,
+        "text": "do is down here I'm going to kind of"
+      },
+      {
+        "start": 690.56,
+        "duration": 4.88,
+        "text": "build this out as an expression by"
+      },
+      {
+        "start": 692.32,
+        "duration": 6.36,
+        "text": "saying find"
+      },
+      {
+        "start": 695.44,
+        "duration": 6.519,
+        "text": "equals and I'm going to want to uh use"
+      },
+      {
+        "start": 698.68,
+        "duration": 6.399,
+        "text": "the uh the field name of"
+      },
+      {
+        "start": 701.959,
+        "duration": 7.601,
+        "text": "band all right and I want to send it the"
+      },
+      {
+        "start": 705.079,
+        "duration": 6.841,
+        "text": "value of the variable band uh basically"
+      },
+      {
+        "start": 709.56,
+        "duration": 4.719,
+        "text": "the same variable that's sent to this"
+      },
+      {
+        "start": 711.92,
+        "duration": 4.76,
+        "text": "method up here so really what this is"
+      },
+      {
+        "start": 714.279,
+        "duration": 6.481,
+        "text": "going to do is go through my collection"
+      },
+      {
+        "start": 716.68,
+        "duration": 6.44,
+        "text": "and return all entries that have a band"
+      },
+      {
+        "start": 720.76,
+        "duration": 5.0,
+        "text": "property value of whatever band I'm"
+      },
+      {
+        "start": 723.12,
+        "duration": 5.04,
+        "text": "trying to search by easy"
+      },
+      {
+        "start": 725.76,
+        "duration": 5.639,
+        "text": "enough uh and really this is the the"
+      },
+      {
+        "start": 728.16,
+        "duration": 6.84,
+        "text": "easiest one of all get all albums um I'm"
+      },
+      {
+        "start": 731.399,
+        "duration": 7.68,
+        "text": "just going to do a return collection"
+      },
+      {
+        "start": 735.0,
+        "duration": 6.199,
+        "text": "find oh and that's it uh this will go"
+      },
+      {
+        "start": 739.079,
+        "duration": 4.2,
+        "text": "ahead and send a finder Quest through"
+      },
+      {
+        "start": 741.199,
+        "duration": 4.601,
+        "text": "without any filter and it'll just kind"
+      },
+      {
+        "start": 743.279,
+        "duration": 3.92,
+        "text": "of pull everything back um now I know"
+      },
+      {
+        "start": 745.8,
+        "duration": 3.399,
+        "text": "you've probably been told if you worked"
+      },
+      {
+        "start": 747.199,
+        "duration": 3.721,
+        "text": "with Cassandra in the past that this"
+      },
+      {
+        "start": 749.199,
+        "duration": 3.32,
+        "text": "this is the equivalent of a select star"
+      },
+      {
+        "start": 750.92,
+        "duration": 4.039,
+        "text": "from without a wear clause and this"
+      },
+      {
+        "start": 752.519,
+        "duration": 4.361,
+        "text": "probably isn't a good idea but in our"
+      },
+      {
+        "start": 754.959,
+        "duration": 5.201,
+        "text": "case where we're not going to have"
+      },
+      {
+        "start": 756.88,
+        "duration": 6.88,
+        "text": "billions and billions of albums or or"
+      },
+      {
+        "start": 760.16,
+        "duration": 5.08,
+        "text": "rows of data you know a find for for"
+      },
+      {
+        "start": 763.76,
+        "duration": 3.519,
+        "text": "everything here with um with the new"
+      },
+      {
+        "start": 765.24,
+        "duration": 3.56,
+        "text": "storage attach indexes are going to work"
+      },
+      {
+        "start": 767.279,
+        "duration": 3.36,
+        "text": "really is going to work really well so"
+      },
+      {
+        "start": 768.8,
+        "duration": 6.32,
+        "text": "I'm not too concerned about that all"
+      },
+      {
+        "start": 770.639,
+        "duration": 7.521,
+        "text": "right controller is all done so now um I"
+      },
+      {
+        "start": 775.12,
+        "duration": 5.92,
+        "text": "can go over to my DS albums and I can do"
+      },
+      {
+        "start": 778.16,
+        "duration": 5.2,
+        "text": "run as Java"
+      },
+      {
+        "start": 781.04,
+        "duration": 3.599,
+        "text": "application let's go ahead and watch"
+      },
+      {
+        "start": 783.36,
+        "duration": 4.4,
+        "text": "that build"
+      },
+      {
+        "start": 784.639,
+        "duration": 6.401,
+        "text": "out if I scroll over oh yeah look at"
+      },
+      {
+        "start": 787.76,
+        "duration": 6.879,
+        "text": "that you can see it started out on port"
+      },
+      {
+        "start": 791.04,
+        "duration": 6.479,
+        "text": "8080 all right so now I go over here and"
+      },
+      {
+        "start": 794.639,
+        "duration": 2.88,
+        "text": "say Local"
+      },
+      {
+        "start": 798.36,
+        "duration": 3.0,
+        "text": "Host"
+      },
+      {
+        "start": 802.0,
+        "duration": 5.48,
+        "text": "8080 all right really simple front end"
+      },
+      {
+        "start": 805.839,
+        "duration": 3.601,
+        "text": "here you know nothing nothing terribly"
+      },
+      {
+        "start": 807.48,
+        "duration": 4.56,
+        "text": "fancy"
+      },
+      {
+        "start": 809.44,
+        "duration": 5.16,
+        "text": "uh but I could I have a list of albums"
+      },
+      {
+        "start": 812.04,
+        "duration": 5.479,
+        "text": "here that I can kind of scroll through"
+      },
+      {
+        "start": 814.6,
+        "duration": 4.84,
+        "text": "and um you know I can uh click on some"
+      },
+      {
+        "start": 817.519,
+        "duration": 4.601,
+        "text": "of these and you'll see yeah brothers"
+      },
+      {
+        "start": 819.44,
+        "duration": 6.04,
+        "text": "and arms this is by Dire Straits from"
+      },
+      {
+        "start": 822.12,
+        "duration": 4.32,
+        "text": "1985 and this is the album cover well"
+      },
+      {
+        "start": 825.48,
+        "duration": 4.799,
+        "text": "easy"
+      },
+      {
+        "start": 826.44,
+        "duration": 6.16,
+        "text": "easy um you know I can also search by uh"
+      },
+      {
+        "start": 830.279,
+        "duration": 4.081,
+        "text": "the band name so I can say hey give me"
+      },
+      {
+        "start": 832.6,
+        "duration": 6.0,
+        "text": "all the albums by"
+      },
+      {
+        "start": 834.36,
+        "duration": 6.64,
+        "text": "rush and you know we can see all the"
+      },
+      {
+        "start": 838.6,
+        "duration": 5.72,
+        "text": "albums that Rush is put out here so I"
+      },
+      {
+        "start": 841.0,
+        "duration": 6.839,
+        "text": "can look at like Vapor Trails or"
+      },
+      {
+        "start": 844.32,
+        "duration": 7.439,
+        "text": "2112 or Clockwork Angels moving pictures"
+      },
+      {
+        "start": 847.839,
+        "duration": 7.321,
+        "text": "all right so hey this is uh this is"
+      },
+      {
+        "start": 851.759,
+        "duration": 5.08,
+        "text": "working next inside of our Java project"
+      },
+      {
+        "start": 855.16,
+        "duration": 4.2,
+        "text": "on the command line I'm just going to"
+      },
+      {
+        "start": 856.839,
+        "duration": 4.961,
+        "text": "list this out and you'll see that um I"
+      },
+      {
+        "start": 859.36,
+        "duration": 7.12,
+        "text": "have a Docker file here so let me go"
+      },
+      {
+        "start": 861.8,
+        "duration": 6.64,
+        "text": "ahead and do a cat Docker file on that"
+      },
+      {
+        "start": 866.48,
+        "duration": 3.88,
+        "text": "and um you can see that in order to"
+      },
+      {
+        "start": 868.44,
+        "duration": 4.88,
+        "text": "build out this stalker file I'm pulling"
+      },
+      {
+        "start": 870.36,
+        "duration": 6.039,
+        "text": "down the uh Amazon coretto image for uh"
+      },
+      {
+        "start": 873.32,
+        "duration": 4.72,
+        "text": "for Java 21 so that's going to be our uh"
+      },
+      {
+        "start": 876.399,
+        "duration": 7.161,
+        "text": "our jdk or"
+      },
+      {
+        "start": 878.04,
+        "duration": 7.68,
+        "text": "JRE uh we're going to copy the um the"
+      },
+      {
+        "start": 883.56,
+        "duration": 5.88,
+        "text": "build of our"
+      },
+      {
+        "start": 885.72,
+        "duration": 5.72,
+        "text": "jar into the um into the docker project"
+      },
+      {
+        "start": 889.44,
+        "duration": 4.759,
+        "text": "and essentially we're going to expose"
+      },
+      {
+        "start": 891.44,
+        "duration": 5.16,
+        "text": "port 8080 because we know that that's"
+      },
+      {
+        "start": 894.199,
+        "duration": 7.241,
+        "text": "what um you know"
+      },
+      {
+        "start": 896.6,
+        "duration": 6.679,
+        "text": "spring and um Tom cat like to run on and"
+      },
+      {
+        "start": 901.44,
+        "duration": 5.92,
+        "text": "then we're going to Define our Docker"
+      },
+      {
+        "start": 903.279,
+        "duration": 6.321,
+        "text": "entry point as the command that runs our"
+      },
+      {
+        "start": 907.36,
+        "duration": 5.719,
+        "text": "um our application which is just Java"
+      },
+      {
+        "start": 909.6,
+        "duration": 5.84,
+        "text": "jar and then DS albums jar on the end"
+      },
+      {
+        "start": 913.079,
+        "duration": 4.721,
+        "text": "there uh that's really all our Docker"
+      },
+      {
+        "start": 915.44,
+        "duration": 4.68,
+        "text": "file is going to have and quite frankly"
+      },
+      {
+        "start": 917.8,
+        "duration": 5.959,
+        "text": "that's that's really all it should need"
+      },
+      {
+        "start": 920.12,
+        "duration": 6.159,
+        "text": "so what I'm going to do next is to"
+      },
+      {
+        "start": 923.759,
+        "duration": 5.281,
+        "text": "actually build my Docker file into an"
+      },
+      {
+        "start": 926.279,
+        "duration": 4.401,
+        "text": "image so let's go ahead and say dock"
+      },
+      {
+        "start": 929.04,
+        "duration": 7.159,
+        "text": "[Music]"
+      },
+      {
+        "start": 930.68,
+        "duration": 7.719,
+        "text": "build um and I'm going to tag this as DS"
+      },
+      {
+        "start": 936.199,
+        "duration": 4.921,
+        "text": "albums and I'm going to put a dot on the"
+      },
+      {
+        "start": 938.399,
+        "duration": 4.521,
+        "text": "end because I want it built like"
+      },
+      {
+        "start": 941.12,
+        "duration": 3.959,
+        "text": "essentially with um with the contents of"
+      },
+      {
+        "start": 942.92,
+        "duration": 2.159,
+        "text": "this"
+      },
+      {
+        "start": 947.279,
+        "duration": 4.521,
+        "text": "directory there you go oh and that was"
+      },
+      {
+        "start": 949.759,
+        "duration": 4.64,
+        "text": "fast you can see it uh pulled everything"
+      },
+      {
+        "start": 951.8,
+        "duration": 4.88,
+        "text": "down it needed to uh probably because I"
+      },
+      {
+        "start": 954.399,
+        "duration": 5.481,
+        "text": "had a whole lot of it cached from uh"
+      },
+      {
+        "start": 956.68,
+        "duration": 6.519,
+        "text": "trying this out a few times now"
+      },
+      {
+        "start": 959.88,
+        "duration": 6.84,
+        "text": "if we jump up to here inside um you know"
+      },
+      {
+        "start": 963.199,
+        "duration": 7.161,
+        "text": "inside Docker desktop you can see that I"
+      },
+      {
+        "start": 966.72,
+        "duration": 4.76,
+        "text": "have this DS albums image that was built"
+      },
+      {
+        "start": 970.36,
+        "duration": 4.8,
+        "text": "right"
+      },
+      {
+        "start": 971.48,
+        "duration": 6.0,
+        "text": "here all right so now I'm going to say"
+      },
+      {
+        "start": 975.16,
+        "duration": 5.159,
+        "text": "hey let's uh let's run this image I'm"
+      },
+      {
+        "start": 977.48,
+        "duration": 4.839,
+        "text": "going to get a uh dialogue up here with"
+      },
+      {
+        "start": 980.319,
+        "duration": 3.44,
+        "text": "some optional settings and I'm"
+      },
+      {
+        "start": 982.319,
+        "duration": 3.841,
+        "text": "definitely going to use them first of"
+      },
+      {
+        "start": 983.759,
+        "duration": 5.0,
+        "text": "all internally as you can see we're"
+      },
+      {
+        "start": 986.16,
+        "duration": 5.239,
+        "text": "exposing port 8080 but of course there"
+      },
+      {
+        "start": 988.759,
+        "duration": 5.721,
+        "text": "are so many things that use port 8080 so"
+      },
+      {
+        "start": 991.399,
+        "duration": 5.161,
+        "text": "I'm just going to go Port 9090 here uh"
+      },
+      {
+        "start": 994.48,
+        "duration": 5.88,
+        "text": "that way when this runs it'll expose"
+      },
+      {
+        "start": 996.56,
+        "duration": 4.92,
+        "text": "port 8080 internally as 9090 externally"
+      },
+      {
+        "start": 1000.36,
+        "duration": 3.399,
+        "text": "um and there there shouldn't be a whole"
+      },
+      {
+        "start": 1001.48,
+        "duration": 3.799,
+        "text": "lot of conflicts on that I'm going to"
+      },
+      {
+        "start": 1003.759,
+        "duration": 3.76,
+        "text": "need two environment variables now"
+      },
+      {
+        "start": 1005.279,
+        "duration": 5.841,
+        "text": "remember we kind of talked about this"
+      },
+      {
+        "start": 1007.519,
+        "duration": 5.8,
+        "text": "first of all we going to need our DB API"
+      },
+      {
+        "start": 1011.12,
+        "duration": 5.04,
+        "text": "endpoint um that has to be a defined"
+      },
+      {
+        "start": 1013.319,
+        "duration": 5.721,
+        "text": "variable in the environment for our um"
+      },
+      {
+        "start": 1016.16,
+        "duration": 4.919,
+        "text": "application to find that endpoint for"
+      },
+      {
+        "start": 1019.04,
+        "duration": 4.64,
+        "text": "the data"
+      },
+      {
+        "start": 1021.079,
+        "duration": 6.72,
+        "text": "API and then I'm going to paste in that"
+      },
+      {
+        "start": 1023.68,
+        "duration": 8.119,
+        "text": "uh that data API endpoint just like that"
+      },
+      {
+        "start": 1027.799,
+        "duration": 7.76,
+        "text": "likewise we're also going to need the"
+      },
+      {
+        "start": 1031.799,
+        "duration": 5.561,
+        "text": "token that that we've built as well so"
+      },
+      {
+        "start": 1035.559,
+        "duration": 4.64,
+        "text": "I'm going to have my token there which"
+      },
+      {
+        "start": 1037.36,
+        "duration": 5.52,
+        "text": "is again is really just the word"
+      },
+      {
+        "start": 1040.199,
+        "duration": 5.88,
+        "text": "Cassandra um with my 64-bit encoded"
+      },
+      {
+        "start": 1042.88,
+        "duration": 6.6,
+        "text": "username followed by my 64-bit encoded"
+      },
+      {
+        "start": 1046.079,
+        "duration": 7.161,
+        "text": "password and this should be all I need"
+      },
+      {
+        "start": 1049.48,
+        "duration": 6.68,
+        "text": "to um to run a container based on the"
+      },
+      {
+        "start": 1053.24,
+        "duration": 6.679,
+        "text": "docker image that we just"
+      },
+      {
+        "start": 1056.16,
+        "duration": 5.84,
+        "text": "built so let's go ahead and run this all"
+      },
+      {
+        "start": 1059.919,
+        "duration": 5.64,
+        "text": "right it looks like so I see it started"
+      },
+      {
+        "start": 1062.0,
+        "duration": 6.679,
+        "text": "on 8080 but if you go up here inside of"
+      },
+      {
+        "start": 1065.559,
+        "duration": 4.761,
+        "text": "Docker desktop you'll see that um you"
+      },
+      {
+        "start": 1068.679,
+        "duration": 3.721,
+        "text": "know I have a uh I have a link here"
+      },
+      {
+        "start": 1070.32,
+        "duration": 5.0,
+        "text": "that'll pop open a browser window on"
+      },
+      {
+        "start": 1072.4,
+        "duration": 5.56,
+        "text": "Local Host 9090 so it's making that that"
+      },
+      {
+        "start": 1075.32,
+        "duration": 5.56,
+        "text": "translation from 9090 to 9080 in this"
+      },
+      {
+        "start": 1077.96,
+        "duration": 6.079,
+        "text": "container so if I click"
+      },
+      {
+        "start": 1080.88,
+        "duration": 4.919,
+        "text": "this there we go Local Host 990 aon's"
+      },
+      {
+        "start": 1084.039,
+        "duration": 4.281,
+        "text": "albums piece of cake"
+      },
+      {
+        "start": 1085.799,
+        "duration": 5.201,
+        "text": "right so now I could go up here and I"
+      },
+      {
+        "start": 1088.32,
+        "duration": 5.239,
+        "text": "could say Pink"
+      },
+      {
+        "start": 1091.0,
+        "duration": 5.28,
+        "text": "Floyd oh actually that's right I have to"
+      },
+      {
+        "start": 1093.559,
+        "duration": 5.681,
+        "text": "match case Pink Floyd there we go and we"
+      },
+      {
+        "start": 1096.28,
+        "duration": 5.519,
+        "text": "can search all right and yeah we see"
+      },
+      {
+        "start": 1099.24,
+        "duration": 5.24,
+        "text": "animals momentary laps of Reason wish"
+      },
+      {
+        "start": 1101.799,
+        "duration": 5.12,
+        "text": "you were here Dark Side of the Moon all"
+      },
+      {
+        "start": 1104.48,
+        "duration": 4.679,
+        "text": "right hey this is this is working great"
+      },
+      {
+        "start": 1106.919,
+        "duration": 4.521,
+        "text": "um the only issue though is that as I'm"
+      },
+      {
+        "start": 1109.159,
+        "duration": 5.76,
+        "text": "sure you can tell this is running on my"
+      },
+      {
+        "start": 1111.44,
+        "duration": 8.239,
+        "text": "laptop but our database is running out"
+      },
+      {
+        "start": 1114.919,
+        "duration": 7.801,
+        "text": "in Amazon Us West 2 so now we need to go"
+      },
+      {
+        "start": 1119.679,
+        "duration": 6.681,
+        "text": "ahead and get the image we just built to"
+      },
+      {
+        "start": 1122.72,
+        "duration": 5.56,
+        "text": "run as a container out in Amazon's Us"
+      },
+      {
+        "start": 1126.36,
+        "duration": 4.679,
+        "text": "West"
+      },
+      {
+        "start": 1128.28,
+        "duration": 8.399,
+        "text": "2 so for this next step we are going to"
+      },
+      {
+        "start": 1131.039,
+        "duration": 8.401,
+        "text": "use Amazon's ECR or elastic container"
+      },
+      {
+        "start": 1136.679,
+        "duration": 5.561,
+        "text": "registry so you can click into that"
+      },
+      {
+        "start": 1139.44,
+        "duration": 5.76,
+        "text": "um you actually do have to create a"
+      },
+      {
+        "start": 1142.24,
+        "duration": 5.16,
+        "text": "repository here to um to kind of store"
+      },
+      {
+        "start": 1145.2,
+        "duration": 5.24,
+        "text": "all your available images that you can"
+      },
+      {
+        "start": 1147.4,
+        "duration": 5.48,
+        "text": "run I'm going to use this one here this"
+      },
+      {
+        "start": 1150.44,
+        "duration": 4.32,
+        "text": "data Stacks reinvent 2024 one which is"
+      },
+      {
+        "start": 1152.88,
+        "duration": 4.799,
+        "text": "what I've been using for our our demos"
+      },
+      {
+        "start": 1154.76,
+        "duration": 5.96,
+        "text": "that we're going to run at uh"
+      },
+      {
+        "start": 1157.679,
+        "duration": 4.88,
+        "text": "reinvent however the important part here"
+      },
+      {
+        "start": 1160.72,
+        "duration": 4.12,
+        "text": "is to get this"
+      },
+      {
+        "start": 1162.559,
+        "duration": 6.36,
+        "text": "URI um this"
+      },
+      {
+        "start": 1164.84,
+        "duration": 7.839,
+        "text": "specifically allows us to link to or to"
+      },
+      {
+        "start": 1168.919,
+        "duration": 7.64,
+        "text": "to push our images from the command line"
+      },
+      {
+        "start": 1172.679,
+        "duration": 7.801,
+        "text": "um through the AWS CLI um up here to uh"
+      },
+      {
+        "start": 1176.559,
+        "duration": 5.6,
+        "text": "to ECR so I'm going to go ahead and copy"
+      },
+      {
+        "start": 1180.48,
+        "duration": 3.319,
+        "text": "that to my"
+      },
+      {
+        "start": 1182.159,
+        "duration": 5.88,
+        "text": "clipboard"
+      },
+      {
+        "start": 1183.799,
+        "duration": 6.201,
+        "text": "next we need to retag our Docker image"
+      },
+      {
+        "start": 1188.039,
+        "duration": 4.361,
+        "text": "because right now it's just tagged as DS"
+      },
+      {
+        "start": 1190.0,
+        "duration": 4.559,
+        "text": "albums but in order to get it out into"
+      },
+      {
+        "start": 1192.4,
+        "duration": 7.56,
+        "text": "our repository we have to tag it with"
+      },
+      {
+        "start": 1194.559,
+        "duration": 8.24,
+        "text": "our repository URI so we're going to do"
+      },
+      {
+        "start": 1199.96,
+        "duration": 4.92,
+        "text": "Docker and we're going to say tag and"
+      },
+      {
+        "start": 1202.799,
+        "duration": 5.0,
+        "text": "we're going to we want to tag"
+      },
+      {
+        "start": 1204.88,
+        "duration": 6.64,
+        "text": "DS"
+      },
+      {
+        "start": 1207.799,
+        "duration": 7.161,
+        "text": "albums just like that then I'm going to"
+      },
+      {
+        "start": 1211.52,
+        "duration": 7.36,
+        "text": "paste that URL there or"
+      },
+      {
+        "start": 1214.96,
+        "duration": 6.199,
+        "text": "Ur and I'm going to do colon and then DS"
+      },
+      {
+        "start": 1218.88,
+        "duration": 7.24,
+        "text": "albums on the end of"
+      },
+      {
+        "start": 1221.159,
+        "duration": 7.561,
+        "text": "that okay so that's retagging our image"
+      },
+      {
+        "start": 1226.12,
+        "duration": 5.799,
+        "text": "next we're going to push that out so I I"
+      },
+      {
+        "start": 1228.72,
+        "duration": 7.199,
+        "text": "can do a Docker push and let's go ahead"
+      },
+      {
+        "start": 1231.919,
+        "duration": 4.0,
+        "text": "and put our repository URI in"
+      },
+      {
+        "start": 1236.159,
+        "duration": 7.481,
+        "text": "there oh looks like I have to relog in"
+      },
+      {
+        "start": 1240.88,
+        "duration": 6.679,
+        "text": "you ever get this message it uh it's"
+      },
+      {
+        "start": 1243.64,
+        "duration": 3.919,
+        "text": "basically just asking you to uh to"
+      },
+      {
+        "start": 1248.64,
+        "duration": 5.56,
+        "text": "reverifying so let's see here once let's"
+      },
+      {
+        "start": 1252.0,
+        "duration": 8.48,
+        "text": "go um"
+      },
+      {
+        "start": 1254.2,
+        "duration": 11.2,
+        "text": "AWS uh ECR get login"
+      },
+      {
+        "start": 1260.48,
+        "duration": 8.96,
+        "text": "password and I'm going to say us West"
+      },
+      {
+        "start": 1265.4,
+        "duration": 6.32,
+        "text": "2 um and then we want to say Docker"
+      },
+      {
+        "start": 1269.44,
+        "duration": 4.119,
+        "text": "login"
+      },
+      {
+        "start": 1271.72,
+        "duration": 5.04,
+        "text": "AWS"
+      },
+      {
+        "start": 1273.559,
+        "duration": 8.6,
+        "text": "password standard in and then we'll"
+      },
+      {
+        "start": 1276.76,
+        "duration": 7.919,
+        "text": "paste our uh our URL oh let's back over"
+      },
+      {
+        "start": 1282.159,
+        "duration": 7.081,
+        "text": "that yeah that should be good right"
+      },
+      {
+        "start": 1284.679,
+        "duration": 4.561,
+        "text": "there let's see what that gets us here"
+      },
+      {
+        "start": 1289.799,
+        "duration": 5.36,
+        "text": "oh it didn't like something there oh I"
+      },
+      {
+        "start": 1293.48,
+        "duration": 6.52,
+        "text": "see what I"
+      },
+      {
+        "start": 1295.159,
+        "duration": 6.801,
+        "text": "did for this Docker login AWS um AWS is"
+      },
+      {
+        "start": 1300.0,
+        "duration": 5.919,
+        "text": "actually our username in terms of this"
+      },
+      {
+        "start": 1301.96,
+        "duration": 6.44,
+        "text": "command so let me just uh do a username"
+      },
+      {
+        "start": 1305.919,
+        "duration": 2.481,
+        "text": "just like"
+      },
+      {
+        "start": 1309.0,
+        "duration": 5.36,
+        "text": "that hey there we go login succeeded now"
+      },
+      {
+        "start": 1312.48,
+        "duration": 6.45,
+        "text": "I should be able to up Arrow back to my"
+      },
+      {
+        "start": 1314.36,
+        "duration": 7.08,
+        "text": "Docker push with our repository URI"
+      },
+      {
+        "start": 1318.93,
+        "duration": 6.31,
+        "text": "[Music]"
+      },
+      {
+        "start": 1321.44,
+        "duration": 3.8,
+        "text": "and oh that didn't"
+      },
+      {
+        "start": 1326.159,
+        "duration": 7.52,
+        "text": "work how about we uh do a"
+      },
+      {
+        "start": 1329.48,
+        "duration": 4.199,
+        "text": "colon DS albums on the"
+      },
+      {
+        "start": 1335.24,
+        "duration": 4.799,
+        "text": "end hey there we go"
+      },
+      {
+        "start": 1353.76,
+        "duration": 6.56,
+        "text": "okay that looks like that was"
+      },
+      {
+        "start": 1357.44,
+        "duration": 4.92,
+        "text": "successful so now if we head back out"
+      },
+      {
+        "start": 1360.32,
+        "duration": 5.32,
+        "text": "here and we have a look at our"
+      },
+      {
+        "start": 1362.36,
+        "duration": 6.799,
+        "text": "repository oh look at that DS albums"
+      },
+      {
+        "start": 1365.64,
+        "duration": 7.76,
+        "text": "right there at the top outstanding okay"
+      },
+      {
+        "start": 1369.159,
+        "duration": 6.52,
+        "text": "so we have our image out here and uh now"
+      },
+      {
+        "start": 1373.4,
+        "duration": 5.639,
+        "text": "we just need to be able to use it so the"
+      },
+      {
+        "start": 1375.679,
+        "duration": 8.6,
+        "text": "next step we're going to do is to go to"
+      },
+      {
+        "start": 1379.039,
+        "duration": 7.921,
+        "text": "um Amazon's ECS or elastic container"
+      },
+      {
+        "start": 1384.279,
+        "duration": 5.321,
+        "text": "service likewise here I have a cluster"
+      },
+      {
+        "start": 1386.96,
+        "duration": 5.599,
+        "text": "that's also set up for reinvent"
+      },
+      {
+        "start": 1389.6,
+        "duration": 4.559,
+        "text": "2024 and if I click into here you can"
+      },
+      {
+        "start": 1392.559,
+        "duration": 4.081,
+        "text": "see that uh yeah these are the the"
+      },
+      {
+        "start": 1394.159,
+        "duration": 4.921,
+        "text": "things that I've put together for our uh"
+      },
+      {
+        "start": 1396.64,
+        "duration": 4.159,
+        "text": "for our demos you know if I want to take"
+      },
+      {
+        "start": 1399.08,
+        "duration": 6.0,
+        "text": "a look at one of these like the uh the"
+      },
+      {
+        "start": 1400.799,
+        "duration": 7.281,
+        "text": "Astra apparel shopping assistant here um"
+      },
+      {
+        "start": 1405.08,
+        "duration": 5.88,
+        "text": "and go to configuration and networking"
+      },
+      {
+        "start": 1408.08,
+        "duration": 6.92,
+        "text": "you'll notice that we have an AWS"
+      },
+      {
+        "start": 1410.96,
+        "duration": 6.719,
+        "text": "security group that is attached to this"
+      },
+      {
+        "start": 1415.0,
+        "duration": 4.72,
+        "text": "as well as all of the other all of the"
+      },
+      {
+        "start": 1417.679,
+        "duration": 5.401,
+        "text": "other running containers inside of our"
+      },
+      {
+        "start": 1419.72,
+        "duration": 6.199,
+        "text": "ECS cluster so if I click into this just"
+      },
+      {
+        "start": 1423.08,
+        "duration": 6.4,
+        "text": "to have a look you can see what we've"
+      },
+      {
+        "start": 1425.919,
+        "duration": 6.12,
+        "text": "done here is opened some ports so that"
+      },
+      {
+        "start": 1429.48,
+        "duration": 4.319,
+        "text": "we can go ahead and reach the containers"
+      },
+      {
+        "start": 1432.039,
+        "duration": 2.921,
+        "text": "that are on the other side or connected"
+      },
+      {
+        "start": 1433.799,
+        "duration": 3.48,
+        "text": "to these"
+      },
+      {
+        "start": 1434.96,
+        "duration": 6.64,
+        "text": "ports um and you'll notice that we have"
+      },
+      {
+        "start": 1437.279,
+        "duration": 8.64,
+        "text": "ports for 78 8 60 88090 8080"
+      },
+      {
+        "start": 1441.6,
+        "duration": 5.76,
+        "text": "8100 and that should be okay all right"
+      },
+      {
+        "start": 1445.919,
+        "duration": 4.601,
+        "text": "I'm going to go ahead and click on"
+      },
+      {
+        "start": 1447.36,
+        "duration": 5.48,
+        "text": "create new task"
+      },
+      {
+        "start": 1450.52,
+        "duration": 6.24,
+        "text": "definition and for task definition"
+      },
+      {
+        "start": 1452.84,
+        "duration": 8.12,
+        "text": "family I'm going to say DS albums"
+      },
+      {
+        "start": 1456.76,
+        "duration": 6.68,
+        "text": "Aon um we do want AWS"
+      },
+      {
+        "start": 1460.96,
+        "duration": 4.88,
+        "text": "fargate um for operating system"
+      },
+      {
+        "start": 1463.44,
+        "duration": 4.44,
+        "text": "architecture you have to remember that"
+      },
+      {
+        "start": 1465.84,
+        "duration": 6.199,
+        "text": "what you need to pick here is what your"
+      },
+      {
+        "start": 1467.88,
+        "duration": 7.76,
+        "text": "image was built on uh I have a Mac M2"
+      },
+      {
+        "start": 1472.039,
+        "duration": 5.561,
+        "text": "which is a uh you know an arm system so"
+      },
+      {
+        "start": 1475.64,
+        "duration": 5.48,
+        "text": "I'm going to pick Linux arm"
+      },
+      {
+        "start": 1477.6,
+        "duration": 6.92,
+        "text": "64 um arm of course is short for"
+      },
+      {
+        "start": 1481.12,
+        "duration": 6.72,
+        "text": "advanced risk machine um risk you know"
+      },
+      {
+        "start": 1484.52,
+        "duration": 5.039,
+        "text": "for those of you scoring at home is uh"
+      },
+      {
+        "start": 1487.84,
+        "duration": 4.76,
+        "text": "you know reduced instruction set"
+      },
+      {
+        "start": 1489.559,
+        "duration": 5.521,
+        "text": "computer versus the traditional x86"
+      },
+      {
+        "start": 1492.6,
+        "duration": 5.799,
+        "text": "architecture of cisk or complex"
+      },
+      {
+        "start": 1495.08,
+        "duration": 5.839,
+        "text": "instruction set computer anyway uh for"
+      },
+      {
+        "start": 1498.399,
+        "duration": 4.321,
+        "text": "resources you know one CPU 3 gigs of RAM"
+      },
+      {
+        "start": 1500.919,
+        "duration": 3.521,
+        "text": "is fine we don't need to mess with the"
+      },
+      {
+        "start": 1502.72,
+        "duration": 4.48,
+        "text": "uh the task"
+      },
+      {
+        "start": 1504.44,
+        "duration": 6.08,
+        "text": "execution okay container we'll just go"
+      },
+      {
+        "start": 1507.2,
+        "duration": 5.88,
+        "text": "with Ds albums actually for image URI"
+      },
+      {
+        "start": 1510.52,
+        "duration": 5.759,
+        "text": "what I'm going to do is real quick jump"
+      },
+      {
+        "start": 1513.08,
+        "duration": 6.92,
+        "text": "over to or jump back to the"
+      },
+      {
+        "start": 1516.279,
+        "duration": 7.841,
+        "text": "ECR and we'll have a look at DS albums"
+      },
+      {
+        "start": 1520.0,
+        "duration": 9.88,
+        "text": "for images and right here you can see is"
+      },
+      {
+        "start": 1524.12,
+        "duration": 10.0,
+        "text": "my image URI so I am going to copy"
+      },
+      {
+        "start": 1529.88,
+        "duration": 6.48,
+        "text": "that jump back to here and"
+      },
+      {
+        "start": 1534.12,
+        "duration": 4.279,
+        "text": "paste all"
+      },
+      {
+        "start": 1536.36,
+        "duration": 4.319,
+        "text": "right now I know when we ran the"
+      },
+      {
+        "start": 1538.399,
+        "duration": 5.081,
+        "text": "container on Docker on my local we ran"
+      },
+      {
+        "start": 1540.679,
+        "duration": 6.401,
+        "text": "it on Port 9090 um but for this one"
+      },
+      {
+        "start": 1543.48,
+        "duration": 8.64,
+        "text": "we're going to stick with"
+      },
+      {
+        "start": 1547.08,
+        "duration": 7.199,
+        "text": "880 let's see here um so environment"
+      },
+      {
+        "start": 1552.12,
+        "duration": 5.919,
+        "text": "variables uh we have a couple we need to"
+      },
+      {
+        "start": 1554.279,
+        "duration": 6.241,
+        "text": "add if you remember so let's go ahead"
+      },
+      {
+        "start": 1558.039,
+        "duration": 6.961,
+        "text": "and and create"
+      },
+      {
+        "start": 1560.52,
+        "duration": 9.96,
+        "text": "entries for our DB API"
+      },
+      {
+        "start": 1565.0,
+        "duration": 9.64,
+        "text": "endpoint as well as our DB application"
+      },
+      {
+        "start": 1570.48,
+        "duration": 9.04,
+        "text": "token and of course we're going to uh"
+      },
+      {
+        "start": 1574.64,
+        "duration": 7.919,
+        "text": "paste in our data API load balancer just"
+      },
+      {
+        "start": 1579.52,
+        "duration": 7.56,
+        "text": "like that and then we're also going to"
+      },
+      {
+        "start": 1582.559,
+        "duration": 6.521,
+        "text": "paste in our uh clusters Cassandra token"
+      },
+      {
+        "start": 1587.08,
+        "duration": 5.0,
+        "text": "there we go"
+      },
+      {
+        "start": 1589.08,
+        "duration": 6.28,
+        "text": "and then we can scroll down I think the"
+      },
+      {
+        "start": 1592.08,
+        "duration": 5.56,
+        "text": "rest of this is all"
+      },
+      {
+        "start": 1595.36,
+        "duration": 7.799,
+        "text": "okay yep let's hit"
+      },
+      {
+        "start": 1597.64,
+        "duration": 8.84,
+        "text": "create let's go back to our um ECS"
+      },
+      {
+        "start": 1603.159,
+        "duration": 6.041,
+        "text": "cluster and under Services we're going"
+      },
+      {
+        "start": 1606.48,
+        "duration": 4.679,
+        "text": "to do"
+      },
+      {
+        "start": 1609.2,
+        "duration": 3.52,
+        "text": "create all right so that's going to be"
+      },
+      {
+        "start": 1611.159,
+        "duration": 3.76,
+        "text": "on our existing"
+      },
+      {
+        "start": 1612.72,
+        "duration": 5.079,
+        "text": "cluster uh we're going to use fargate"
+      },
+      {
+        "start": 1614.919,
+        "duration": 5.76,
+        "text": "for that yeah latest to platform version"
+      },
+      {
+        "start": 1617.799,
+        "duration": 6.12,
+        "text": "we do want want to use a service um we"
+      },
+      {
+        "start": 1620.679,
+        "duration": 6.081,
+        "text": "are going to select a task definition"
+      },
+      {
+        "start": 1623.919,
+        "duration": 5.321,
+        "text": "family and we specified DS albums Aaron"
+      },
+      {
+        "start": 1626.76,
+        "duration": 4.72,
+        "text": "as our task definition family so let's"
+      },
+      {
+        "start": 1629.24,
+        "duration": 5.28,
+        "text": "click on that uh we only have one"
+      },
+      {
+        "start": 1631.48,
+        "duration": 4.72,
+        "text": "version so revision one the latest um"
+      },
+      {
+        "start": 1634.52,
+        "duration": 5.32,
+        "text": "and we can just say"
+      },
+      {
+        "start": 1636.2,
+        "duration": 3.64,
+        "text": "DS albums"
+      },
+      {
+        "start": 1641.36,
+        "duration": 6.0,
+        "text": "here so under here on networking we get"
+      },
+      {
+        "start": 1645.2,
+        "duration": 4.28,
+        "text": "to pick our security group down here now"
+      },
+      {
+        "start": 1647.36,
+        "duration": 5.16,
+        "text": "this is our default Security Group for"
+      },
+      {
+        "start": 1649.48,
+        "duration": 5.72,
+        "text": "our entire AWS account here we"
+      },
+      {
+        "start": 1652.52,
+        "duration": 6.24,
+        "text": "definitely don't want that if I go to"
+      },
+      {
+        "start": 1655.2,
+        "duration": 6.4,
+        "text": "here and say rein oh look at that AWS"
+      },
+      {
+        "start": 1658.76,
+        "duration": 6.32,
+        "text": "reinvent demos all right rest of that"
+      },
+      {
+        "start": 1661.6,
+        "duration": 3.48,
+        "text": "looks okay let's say"
+      },
+      {
+        "start": 1671.279,
+        "duration": 7.601,
+        "text": "create and as you can see our DS albums"
+      },
+      {
+        "start": 1675.64,
+        "duration": 6.6,
+        "text": "service is indeed defined we have zero"
+      },
+      {
+        "start": 1678.88,
+        "duration": 6.76,
+        "text": "of one tasks running it is in"
+      },
+      {
+        "start": 1682.24,
+        "duration": 6.279,
+        "text": "progress okay our task has elevated"
+      },
+      {
+        "start": 1685.64,
+        "duration": 7.68,
+        "text": "status uh up to running we have a look"
+      },
+      {
+        "start": 1688.519,
+        "duration": 7.201,
+        "text": "at the logs here um yeah you can see"
+      },
+      {
+        "start": 1693.32,
+        "duration": 5.04,
+        "text": "that it does look like our application"
+      },
+      {
+        "start": 1695.72,
+        "duration": 7.92,
+        "text": "is indeed running out"
+      },
+      {
+        "start": 1698.36,
+        "duration": 5.28,
+        "text": "there so uh with that in"
+      },
+      {
+        "start": 1704.08,
+        "duration": 5.56,
+        "text": "mind let's have a look uh let's go back"
+      },
+      {
+        "start": 1707.6,
+        "duration": 5.04,
+        "text": "here"
+      },
+      {
+        "start": 1709.64,
+        "duration": 5.919,
+        "text": "oh yeah one running task that's good"
+      },
+      {
+        "start": 1712.64,
+        "duration": 2.919,
+        "text": "have a look at our"
+      },
+      {
+        "start": 1716.559,
+        "duration": 6.521,
+        "text": "task and you can see that we do in fact"
+      },
+      {
+        "start": 1720.279,
+        "duration": 5.161,
+        "text": "have a public IP address"
+      },
+      {
+        "start": 1723.08,
+        "duration": 6.079,
+        "text": "here so we have our address up here"
+      },
+      {
+        "start": 1725.44,
+        "duration": 3.719,
+        "text": "let's make sure that is on port"
+      },
+      {
+        "start": 1733.0,
+        "duration": 5.76,
+        "text": "8080 hey look at that we have our albums"
+      },
+      {
+        "start": 1736.919,
+        "duration": 4.161,
+        "text": "no problem"
+      },
+      {
+        "start": 1738.76,
+        "duration": 2.32,
+        "text": "all"
+      },
+      {
+        "start": 1741.399,
+        "duration": 6.52,
+        "text": "right these uh yeah yeah this is uh this"
+      },
+      {
+        "start": 1744.88,
+        "duration": 5.799,
+        "text": "is working look at"
+      },
+      {
+        "start": 1747.919,
+        "duration": 6.081,
+        "text": "that and search for"
+      },
+      {
+        "start": 1750.679,
+        "duration": 5.72,
+        "text": "Rush rce Under Pressure counterparts"
+      },
+      {
+        "start": 1754.0,
+        "duration": 6.159,
+        "text": "yeah yeah this is all good hey there we"
+      },
+      {
+        "start": 1756.399,
+        "duration": 7.041,
+        "text": "go we've now deployed a Cassandra based"
+      },
+      {
+        "start": 1760.159,
+        "duration": 6.441,
+        "text": "application out to Amazon ECS which of"
+      },
+      {
+        "start": 1763.44,
+        "duration": 6.44,
+        "text": "course is using a dsse cluster that was"
+      },
+      {
+        "start": 1766.6,
+        "duration": 7.319,
+        "text": "built on Amazon"
+      },
+      {
+        "start": 1769.88,
+        "duration": 6.919,
+        "text": "eks and it's all running out in US West"
+      },
+      {
+        "start": 1773.919,
+        "duration": 5.961,
+        "text": "2 for more information on data Stacks"
+      },
+      {
+        "start": 1776.799,
+        "duration": 5.961,
+        "text": "Enterprise just head out to"
+      },
+      {
+        "start": 1779.88,
+        "duration": 5.919,
+        "text": "data.com products"
+      },
+      {
+        "start": 1782.76,
+        "duration": 5.279,
+        "text": "datastax-enterprise there you can find"
+      },
+      {
+        "start": 1785.799,
+        "duration": 5.0,
+        "text": "all the information you need including"
+      },
+      {
+        "start": 1788.039,
+        "duration": 6.12,
+        "text": "downloads and documentation thank you"
+      },
+      {
+        "start": 1790.799,
+        "duration": 3.36,
+        "text": "and have a great day"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-10T23:49:42.193383+00:00"
+}

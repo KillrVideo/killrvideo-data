@@ -1,0 +1,3266 @@
+{
+  "video_id": "M0jPxoEdh8w",
+  "title": "DataStax Presents: So You Want to Run a Data-Intensive System on Kubernetes with Alena Hall",
+  "description": "Distributed databases, stateful stream processing workloads, caches, machine learning frameworks often require persistence for storing user or system data, operation progress, and more. There are differences in managing state while running systems like Cassandra, Kafka, Spark, etc. on Kubernetes instead of regular VMs or physical servers.\n\nAlena Hall guides us through tcurrent solutions, and Kubernetes foundational concepts (e.g. Stateful Sets) that help get those systems up and running. But up and running isn’t always equal to operating correctly. She goes over some challenges in managing existing data processing and storage systems on Kubernetes, as well as solutions (e.g. Custom Resource Definitions, custom controllers, operators), and works in progress.\n\nABOUT DATASTAX ENTERPRISE 6\nDataStax  powers  the  Right-Now  Enterprise  with  the  always-on,  distributed  cloud  database  built  on  Apache  Cassandra™  and designed for hybrid cloud. DataStax Enterprise 6 (DSE 6) includes industry-leading performance, self-driving operational simplicity, and robust analytics.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://www.datastax.com/products/datastax-enterprise-6\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax | https://twitter.com/datastax-academy\nLinkedin: https://www.linkedin.com/company/datastax\nhttp://feeds.feedburner.com/datastax \nhttps://github.com/datastax \n\nABOUT DATASTAX ACADEMY\nOn the DataStax Academy YouTube channel, you can find tutorials, webinars and much more to help you learn and stay updated with the latest information on DataStax Enterprise©.  Create an account on https://academy.datastax.com to watch our free online courses, tutorials, and more.",
+  "published_at": "2018-10-24T13:00:03Z",
+  "thumbnail": "https://i.ytimg.com/vi/M0jPxoEdh8w/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "tutorial",
+    "database",
+    "performance",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=M0jPxoEdh8w",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "and with that Lina is going to talk about some so you want to run data tensive applications no systems systems on kubernetes Thanks once again welcome everybody thank you so much for coming out I am Alena hall I work on Azure at Microsoft you can find me as lina droid on twitter and i'm going to talk to you today about running your data processing systems or data intensive systems on kubernetes so what are those systems that we're going to look at in this talk it can be anything that involves storing data either in memory or on disk processing data analyzing data streaming data anybody use those systems like this in their project almost everybody that's what expected so we have been running systems like that for years on virtual machines and on physical machines but how can I make sure that when I run those systems on kubernetes I have the same guarantees that those systems provide and what are the differences what are the challenges should we do that or not so everything that I would have loved to cover one probably fit in one talk so but still we're gonna cover some really interesting things let's get started so the systems that we're looking at can be systems like the Sandra or Kafka or spark or tensorflow and so on and what do they have in common they all run in some sort of distributed environment cassandra needs nodes that form a consistent hashing ring where each node is responsible for certain hash ranges and the data is replicated and partitioned Kafka also needs nodes that are called brokers that store data and topics that are partitioned and where publishers can send - and consumers can read data from spark has worker nodes that run executor processes that perform tasks and distributed jobs and most of those systems they require stable persistence storage like for Cassandra or Kafka some of them operate mostly in memory like spark for example or Redis but for certain aspects they still need persistence and storage for example saving a train machine learning model or you know persisting data on disk that wasn't memory and people do want to run these similar systems like this on kubernetes first because sometimes they already have a bunch of other things running on kubernetes like micro services or other things and second reason might be kubernetes can cut costs for certain use cases allows more flexibility and makes development and operations more efficient in certain use cases and also kubernetes ecosystem is improving and growing really fast so if something has not been available or implemented a few months ago it doesn't mean that it has not been fixed by now and also my friend Gwen from confluent mentioned one fact that is kind of surprising companies who are willing to run their distributed systems on kubernetes are not hipster startups there are actual large enterprises so it doesn't mean that you don't have to be pragmatic so if the technology is not production ready it should be really careful with your choices but in general if flexibility if some is something that you're looking forward to then Cabrini just might be a good platform and it also provides cloud agnostic application deployment and management and so I think we will get more and more stateful distributive systems running on kubernetes in various companies soon so let's get to the question of how do we run systems like Kafka spark cassandra on kubernetes and this question is might sound ambiguous because it might have several interpretations for example the first interpretation might be what kubernetes abstractions can we use to run these distributed systems the second interpretation might be what are the steps that we need to take to simply get those distributed system systems up and running based on those kubernetes abstractions and the third interpretation might be how to give those distributed systems up and running first based on these kubernetes abstractions but also make sure that they work correctly according to what is considered correct behavior for those systems and we're going to look at all of the answers so first of all kubernetes abstractions choice of kubernetes abstraction depends on a particular system you want to run is your system stateless or super simple then maybe it should be a pod is it something that needs to restart or repeat in regular basis then it might be a job if it needs to keep certain number of replicas always up and running it could be a deployment or a replica set doesn't need persistence does it need stable identity or ordering guarantees if so it could be a stateful set as a foundation and we can also create our own custom resource definitions in addition to those already supported by kubernetes and it's a very interesting topic and we will cover that as well so the next question is what steps should we follow to simply get those systems up and running based on these kubernetes abstractions anybody uses young old files to deploy things on kubernetes okay who knows what helm is okay and who knows what operators are okay cool so don't worry if you have not heard of any of these concepts because we'll go over them they're all different things and we can't really compare them one to another is there slightly for different purposes but so younger files or JSON files basically are for resource specification they're very simple but they can also get very complicated and messy especially when we're dealing with big deployments and complicated components and managing the mo files becomes really hard but they're kind of the foundation of everything API server incriminate accepts them so let's look at an example so in the example I'll show you how to get your Cassandra up and running in kubernetes using stateful sets and yellow files and so managing stateful applications and kubernetes is notoriously difficult and to overcome some of these challenges we can use stateful sets because they provide stable identity or during stable Network endpoints for reaching pods and also persistent volumes so let's take a look this is a definition of a yellow file with a stateful set for Cassander with a bunch of parameters this is basically the file that you deploy that creates your resource in kubernetes and if we run it first of all we need to create a service like a headless service the way to manage the pods and then we create a stateful set from that file and finally we can the status of the stateful set like this and whenever the state will set reaches the target count we can will see that current count is equal to desired count and if you're curious about that part I have a blog post about it that explains everything in detail and I'll share the link at the end of the talk but this is not production-ready this is for reference and this is a good basis for understanding next next parts this works for us to get Cassandra up and running with yellow files but up and running does not really mean operating correctly how can we improve things in this case I know that some of you may say what about helm charts do they improve something because there are ham charts for Cassandra or Kafka or other things do they make things better so they improve some things but not all of them helm is a package manager for kubernetes and it makes it easy to install applications and resources on to kubernetes clusters and it improves the organizational aspect of things but it has no idea about like the functionality that you are deploying it makes it easier to manage those diamo files so let's look into it so they could get a better idea so helm has concept of charts and a single chart might be used to deploy something very simple like one pod or something complicated like a full set of web application stack and HP server and caches and so on and health chart as a package contains all the information needed to install that set of resources on to kubernetes cluster and it usually contains charge mo file where the information about the chart itself is stored and templates and those templates basically generate manifest files that are basically llamo formatted resource definitions and we can also specify various parameters that we deploy those files with so it basically helps us manage the Emerald files in a much better way at the end kubernetes still receives those files but Hjelm really helps make it easier it does not help improve how things work on the inside of the resource definition just how we manage the deployment process if you're curious about that you can also take a look at kubernetes slash charts github repo where you can find a lot of examples of various charts available and there are also other things to deploy your applications rather than using llamó directly or through helm to manage them for example some of you may know about the recent capability of spark to be deployed natively on kubernetes and in this case spark is not deployed using cube CTO and llamó file definition or easing helm there was a spark submit command and when if you're familiar with spark outside of kubernetes you can deploy things you can spark submit you indicate your jar file and it runs a job on the scheduler of your choice so and by native support I mean that the same commands are submit works with kubernetes by you just specifying a kubernetes master address and spark container so you don't work with llamó files you work with the same command that you worked with before so it all depends on the way you implement things so let's look at one example so I'm starting a proxy to be able to talk to kubernetes master using localhost and I'll be running an example that would start a spark job with a parameter and the spark job will just recommend episodes to watch of your favorite show and it will be pulling out spark images from docker hub registry and I'm just using spark submit command indicating at a kubernetes master the class name number of instances I'm going to run my spark image and jar file and a parameter so when I run the job it will start the spark job and let's see what happens in the background in kubernetes so if we get pods we will see that there are three pods running a driver and two executors which are spark concepts and after the job is completed I will see the results so its terminated here we will see the results collected in the kubernetes driver logs and the name of the driver pod and here they are number of episodes that contain the special characters appearance so this is how it works so even though we use the standard spark command it created all the kubernetes resources behind the scenes and it's cool and it works but can we really rely on this approach of using directly built-in kubernetes abstractions is there anything missing with those approaches so one of the downsides of using built-in kubernetes primitives is that we have limited management so yes pods and stateful sets and deployments they support keeping a certain number of replicas always up and running yes we can have instance for the unique name and ordering guarantees and storage attached but there are other things that are important for example what about the state of your application itself or the consistency of data in your cluster in a database for example adding a node in the cluster is not nearly enough we would also need to make sure that will trigger some processes for rebalancing data or moving and replicating some of the data to the newly added node to make sure it's fully operational so this leads us to the next question of how do we make sure that we not only keep our systems up and running on kubernetes but also make sure they operate correctly based on what correctly means for them and it comes down to some application specific things that need special care abstractions like stateful sets are powerful but they alone they have no idea what's different between Kafka or cluster and Cassandra cluster so they don't know if they should manage those things differently unless we tell them to so we still need to take those nuances specific to a stateful application under consideration and there are a lot of things that need special care for example let's take Kafka as an example there are some specific things that are specific only to Kafka that needs special care when deploying and on kubernetes one of them is configuration for example correct correct Kafka cluster means correct configuration so some of the configuration values are pod specific like broker ID broker RAC advertised listeners and some of the configuration is this should be the same for all of the pods like replication specific configuration or zookeeper connect and broker ID should be set to the ordinal index of the stateful set that is assigned to each kafka pod so also there are things like iraq assignment and other aspects restarts and upgrades should be handled with caution so for Kafka's safes rolling update might mean several things like making sure that there are no under replicated partitions and that the cluster is healthy and all the pods are ready and available we also need to make sure that where we start where restarting pods one part at a time and when we're starting the next node waiting for it to catch up with the leader in case we need to failover to happen without data loss so there are a lot of things like that another thing that might be important is scaling the cluster so when we add a node we need to make sure that we assign some of the partitions to the newly added node or will be for example might need around a datum balancing told to allocate some of the partitions to the new pod because there are differences when we run things on kubernetes pause or other base abstractions and on VMs VMs don't just whimsically restart all the time Coover natus might do that unless what we tell kubernetes not to do that in certain situations so and we're we're entering the topic of operators here and it's interesting because it might sound like like kubernetes operators might sound like a concept that might be important to container people and it's not really exactly true because khorinis operators are important for kafka engineers or Kassandra engineers for engineers that want their systems to run on kubernetes without problems who want to make sure that they're running correct and not just running so simply speaking operators are just custom resource definitions and custom controllers so customers definitions in short it's CR DS they allow you to define your own objects that become a part of kubernetes api for example we could have a customer source definition for a Cassandra cluster or for Kafka cluster or spark or tensorflow job or any of your own systems that need to manage state were even without state some things that need special care and custom controllers are things that we can use to define logic to manage those CR DS and to make sure that the correct desired State it matches the grade of the correct operation for our specific stateful application so basically they enable us to create logic and manage our CR DS to extend an add functionality so you can think of CR DS as new kubernetes entities and kind of like data types of abstractions and it's probably not the best analogy but if you imagine that your programming language has only built in primitive data types like int string you know you can't do very much with those but they are a good foundation so imagine that CR this is like being able to create your own class classes of things that would work in kubernetes and custom controllers are important because they have direct access to coverages API which means that they can perform changes in actions according to custom rules that we've written inside those controllers so they can say okay kubernetes I see you want to restart our pods you can't do that now because we have data rebalancing going on so if you look at available operators online like if you google caca kubernetes operator you will find that there are three or more options available for each of them there are multiple projects started and they have a lot in common because they're all in a very beginner state so they're all in alpha state CRD concept became available incriminated system pretty recently so you're gonna see a lot of things in active development there is also a confluent operator for Kafka it is not open source but you can sign up for an early preview to try it out but there are a bunch of open source operators you can see that they're trying to implement those rules to make sure that your clusters are running correctly but I have not seen one that is fully operational yet so same for Cassandra and for other things there is also one for SPARC so that's Mark example that I showed you used the SPARC native kubernetes support in addition to that there's also an open source project for a spark operator that tries to simplify some things but it takes a different approach it uses a custom CLI to submit jobs so they developed a CLI called spark CTL and they have their own custom resource definition called spark application and you work with spark this way to make sure that you have automatic job resubmission if something fails you can configure restart policies and have more reliability to just give you basic example of how that works so I'm going to execute a very simple spark job using that spark operator and we're looking at the yellow file for that resource definition here notice that spark application is a kind it's pod status dataset it's spark application and here we have the definition of the configuration we indicated the jar file and then we're using spark CTL create indicating the path of the llamó file with the CR D and then we can see to check what's running looking us oopsie tail get spark application because it became a like a data type live in kubernetes we can do the same with spark CTL it will also list our app we can also get status using the special status command of the operator that will show us that the job is running so you can see that it's a slightly different approach there is also a Redis operator which is one of many read it's operators available online and example of it I also have here so this is when it's already deployed so we have a clustered test Redis cluster deployed we can describe it to see what was the CR Dean test and it was scroll up we'll see here yeah so Redis cluster is the kind of our resource definition which is a CRD of the certain API version and then we will have all of this specific configuration for Redis a Pareto defined in this big file basically anything that you want to write like what does the replication setting is what are the nodes that you're going to use like we distinguish between roles like master and slave and basically anything that you can define that is important for your cluster and we can see there are pods behind the scenes scenes anyway there is an operator pod running and the actual cluster part learning and the operators deployment here so the main thing in this exam in those examples is that when you deploy a customer source definition you deploy an operator first it has the logic that watches your new resources to arrive and it has all information to make sure that it executes the specific logic to track that your app is running correctly to the logic that was defined and to dig a little deeper into the operator topic some of you might want to know how to write your own operator or how to contribute to existing one because there are a lot of frameworks and systems that are looking into adding kubernetes support for example flink is thinking about how to how do they add kubernetes support so far they have helm cards that manage yamo files they've been thinking about creating an operator but they see it like the next next step so it's good to know how to basically like what is inside of the operator to make sure that you understand it if in case you want to contribute to it or you know create your own so as I mentioned controllers are brains behind your resources themselves and controller subscribes to a queue that receives basic requests that on what you do with resources like adding editing deleting resource and controller work worker is going to blog on a call to get the next item in that queue to process it so let's take a look at tender flow operator which is open source so you can easily take a look at the code on github and just try to understand it yourself but I split it up on logical pieces so that you get an idea of what the operator what the real operator is like so this is what a CR D looks like here we have a custom reserved definition for a tensorflow job the kind here is TF job just first short and then you write an operator logic primarily Ingo there is a type called TF job it's a struct and it has two main pieces here specification for desired behavior of a job TF job spec and also a job status definition then we have a job specification which defines what the actual tensorflow job is about and it contains a map of replica types and replica specs or a titter flow job replica specification basically description of what times are flow replica is about like what what number of replicas there are what is the template for pods that it will create for TF replicas and here it will vary on what exactly your system is about like tens our flow uses pods as a base you might decide to use jobs or something else so you implemented the way you need and there's also restart policy for all of the TF replicas and here we have a type of tensorflow job which in tensorflow case is like parameters server worker chief evaluation replica there can be many types any restart policy like we restart the job always or on failure or never job status basically collection of all the replicas statuses with start time completion and this bard is interesting because this is called an informer and informers responsibility is to register event handlers for three different types of events for example add update and delete basically the informer is the link between part of kubernetes that are responsible for handing out those events add delete and update and also for retrieving the resources in the cluster to focus on so informa is it like a proxy between kubernetes and your controller and the cucumber Negus queue is like the store for those events and here we have a controller type itself it has a lot of methods but the main one will be reconcile T of jobs which basically checks and updates replicas for each given replicas specification it will make sure that it will Riku the job in case there is any error while creating deleting updating services and yeah so it will basically make sure that the job stays off and the logic continues in the correct way so this was like an example that you can look at and adjust for you your use case there are more examples online the main thing to remember is that kubernetes has built-in abstractions that are good foundation but they don't really solve all of the problems tools like helm they really help structure and manage deployments they have no idea what's going on inside of your deployments so you can even deploy operators using helm so operators are custom controllers and ste are these custom research definitions and they're basically a way to teach kubernetes understand what our needs are and what is the correct behavior for the systems we deploy and there are many ways to deploy operators some of some of the engineers behind operators deploy them using cube c dl some of them use custom c l eyes some of them build build support for operators inside the services so it's all up to you so i'm happy to discuss any data intensive systems that you might have with and I have a blog I posted a few articles about this topic I have a talk about stateful sets and persist days that I gave it go to Chicago which is kind of like part one of this talk and I also found a really interesting post about creating custom controllers it's the last link here by Thomas stringer so yeah that's me Alina ho-lee Android on Twitter and reach out thank you so much and I think Tim is next [Applause]",
+    "segments": [
+      {
+        "start": 2.58,
+        "duration": 6.69,
+        "text": "and with that Lina is going to talk"
+      },
+      {
+        "start": 6.12,
+        "duration": 6.03,
+        "text": "about some so you want to run data"
+      },
+      {
+        "start": 9.27,
+        "duration": 7.109,
+        "text": "tensive applications no systems systems"
+      },
+      {
+        "start": 12.15,
+        "duration": 6.359,
+        "text": "on kubernetes Thanks once again welcome"
+      },
+      {
+        "start": 16.379,
+        "duration": 3.391,
+        "text": "everybody thank you so much for coming"
+      },
+      {
+        "start": 18.509,
+        "duration": 5.221,
+        "text": "out"
+      },
+      {
+        "start": 19.77,
+        "duration": 7.86,
+        "text": "I am Alena hall I work on Azure at"
+      },
+      {
+        "start": 23.73,
+        "duration": 6.449,
+        "text": "Microsoft you can find me as lina droid"
+      },
+      {
+        "start": 27.63,
+        "duration": 6.24,
+        "text": "on twitter and i'm going to talk to you"
+      },
+      {
+        "start": 30.179,
+        "duration": 6.331,
+        "text": "today about running your data processing"
+      },
+      {
+        "start": 33.87,
+        "duration": 6.149,
+        "text": "systems or data intensive systems on"
+      },
+      {
+        "start": 36.51,
+        "duration": 5.67,
+        "text": "kubernetes so what are those systems"
+      },
+      {
+        "start": 40.019,
+        "duration": 5.581,
+        "text": "that we're going to look at in this talk"
+      },
+      {
+        "start": 42.18,
+        "duration": 6.559,
+        "text": "it can be anything that involves storing"
+      },
+      {
+        "start": 45.6,
+        "duration": 6.51,
+        "text": "data either in memory or on disk"
+      },
+      {
+        "start": 48.739,
+        "duration": 6.371,
+        "text": "processing data analyzing data streaming"
+      },
+      {
+        "start": 52.11,
+        "duration": 7.229,
+        "text": "data anybody use those systems like this"
+      },
+      {
+        "start": 55.11,
+        "duration": 7.769,
+        "text": "in their project almost everybody that's"
+      },
+      {
+        "start": 59.339,
+        "duration": 6.361,
+        "text": "what expected so we have been running"
+      },
+      {
+        "start": 62.879,
+        "duration": 6.021,
+        "text": "systems like that for years on virtual"
+      },
+      {
+        "start": 65.7,
+        "duration": 6.6,
+        "text": "machines and on physical machines but"
+      },
+      {
+        "start": 68.9,
+        "duration": 6.16,
+        "text": "how can I make sure that when I run"
+      },
+      {
+        "start": 72.3,
+        "duration": 5.13,
+        "text": "those systems on kubernetes I have the"
+      },
+      {
+        "start": 75.06,
+        "duration": 4.59,
+        "text": "same guarantees that those systems"
+      },
+      {
+        "start": 77.43,
+        "duration": 4.41,
+        "text": "provide and what are the differences"
+      },
+      {
+        "start": 79.65,
+        "duration": 3.48,
+        "text": "what are the challenges should we do"
+      },
+      {
+        "start": 81.84,
+        "duration": 5.13,
+        "text": "that or not"
+      },
+      {
+        "start": 83.13,
+        "duration": 6.78,
+        "text": "so everything that I would have loved to"
+      },
+      {
+        "start": 86.97,
+        "duration": 5.01,
+        "text": "cover one probably fit in one talk so"
+      },
+      {
+        "start": 89.91,
+        "duration": 5.91,
+        "text": "but still we're gonna cover some really"
+      },
+      {
+        "start": 91.98,
+        "duration": 6.44,
+        "text": "interesting things let's get started so"
+      },
+      {
+        "start": 95.82,
+        "duration": 5.37,
+        "text": "the systems that we're looking at can be"
+      },
+      {
+        "start": 98.42,
+        "duration": 6.7,
+        "text": "systems like the Sandra or Kafka or"
+      },
+      {
+        "start": 101.19,
+        "duration": 5.219,
+        "text": "spark or tensorflow and so on and what"
+      },
+      {
+        "start": 105.12,
+        "duration": 4.23,
+        "text": "do they have in common"
+      },
+      {
+        "start": 106.409,
+        "duration": 6.301,
+        "text": "they all run in some sort of distributed"
+      },
+      {
+        "start": 109.35,
+        "duration": 7.05,
+        "text": "environment cassandra needs nodes that"
+      },
+      {
+        "start": 112.71,
+        "duration": 5.76,
+        "text": "form a consistent hashing ring where"
+      },
+      {
+        "start": 116.4,
+        "duration": 5.85,
+        "text": "each node is responsible for certain"
+      },
+      {
+        "start": 118.47,
+        "duration": 7.53,
+        "text": "hash ranges and the data is replicated"
+      },
+      {
+        "start": 122.25,
+        "duration": 6.629,
+        "text": "and partitioned Kafka also needs nodes"
+      },
+      {
+        "start": 126.0,
+        "duration": 5.25,
+        "text": "that are called brokers that store data"
+      },
+      {
+        "start": 128.879,
+        "duration": 4.411,
+        "text": "and topics that are partitioned and"
+      },
+      {
+        "start": 131.25,
+        "duration": 6.629,
+        "text": "where publishers can send"
+      },
+      {
+        "start": 133.29,
+        "duration": 7.589,
+        "text": "- and consumers can read data from spark"
+      },
+      {
+        "start": 137.879,
+        "duration": 6.181,
+        "text": "has worker nodes that run executor"
+      },
+      {
+        "start": 140.879,
+        "duration": 6.0,
+        "text": "processes that perform tasks and"
+      },
+      {
+        "start": 144.06,
+        "duration": 6.679,
+        "text": "distributed jobs and most of those"
+      },
+      {
+        "start": 146.879,
+        "duration": 7.801,
+        "text": "systems they require stable persistence"
+      },
+      {
+        "start": 150.739,
+        "duration": 6.39,
+        "text": "storage like for Cassandra or Kafka some"
+      },
+      {
+        "start": 154.68,
+        "duration": 6.27,
+        "text": "of them operate mostly in memory like"
+      },
+      {
+        "start": 157.129,
+        "duration": 6.36,
+        "text": "spark for example or Redis but for"
+      },
+      {
+        "start": 160.95,
+        "duration": 5.099,
+        "text": "certain aspects they still need"
+      },
+      {
+        "start": 163.489,
+        "duration": 6.0,
+        "text": "persistence and storage for example"
+      },
+      {
+        "start": 166.049,
+        "duration": 6.571,
+        "text": "saving a train machine learning model or"
+      },
+      {
+        "start": 169.489,
+        "duration": 7.78,
+        "text": "you know persisting data on disk that"
+      },
+      {
+        "start": 172.62,
+        "duration": 7.619,
+        "text": "wasn't memory and people do want to run"
+      },
+      {
+        "start": 177.269,
+        "duration": 6.0,
+        "text": "these similar systems like this on"
+      },
+      {
+        "start": 180.239,
+        "duration": 6.33,
+        "text": "kubernetes first because sometimes they"
+      },
+      {
+        "start": 183.269,
+        "duration": 5.881,
+        "text": "already have a bunch of other things"
+      },
+      {
+        "start": 186.569,
+        "duration": 5.31,
+        "text": "running on kubernetes like micro"
+      },
+      {
+        "start": 189.15,
+        "duration": 5.88,
+        "text": "services or other things and second"
+      },
+      {
+        "start": 191.879,
+        "duration": 6.211,
+        "text": "reason might be kubernetes can cut costs"
+      },
+      {
+        "start": 195.03,
+        "duration": 5.31,
+        "text": "for certain use cases allows more"
+      },
+      {
+        "start": 198.09,
+        "duration": 5.22,
+        "text": "flexibility and makes development and"
+      },
+      {
+        "start": 200.34,
+        "duration": 6.359,
+        "text": "operations more efficient in certain use"
+      },
+      {
+        "start": 203.31,
+        "duration": 6.959,
+        "text": "cases and also kubernetes ecosystem is"
+      },
+      {
+        "start": 206.699,
+        "duration": 5.94,
+        "text": "improving and growing really fast so if"
+      },
+      {
+        "start": 210.269,
+        "duration": 5.28,
+        "text": "something has not been available or"
+      },
+      {
+        "start": 212.639,
+        "duration": 6.09,
+        "text": "implemented a few months ago it doesn't"
+      },
+      {
+        "start": 215.549,
+        "duration": 7.131,
+        "text": "mean that it has not been fixed by now"
+      },
+      {
+        "start": 218.729,
+        "duration": 6.87,
+        "text": "and also my friend Gwen from confluent"
+      },
+      {
+        "start": 222.68,
+        "duration": 6.459,
+        "text": "mentioned one fact that is kind of"
+      },
+      {
+        "start": 225.599,
+        "duration": 5.82,
+        "text": "surprising companies who are willing to"
+      },
+      {
+        "start": 229.139,
+        "duration": 5.28,
+        "text": "run their distributed systems on"
+      },
+      {
+        "start": 231.419,
+        "duration": 7.261,
+        "text": "kubernetes are not hipster startups"
+      },
+      {
+        "start": 234.419,
+        "duration": 6.481,
+        "text": "there are actual large enterprises so it"
+      },
+      {
+        "start": 238.68,
+        "duration": 6.269,
+        "text": "doesn't mean that you don't have to be"
+      },
+      {
+        "start": 240.9,
+        "duration": 5.459,
+        "text": "pragmatic so if the technology is not"
+      },
+      {
+        "start": 244.949,
+        "duration": 3.421,
+        "text": "production ready it should be really"
+      },
+      {
+        "start": 246.359,
+        "duration": 4.41,
+        "text": "careful with your choices but in general"
+      },
+      {
+        "start": 248.37,
+        "duration": 4.92,
+        "text": "if flexibility if some is something that"
+      },
+      {
+        "start": 250.769,
+        "duration": 5.28,
+        "text": "you're looking forward to then Cabrini"
+      },
+      {
+        "start": 253.29,
+        "duration": 5.43,
+        "text": "just might be a good platform and it"
+      },
+      {
+        "start": 256.049,
+        "duration": 7.291,
+        "text": "also provides cloud agnostic application"
+      },
+      {
+        "start": 258.72,
+        "duration": 6.72,
+        "text": "deployment and management and so I think"
+      },
+      {
+        "start": 263.34,
+        "duration": 3.75,
+        "text": "we will get more and more stateful"
+      },
+      {
+        "start": 265.44,
+        "duration": 6.15,
+        "text": "distributive systems running on"
+      },
+      {
+        "start": 267.09,
+        "duration": 7.56,
+        "text": "kubernetes in various companies soon so"
+      },
+      {
+        "start": 271.59,
+        "duration": 6.75,
+        "text": "let's get to the question of how do we"
+      },
+      {
+        "start": 274.65,
+        "duration": 8.52,
+        "text": "run systems like Kafka spark cassandra"
+      },
+      {
+        "start": 278.34,
+        "duration": 6.78,
+        "text": "on kubernetes and this question is might"
+      },
+      {
+        "start": 283.17,
+        "duration": 6.0,
+        "text": "sound ambiguous because it might have"
+      },
+      {
+        "start": 285.12,
+        "duration": 6.24,
+        "text": "several interpretations for example the"
+      },
+      {
+        "start": 289.17,
+        "duration": 4.62,
+        "text": "first interpretation might be what"
+      },
+      {
+        "start": 291.36,
+        "duration": 5.64,
+        "text": "kubernetes abstractions can we use to"
+      },
+      {
+        "start": 293.79,
+        "duration": 5.58,
+        "text": "run these distributed systems the second"
+      },
+      {
+        "start": 297.0,
+        "duration": 6.27,
+        "text": "interpretation might be what are the"
+      },
+      {
+        "start": 299.37,
+        "duration": 6.27,
+        "text": "steps that we need to take to simply get"
+      },
+      {
+        "start": 303.27,
+        "duration": 2.94,
+        "text": "those distributed system systems up and"
+      },
+      {
+        "start": 305.64,
+        "duration": 2.73,
+        "text": "running"
+      },
+      {
+        "start": 306.21,
+        "duration": 5.69,
+        "text": "based on those kubernetes abstractions"
+      },
+      {
+        "start": 308.37,
+        "duration": 6.45,
+        "text": "and the third interpretation might be"
+      },
+      {
+        "start": 311.9,
+        "duration": 4.81,
+        "text": "how to give those distributed systems up"
+      },
+      {
+        "start": 314.82,
+        "duration": 4.41,
+        "text": "and running first based on these"
+      },
+      {
+        "start": 316.71,
+        "duration": 5.55,
+        "text": "kubernetes abstractions but also make"
+      },
+      {
+        "start": 319.23,
+        "duration": 6.27,
+        "text": "sure that they work correctly according"
+      },
+      {
+        "start": 322.26,
+        "duration": 6.66,
+        "text": "to what is considered correct behavior"
+      },
+      {
+        "start": 325.5,
+        "duration": 7.17,
+        "text": "for those systems and we're going to"
+      },
+      {
+        "start": 328.92,
+        "duration": 7.05,
+        "text": "look at all of the answers so first of"
+      },
+      {
+        "start": 332.67,
+        "duration": 5.4,
+        "text": "all kubernetes abstractions choice of"
+      },
+      {
+        "start": 335.97,
+        "duration": 4.11,
+        "text": "kubernetes abstraction depends on a"
+      },
+      {
+        "start": 338.07,
+        "duration": 5.67,
+        "text": "particular system you want to run is"
+      },
+      {
+        "start": 340.08,
+        "duration": 6.39,
+        "text": "your system stateless or super simple"
+      },
+      {
+        "start": 343.74,
+        "duration": 4.91,
+        "text": "then maybe it should be a pod is it"
+      },
+      {
+        "start": 346.47,
+        "duration": 4.53,
+        "text": "something that needs to restart or"
+      },
+      {
+        "start": 348.65,
+        "duration": 5.98,
+        "text": "repeat in regular basis"
+      },
+      {
+        "start": 351.0,
+        "duration": 6.09,
+        "text": "then it might be a job if it needs to"
+      },
+      {
+        "start": 354.63,
+        "duration": 4.98,
+        "text": "keep certain number of replicas always"
+      },
+      {
+        "start": 357.09,
+        "duration": 5.34,
+        "text": "up and running it could be a deployment"
+      },
+      {
+        "start": 359.61,
+        "duration": 6.03,
+        "text": "or a replica set doesn't need"
+      },
+      {
+        "start": 362.43,
+        "duration": 6.57,
+        "text": "persistence does it need stable identity"
+      },
+      {
+        "start": 365.64,
+        "duration": 7.68,
+        "text": "or ordering guarantees if so it could be"
+      },
+      {
+        "start": 369.0,
+        "duration": 7.5,
+        "text": "a stateful set as a foundation and we"
+      },
+      {
+        "start": 373.32,
+        "duration": 6.27,
+        "text": "can also create our own custom resource"
+      },
+      {
+        "start": 376.5,
+        "duration": 6.39,
+        "text": "definitions in addition to those already"
+      },
+      {
+        "start": 379.59,
+        "duration": 5.21,
+        "text": "supported by kubernetes and it's a very"
+      },
+      {
+        "start": 382.89,
+        "duration": 6.6,
+        "text": "interesting topic and we will cover that"
+      },
+      {
+        "start": 384.8,
+        "duration": 7.24,
+        "text": "as well so the next question is what"
+      },
+      {
+        "start": 389.49,
+        "duration": 4.08,
+        "text": "steps should we follow to simply get"
+      },
+      {
+        "start": 392.04,
+        "duration": 5.99,
+        "text": "those systems up and running"
+      },
+      {
+        "start": 393.57,
+        "duration": 4.46,
+        "text": "based on these kubernetes abstractions"
+      },
+      {
+        "start": 398.16,
+        "duration": 5.46,
+        "text": "anybody uses young old files to deploy"
+      },
+      {
+        "start": 400.59,
+        "duration": 7.74,
+        "text": "things on kubernetes okay"
+      },
+      {
+        "start": 403.62,
+        "duration": 9.81,
+        "text": "who knows what helm is okay and who"
+      },
+      {
+        "start": 408.33,
+        "duration": 6.87,
+        "text": "knows what operators are okay cool so"
+      },
+      {
+        "start": 413.43,
+        "duration": 4.95,
+        "text": "don't worry if you have not heard of any"
+      },
+      {
+        "start": 415.2,
+        "duration": 7.05,
+        "text": "of these concepts because we'll go over"
+      },
+      {
+        "start": 418.38,
+        "duration": 7.17,
+        "text": "them they're all different things and we"
+      },
+      {
+        "start": 422.25,
+        "duration": 5.91,
+        "text": "can't really compare them one to another"
+      },
+      {
+        "start": 425.55,
+        "duration": 6.68,
+        "text": "is there slightly for different purposes"
+      },
+      {
+        "start": 428.16,
+        "duration": 7.47,
+        "text": "but so younger files or JSON files"
+      },
+      {
+        "start": 432.23,
+        "duration": 5.8,
+        "text": "basically are for resource specification"
+      },
+      {
+        "start": 435.63,
+        "duration": 4.73,
+        "text": "they're very simple but they can also"
+      },
+      {
+        "start": 438.03,
+        "duration": 5.04,
+        "text": "get very complicated and messy"
+      },
+      {
+        "start": 440.36,
+        "duration": 5.41,
+        "text": "especially when we're dealing with big"
+      },
+      {
+        "start": 443.07,
+        "duration": 5.97,
+        "text": "deployments and complicated components"
+      },
+      {
+        "start": 445.77,
+        "duration": 6.0,
+        "text": "and managing the mo files becomes really"
+      },
+      {
+        "start": 449.04,
+        "duration": 5.34,
+        "text": "hard but they're kind of the foundation"
+      },
+      {
+        "start": 451.77,
+        "duration": 6.65,
+        "text": "of everything API server incriminate"
+      },
+      {
+        "start": 454.38,
+        "duration": 7.04,
+        "text": "accepts them so let's look at an example"
+      },
+      {
+        "start": 458.42,
+        "duration": 6.7,
+        "text": "so in the example I'll show you how to"
+      },
+      {
+        "start": 461.42,
+        "duration": 6.37,
+        "text": "get your Cassandra up and running in"
+      },
+      {
+        "start": 465.12,
+        "duration": 6.96,
+        "text": "kubernetes using stateful sets and"
+      },
+      {
+        "start": 467.79,
+        "duration": 6.56,
+        "text": "yellow files and so managing stateful"
+      },
+      {
+        "start": 472.08,
+        "duration": 6.18,
+        "text": "applications and kubernetes is"
+      },
+      {
+        "start": 474.35,
+        "duration": 5.98,
+        "text": "notoriously difficult and to overcome"
+      },
+      {
+        "start": 478.26,
+        "duration": 4.26,
+        "text": "some of these challenges we can use"
+      },
+      {
+        "start": 480.33,
+        "duration": 5.43,
+        "text": "stateful sets because they provide"
+      },
+      {
+        "start": 482.52,
+        "duration": 8.04,
+        "text": "stable identity or during stable Network"
+      },
+      {
+        "start": 485.76,
+        "duration": 8.03,
+        "text": "endpoints for reaching pods and also"
+      },
+      {
+        "start": 490.56,
+        "duration": 6.27,
+        "text": "persistent volumes so let's take a look"
+      },
+      {
+        "start": 493.79,
+        "duration": 6.7,
+        "text": "this is a definition of a yellow file"
+      },
+      {
+        "start": 496.83,
+        "duration": 6.12,
+        "text": "with a stateful set for Cassander with a"
+      },
+      {
+        "start": 500.49,
+        "duration": 4.56,
+        "text": "bunch of parameters this is basically"
+      },
+      {
+        "start": 502.95,
+        "duration": 7.95,
+        "text": "the file that you deploy that creates"
+      },
+      {
+        "start": 505.05,
+        "duration": 11.119,
+        "text": "your resource in kubernetes and if we"
+      },
+      {
+        "start": 510.9,
+        "duration": 9.24,
+        "text": "run it first of all we need to create a"
+      },
+      {
+        "start": 516.169,
+        "duration": 7.441,
+        "text": "service like a headless service the way"
+      },
+      {
+        "start": 520.14,
+        "duration": 8.699,
+        "text": "to manage the pods and then we create a"
+      },
+      {
+        "start": 523.61,
+        "duration": 6.7,
+        "text": "stateful set from that file and finally"
+      },
+      {
+        "start": 528.839,
+        "duration": 8.461,
+        "text": "we can"
+      },
+      {
+        "start": 530.31,
+        "duration": 9.66,
+        "text": "the status of the stateful set like this"
+      },
+      {
+        "start": 537.3,
+        "duration": 5.399,
+        "text": "and whenever the state will set reaches"
+      },
+      {
+        "start": 539.97,
+        "duration": 4.679,
+        "text": "the target count we can will see that"
+      },
+      {
+        "start": 542.699,
+        "duration": 5.07,
+        "text": "current count is equal to desired count"
+      },
+      {
+        "start": 544.649,
+        "duration": 5.071,
+        "text": "and if you're curious about that part I"
+      },
+      {
+        "start": 547.769,
+        "duration": 4.591,
+        "text": "have a blog post about it that explains"
+      },
+      {
+        "start": 549.72,
+        "duration": 5.279,
+        "text": "everything in detail and I'll share the"
+      },
+      {
+        "start": 552.36,
+        "duration": 3.839,
+        "text": "link at the end of the talk but this is"
+      },
+      {
+        "start": 554.999,
+        "duration": 3.39,
+        "text": "not production-ready"
+      },
+      {
+        "start": 556.199,
+        "duration": 5.781,
+        "text": "this is for reference and this is a good"
+      },
+      {
+        "start": 558.389,
+        "duration": 6.781,
+        "text": "basis for understanding next next parts"
+      },
+      {
+        "start": 561.98,
+        "duration": 6.519,
+        "text": "this works for us to get Cassandra up"
+      },
+      {
+        "start": 565.17,
+        "duration": 5.31,
+        "text": "and running with yellow files but up and"
+      },
+      {
+        "start": 568.499,
+        "duration": 5.7,
+        "text": "running does not really mean operating"
+      },
+      {
+        "start": 570.48,
+        "duration": 7.74,
+        "text": "correctly how can we improve things in"
+      },
+      {
+        "start": 574.199,
+        "duration": 7.351,
+        "text": "this case I know that some of you may"
+      },
+      {
+        "start": 578.22,
+        "duration": 6.179,
+        "text": "say what about helm charts do they"
+      },
+      {
+        "start": 581.55,
+        "duration": 5.759,
+        "text": "improve something because there are ham"
+      },
+      {
+        "start": 584.399,
+        "duration": 5.91,
+        "text": "charts for Cassandra or Kafka or other"
+      },
+      {
+        "start": 587.309,
+        "duration": 5.94,
+        "text": "things do they make things better so"
+      },
+      {
+        "start": 590.309,
+        "duration": 6.84,
+        "text": "they improve some things but not all of"
+      },
+      {
+        "start": 593.249,
+        "duration": 6.541,
+        "text": "them helm is a package manager for"
+      },
+      {
+        "start": 597.149,
+        "duration": 5.581,
+        "text": "kubernetes and it makes it easy to"
+      },
+      {
+        "start": 599.79,
+        "duration": 7.08,
+        "text": "install applications and resources on to"
+      },
+      {
+        "start": 602.73,
+        "duration": 7.2,
+        "text": "kubernetes clusters and it improves the"
+      },
+      {
+        "start": 606.87,
+        "duration": 5.49,
+        "text": "organizational aspect of things but it"
+      },
+      {
+        "start": 609.93,
+        "duration": 4.259,
+        "text": "has no idea about like the functionality"
+      },
+      {
+        "start": 612.36,
+        "duration": 5.31,
+        "text": "that you are deploying it makes it"
+      },
+      {
+        "start": 614.189,
+        "duration": 5.611,
+        "text": "easier to manage those diamo files so"
+      },
+      {
+        "start": 617.67,
+        "duration": 3.529,
+        "text": "let's look into it so they could get a"
+      },
+      {
+        "start": 619.8,
+        "duration": 5.399,
+        "text": "better idea"
+      },
+      {
+        "start": 621.199,
+        "duration": 6.31,
+        "text": "so helm has concept of charts and a"
+      },
+      {
+        "start": 625.199,
+        "duration": 5.76,
+        "text": "single chart might be used to deploy"
+      },
+      {
+        "start": 627.509,
+        "duration": 5.611,
+        "text": "something very simple like one pod or"
+      },
+      {
+        "start": 630.959,
+        "duration": 5.791,
+        "text": "something complicated like a full set of"
+      },
+      {
+        "start": 633.12,
+        "duration": 7.469,
+        "text": "web application stack and HP server and"
+      },
+      {
+        "start": 636.75,
+        "duration": 6.72,
+        "text": "caches and so on and health chart as a"
+      },
+      {
+        "start": 640.589,
+        "duration": 5.521,
+        "text": "package contains all the information"
+      },
+      {
+        "start": 643.47,
+        "duration": 5.459,
+        "text": "needed to install that set of resources"
+      },
+      {
+        "start": 646.11,
+        "duration": 7.019,
+        "text": "on to kubernetes cluster and it usually"
+      },
+      {
+        "start": 648.929,
+        "duration": 5.82,
+        "text": "contains charge mo file where the"
+      },
+      {
+        "start": 653.129,
+        "duration": 4.76,
+        "text": "information about the chart itself is"
+      },
+      {
+        "start": 654.749,
+        "duration": 7.321,
+        "text": "stored and templates and those templates"
+      },
+      {
+        "start": 657.889,
+        "duration": 7.76,
+        "text": "basically generate manifest files"
+      },
+      {
+        "start": 662.07,
+        "duration": 6.49,
+        "text": "that are basically llamo formatted"
+      },
+      {
+        "start": 665.649,
+        "duration": 4.921,
+        "text": "resource definitions and we can also"
+      },
+      {
+        "start": 668.56,
+        "duration": 4.649,
+        "text": "specify various parameters that we"
+      },
+      {
+        "start": 670.57,
+        "duration": 4.32,
+        "text": "deploy those files with so it basically"
+      },
+      {
+        "start": 673.209,
+        "duration": 5.341,
+        "text": "helps us manage the Emerald files in a"
+      },
+      {
+        "start": 674.89,
+        "duration": 6.96,
+        "text": "much better way at the end kubernetes"
+      },
+      {
+        "start": 678.55,
+        "duration": 6.84,
+        "text": "still receives those files but Hjelm"
+      },
+      {
+        "start": 681.85,
+        "duration": 8.04,
+        "text": "really helps make it easier it does not"
+      },
+      {
+        "start": 685.39,
+        "duration": 6.6,
+        "text": "help improve how things work on the"
+      },
+      {
+        "start": 689.89,
+        "duration": 5.37,
+        "text": "inside of the resource definition just"
+      },
+      {
+        "start": 691.99,
+        "duration": 4.98,
+        "text": "how we manage the deployment process if"
+      },
+      {
+        "start": 695.26,
+        "duration": 5.269,
+        "text": "you're curious about that you can also"
+      },
+      {
+        "start": 696.97,
+        "duration": 6.45,
+        "text": "take a look at kubernetes slash charts"
+      },
+      {
+        "start": 700.529,
+        "duration": 6.571,
+        "text": "github repo where you can find a lot of"
+      },
+      {
+        "start": 703.42,
+        "duration": 6.419,
+        "text": "examples of various charts available and"
+      },
+      {
+        "start": 707.1,
+        "duration": 6.1,
+        "text": "there are also other things to deploy"
+      },
+      {
+        "start": 709.839,
+        "duration": 7.801,
+        "text": "your applications rather than using"
+      },
+      {
+        "start": 713.2,
+        "duration": 8.129,
+        "text": "llamó directly or through helm to manage"
+      },
+      {
+        "start": 717.64,
+        "duration": 6.99,
+        "text": "them for example some of you may know"
+      },
+      {
+        "start": 721.329,
+        "duration": 5.661,
+        "text": "about the recent capability of spark to"
+      },
+      {
+        "start": 724.63,
+        "duration": 5.67,
+        "text": "be deployed natively on kubernetes and"
+      },
+      {
+        "start": 726.99,
+        "duration": 6.88,
+        "text": "in this case spark is not deployed using"
+      },
+      {
+        "start": 730.3,
+        "duration": 6.57,
+        "text": "cube CTO and llamó file definition or"
+      },
+      {
+        "start": 733.87,
+        "duration": 5.13,
+        "text": "easing helm there was a spark submit"
+      },
+      {
+        "start": 736.87,
+        "duration": 6.0,
+        "text": "command and when if you're familiar with"
+      },
+      {
+        "start": 739.0,
+        "duration": 5.61,
+        "text": "spark outside of kubernetes you can"
+      },
+      {
+        "start": 742.87,
+        "duration": 4.32,
+        "text": "deploy things you can spark submit you"
+      },
+      {
+        "start": 744.61,
+        "duration": 6.81,
+        "text": "indicate your jar file and it runs a job"
+      },
+      {
+        "start": 747.19,
+        "duration": 6.78,
+        "text": "on the scheduler of your choice so and"
+      },
+      {
+        "start": 751.42,
+        "duration": 5.64,
+        "text": "by native support I mean that the same"
+      },
+      {
+        "start": 753.97,
+        "duration": 6.0,
+        "text": "commands are submit works with"
+      },
+      {
+        "start": 757.06,
+        "duration": 7.08,
+        "text": "kubernetes by you just specifying a"
+      },
+      {
+        "start": 759.97,
+        "duration": 7.17,
+        "text": "kubernetes master address and spark"
+      },
+      {
+        "start": 764.14,
+        "duration": 5.37,
+        "text": "container so you don't work with llamó"
+      },
+      {
+        "start": 767.14,
+        "duration": 4.02,
+        "text": "files you work with the same command"
+      },
+      {
+        "start": 769.51,
+        "duration": 3.3,
+        "text": "that you worked with before so it all"
+      },
+      {
+        "start": 771.16,
+        "duration": 5.299,
+        "text": "depends on the way you implement things"
+      },
+      {
+        "start": 772.81,
+        "duration": 3.649,
+        "text": "so let's look at one example"
+      },
+      {
+        "start": 779.74,
+        "duration": 6.04,
+        "text": "so I'm starting a proxy to be able to"
+      },
+      {
+        "start": 783.47,
+        "duration": 5.76,
+        "text": "talk to kubernetes master using"
+      },
+      {
+        "start": 785.78,
+        "duration": 8.28,
+        "text": "localhost and I'll be running an example"
+      },
+      {
+        "start": 789.23,
+        "duration": 6.96,
+        "text": "that would start a spark job with a"
+      },
+      {
+        "start": 794.06,
+        "duration": 6.6,
+        "text": "parameter and the spark job will just"
+      },
+      {
+        "start": 796.19,
+        "duration": 8.97,
+        "text": "recommend episodes to watch of your"
+      },
+      {
+        "start": 800.66,
+        "duration": 7.95,
+        "text": "favorite show and it will be pulling out"
+      },
+      {
+        "start": 805.16,
+        "duration": 5.72,
+        "text": "spark images from docker hub registry"
+      },
+      {
+        "start": 808.61,
+        "duration": 6.27,
+        "text": "and I'm just using spark submit command"
+      },
+      {
+        "start": 810.88,
+        "duration": 7.24,
+        "text": "indicating at a kubernetes master the"
+      },
+      {
+        "start": 814.88,
+        "duration": 10.38,
+        "text": "class name number of instances I'm going"
+      },
+      {
+        "start": 818.12,
+        "duration": 10.83,
+        "text": "to run my spark image and jar file and a"
+      },
+      {
+        "start": 825.26,
+        "duration": 7.2,
+        "text": "parameter so when I run the job it will"
+      },
+      {
+        "start": 828.95,
+        "duration": 6.57,
+        "text": "start the spark job and let's see what"
+      },
+      {
+        "start": 832.46,
+        "duration": 7.74,
+        "text": "happens in the background in kubernetes"
+      },
+      {
+        "start": 835.52,
+        "duration": 7.56,
+        "text": "so if we get pods we will see that there"
+      },
+      {
+        "start": 840.2,
+        "duration": 6.89,
+        "text": "are three pods running a driver and two"
+      },
+      {
+        "start": 843.08,
+        "duration": 6.93,
+        "text": "executors which are spark concepts and"
+      },
+      {
+        "start": 847.09,
+        "duration": 6.52,
+        "text": "after the job is completed I will see"
+      },
+      {
+        "start": 850.01,
+        "duration": 7.77,
+        "text": "the results so its terminated here we"
+      },
+      {
+        "start": 853.61,
+        "duration": 9.9,
+        "text": "will see the results collected in the"
+      },
+      {
+        "start": 857.78,
+        "duration": 10.71,
+        "text": "kubernetes driver logs and the name of"
+      },
+      {
+        "start": 863.51,
+        "duration": 7.71,
+        "text": "the driver pod and here they are number"
+      },
+      {
+        "start": 868.49,
+        "duration": 6.66,
+        "text": "of episodes that contain the special"
+      },
+      {
+        "start": 871.22,
+        "duration": 7.68,
+        "text": "characters appearance so this is how it"
+      },
+      {
+        "start": 875.15,
+        "duration": 6.86,
+        "text": "works so even though we use the standard"
+      },
+      {
+        "start": 878.9,
+        "duration": 5.46,
+        "text": "spark command it created all the"
+      },
+      {
+        "start": 882.01,
+        "duration": 5.29,
+        "text": "kubernetes resources behind the scenes"
+      },
+      {
+        "start": 884.36,
+        "duration": 5.75,
+        "text": "and it's cool and it works but can we"
+      },
+      {
+        "start": 887.3,
+        "duration": 5.55,
+        "text": "really rely on this approach of using"
+      },
+      {
+        "start": 890.11,
+        "duration": 5.59,
+        "text": "directly built-in kubernetes"
+      },
+      {
+        "start": 892.85,
+        "duration": 5.67,
+        "text": "abstractions is there anything missing"
+      },
+      {
+        "start": 895.7,
+        "duration": 6.06,
+        "text": "with those approaches so one of the"
+      },
+      {
+        "start": 898.52,
+        "duration": 6.48,
+        "text": "downsides of using built-in kubernetes"
+      },
+      {
+        "start": 901.76,
+        "duration": 6.54,
+        "text": "primitives is that we have limited"
+      },
+      {
+        "start": 905.0,
+        "duration": 6.71,
+        "text": "management so yes"
+      },
+      {
+        "start": 908.3,
+        "duration": 5.02,
+        "text": "pods and stateful sets and deployments"
+      },
+      {
+        "start": 911.71,
+        "duration": 5.37,
+        "text": "they support keeping a certain number of"
+      },
+      {
+        "start": 913.32,
+        "duration": 5.74,
+        "text": "replicas always up and running yes we"
+      },
+      {
+        "start": 917.08,
+        "duration": 3.99,
+        "text": "can have instance for the unique name"
+      },
+      {
+        "start": 919.06,
+        "duration": 5.64,
+        "text": "and ordering guarantees and storage"
+      },
+      {
+        "start": 921.07,
+        "duration": 6.03,
+        "text": "attached but there are other things that"
+      },
+      {
+        "start": 924.7,
+        "duration": 5.16,
+        "text": "are important for example what about the"
+      },
+      {
+        "start": 927.1,
+        "duration": 6.06,
+        "text": "state of your application itself or the"
+      },
+      {
+        "start": 929.86,
+        "duration": 6.57,
+        "text": "consistency of data in your cluster in a"
+      },
+      {
+        "start": 933.16,
+        "duration": 7.23,
+        "text": "database for example adding a node in"
+      },
+      {
+        "start": 936.43,
+        "duration": 6.3,
+        "text": "the cluster is not nearly enough we"
+      },
+      {
+        "start": 940.39,
+        "duration": 5.76,
+        "text": "would also need to make sure that will"
+      },
+      {
+        "start": 942.73,
+        "duration": 6.06,
+        "text": "trigger some processes for rebalancing"
+      },
+      {
+        "start": 946.15,
+        "duration": 5.94,
+        "text": "data or moving and replicating some of"
+      },
+      {
+        "start": 948.79,
+        "duration": 6.99,
+        "text": "the data to the newly added node to make"
+      },
+      {
+        "start": 952.09,
+        "duration": 6.48,
+        "text": "sure it's fully operational so this"
+      },
+      {
+        "start": 955.78,
+        "duration": 6.63,
+        "text": "leads us to the next question of how do"
+      },
+      {
+        "start": 958.57,
+        "duration": 7.17,
+        "text": "we make sure that we not only keep our"
+      },
+      {
+        "start": 962.41,
+        "duration": 4.76,
+        "text": "systems up and running on kubernetes but"
+      },
+      {
+        "start": 965.74,
+        "duration": 5.93,
+        "text": "also make sure they operate correctly"
+      },
+      {
+        "start": 967.17,
+        "duration": 7.75,
+        "text": "based on what correctly means for them"
+      },
+      {
+        "start": 971.67,
+        "duration": 7.29,
+        "text": "and it comes down to some application"
+      },
+      {
+        "start": 974.92,
+        "duration": 6.77,
+        "text": "specific things that need special care"
+      },
+      {
+        "start": 978.96,
+        "duration": 6.52,
+        "text": "abstractions like stateful sets are"
+      },
+      {
+        "start": 981.69,
+        "duration": 6.64,
+        "text": "powerful but they alone they have no"
+      },
+      {
+        "start": 985.48,
+        "duration": 5.4,
+        "text": "idea what's different between Kafka or"
+      },
+      {
+        "start": 988.33,
+        "duration": 4.08,
+        "text": "cluster and Cassandra cluster so they"
+      },
+      {
+        "start": 990.88,
+        "duration": 4.56,
+        "text": "don't know if they should manage those"
+      },
+      {
+        "start": 992.41,
+        "duration": 6.9,
+        "text": "things differently unless we tell them"
+      },
+      {
+        "start": 995.44,
+        "duration": 6.12,
+        "text": "to so we still need to take those"
+      },
+      {
+        "start": 999.31,
+        "duration": 5.3,
+        "text": "nuances specific to a stateful"
+      },
+      {
+        "start": 1001.56,
+        "duration": 5.58,
+        "text": "application under consideration and"
+      },
+      {
+        "start": 1004.61,
+        "duration": 4.96,
+        "text": "there are a lot of things that need"
+      },
+      {
+        "start": 1007.14,
+        "duration": 5.4,
+        "text": "special care for example let's take"
+      },
+      {
+        "start": 1009.57,
+        "duration": 5.73,
+        "text": "Kafka as an example there are some"
+      },
+      {
+        "start": 1012.54,
+        "duration": 4.86,
+        "text": "specific things that are specific only"
+      },
+      {
+        "start": 1015.3,
+        "duration": 4.86,
+        "text": "to Kafka that needs special care when"
+      },
+      {
+        "start": 1017.4,
+        "duration": 4.76,
+        "text": "deploying and on kubernetes one of them"
+      },
+      {
+        "start": 1020.16,
+        "duration": 4.679,
+        "text": "is configuration for example"
+      },
+      {
+        "start": 1022.16,
+        "duration": 6.22,
+        "text": "correct correct Kafka cluster means"
+      },
+      {
+        "start": 1024.839,
+        "duration": 5.971,
+        "text": "correct configuration so some of the"
+      },
+      {
+        "start": 1028.38,
+        "duration": 5.73,
+        "text": "configuration values are pod specific"
+      },
+      {
+        "start": 1030.81,
+        "duration": 6.33,
+        "text": "like broker ID broker RAC advertised"
+      },
+      {
+        "start": 1034.11,
+        "duration": 5.729,
+        "text": "listeners and some of the configuration"
+      },
+      {
+        "start": 1037.14,
+        "duration": 4.98,
+        "text": "is this should be the same for all of"
+      },
+      {
+        "start": 1039.839,
+        "duration": 5.151,
+        "text": "the pods like replication specific"
+      },
+      {
+        "start": 1042.12,
+        "duration": 7.53,
+        "text": "configuration or zookeeper"
+      },
+      {
+        "start": 1044.99,
+        "duration": 8.069,
+        "text": "connect and broker ID should be set to"
+      },
+      {
+        "start": 1049.65,
+        "duration": 7.259,
+        "text": "the ordinal index of the stateful set"
+      },
+      {
+        "start": 1053.059,
+        "duration": 6.161,
+        "text": "that is assigned to each kafka pod so"
+      },
+      {
+        "start": 1056.909,
+        "duration": 7.5,
+        "text": "also there are things like iraq"
+      },
+      {
+        "start": 1059.22,
+        "duration": 7.89,
+        "text": "assignment and other aspects restarts"
+      },
+      {
+        "start": 1064.409,
+        "duration": 3.451,
+        "text": "and upgrades should be handled with"
+      },
+      {
+        "start": 1067.11,
+        "duration": 3.569,
+        "text": "caution"
+      },
+      {
+        "start": 1067.86,
+        "duration": 6.54,
+        "text": "so for Kafka's safes rolling update"
+      },
+      {
+        "start": 1070.679,
+        "duration": 5.791,
+        "text": "might mean several things like making"
+      },
+      {
+        "start": 1074.4,
+        "duration": 4.409,
+        "text": "sure that there are no under replicated"
+      },
+      {
+        "start": 1076.47,
+        "duration": 5.73,
+        "text": "partitions and that the cluster is"
+      },
+      {
+        "start": 1078.809,
+        "duration": 6.271,
+        "text": "healthy and all the pods are ready and"
+      },
+      {
+        "start": 1082.2,
+        "duration": 5.19,
+        "text": "available we also need to make sure that"
+      },
+      {
+        "start": 1085.08,
+        "duration": 6.3,
+        "text": "where we start where restarting pods one"
+      },
+      {
+        "start": 1087.39,
+        "duration": 7.35,
+        "text": "part at a time and when we're starting"
+      },
+      {
+        "start": 1091.38,
+        "duration": 5.52,
+        "text": "the next node waiting for it to catch up"
+      },
+      {
+        "start": 1094.74,
+        "duration": 6.169,
+        "text": "with the leader in case we need to"
+      },
+      {
+        "start": 1096.9,
+        "duration": 6.86,
+        "text": "failover to happen without data loss so"
+      },
+      {
+        "start": 1100.909,
+        "duration": 5.411,
+        "text": "there are a lot of things like that"
+      },
+      {
+        "start": 1103.76,
+        "duration": 5.169,
+        "text": "another thing that might be important is"
+      },
+      {
+        "start": 1106.32,
+        "duration": 6.839,
+        "text": "scaling the cluster so when we add a"
+      },
+      {
+        "start": 1108.929,
+        "duration": 6.451,
+        "text": "node we need to make sure that we assign"
+      },
+      {
+        "start": 1113.159,
+        "duration": 4.591,
+        "text": "some of the partitions to the newly"
+      },
+      {
+        "start": 1115.38,
+        "duration": 5.1,
+        "text": "added node or will be for example might"
+      },
+      {
+        "start": 1117.75,
+        "duration": 4.74,
+        "text": "need around a datum balancing told to"
+      },
+      {
+        "start": 1120.48,
+        "duration": 5.67,
+        "text": "allocate some of the partitions to the"
+      },
+      {
+        "start": 1122.49,
+        "duration": 6.24,
+        "text": "new pod because there are differences"
+      },
+      {
+        "start": 1126.15,
+        "duration": 6.93,
+        "text": "when we run things on kubernetes pause"
+      },
+      {
+        "start": 1128.73,
+        "duration": 6.66,
+        "text": "or other base abstractions and on VMs"
+      },
+      {
+        "start": 1133.08,
+        "duration": 4.5,
+        "text": "VMs don't just whimsically restart all"
+      },
+      {
+        "start": 1135.39,
+        "duration": 4.529,
+        "text": "the time Coover natus might do that"
+      },
+      {
+        "start": 1137.58,
+        "duration": 6.74,
+        "text": "unless what we tell kubernetes not to do"
+      },
+      {
+        "start": 1139.919,
+        "duration": 7.021,
+        "text": "that in certain situations so and we're"
+      },
+      {
+        "start": 1144.32,
+        "duration": 5.56,
+        "text": "we're entering the topic of operators"
+      },
+      {
+        "start": 1146.94,
+        "duration": 5.239,
+        "text": "here and it's interesting because it"
+      },
+      {
+        "start": 1149.88,
+        "duration": 5.1,
+        "text": "might sound like like kubernetes"
+      },
+      {
+        "start": 1152.179,
+        "duration": 5.11,
+        "text": "operators might sound like a concept"
+      },
+      {
+        "start": 1154.98,
+        "duration": 5.819,
+        "text": "that might be important to container"
+      },
+      {
+        "start": 1157.289,
+        "duration": 5.241,
+        "text": "people and it's not really exactly true"
+      },
+      {
+        "start": 1160.799,
+        "duration": 5.341,
+        "text": "because khorinis"
+      },
+      {
+        "start": 1162.53,
+        "duration": 5.86,
+        "text": "operators are important for kafka"
+      },
+      {
+        "start": 1166.14,
+        "duration": 5.01,
+        "text": "engineers or Kassandra engineers for"
+      },
+      {
+        "start": 1168.39,
+        "duration": 7.86,
+        "text": "engineers that want their systems to run"
+      },
+      {
+        "start": 1171.15,
+        "duration": 6.54,
+        "text": "on kubernetes without problems who want"
+      },
+      {
+        "start": 1176.25,
+        "duration": 2.07,
+        "text": "to make sure that they're running"
+      },
+      {
+        "start": 1177.69,
+        "duration": 5.329,
+        "text": "correct"
+      },
+      {
+        "start": 1178.32,
+        "duration": 7.589,
+        "text": "and not just running so simply speaking"
+      },
+      {
+        "start": 1183.019,
+        "duration": 7.211,
+        "text": "operators are just custom resource"
+      },
+      {
+        "start": 1185.909,
+        "duration": 7.591,
+        "text": "definitions and custom controllers so"
+      },
+      {
+        "start": 1190.23,
+        "duration": 7.679,
+        "text": "customers definitions in short it's CR"
+      },
+      {
+        "start": 1193.5,
+        "duration": 7.529,
+        "text": "DS they allow you to define your own"
+      },
+      {
+        "start": 1197.909,
+        "duration": 7.02,
+        "text": "objects that become a part of kubernetes"
+      },
+      {
+        "start": 1201.029,
+        "duration": 5.64,
+        "text": "api for example we could have a customer"
+      },
+      {
+        "start": 1204.929,
+        "duration": 5.671,
+        "text": "source definition for a Cassandra"
+      },
+      {
+        "start": 1206.669,
+        "duration": 6.801,
+        "text": "cluster or for Kafka cluster or spark or"
+      },
+      {
+        "start": 1210.6,
+        "duration": 6.09,
+        "text": "tensorflow job or any of your own"
+      },
+      {
+        "start": 1213.47,
+        "duration": 6.189,
+        "text": "systems that need to manage state were"
+      },
+      {
+        "start": 1216.69,
+        "duration": 6.54,
+        "text": "even without state some things that need"
+      },
+      {
+        "start": 1219.659,
+        "duration": 8.791,
+        "text": "special care and custom controllers are"
+      },
+      {
+        "start": 1223.23,
+        "duration": 8.399,
+        "text": "things that we can use to define logic"
+      },
+      {
+        "start": 1228.45,
+        "duration": 6.66,
+        "text": "to manage those CR DS and to make sure"
+      },
+      {
+        "start": 1231.629,
+        "duration": 6.27,
+        "text": "that the correct desired State"
+      },
+      {
+        "start": 1235.11,
+        "duration": 5.58,
+        "text": "it matches the grade of the correct"
+      },
+      {
+        "start": 1237.899,
+        "duration": 5.821,
+        "text": "operation for our specific stateful"
+      },
+      {
+        "start": 1240.69,
+        "duration": 6.329,
+        "text": "application so basically they enable us"
+      },
+      {
+        "start": 1243.72,
+        "duration": 8.1,
+        "text": "to create logic and manage our CR DS to"
+      },
+      {
+        "start": 1247.019,
+        "duration": 8.13,
+        "text": "extend an add functionality so you can"
+      },
+      {
+        "start": 1251.82,
+        "duration": 6.809,
+        "text": "think of CR DS as new kubernetes"
+      },
+      {
+        "start": 1255.149,
+        "duration": 6.451,
+        "text": "entities and kind of like data types of"
+      },
+      {
+        "start": 1258.629,
+        "duration": 6.63,
+        "text": "abstractions and it's probably not the"
+      },
+      {
+        "start": 1261.6,
+        "duration": 6.48,
+        "text": "best analogy but if you imagine that"
+      },
+      {
+        "start": 1265.259,
+        "duration": 5.931,
+        "text": "your programming language has only built"
+      },
+      {
+        "start": 1268.08,
+        "duration": 6.329,
+        "text": "in primitive data types like int string"
+      },
+      {
+        "start": 1271.19,
+        "duration": 5.319,
+        "text": "you know you can't do very much with"
+      },
+      {
+        "start": 1274.409,
+        "duration": 4.291,
+        "text": "those but they are a good foundation so"
+      },
+      {
+        "start": 1276.509,
+        "duration": 4.14,
+        "text": "imagine that CR this is like being able"
+      },
+      {
+        "start": 1278.7,
+        "duration": 4.699,
+        "text": "to create your own class classes of"
+      },
+      {
+        "start": 1280.649,
+        "duration": 6.12,
+        "text": "things that would work in kubernetes and"
+      },
+      {
+        "start": 1283.399,
+        "duration": 6.13,
+        "text": "custom controllers are important because"
+      },
+      {
+        "start": 1286.769,
+        "duration": 5.24,
+        "text": "they have direct access to coverages API"
+      },
+      {
+        "start": 1289.529,
+        "duration": 6.181,
+        "text": "which means that they can perform"
+      },
+      {
+        "start": 1292.009,
+        "duration": 6.51,
+        "text": "changes in actions according to custom"
+      },
+      {
+        "start": 1295.71,
+        "duration": 6.36,
+        "text": "rules that we've written inside those"
+      },
+      {
+        "start": 1298.519,
+        "duration": 5.38,
+        "text": "controllers so they can say okay"
+      },
+      {
+        "start": 1302.07,
+        "duration": 4.05,
+        "text": "kubernetes I see you want to restart our"
+      },
+      {
+        "start": 1303.899,
+        "duration": 6.691,
+        "text": "pods you can't do that now because we"
+      },
+      {
+        "start": 1306.12,
+        "duration": 8.279,
+        "text": "have data rebalancing going on so"
+      },
+      {
+        "start": 1310.59,
+        "duration": 6.719,
+        "text": "if you look at available operators"
+      },
+      {
+        "start": 1314.399,
+        "duration": 5.311,
+        "text": "online like if you google caca"
+      },
+      {
+        "start": 1317.309,
+        "duration": 5.401,
+        "text": "kubernetes operator you will find that"
+      },
+      {
+        "start": 1319.71,
+        "duration": 5.52,
+        "text": "there are three or more options"
+      },
+      {
+        "start": 1322.71,
+        "duration": 6.209,
+        "text": "available for each of them there are"
+      },
+      {
+        "start": 1325.23,
+        "duration": 6.029,
+        "text": "multiple projects started and they have"
+      },
+      {
+        "start": 1328.919,
+        "duration": 6.541,
+        "text": "a lot in common because they're all in a"
+      },
+      {
+        "start": 1331.259,
+        "duration": 7.981,
+        "text": "very beginner state so they're all in"
+      },
+      {
+        "start": 1335.46,
+        "duration": 7.079,
+        "text": "alpha state CRD concept became available"
+      },
+      {
+        "start": 1339.24,
+        "duration": 5.309,
+        "text": "incriminated system pretty recently so"
+      },
+      {
+        "start": 1342.539,
+        "duration": 6.5,
+        "text": "you're gonna see a lot of things in"
+      },
+      {
+        "start": 1344.549,
+        "duration": 9.33,
+        "text": "active development there is also a"
+      },
+      {
+        "start": 1349.039,
+        "duration": 7.151,
+        "text": "confluent operator for Kafka it is not"
+      },
+      {
+        "start": 1353.879,
+        "duration": 5.43,
+        "text": "open source but you can sign up for an"
+      },
+      {
+        "start": 1356.19,
+        "duration": 5.4,
+        "text": "early preview to try it out but there"
+      },
+      {
+        "start": 1359.309,
+        "duration": 4.23,
+        "text": "are a bunch of open source operators you"
+      },
+      {
+        "start": 1361.59,
+        "duration": 4.199,
+        "text": "can see that they're trying to implement"
+      },
+      {
+        "start": 1363.539,
+        "duration": 5.52,
+        "text": "those rules to make sure that your"
+      },
+      {
+        "start": 1365.789,
+        "duration": 5.46,
+        "text": "clusters are running correctly but I"
+      },
+      {
+        "start": 1369.059,
+        "duration": 6.48,
+        "text": "have not seen one that is fully"
+      },
+      {
+        "start": 1371.249,
+        "duration": 6.721,
+        "text": "operational yet so same for Cassandra"
+      },
+      {
+        "start": 1375.539,
+        "duration": 5.13,
+        "text": "and for other things there is also one"
+      },
+      {
+        "start": 1377.97,
+        "duration": 5.279,
+        "text": "for SPARC so that's Mark example that I"
+      },
+      {
+        "start": 1380.669,
+        "duration": 5.37,
+        "text": "showed you used the SPARC native"
+      },
+      {
+        "start": 1383.249,
+        "duration": 4.8,
+        "text": "kubernetes support in addition to that"
+      },
+      {
+        "start": 1386.039,
+        "duration": 4.801,
+        "text": "there's also an open source project for"
+      },
+      {
+        "start": 1388.049,
+        "duration": 4.83,
+        "text": "a spark operator that tries to simplify"
+      },
+      {
+        "start": 1390.84,
+        "duration": 7.439,
+        "text": "some things but it takes a different"
+      },
+      {
+        "start": 1392.879,
+        "duration": 8.67,
+        "text": "approach it uses a custom CLI to submit"
+      },
+      {
+        "start": 1398.279,
+        "duration": 7.831,
+        "text": "jobs so they developed a CLI called"
+      },
+      {
+        "start": 1401.549,
+        "duration": 5.941,
+        "text": "spark CTL and they have their own custom"
+      },
+      {
+        "start": 1406.11,
+        "duration": 3.929,
+        "text": "resource definition called spark"
+      },
+      {
+        "start": 1407.49,
+        "duration": 5.49,
+        "text": "application and you work with spark this"
+      },
+      {
+        "start": 1410.039,
+        "duration": 6.12,
+        "text": "way to make sure that you have automatic"
+      },
+      {
+        "start": 1412.98,
+        "duration": 6.049,
+        "text": "job resubmission if something fails you"
+      },
+      {
+        "start": 1416.159,
+        "duration": 7.921,
+        "text": "can configure restart policies and have"
+      },
+      {
+        "start": 1419.029,
+        "duration": 9.03,
+        "text": "more reliability to just give you basic"
+      },
+      {
+        "start": 1424.08,
+        "duration": 3.979,
+        "text": "example of how that works"
+      },
+      {
+        "start": 1428.119,
+        "duration": 5.89,
+        "text": "so I'm going to execute a very simple"
+      },
+      {
+        "start": 1431.789,
+        "duration": 5.281,
+        "text": "spark job using that spark operator and"
+      },
+      {
+        "start": 1434.009,
+        "duration": 6.601,
+        "text": "we're looking at the yellow file for"
+      },
+      {
+        "start": 1437.07,
+        "duration": 5.92,
+        "text": "that resource definition here notice"
+      },
+      {
+        "start": 1440.61,
+        "duration": 5.08,
+        "text": "that spark application is a kind it's"
+      },
+      {
+        "start": 1442.99,
+        "duration": 6.06,
+        "text": "pod status dataset it's spark"
+      },
+      {
+        "start": 1445.69,
+        "duration": 8.25,
+        "text": "application and here we have the"
+      },
+      {
+        "start": 1449.05,
+        "duration": 6.81,
+        "text": "definition of the configuration we"
+      },
+      {
+        "start": 1453.94,
+        "duration": 5.7,
+        "text": "indicated the jar file and then we're"
+      },
+      {
+        "start": 1455.86,
+        "duration": 8.09,
+        "text": "using spark CTL create indicating the"
+      },
+      {
+        "start": 1459.64,
+        "duration": 8.84,
+        "text": "path of the llamó file with the CR D and"
+      },
+      {
+        "start": 1463.95,
+        "duration": 7.12,
+        "text": "then we can see to check what's running"
+      },
+      {
+        "start": 1468.48,
+        "duration": 5.14,
+        "text": "looking us oopsie tail get spark"
+      },
+      {
+        "start": 1471.07,
+        "duration": 5.489,
+        "text": "application because it became a like a"
+      },
+      {
+        "start": 1473.62,
+        "duration": 4.95,
+        "text": "data type live in kubernetes we can do"
+      },
+      {
+        "start": 1476.559,
+        "duration": 7.291,
+        "text": "the same with spark CTL it will also"
+      },
+      {
+        "start": 1478.57,
+        "duration": 7.109,
+        "text": "list our app we can also get status"
+      },
+      {
+        "start": 1483.85,
+        "duration": 5.28,
+        "text": "using the special status command of the"
+      },
+      {
+        "start": 1485.679,
+        "duration": 6.691,
+        "text": "operator that will show us that the job"
+      },
+      {
+        "start": 1489.13,
+        "duration": 5.94,
+        "text": "is running so you can see that it's a"
+      },
+      {
+        "start": 1492.37,
+        "duration": 6.39,
+        "text": "slightly different approach there is"
+      },
+      {
+        "start": 1495.07,
+        "duration": 5.489,
+        "text": "also a Redis operator which is one of"
+      },
+      {
+        "start": 1498.76,
+        "duration": 7.08,
+        "text": "many read it's operators available"
+      },
+      {
+        "start": 1500.559,
+        "duration": 10.651,
+        "text": "online and example of it I also have"
+      },
+      {
+        "start": 1505.84,
+        "duration": 9.0,
+        "text": "here so this is when it's already"
+      },
+      {
+        "start": 1511.21,
+        "duration": 6.87,
+        "text": "deployed so we have a clustered test"
+      },
+      {
+        "start": 1514.84,
+        "duration": 10.68,
+        "text": "Redis cluster deployed we can describe"
+      },
+      {
+        "start": 1518.08,
+        "duration": 14.7,
+        "text": "it to see what was the CR Dean test and"
+      },
+      {
+        "start": 1525.52,
+        "duration": 9.93,
+        "text": "it was scroll up we'll see here yeah so"
+      },
+      {
+        "start": 1532.78,
+        "duration": 6.84,
+        "text": "Redis cluster is the kind of our"
+      },
+      {
+        "start": 1535.45,
+        "duration": 7.08,
+        "text": "resource definition which is a CRD of"
+      },
+      {
+        "start": 1539.62,
+        "duration": 5.13,
+        "text": "the certain API version and then we will"
+      },
+      {
+        "start": 1542.53,
+        "duration": 6.36,
+        "text": "have all of this specific configuration"
+      },
+      {
+        "start": 1544.75,
+        "duration": 6.27,
+        "text": "for Redis a Pareto defined in this big"
+      },
+      {
+        "start": 1548.89,
+        "duration": 3.9,
+        "text": "file basically anything that you want to"
+      },
+      {
+        "start": 1551.02,
+        "duration": 4.52,
+        "text": "write like what does the replication"
+      },
+      {
+        "start": 1552.79,
+        "duration": 6.24,
+        "text": "setting is what are the nodes that"
+      },
+      {
+        "start": 1555.54,
+        "duration": 7.84,
+        "text": "you're going to use like we distinguish"
+      },
+      {
+        "start": 1559.03,
+        "duration": 6.24,
+        "text": "between roles like master and slave and"
+      },
+      {
+        "start": 1563.38,
+        "duration": 5.429,
+        "text": "basically anything that you can define"
+      },
+      {
+        "start": 1565.27,
+        "duration": 5.82,
+        "text": "that is important for your cluster and"
+      },
+      {
+        "start": 1568.809,
+        "duration": 4.62,
+        "text": "we can see there are pods behind the"
+      },
+      {
+        "start": 1571.09,
+        "duration": 4.44,
+        "text": "scenes scenes anyway there is an"
+      },
+      {
+        "start": 1573.429,
+        "duration": 3.041,
+        "text": "operator pod running and the actual"
+      },
+      {
+        "start": 1575.53,
+        "duration": 5.71,
+        "text": "cluster part"
+      },
+      {
+        "start": 1576.47,
+        "duration": 9.03,
+        "text": "learning and the operators deployment"
+      },
+      {
+        "start": 1581.24,
+        "duration": 8.79,
+        "text": "here so the main thing in this exam in"
+      },
+      {
+        "start": 1585.5,
+        "duration": 6.51,
+        "text": "those examples is that when you deploy a"
+      },
+      {
+        "start": 1590.03,
+        "duration": 4.529,
+        "text": "customer source definition you deploy an"
+      },
+      {
+        "start": 1592.01,
+        "duration": 6.39,
+        "text": "operator first it has the logic that"
+      },
+      {
+        "start": 1594.559,
+        "duration": 6.511,
+        "text": "watches your new resources to arrive and"
+      },
+      {
+        "start": 1598.4,
+        "duration": 5.759,
+        "text": "it has all information to make sure that"
+      },
+      {
+        "start": 1601.07,
+        "duration": 5.489,
+        "text": "it executes the specific logic to track"
+      },
+      {
+        "start": 1604.159,
+        "duration": 6.091,
+        "text": "that your app is running correctly to"
+      },
+      {
+        "start": 1606.559,
+        "duration": 6.331,
+        "text": "the logic that was defined and to dig a"
+      },
+      {
+        "start": 1610.25,
+        "duration": 4.559,
+        "text": "little deeper into the operator topic"
+      },
+      {
+        "start": 1612.89,
+        "duration": 3.93,
+        "text": "some of you might want to know how to"
+      },
+      {
+        "start": 1614.809,
+        "duration": 5.791,
+        "text": "write your own operator or how to"
+      },
+      {
+        "start": 1616.82,
+        "duration": 6.33,
+        "text": "contribute to existing one because there"
+      },
+      {
+        "start": 1620.6,
+        "duration": 4.8,
+        "text": "are a lot of frameworks and systems that"
+      },
+      {
+        "start": 1623.15,
+        "duration": 3.779,
+        "text": "are looking into adding kubernetes"
+      },
+      {
+        "start": 1625.4,
+        "duration": 3.96,
+        "text": "support for example flink"
+      },
+      {
+        "start": 1626.929,
+        "duration": 6.331,
+        "text": "is thinking about how to how do they add"
+      },
+      {
+        "start": 1629.36,
+        "duration": 6.569,
+        "text": "kubernetes support so far they have helm"
+      },
+      {
+        "start": 1633.26,
+        "duration": 4.59,
+        "text": "cards that manage yamo files they've"
+      },
+      {
+        "start": 1635.929,
+        "duration": 4.201,
+        "text": "been thinking about creating an operator"
+      },
+      {
+        "start": 1637.85,
+        "duration": 5.76,
+        "text": "but they see it like the next next step"
+      },
+      {
+        "start": 1640.13,
+        "duration": 6.06,
+        "text": "so it's good to know how to basically"
+      },
+      {
+        "start": 1643.61,
+        "duration": 4.47,
+        "text": "like what is inside of the operator to"
+      },
+      {
+        "start": 1646.19,
+        "duration": 4.59,
+        "text": "make sure that you understand it if in"
+      },
+      {
+        "start": 1648.08,
+        "duration": 5.36,
+        "text": "case you want to contribute to it or you"
+      },
+      {
+        "start": 1650.78,
+        "duration": 6.019,
+        "text": "know create your own so as I mentioned"
+      },
+      {
+        "start": 1653.44,
+        "duration": 6.93,
+        "text": "controllers are brains behind your"
+      },
+      {
+        "start": 1656.799,
+        "duration": 6.99,
+        "text": "resources themselves and controller"
+      },
+      {
+        "start": 1660.37,
+        "duration": 6.07,
+        "text": "subscribes to a queue that receives"
+      },
+      {
+        "start": 1663.789,
+        "duration": 6.52,
+        "text": "basic requests that on what you do with"
+      },
+      {
+        "start": 1666.44,
+        "duration": 7.26,
+        "text": "resources like adding editing deleting"
+      },
+      {
+        "start": 1670.309,
+        "duration": 6.031,
+        "text": "resource and controller work worker is"
+      },
+      {
+        "start": 1673.7,
+        "duration": 6.24,
+        "text": "going to blog on a call to get the next"
+      },
+      {
+        "start": 1676.34,
+        "duration": 5.88,
+        "text": "item in that queue to process it so"
+      },
+      {
+        "start": 1679.94,
+        "duration": 5.43,
+        "text": "let's take a look at tender flow"
+      },
+      {
+        "start": 1682.22,
+        "duration": 5.699,
+        "text": "operator which is open source so you can"
+      },
+      {
+        "start": 1685.37,
+        "duration": 5.669,
+        "text": "easily take a look at the code on github"
+      },
+      {
+        "start": 1687.919,
+        "duration": 7.711,
+        "text": "and just try to understand it yourself"
+      },
+      {
+        "start": 1691.039,
+        "duration": 6.75,
+        "text": "but I split it up on logical pieces so"
+      },
+      {
+        "start": 1695.63,
+        "duration": 4.19,
+        "text": "that you get an idea of what the"
+      },
+      {
+        "start": 1697.789,
+        "duration": 5.551,
+        "text": "operator what the real operator is like"
+      },
+      {
+        "start": 1699.82,
+        "duration": 5.29,
+        "text": "so this is what a CR D looks like here"
+      },
+      {
+        "start": 1703.34,
+        "duration": 4.64,
+        "text": "we have a custom reserved definition for"
+      },
+      {
+        "start": 1705.11,
+        "duration": 6.5,
+        "text": "a tensorflow job"
+      },
+      {
+        "start": 1707.98,
+        "duration": 7.65,
+        "text": "the kind here is TF job just first short"
+      },
+      {
+        "start": 1711.61,
+        "duration": 9.15,
+        "text": "and then you write an operator logic"
+      },
+      {
+        "start": 1715.63,
+        "duration": 5.7,
+        "text": "primarily Ingo there is a type called TF"
+      },
+      {
+        "start": 1720.76,
+        "duration": 3.96,
+        "text": "job"
+      },
+      {
+        "start": 1721.33,
+        "duration": 7.32,
+        "text": "it's a struct and it has two main pieces"
+      },
+      {
+        "start": 1724.72,
+        "duration": 4.77,
+        "text": "here specification for desired behavior"
+      },
+      {
+        "start": 1728.65,
+        "duration": 6.05,
+        "text": "of a job"
+      },
+      {
+        "start": 1729.49,
+        "duration": 9.84,
+        "text": "TF job spec and also a job status"
+      },
+      {
+        "start": 1734.7,
+        "duration": 6.76,
+        "text": "definition then we have a job"
+      },
+      {
+        "start": 1739.33,
+        "duration": 5.22,
+        "text": "specification which defines what the"
+      },
+      {
+        "start": 1741.46,
+        "duration": 6.15,
+        "text": "actual tensorflow job is about and it"
+      },
+      {
+        "start": 1744.55,
+        "duration": 5.9,
+        "text": "contains a map of replica types and"
+      },
+      {
+        "start": 1747.61,
+        "duration": 5.94,
+        "text": "replica specs or a titter flow job"
+      },
+      {
+        "start": 1750.45,
+        "duration": 4.87,
+        "text": "replica specification basically"
+      },
+      {
+        "start": 1753.55,
+        "duration": 4.26,
+        "text": "description of what times are flow"
+      },
+      {
+        "start": 1755.32,
+        "duration": 4.35,
+        "text": "replica is about like what what number"
+      },
+      {
+        "start": 1757.81,
+        "duration": 4.38,
+        "text": "of replicas there are what is the"
+      },
+      {
+        "start": 1759.67,
+        "duration": 6.0,
+        "text": "template for pods that it will create"
+      },
+      {
+        "start": 1762.19,
+        "duration": 6.72,
+        "text": "for TF replicas and here it will vary on"
+      },
+      {
+        "start": 1765.67,
+        "duration": 5.57,
+        "text": "what exactly your system is about like"
+      },
+      {
+        "start": 1768.91,
+        "duration": 5.88,
+        "text": "tens our flow uses pods as a base you"
+      },
+      {
+        "start": 1771.24,
+        "duration": 6.04,
+        "text": "might decide to use jobs or something"
+      },
+      {
+        "start": 1774.79,
+        "duration": 5.19,
+        "text": "else so you implemented the way you need"
+      },
+      {
+        "start": 1777.28,
+        "duration": 6.12,
+        "text": "and there's also restart policy for all"
+      },
+      {
+        "start": 1779.98,
+        "duration": 6.0,
+        "text": "of the TF replicas and here we have a"
+      },
+      {
+        "start": 1783.4,
+        "duration": 4.74,
+        "text": "type of tensorflow job which in"
+      },
+      {
+        "start": 1785.98,
+        "duration": 5.22,
+        "text": "tensorflow case is like parameters"
+      },
+      {
+        "start": 1788.14,
+        "duration": 6.81,
+        "text": "server worker chief evaluation replica"
+      },
+      {
+        "start": 1791.2,
+        "duration": 7.05,
+        "text": "there can be many types any restart"
+      },
+      {
+        "start": 1794.95,
+        "duration": 8.85,
+        "text": "policy like we restart the job always or"
+      },
+      {
+        "start": 1798.25,
+        "duration": 8.04,
+        "text": "on failure or never job status basically"
+      },
+      {
+        "start": 1803.8,
+        "duration": 8.88,
+        "text": "collection of all the replicas statuses"
+      },
+      {
+        "start": 1806.29,
+        "duration": 9.0,
+        "text": "with start time completion and this bard"
+      },
+      {
+        "start": 1812.68,
+        "duration": 6.03,
+        "text": "is interesting because this is called an"
+      },
+      {
+        "start": 1815.29,
+        "duration": 8.37,
+        "text": "informer and informers responsibility is"
+      },
+      {
+        "start": 1818.71,
+        "duration": 6.75,
+        "text": "to register event handlers for three"
+      },
+      {
+        "start": 1823.66,
+        "duration": 5.7,
+        "text": "different types of events for example"
+      },
+      {
+        "start": 1825.46,
+        "duration": 8.1,
+        "text": "add update and delete basically the"
+      },
+      {
+        "start": 1829.36,
+        "duration": 5.82,
+        "text": "informer is the link between part of"
+      },
+      {
+        "start": 1833.56,
+        "duration": 5.88,
+        "text": "kubernetes that are responsible for"
+      },
+      {
+        "start": 1835.18,
+        "duration": 7.53,
+        "text": "handing out those events add delete and"
+      },
+      {
+        "start": 1839.44,
+        "duration": 6.72,
+        "text": "update and also for retrieving the"
+      },
+      {
+        "start": 1842.71,
+        "duration": 5.88,
+        "text": "resources in the cluster to focus on so"
+      },
+      {
+        "start": 1846.16,
+        "duration": 6.18,
+        "text": "informa is it like a proxy between"
+      },
+      {
+        "start": 1848.59,
+        "duration": 5.82,
+        "text": "kubernetes and your controller and the"
+      },
+      {
+        "start": 1852.34,
+        "duration": 6.68,
+        "text": "cucumber Negus queue is like the store"
+      },
+      {
+        "start": 1854.41,
+        "duration": 8.55,
+        "text": "for those events and here we have a"
+      },
+      {
+        "start": 1859.02,
+        "duration": 7.02,
+        "text": "controller type itself it has a lot of"
+      },
+      {
+        "start": 1862.96,
+        "duration": 5.97,
+        "text": "methods but the main one will be"
+      },
+      {
+        "start": 1866.04,
+        "duration": 6.88,
+        "text": "reconcile T of jobs which basically"
+      },
+      {
+        "start": 1868.93,
+        "duration": 7.65,
+        "text": "checks and updates replicas for each"
+      },
+      {
+        "start": 1872.92,
+        "duration": 6.09,
+        "text": "given replicas specification it will"
+      },
+      {
+        "start": 1876.58,
+        "duration": 5.55,
+        "text": "make sure that it will Riku the job in"
+      },
+      {
+        "start": 1879.01,
+        "duration": 8.55,
+        "text": "case there is any error while creating"
+      },
+      {
+        "start": 1882.13,
+        "duration": 7.68,
+        "text": "deleting updating services and yeah so"
+      },
+      {
+        "start": 1887.56,
+        "duration": 5.19,
+        "text": "it will basically make sure that the job"
+      },
+      {
+        "start": 1889.81,
+        "duration": 6.51,
+        "text": "stays off and the logic continues in the"
+      },
+      {
+        "start": 1892.75,
+        "duration": 6.69,
+        "text": "correct way so this was like an example"
+      },
+      {
+        "start": 1896.32,
+        "duration": 4.98,
+        "text": "that you can look at and adjust for you"
+      },
+      {
+        "start": 1899.44,
+        "duration": 6.69,
+        "text": "your use case there are more examples"
+      },
+      {
+        "start": 1901.3,
+        "duration": 6.63,
+        "text": "online the main thing to remember is"
+      },
+      {
+        "start": 1906.13,
+        "duration": 5.79,
+        "text": "that kubernetes has built-in"
+      },
+      {
+        "start": 1907.93,
+        "duration": 5.7,
+        "text": "abstractions that are good foundation"
+      },
+      {
+        "start": 1911.92,
+        "duration": 5.01,
+        "text": "but they don't really solve all of the"
+      },
+      {
+        "start": 1913.63,
+        "duration": 5.87,
+        "text": "problems tools like helm they really"
+      },
+      {
+        "start": 1916.93,
+        "duration": 4.89,
+        "text": "help structure and manage deployments"
+      },
+      {
+        "start": 1919.5,
+        "duration": 6.01,
+        "text": "they have no idea what's going on inside"
+      },
+      {
+        "start": 1921.82,
+        "duration": 9.03,
+        "text": "of your deployments so you can even"
+      },
+      {
+        "start": 1925.51,
+        "duration": 8.37,
+        "text": "deploy operators using helm so operators"
+      },
+      {
+        "start": 1930.85,
+        "duration": 5.73,
+        "text": "are custom controllers and ste are these"
+      },
+      {
+        "start": 1933.88,
+        "duration": 5.25,
+        "text": "custom research definitions and they're"
+      },
+      {
+        "start": 1936.58,
+        "duration": 5.1,
+        "text": "basically a way to teach kubernetes"
+      },
+      {
+        "start": 1939.13,
+        "duration": 4.47,
+        "text": "understand what our needs are and what"
+      },
+      {
+        "start": 1941.68,
+        "duration": 5.16,
+        "text": "is the correct behavior for the systems"
+      },
+      {
+        "start": 1943.6,
+        "duration": 5.91,
+        "text": "we deploy and there are many ways to"
+      },
+      {
+        "start": 1946.84,
+        "duration": 5.37,
+        "text": "deploy operators some of some of the"
+      },
+      {
+        "start": 1949.51,
+        "duration": 5.94,
+        "text": "engineers behind operators deploy them"
+      },
+      {
+        "start": 1952.21,
+        "duration": 6.68,
+        "text": "using cube c dl some of them use custom"
+      },
+      {
+        "start": 1955.45,
+        "duration": 6.51,
+        "text": "c l eyes some of them build build"
+      },
+      {
+        "start": 1958.89,
+        "duration": 8.32,
+        "text": "support for operators inside the"
+      },
+      {
+        "start": 1961.96,
+        "duration": 7.65,
+        "text": "services so it's all up to you so i'm"
+      },
+      {
+        "start": 1967.21,
+        "duration": 4.69,
+        "text": "happy to discuss any data intensive"
+      },
+      {
+        "start": 1969.61,
+        "duration": 7.09,
+        "text": "systems that you might have"
+      },
+      {
+        "start": 1971.9,
+        "duration": 9.12,
+        "text": "with and I have a blog I posted a few"
+      },
+      {
+        "start": 1976.7,
+        "duration": 6.24,
+        "text": "articles about this topic I have a talk"
+      },
+      {
+        "start": 1981.02,
+        "duration": 4.95,
+        "text": "about stateful sets and persist days"
+      },
+      {
+        "start": 1982.94,
+        "duration": 6.54,
+        "text": "that I gave it go to Chicago which is"
+      },
+      {
+        "start": 1985.97,
+        "duration": 5.22,
+        "text": "kind of like part one of this talk and I"
+      },
+      {
+        "start": 1989.48,
+        "duration": 5.43,
+        "text": "also found a really interesting post"
+      },
+      {
+        "start": 1991.19,
+        "duration": 8.45,
+        "text": "about creating custom controllers it's"
+      },
+      {
+        "start": 1994.91,
+        "duration": 8.97,
+        "text": "the last link here by Thomas stringer"
+      },
+      {
+        "start": 1999.64,
+        "duration": 6.58,
+        "text": "so yeah that's me Alina ho-lee Android"
+      },
+      {
+        "start": 2003.88,
+        "duration": 5.93,
+        "text": "on Twitter and reach out thank you so"
+      },
+      {
+        "start": 2006.22,
+        "duration": 9.859,
+        "text": "much and I think Tim is next"
+      },
+      {
+        "start": 2009.81,
+        "duration": 6.269,
+        "text": "[Applause]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T05:49:19.117891+00:00"
+}

@@ -1,0 +1,1553 @@
+{
+  "video_id": "o9mIYfEKOEk",
+  "title": "DS330.21 Recursive Traversals | DataStax Enterprise 6 Graph",
+  "description": "#DataStaxAcademy #DS330\nDS330.21 Recursive Traversals\nA recursive traversal is a traversal that contains one or more internal, nested traversals that can be repeatedly evaluated again and again until a certain stopping criterion is met. In this unit, you will learn about recursive traversals.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-16T01:34:07Z",
+  "thumbnail": "https://i.ytimg.com/vi/o9mIYfEKOEk/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "tutorial",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=o9mIYfEKOEk",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] hi i am martin chibatko and this is recursive traversals a recursive traversal is a traversal that contains one or more internal nested traversals that can be repeatedly evaluated again and again until a certain stopping criterion is met for example in some cases it is useful to be able to instruct gremlin to hop between vertices in your graph until the traverser finds a vertex with some interesting property values recursion in gremlin is supported by one step called repeat step repeat takes a traversal as a parameter and evaluates it again and again to stop repetition we also need to use some step modulators such as times and e and until times specifies the exact number of iterations we want until specified a stopping condition in the form of either an internal traversal that should yell some result or a predicate that should evaluate to true for a recursion to stop another useful step modulator that is used with the repeat step is called emit it has nothing to do with stop and recursion however sometimes when you have repetition you want not only the result of the last iteration but also all or some intermediate iteration results that is what emit is for you can send copies of traversers from intermediate iterations past repetition this can be done unconditionally or based on a condition defined by either a traversal or a predicate we will soon see all of these constructs in concrete examples please hold your questions here is our killer video graph schema you might have seen it before we have four types of vertices movies users genres and people they can be related to each other using different types of relationships users may know each other they can rate movies movies belong to genres movies can have actors directors composers and so on and of course we have some verdicts properties we have one h property we have one multi-property called production no matter properties the user-defined ids are underlined on the diagram for your convenience please take a moment to study the schema as it will help you to follow all of our examples specifically in this presentation our focus will be on users and nose edges those form a social subgraph that we will traverse recursively okay this is more of a toy example but it will help us to understand how repeat and times play together we have a simple task of counting how many other users a given user knows we can of course find an answer by traversing those edges which can be done using single out nose step and this is exactly what we do in our first non-recursive traversal it turns out it returns four immediate friends by the way we chose to use out instead of both in this example just to keep saying simple the next two traversals are recursive traversals the difference between them is that times is specified after or before repeat which affects the final result repeat times results in a do while semantics meaning that the internal traversal will be evaluated before checking the stop and condition in the example even so time 0 set the number of repetitions to zero one out step is evaluated to get to four friend vertices times repeat will first evaluate the stopping condition and only then do the repetition similarly to a while do loop in this example time zero instructs gremlin to never perform repeat and thus the traverser stays on the current vertex which is user u1 counting these single vertex returns one the last two recursive traversals give identical results and you should be able to figure out why now let's dig a little deeper into u1's social network and count friends of friends or friends of friends or friends of this user in other words we are going to count users who are five out steps away from user e1 this becomes a truly recursive traversal we get the same result of 715 whether we use repeat times or times repeat and because the same users might have been found multiple times by traversing different paths in our little social network we show how to use the do this step to remove duplicates we get 397 distinct users in this next example we want to find connections of our user u1 who are 17 years old since we do not really know how many repetitions we need to do could be 2 100 or some other random number we cannot use the times modulator to define a stopping condition instead we are going to use the modulator called until and the new limit step in our first traversal we start with user u1 and keep traversing those edges in any direction until we see user vertex with h17 we only need to find three such users because the limit step caps the number of results to three for each found user we get a value map and indeed we see that all the users in the output are 17 years old something that may not be very obvious is that if we remove the limit step from this traversal it will become an infinite traversal because after each iteration there will be always some traversers that move to user vertices with h other than 17. furthermore even with the limit step our traversal can still run forever if it cannot find at least three results it will keep iterating and looking for users but our graph may simply not have enough results to satisfy the limit just think about it for now and we will soon learn about another step that will help us to deal with those extremes in the second traversal we put the until modulator before the repeat step and we only get one user in the output but notice that that user is user u1 what happened here is that because user e1 himself is 17 years old the until condition was satisfied and the repeat step was never even evaluated so we just introduced the limit step as a way to cap the number of traversers that can move on to the next step in the traversal we can also use the range step to set low and high inclusive range for a number of traversals that can pass to the next step in the traversal tail step is analogous to limit except that tail emits the last n objects instead of the first n objects both limit and range are helpful in preventing an infinite recursion but tail is not because it requires the result to be calculated completely so that it can take something from the end of the result ultimate step that guarantees that the recursive traversal will not run forever is called time limit the time limit step can also be used together with other steps on this slide as soon as a traversal runs for a specified amount of time or yells a certain number of objects in the result computation stops let's look at some examples here we're going to start again with user e1 and repeat for at most 2000 milliseconds the traversal that looks for a user who has more than 20 nose edges that is a user with more than 20 direct connections and who is also connected directly or indirectly to user u1 next we redo our result and output available only to find a very well connected user u874 increasing the time limit may yell more results more users decreasing the time limit may yell no results at all and removing the time limit altogether may result in infinite recursion remember that time limit is your best friend when it comes to recursion now let's talk about something slightly different if we want to return a result of each iteration of the repeat step we can use emit this example will help us to understand how the emit step modulator works the first reversal starts with user u1 traverses outgoing nose edges one time and counts the adjacent vertices we see that user e1 directly knows four other users the second traversal does two iterations and effectively counts friends of friends of user1 based on the output user u1 has 13 second degree friends so far we did not see anything new the next two traversals will fix that what if we wanted to count both friends and friends of friends at the same time we'll have to send the result of first and second iterations to the count stack and this is what the third traversal does using the emit modulator after repeat so there will be four first-degree friends and thirteen second-degree friends counted in this traversal resulting in 17 total in our final traversal putting a mid before the repeat step also counts the user u1 himself in this case we emit user e1 and his four friends before the first and second iterations start the repeats tab also outputs 13 second degree friends and so our total count becomes 18. what if we want to know if two users are connected say if user u1 is connected to user u2 you're going to have to look for an answer recursively because you do not really know beforehand what that pass might be or if it even exists we start with user e1 and repeatedly traverse nose edges in any direction we have a time limit here of 200 milliseconds and this is important because we do not want to have a potentially infinite recursion after each iteration we only emit a vertex if it belongs to user with a d u2 based on the sample output there exists multiple paths between users u1 and u2 and now it's your turn to roll up your sleeves and get your hands dirty",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 5.31,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.12,
+        "duration": 2.479,
+        "text": "hi"
+      },
+      {
+        "start": 7.919,
+        "duration": 3.121,
+        "text": "i am martin chibatko and this is"
+      },
+      {
+        "start": 9.599,
+        "duration": 3.841,
+        "text": "recursive traversals"
+      },
+      {
+        "start": 11.04,
+        "duration": 3.44,
+        "text": "a recursive traversal is a traversal"
+      },
+      {
+        "start": 13.44,
+        "duration": 3.759,
+        "text": "that contains one"
+      },
+      {
+        "start": 14.48,
+        "duration": 4.719,
+        "text": "or more internal nested traversals that"
+      },
+      {
+        "start": 17.199,
+        "duration": 4.641,
+        "text": "can be repeatedly evaluated"
+      },
+      {
+        "start": 19.199,
+        "duration": 5.84,
+        "text": "again and again until a certain stopping"
+      },
+      {
+        "start": 21.84,
+        "duration": 3.199,
+        "text": "criterion is met"
+      },
+      {
+        "start": 25.279,
+        "duration": 3.92,
+        "text": "for example in some cases it is useful"
+      },
+      {
+        "start": 27.359,
+        "duration": 4.08,
+        "text": "to be able to instruct gremlin"
+      },
+      {
+        "start": 29.199,
+        "duration": 4.721,
+        "text": "to hop between vertices in your graph"
+      },
+      {
+        "start": 31.439,
+        "duration": 4.081,
+        "text": "until the traverser finds a vertex with"
+      },
+      {
+        "start": 33.92,
+        "duration": 5.2,
+        "text": "some interesting property"
+      },
+      {
+        "start": 35.52,
+        "duration": 7.44,
+        "text": "values recursion in gremlin is supported"
+      },
+      {
+        "start": 39.12,
+        "duration": 6.08,
+        "text": "by one step called repeat step"
+      },
+      {
+        "start": 42.96,
+        "duration": 4.4,
+        "text": "repeat takes a traversal as a parameter"
+      },
+      {
+        "start": 45.2,
+        "duration": 4.48,
+        "text": "and evaluates it again and again"
+      },
+      {
+        "start": 47.36,
+        "duration": 4.24,
+        "text": "to stop repetition we also need to use"
+      },
+      {
+        "start": 49.68,
+        "duration": 5.44,
+        "text": "some step modulators such as"
+      },
+      {
+        "start": 51.6,
+        "duration": 3.84,
+        "text": "times and e and until times specifies"
+      },
+      {
+        "start": 55.12,
+        "duration": 4.079,
+        "text": "the"
+      },
+      {
+        "start": 55.44,
+        "duration": 6.32,
+        "text": "exact number of iterations we want"
+      },
+      {
+        "start": 59.199,
+        "duration": 5.04,
+        "text": "until specified a stopping condition in"
+      },
+      {
+        "start": 61.76,
+        "duration": 5.2,
+        "text": "the form of either an internal traversal"
+      },
+      {
+        "start": 64.239,
+        "duration": 5.521,
+        "text": "that should yell some result or a"
+      },
+      {
+        "start": 66.96,
+        "duration": 6.159,
+        "text": "predicate that should evaluate to true"
+      },
+      {
+        "start": 69.76,
+        "duration": 6.08,
+        "text": "for a recursion to stop"
+      },
+      {
+        "start": 73.119,
+        "duration": 4.241,
+        "text": "another useful step modulator that is"
+      },
+      {
+        "start": 75.84,
+        "duration": 4.4,
+        "text": "used with the repeat step"
+      },
+      {
+        "start": 77.36,
+        "duration": 5.04,
+        "text": "is called emit it has nothing to do with"
+      },
+      {
+        "start": 80.24,
+        "duration": 4.8,
+        "text": "stop and recursion however"
+      },
+      {
+        "start": 82.4,
+        "duration": 3.039,
+        "text": "sometimes when you have repetition you"
+      },
+      {
+        "start": 85.04,
+        "duration": 2.16,
+        "text": "want"
+      },
+      {
+        "start": 85.439,
+        "duration": 3.441,
+        "text": "not only the result of the last"
+      },
+      {
+        "start": 87.2,
+        "duration": 3.76,
+        "text": "iteration but also"
+      },
+      {
+        "start": 88.88,
+        "duration": 3.52,
+        "text": "all or some intermediate iteration"
+      },
+      {
+        "start": 90.96,
+        "duration": 5.119,
+        "text": "results"
+      },
+      {
+        "start": 92.4,
+        "duration": 6.0,
+        "text": "that is what emit is for you can send"
+      },
+      {
+        "start": 96.079,
+        "duration": 3.201,
+        "text": "copies of traversers from intermediate"
+      },
+      {
+        "start": 98.4,
+        "duration": 4.079,
+        "text": "iterations"
+      },
+      {
+        "start": 99.28,
+        "duration": 4.24,
+        "text": "past repetition this can be done"
+      },
+      {
+        "start": 102.479,
+        "duration": 3.041,
+        "text": "unconditionally"
+      },
+      {
+        "start": 103.52,
+        "duration": 4.8,
+        "text": "or based on a condition defined by"
+      },
+      {
+        "start": 105.52,
+        "duration": 5.84,
+        "text": "either a traversal or a predicate"
+      },
+      {
+        "start": 108.32,
+        "duration": 5.839,
+        "text": "we will soon see all of these constructs"
+      },
+      {
+        "start": 111.36,
+        "duration": 4.0,
+        "text": "in concrete examples please hold your"
+      },
+      {
+        "start": 114.159,
+        "duration": 3.92,
+        "text": "questions"
+      },
+      {
+        "start": 115.36,
+        "duration": 4.56,
+        "text": "here is our killer video graph schema"
+      },
+      {
+        "start": 118.079,
+        "duration": 4.64,
+        "text": "you might have seen it before"
+      },
+      {
+        "start": 119.92,
+        "duration": 3.44,
+        "text": "we have four types of vertices movies"
+      },
+      {
+        "start": 122.719,
+        "duration": 3.841,
+        "text": "users"
+      },
+      {
+        "start": 123.36,
+        "duration": 4.24,
+        "text": "genres and people they can be related to"
+      },
+      {
+        "start": 126.56,
+        "duration": 3.28,
+        "text": "each other using"
+      },
+      {
+        "start": 127.6,
+        "duration": 3.279,
+        "text": "different types of relationships users"
+      },
+      {
+        "start": 129.84,
+        "duration": 3.119,
+        "text": "may know each other"
+      },
+      {
+        "start": 130.879,
+        "duration": 4.801,
+        "text": "they can rate movies movies belong to"
+      },
+      {
+        "start": 132.959,
+        "duration": 4.721,
+        "text": "genres movies can have actors directors"
+      },
+      {
+        "start": 135.68,
+        "duration": 4.72,
+        "text": "composers and so on"
+      },
+      {
+        "start": 137.68,
+        "duration": 4.48,
+        "text": "and of course we have some verdicts"
+      },
+      {
+        "start": 140.4,
+        "duration": 4.8,
+        "text": "properties we have one h"
+      },
+      {
+        "start": 142.16,
+        "duration": 6.159,
+        "text": "property we have one multi-property"
+      },
+      {
+        "start": 145.2,
+        "duration": 6.08,
+        "text": "called production no matter properties"
+      },
+      {
+        "start": 148.319,
+        "duration": 3.761,
+        "text": "the user-defined ids are underlined on"
+      },
+      {
+        "start": 151.28,
+        "duration": 3.36,
+        "text": "the diagram"
+      },
+      {
+        "start": 152.08,
+        "duration": 4.08,
+        "text": "for your convenience please take a"
+      },
+      {
+        "start": 154.64,
+        "duration": 4.4,
+        "text": "moment to study the schema"
+      },
+      {
+        "start": 156.16,
+        "duration": 5.2,
+        "text": "as it will help you to follow all of our"
+      },
+      {
+        "start": 159.04,
+        "duration": 4.559,
+        "text": "examples"
+      },
+      {
+        "start": 161.36,
+        "duration": 3.36,
+        "text": "specifically in this presentation our"
+      },
+      {
+        "start": 163.599,
+        "duration": 4.241,
+        "text": "focus will be"
+      },
+      {
+        "start": 164.72,
+        "duration": 5.12,
+        "text": "on users and nose edges those form"
+      },
+      {
+        "start": 167.84,
+        "duration": 3.759,
+        "text": "a social subgraph that we will traverse"
+      },
+      {
+        "start": 169.84,
+        "duration": 4.64,
+        "text": "recursively"
+      },
+      {
+        "start": 171.599,
+        "duration": 5.441,
+        "text": "okay this is more of a toy example but"
+      },
+      {
+        "start": 174.48,
+        "duration": 5.839,
+        "text": "it will help us to understand how repeat"
+      },
+      {
+        "start": 177.04,
+        "duration": 4.96,
+        "text": "and times play together we have a simple"
+      },
+      {
+        "start": 180.319,
+        "duration": 4.401,
+        "text": "task of counting how many"
+      },
+      {
+        "start": 182.0,
+        "duration": 3.12,
+        "text": "other users a given user knows we can of"
+      },
+      {
+        "start": 184.72,
+        "duration": 2.96,
+        "text": "course"
+      },
+      {
+        "start": 185.12,
+        "duration": 4.08,
+        "text": "find an answer by traversing those edges"
+      },
+      {
+        "start": 187.68,
+        "duration": 4.639,
+        "text": "which can be done using"
+      },
+      {
+        "start": 189.2,
+        "duration": 4.319,
+        "text": "single out nose step and this is exactly"
+      },
+      {
+        "start": 192.319,
+        "duration": 4.481,
+        "text": "what we do"
+      },
+      {
+        "start": 193.519,
+        "duration": 6.0,
+        "text": "in our first non-recursive traversal"
+      },
+      {
+        "start": 196.8,
+        "duration": 4.159,
+        "text": "it turns out it returns four immediate"
+      },
+      {
+        "start": 199.519,
+        "duration": 3.521,
+        "text": "friends"
+      },
+      {
+        "start": 200.959,
+        "duration": 4.321,
+        "text": "by the way we chose to use out instead"
+      },
+      {
+        "start": 203.04,
+        "duration": 3.199,
+        "text": "of both in this example just to keep"
+      },
+      {
+        "start": 205.28,
+        "duration": 2.8,
+        "text": "saying simple"
+      },
+      {
+        "start": 206.239,
+        "duration": 4.08,
+        "text": "the next two traversals are recursive"
+      },
+      {
+        "start": 208.08,
+        "duration": 5.36,
+        "text": "traversals the difference between them"
+      },
+      {
+        "start": 210.319,
+        "duration": 4.241,
+        "text": "is that times is specified after or"
+      },
+      {
+        "start": 213.44,
+        "duration": 4.079,
+        "text": "before repeat"
+      },
+      {
+        "start": 214.56,
+        "duration": 3.679,
+        "text": "which affects the final result repeat"
+      },
+      {
+        "start": 217.519,
+        "duration": 3.601,
+        "text": "times"
+      },
+      {
+        "start": 218.239,
+        "duration": 4.961,
+        "text": "results in a do while semantics meaning"
+      },
+      {
+        "start": 221.12,
+        "duration": 3.52,
+        "text": "that the internal traversal will be"
+      },
+      {
+        "start": 223.2,
+        "duration": 3.2,
+        "text": "evaluated before"
+      },
+      {
+        "start": 224.64,
+        "duration": 3.28,
+        "text": "checking the stop and condition in the"
+      },
+      {
+        "start": 226.4,
+        "duration": 4.479,
+        "text": "example even so"
+      },
+      {
+        "start": 227.92,
+        "duration": 4.16,
+        "text": "time 0 set the number of repetitions to"
+      },
+      {
+        "start": 230.879,
+        "duration": 4.801,
+        "text": "zero"
+      },
+      {
+        "start": 232.08,
+        "duration": 6.879,
+        "text": "one out step is evaluated to get to four"
+      },
+      {
+        "start": 235.68,
+        "duration": 5.199,
+        "text": "friend vertices times repeat will first"
+      },
+      {
+        "start": 238.959,
+        "duration": 4.961,
+        "text": "evaluate the stopping condition"
+      },
+      {
+        "start": 240.879,
+        "duration": 6.0,
+        "text": "and only then do the repetition"
+      },
+      {
+        "start": 243.92,
+        "duration": 3.519,
+        "text": "similarly to a while do loop in this"
+      },
+      {
+        "start": 246.879,
+        "duration": 2.801,
+        "text": "example"
+      },
+      {
+        "start": 247.439,
+        "duration": 3.841,
+        "text": "time zero instructs gremlin to never"
+      },
+      {
+        "start": 249.68,
+        "duration": 4.24,
+        "text": "perform repeat"
+      },
+      {
+        "start": 251.28,
+        "duration": 4.56,
+        "text": "and thus the traverser stays on the"
+      },
+      {
+        "start": 253.92,
+        "duration": 5.279,
+        "text": "current vertex which is user"
+      },
+      {
+        "start": 255.84,
+        "duration": 6.32,
+        "text": "u1 counting these single vertex returns"
+      },
+      {
+        "start": 259.199,
+        "duration": 5.44,
+        "text": "one the last two recursive traversals"
+      },
+      {
+        "start": 262.16,
+        "duration": 4.8,
+        "text": "give identical results and you should be"
+      },
+      {
+        "start": 264.639,
+        "duration": 5.681,
+        "text": "able to figure out why"
+      },
+      {
+        "start": 266.96,
+        "duration": 6.08,
+        "text": "now let's dig a little deeper into u1's"
+      },
+      {
+        "start": 270.32,
+        "duration": 5.12,
+        "text": "social network and count friends of"
+      },
+      {
+        "start": 273.04,
+        "duration": 3.28,
+        "text": "friends or friends of friends or friends"
+      },
+      {
+        "start": 275.44,
+        "duration": 3.92,
+        "text": "of this user"
+      },
+      {
+        "start": 276.32,
+        "duration": 6.08,
+        "text": "in other words we are going to count"
+      },
+      {
+        "start": 279.36,
+        "duration": 4.08,
+        "text": "users who are five out steps away from"
+      },
+      {
+        "start": 282.4,
+        "duration": 4.0,
+        "text": "user e1"
+      },
+      {
+        "start": 283.44,
+        "duration": 5.6,
+        "text": "this becomes a truly recursive traversal"
+      },
+      {
+        "start": 286.4,
+        "duration": 4.72,
+        "text": "we get the same result of 715"
+      },
+      {
+        "start": 289.04,
+        "duration": 3.68,
+        "text": "whether we use repeat times or times"
+      },
+      {
+        "start": 291.12,
+        "duration": 4.24,
+        "text": "repeat and because"
+      },
+      {
+        "start": 292.72,
+        "duration": 4.72,
+        "text": "the same users might have been found"
+      },
+      {
+        "start": 295.36,
+        "duration": 4.32,
+        "text": "multiple times by traversing different"
+      },
+      {
+        "start": 297.44,
+        "duration": 4.56,
+        "text": "paths in our little social network"
+      },
+      {
+        "start": 299.68,
+        "duration": 3.12,
+        "text": "we show how to use the do this step to"
+      },
+      {
+        "start": 302.0,
+        "duration": 5.28,
+        "text": "remove"
+      },
+      {
+        "start": 302.8,
+        "duration": 7.52,
+        "text": "duplicates we get 397 distinct users"
+      },
+      {
+        "start": 307.28,
+        "duration": 6.96,
+        "text": "in this next example we want to find"
+      },
+      {
+        "start": 310.32,
+        "duration": 6.4,
+        "text": "connections of our user u1 who are 17"
+      },
+      {
+        "start": 314.24,
+        "duration": 4.32,
+        "text": "years old since we do not really know"
+      },
+      {
+        "start": 316.72,
+        "duration": 4.8,
+        "text": "how many repetitions we need to do"
+      },
+      {
+        "start": 318.56,
+        "duration": 3.919,
+        "text": "could be 2 100 or some other random"
+      },
+      {
+        "start": 321.52,
+        "duration": 3.92,
+        "text": "number"
+      },
+      {
+        "start": 322.479,
+        "duration": 4.641,
+        "text": "we cannot use the times modulator to"
+      },
+      {
+        "start": 325.44,
+        "duration": 3.52,
+        "text": "define a stopping condition"
+      },
+      {
+        "start": 327.12,
+        "duration": 4.48,
+        "text": "instead we are going to use the"
+      },
+      {
+        "start": 328.96,
+        "duration": 6.0,
+        "text": "modulator called until"
+      },
+      {
+        "start": 331.6,
+        "duration": 6.64,
+        "text": "and the new limit step in our first"
+      },
+      {
+        "start": 334.96,
+        "duration": 5.679,
+        "text": "traversal we start with user u1 and"
+      },
+      {
+        "start": 338.24,
+        "duration": 3.12,
+        "text": "keep traversing those edges in any"
+      },
+      {
+        "start": 340.639,
+        "duration": 4.56,
+        "text": "direction"
+      },
+      {
+        "start": 341.36,
+        "duration": 6.399,
+        "text": "until we see user vertex with h17"
+      },
+      {
+        "start": 345.199,
+        "duration": 4.241,
+        "text": "we only need to find three such users"
+      },
+      {
+        "start": 347.759,
+        "duration": 3.681,
+        "text": "because the limit step"
+      },
+      {
+        "start": 349.44,
+        "duration": 4.479,
+        "text": "caps the number of results to three for"
+      },
+      {
+        "start": 351.44,
+        "duration": 3.12,
+        "text": "each found user we get a value map and"
+      },
+      {
+        "start": 353.919,
+        "duration": 3.441,
+        "text": "indeed"
+      },
+      {
+        "start": 354.56,
+        "duration": 4.4,
+        "text": "we see that all the users in the output"
+      },
+      {
+        "start": 357.36,
+        "duration": 4.0,
+        "text": "are 17 years old"
+      },
+      {
+        "start": 358.96,
+        "duration": 4.72,
+        "text": "something that may not be very obvious"
+      },
+      {
+        "start": 361.36,
+        "duration": 4.8,
+        "text": "is that if we remove the limit step"
+      },
+      {
+        "start": 363.68,
+        "duration": 3.2,
+        "text": "from this traversal it will become an"
+      },
+      {
+        "start": 366.16,
+        "duration": 3.12,
+        "text": "infinite"
+      },
+      {
+        "start": 366.88,
+        "duration": 3.439,
+        "text": "traversal because after each iteration"
+      },
+      {
+        "start": 369.28,
+        "duration": 3.68,
+        "text": "there will be"
+      },
+      {
+        "start": 370.319,
+        "duration": 3.521,
+        "text": "always some traversers that move to user"
+      },
+      {
+        "start": 372.96,
+        "duration": 3.76,
+        "text": "vertices"
+      },
+      {
+        "start": 373.84,
+        "duration": 4.079,
+        "text": "with h other than 17. furthermore even"
+      },
+      {
+        "start": 376.72,
+        "duration": 3.44,
+        "text": "with the limit step"
+      },
+      {
+        "start": 377.919,
+        "duration": 3.28,
+        "text": "our traversal can still run forever if"
+      },
+      {
+        "start": 380.16,
+        "duration": 3.52,
+        "text": "it cannot find"
+      },
+      {
+        "start": 381.199,
+        "duration": 4.401,
+        "text": "at least three results it will keep"
+      },
+      {
+        "start": 383.68,
+        "duration": 4.32,
+        "text": "iterating and looking for users"
+      },
+      {
+        "start": 385.6,
+        "duration": 4.24,
+        "text": "but our graph may simply not have enough"
+      },
+      {
+        "start": 388.0,
+        "duration": 4.479,
+        "text": "results to satisfy"
+      },
+      {
+        "start": 389.84,
+        "duration": 4.479,
+        "text": "the limit just think about it for now"
+      },
+      {
+        "start": 392.479,
+        "duration": 4.241,
+        "text": "and we will soon learn about another"
+      },
+      {
+        "start": 394.319,
+        "duration": 5.201,
+        "text": "step that will help us to deal with"
+      },
+      {
+        "start": 396.72,
+        "duration": 3.68,
+        "text": "those extremes in the second traversal"
+      },
+      {
+        "start": 399.52,
+        "duration": 3.84,
+        "text": "we put the"
+      },
+      {
+        "start": 400.4,
+        "duration": 3.359,
+        "text": "until modulator before the repeat step"
+      },
+      {
+        "start": 403.36,
+        "duration": 3.52,
+        "text": "and we"
+      },
+      {
+        "start": 403.759,
+        "duration": 4.241,
+        "text": "only get one user in the output but"
+      },
+      {
+        "start": 406.88,
+        "duration": 4.879,
+        "text": "notice that that"
+      },
+      {
+        "start": 408.0,
+        "duration": 5.28,
+        "text": "user is user u1 what happened here is"
+      },
+      {
+        "start": 411.759,
+        "duration": 4.481,
+        "text": "that because user e1"
+      },
+      {
+        "start": 413.28,
+        "duration": 3.759,
+        "text": "himself is 17 years old the until"
+      },
+      {
+        "start": 416.24,
+        "duration": 3.84,
+        "text": "condition"
+      },
+      {
+        "start": 417.039,
+        "duration": 3.6,
+        "text": "was satisfied and the repeat step was"
+      },
+      {
+        "start": 420.08,
+        "duration": 3.76,
+        "text": "never"
+      },
+      {
+        "start": 420.639,
+        "duration": 4.161,
+        "text": "even evaluated so we just introduced the"
+      },
+      {
+        "start": 423.84,
+        "duration": 3.12,
+        "text": "limit step"
+      },
+      {
+        "start": 424.8,
+        "duration": 3.2,
+        "text": "as a way to cap the number of traversers"
+      },
+      {
+        "start": 426.96,
+        "duration": 3.359,
+        "text": "that can move"
+      },
+      {
+        "start": 428.0,
+        "duration": 4.4,
+        "text": "on to the next step in the traversal we"
+      },
+      {
+        "start": 430.319,
+        "duration": 4.0,
+        "text": "can also use the range step to set"
+      },
+      {
+        "start": 432.4,
+        "duration": 3.12,
+        "text": "low and high inclusive range for a"
+      },
+      {
+        "start": 434.319,
+        "duration": 3.041,
+        "text": "number of traversals"
+      },
+      {
+        "start": 435.52,
+        "duration": 3.36,
+        "text": "that can pass to the next step in the"
+      },
+      {
+        "start": 437.36,
+        "duration": 4.88,
+        "text": "traversal tail step"
+      },
+      {
+        "start": 438.88,
+        "duration": 6.319,
+        "text": "is analogous to limit except that tail"
+      },
+      {
+        "start": 442.24,
+        "duration": 3.679,
+        "text": "emits the last n objects instead of the"
+      },
+      {
+        "start": 445.199,
+        "duration": 3.761,
+        "text": "first n"
+      },
+      {
+        "start": 445.919,
+        "duration": 5.441,
+        "text": "objects both limit and range are helpful"
+      },
+      {
+        "start": 448.96,
+        "duration": 5.04,
+        "text": "in preventing an infinite recursion"
+      },
+      {
+        "start": 451.36,
+        "duration": 5.2,
+        "text": "but tail is not because it requires the"
+      },
+      {
+        "start": 454.0,
+        "duration": 4.639,
+        "text": "result to be calculated completely"
+      },
+      {
+        "start": 456.56,
+        "duration": 3.44,
+        "text": "so that it can take something from the"
+      },
+      {
+        "start": 458.639,
+        "duration": 4.641,
+        "text": "end of the result"
+      },
+      {
+        "start": 460.0,
+        "duration": 4.72,
+        "text": "ultimate step that guarantees that the"
+      },
+      {
+        "start": 463.28,
+        "duration": 4.56,
+        "text": "recursive traversal"
+      },
+      {
+        "start": 464.72,
+        "duration": 6.24,
+        "text": "will not run forever is called time"
+      },
+      {
+        "start": 467.84,
+        "duration": 4.479,
+        "text": "limit the time limit step can also be"
+      },
+      {
+        "start": 470.96,
+        "duration": 3.44,
+        "text": "used together with"
+      },
+      {
+        "start": 472.319,
+        "duration": 4.481,
+        "text": "other steps on this slide as soon as a"
+      },
+      {
+        "start": 474.4,
+        "duration": 2.799,
+        "text": "traversal runs for a specified amount of"
+      },
+      {
+        "start": 476.8,
+        "duration": 2.88,
+        "text": "time"
+      },
+      {
+        "start": 477.199,
+        "duration": 4.0,
+        "text": "or yells a certain number of objects in"
+      },
+      {
+        "start": 479.68,
+        "duration": 4.4,
+        "text": "the result computation"
+      },
+      {
+        "start": 481.199,
+        "duration": 4.081,
+        "text": "stops let's look at some examples here"
+      },
+      {
+        "start": 484.08,
+        "duration": 3.36,
+        "text": "we're going to start"
+      },
+      {
+        "start": 485.28,
+        "duration": 3.52,
+        "text": "again with user e1 and repeat for at"
+      },
+      {
+        "start": 487.44,
+        "duration": 3.759,
+        "text": "most 2000"
+      },
+      {
+        "start": 488.8,
+        "duration": 3.6,
+        "text": "milliseconds the traversal that looks"
+      },
+      {
+        "start": 491.199,
+        "duration": 4.321,
+        "text": "for a user"
+      },
+      {
+        "start": 492.4,
+        "duration": 6.0,
+        "text": "who has more than 20 nose edges"
+      },
+      {
+        "start": 495.52,
+        "duration": 3.76,
+        "text": "that is a user with more than 20 direct"
+      },
+      {
+        "start": 498.4,
+        "duration": 3.68,
+        "text": "connections"
+      },
+      {
+        "start": 499.28,
+        "duration": 3.599,
+        "text": "and who is also connected directly or"
+      },
+      {
+        "start": 502.08,
+        "duration": 4.0,
+        "text": "indirectly"
+      },
+      {
+        "start": 502.879,
+        "duration": 4.401,
+        "text": "to user u1 next we redo our result and"
+      },
+      {
+        "start": 506.08,
+        "duration": 4.36,
+        "text": "output available"
+      },
+      {
+        "start": 507.28,
+        "duration": 4.4,
+        "text": "only to find a very well connected user"
+      },
+      {
+        "start": 510.44,
+        "duration": 3.719,
+        "text": "u874"
+      },
+      {
+        "start": 511.68,
+        "duration": 3.279,
+        "text": "increasing the time limit may yell more"
+      },
+      {
+        "start": 514.159,
+        "duration": 4.0,
+        "text": "results"
+      },
+      {
+        "start": 514.959,
+        "duration": 6.0,
+        "text": "more users decreasing the time limit may"
+      },
+      {
+        "start": 518.159,
+        "duration": 3.601,
+        "text": "yell no results at all and removing the"
+      },
+      {
+        "start": 520.959,
+        "duration": 2.96,
+        "text": "time limit"
+      },
+      {
+        "start": 521.76,
+        "duration": 3.44,
+        "text": "altogether may result in infinite"
+      },
+      {
+        "start": 523.919,
+        "duration": 3.681,
+        "text": "recursion remember"
+      },
+      {
+        "start": 525.2,
+        "duration": 3.84,
+        "text": "that time limit is your best friend when"
+      },
+      {
+        "start": 527.6,
+        "duration": 3.6,
+        "text": "it comes to recursion"
+      },
+      {
+        "start": 529.04,
+        "duration": 4.56,
+        "text": "now let's talk about something slightly"
+      },
+      {
+        "start": 531.2,
+        "duration": 5.52,
+        "text": "different if we want to return a result"
+      },
+      {
+        "start": 533.6,
+        "duration": 3.679,
+        "text": "of each iteration of the repeat step we"
+      },
+      {
+        "start": 536.72,
+        "duration": 3.36,
+        "text": "can use"
+      },
+      {
+        "start": 537.279,
+        "duration": 3.761,
+        "text": "emit this example will help us to"
+      },
+      {
+        "start": 540.08,
+        "duration": 3.36,
+        "text": "understand"
+      },
+      {
+        "start": 541.04,
+        "duration": 4.72,
+        "text": "how the emit step modulator works the"
+      },
+      {
+        "start": 543.44,
+        "duration": 5.6,
+        "text": "first reversal starts with user u1"
+      },
+      {
+        "start": 545.76,
+        "duration": 6.639,
+        "text": "traverses outgoing nose edges one time"
+      },
+      {
+        "start": 549.04,
+        "duration": 4.88,
+        "text": "and counts the adjacent vertices we see"
+      },
+      {
+        "start": 552.399,
+        "duration": 4.321,
+        "text": "that user e1"
+      },
+      {
+        "start": 553.92,
+        "duration": 4.0,
+        "text": "directly knows four other users the"
+      },
+      {
+        "start": 556.72,
+        "duration": 4.0,
+        "text": "second traversal"
+      },
+      {
+        "start": 557.92,
+        "duration": 3.359,
+        "text": "does two iterations and effectively"
+      },
+      {
+        "start": 560.72,
+        "duration": 3.44,
+        "text": "counts"
+      },
+      {
+        "start": 561.279,
+        "duration": 3.441,
+        "text": "friends of friends of user1 based on the"
+      },
+      {
+        "start": 564.16,
+        "duration": 4.239,
+        "text": "output"
+      },
+      {
+        "start": 564.72,
+        "duration": 5.92,
+        "text": "user u1 has 13 second degree friends"
+      },
+      {
+        "start": 568.399,
+        "duration": 3.521,
+        "text": "so far we did not see anything new the"
+      },
+      {
+        "start": 570.64,
+        "duration": 4.16,
+        "text": "next two traversals"
+      },
+      {
+        "start": 571.92,
+        "duration": 5.44,
+        "text": "will fix that what if we wanted to count"
+      },
+      {
+        "start": 574.8,
+        "duration": 4.24,
+        "text": "both friends and friends of friends"
+      },
+      {
+        "start": 577.36,
+        "duration": 3.84,
+        "text": "at the same time we'll have to send the"
+      },
+      {
+        "start": 579.04,
+        "duration": 4.08,
+        "text": "result of first and second iterations to"
+      },
+      {
+        "start": 581.2,
+        "duration": 3.68,
+        "text": "the count stack and this is what the"
+      },
+      {
+        "start": 583.12,
+        "duration": 4.88,
+        "text": "third traversal does"
+      },
+      {
+        "start": 584.88,
+        "duration": 4.72,
+        "text": "using the emit modulator after repeat"
+      },
+      {
+        "start": 588.0,
+        "duration": 3.68,
+        "text": "so there will be four first-degree"
+      },
+      {
+        "start": 589.6,
+        "duration": 4.32,
+        "text": "friends and thirteen second-degree"
+      },
+      {
+        "start": 591.68,
+        "duration": 3.44,
+        "text": "friends counted in this traversal"
+      },
+      {
+        "start": 593.92,
+        "duration": 4.64,
+        "text": "resulting in"
+      },
+      {
+        "start": 595.12,
+        "duration": 6.48,
+        "text": "17 total in our final traversal"
+      },
+      {
+        "start": 598.56,
+        "duration": 6.0,
+        "text": "putting a mid before the repeat step"
+      },
+      {
+        "start": 601.6,
+        "duration": 3.6,
+        "text": "also counts the user u1 himself in this"
+      },
+      {
+        "start": 604.56,
+        "duration": 3.839,
+        "text": "case"
+      },
+      {
+        "start": 605.2,
+        "duration": 5.84,
+        "text": "we emit user e1 and his four friends"
+      },
+      {
+        "start": 608.399,
+        "duration": 3.44,
+        "text": "before the first and second iterations"
+      },
+      {
+        "start": 611.04,
+        "duration": 4.0,
+        "text": "start"
+      },
+      {
+        "start": 611.839,
+        "duration": 6.0,
+        "text": "the repeats tab also outputs 13"
+      },
+      {
+        "start": 615.04,
+        "duration": 4.799,
+        "text": "second degree friends and so our total"
+      },
+      {
+        "start": 617.839,
+        "duration": 4.56,
+        "text": "count becomes 18."
+      },
+      {
+        "start": 619.839,
+        "duration": 3.761,
+        "text": "what if we want to know if two users are"
+      },
+      {
+        "start": 622.399,
+        "duration": 4.641,
+        "text": "connected"
+      },
+      {
+        "start": 623.6,
+        "duration": 5.6,
+        "text": "say if user u1 is connected to user"
+      },
+      {
+        "start": 627.04,
+        "duration": 3.6,
+        "text": "u2 you're going to have to look for an"
+      },
+      {
+        "start": 629.2,
+        "duration": 3.04,
+        "text": "answer recursively"
+      },
+      {
+        "start": 630.64,
+        "duration": 4.72,
+        "text": "because you do not really know"
+      },
+      {
+        "start": 632.24,
+        "duration": 6.48,
+        "text": "beforehand what that pass might be"
+      },
+      {
+        "start": 635.36,
+        "duration": 5.28,
+        "text": "or if it even exists we start with user"
+      },
+      {
+        "start": 638.72,
+        "duration": 4.16,
+        "text": "e1 and repeatedly traverse"
+      },
+      {
+        "start": 640.64,
+        "duration": 3.36,
+        "text": "nose edges in any direction we have a"
+      },
+      {
+        "start": 642.88,
+        "duration": 3.68,
+        "text": "time limit here"
+      },
+      {
+        "start": 644.0,
+        "duration": 3.6,
+        "text": "of 200 milliseconds and this is"
+      },
+      {
+        "start": 646.56,
+        "duration": 3.2,
+        "text": "important because"
+      },
+      {
+        "start": 647.6,
+        "duration": 3.52,
+        "text": "we do not want to have a potentially"
+      },
+      {
+        "start": 649.76,
+        "duration": 4.56,
+        "text": "infinite recursion"
+      },
+      {
+        "start": 651.12,
+        "duration": 3.92,
+        "text": "after each iteration we only emit a"
+      },
+      {
+        "start": 654.32,
+        "duration": 4.24,
+        "text": "vertex"
+      },
+      {
+        "start": 655.04,
+        "duration": 5.84,
+        "text": "if it belongs to user with a d u2"
+      },
+      {
+        "start": 658.56,
+        "duration": 4.0,
+        "text": "based on the sample output there exists"
+      },
+      {
+        "start": 660.88,
+        "duration": 5.84,
+        "text": "multiple paths between"
+      },
+      {
+        "start": 662.56,
+        "duration": 6.08,
+        "text": "users u1 and u2 and now it's your turn"
+      },
+      {
+        "start": 666.72,
+        "duration": 7.52,
+        "text": "to roll up your sleeves and get your"
+      },
+      {
+        "start": 668.64,
+        "duration": 5.6,
+        "text": "hands dirty"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T22:38:30.580608+00:00"
+}

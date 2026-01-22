@@ -1,0 +1,1339 @@
+{
+  "video_id": "phPJDwzz-yc",
+  "title": "Installing DataStax Mission Control on an existing Kubernetes Cluster",
+  "description": "In this video, Alexander Dejanovski walks through every detail of installing Mission Control on an existing Kubernetes cluster.\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs?sub_confirmation=1 \nTwitter: https://twitter.com/datastaxdevs\n\nAbout DataStax Developers:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2024-05-23T19:40:03Z",
+  "thumbnail": "https://i.ytimg.com/vi/phPJDwzz-yc/hqdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "tutorial",
+    "datastax",
+    "apache_cassandra",
+    "workshop"
+  ],
+  "url": "https://www.youtube.com/watch?v=phPJDwzz-yc",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "hey folks uh I'm going to show you how to install Mission Control uh with your own kubernetes cluster so for this I'm going to follow uh this uh documentation and we're going to be using GK uh for our kubernetes cluster uh so you should create a standard GK cluster because autopilot does not allow web hooks uh so we rely on web hooks for a few things so that's not going to work for us so you can hit configure and then I'm going to name this cluster demo uh we're going to make it a regional uh cluster so that we can spread our racks uh across zones uh so now let's head to the pool so when you provision uh your instances for Mission Control you have to create two separate node pools so the first one will be named platform uh we're going to use three um well actually one per Zone uh that's going to be enough for us uh so we'll create three nodes uh I'm going to use slight like small instances for the sake of testing but uh in the documentation uh we we have a page around planning your installation and uh what type of uh instances you should be using uh depending on the type of not pool uh so here just for the sake of testing uh we'll use E2 medium and we're going to indicate a label for this note pool so that we can then schedule uh our pods accordingly so I'll add the platform roll label here and I'm going to move on and create a second poll which will name database uh that's going to host our DSU or Cassandra so uh yeah let's choose uh three per zone so that's going to be good and then we're going to use slightly beefier instances so I'm going to go with E2 standard 4 again not recommended for uh production use uh you're going to need uh bigger instances than this uh but for testing and staging uh it's uh it's perfect uh okay and we're also going to indicate which role this one has uh through the r label and the value will be database okay so we're good to go uh this is going to take a few minutes and then we'll head back and install mission control cluster is now uh fully provisioned and we can see that it's threading across three uh zones so us Central One CB and F we'll get back to that later right now we're going to connect it so I'll just copy that command line and this allows me to have uh the context in my Cube config so uh now I can check get [Music] noes okay so I have my database nodes and then my platform nodes so I can proceed with the installation uh if you check the um installation Docs prepare your environment cetes okay so you'll see that we need to First install uh C manager it's a prerequisite so I'm going to do this right now using Helm but you can also do it using um Cube cuddle directly oh interesting let me add the repository then and let's run the installation command again okay deploy successfully let's check if that's the case so let's get the pods in the insert manager name space everything is up and running okay so if you check back the the the docs you'll see that you have some prerequisites so hopefully since you're bringing your own kubernetes you have cu cutle uh installed and then you'll need CS uh which is fairly simple to install just this command line and you'll have the uh CS Cube cuddle plugin available uh locally uh so let's avoid putting public preview and we'll roll with the installation command here uh so it's going Cube C cut install mission control and then let's specify a namespace so that the Cs uh pods don't end up in the default name space which is not a great practice so let's run this when prompted for it inputs a ad an admin password uh that you're going to use once you uh connect to the Cs web UI where will perform the remaining of the installation so CS is fully installed so now we're going to head to this URL so here it's going to ask me for that password that we just gave it and then you need to upload your license file so bypass the air gap environment uh page and click here at the bottom download uh mission control from the internet we'll cover air gap installations in a in a separate video uh so then you land on the uh Mission Control configuration screen so we'll select control plane because at a minimum you need to have one control plane and then you can expand uh the cluster across with regions and kubernetes clusters by register uh registering uh separate data planes um you'll need to indicate here which object storage you're going to use for uh metrics and logs so since we're running in GK we'll go with GCS I already have buckets set up for both my metrics and logs so here you're just going to paste the Json uh of the service account uh key file uh here you can tune the topology of mimir so defaults are good and uh you can scale Individual Services uh if you uh if they don't keep up uh with the pace uh head down to the object storage section and indicate the name of the bucket so I'll be using MCM miror test here let me make that bigger then you can set the storage retention so if you want to retain one year worth of metrics then you can uh configure it like this and if you're planning for a production deployment or any deployment that's going to have to uh run for several days at least uh on tune attached storage uh in the in the uh documentation we have a reference section uh that will give you all the um explanations uh about these settings uh but one thing you need to note is that for production uh deployment your compactor volume size should be 300 gigs at least and then we'll set the ingestor volume size to 100 gigs and I can show you actually where that information is in the documentation you can go here to reference and then configuration settings and we'll search for volume and here we provide uh that uh that information so 10 GB for the alert manager 300 G 300 gigs for the compactor uh 50 gigs for the sore Gateway and at least 100 gigs for the ingestor otherwise they may run out of this space fairly quickly and uh since they are deployed as stateful sets uh you cannot easily change the volume size uh afterwards uh so let's apply these so 10 gigs and I think it was 50 gigs for the store Gateway okay then logs you can tune the topology uh of Loki as well uh which is simpler because you have reader and wrer instances I'm going to indicate the name of the of the the lowy bucket you can set the retention as well here and tune the attach storage again uh then we'll enable the web interface and https so we enable htps by default uh for security reason reasons uh but with a we do it with a self-signed uh certificate which means we'll get a warning in the browser uh if you want to set up your own um https uh settings then turn it off here and then you can set up an Ingress uh which will use SE manager uh to generate the certificate and you can use your own uh root CA uh there uh so we'll enable it then we'll have static credentials uh and I'm going to customize this so add me demo.com username would be Alex and you can see here how you can modify the password so I'm going to generate my own password for this uh let's call it demo one okay so now what I have to do is copy that part and put it here uh you'll know that you can also configure L app and open ID as authentication uh services so but the pre-flight checks run should be all green and then you can hit deploy and we can monitor the deployment here so going to watch keep C get pods Das and and we're going to monitor what's going on in the mission control names space okay so you can see that we have some low key pods that are created uh and then we have the mimir ones and here we have the mission control operator C operator ker operator uh everything is starting up and we also have our UI pod here so we expose the uh UI through a not Port so I can check get services in the mission control name space and here you see that we have a mission control UI uh not Port that's Exposed on Port 30880 uh so you can access that service uh through all the nodes uh external IPS uh in the cluster or you can port forward it so that's what I'm going to do here so port forward uh service Mission Control UI and that's on Port a80 and B let me indicate the name space first and hopefully 80 isn't used on my machine yet yeah it's good so now I can access it through Local Host whoops and of course like I mentioned it's htps so you get the warning in French here and there I am so I think I remember I did something like this admin at demo.com and demo one as password okay and here I can hit accept and I mean for more information on data Stacks Mission Control just head on out to data.com products slm Mission Control there you can find all the information you need including downloads and and documentation thank you and have a great day",
+    "segments": [
+      {
+        "start": 6.16,
+        "duration": 5.76,
+        "text": "hey folks uh I'm going to show you how"
+      },
+      {
+        "start": 8.4,
+        "duration": 5.119,
+        "text": "to install Mission Control uh with your"
+      },
+      {
+        "start": 11.92,
+        "duration": 4.8,
+        "text": "own kubernetes"
+      },
+      {
+        "start": 13.519,
+        "duration": 5.641,
+        "text": "cluster so for this I'm going to follow"
+      },
+      {
+        "start": 16.72,
+        "duration": 4.36,
+        "text": "uh this uh"
+      },
+      {
+        "start": 19.16,
+        "duration": 7.0,
+        "text": "documentation and we're going to be"
+      },
+      {
+        "start": 21.08,
+        "duration": 8.519,
+        "text": "using GK uh for our kubernetes cluster"
+      },
+      {
+        "start": 26.16,
+        "duration": 6.079,
+        "text": "uh so you should create a standard GK"
+      },
+      {
+        "start": 29.599,
+        "duration": 5.521,
+        "text": "cluster because autopilot does not allow"
+      },
+      {
+        "start": 32.239,
+        "duration": 4.921,
+        "text": "web hooks uh so we rely on web hooks for"
+      },
+      {
+        "start": 35.12,
+        "duration": 6.0,
+        "text": "a few things so that's not going to work"
+      },
+      {
+        "start": 37.16,
+        "duration": 6.96,
+        "text": "for us so you can hit"
+      },
+      {
+        "start": 41.12,
+        "duration": 4.959,
+        "text": "configure and then I'm going to name"
+      },
+      {
+        "start": 44.12,
+        "duration": 5.36,
+        "text": "this cluster"
+      },
+      {
+        "start": 46.079,
+        "duration": 6.201,
+        "text": "demo uh we're going to make it a"
+      },
+      {
+        "start": 49.48,
+        "duration": 6.84,
+        "text": "regional uh cluster so that we can"
+      },
+      {
+        "start": 52.28,
+        "duration": 7.959,
+        "text": "spread our racks uh across"
+      },
+      {
+        "start": 56.32,
+        "duration": 7.52,
+        "text": "zones uh so now let's head to the pool"
+      },
+      {
+        "start": 60.239,
+        "duration": 6.041,
+        "text": "so when you provision uh your instances"
+      },
+      {
+        "start": 63.84,
+        "duration": 5.12,
+        "text": "for Mission Control you have to create"
+      },
+      {
+        "start": 66.28,
+        "duration": 5.04,
+        "text": "two separate node pools so the first one"
+      },
+      {
+        "start": 68.96,
+        "duration": 6.32,
+        "text": "will be named"
+      },
+      {
+        "start": 71.32,
+        "duration": 7.04,
+        "text": "platform uh we're going to use three um"
+      },
+      {
+        "start": 75.28,
+        "duration": 5.6,
+        "text": "well actually one per Zone uh that's"
+      },
+      {
+        "start": 78.36,
+        "duration": 5.119,
+        "text": "going to be enough for us uh so we'll"
+      },
+      {
+        "start": 80.88,
+        "duration": 5.32,
+        "text": "create three nodes uh I'm going to use"
+      },
+      {
+        "start": 83.479,
+        "duration": 5.041,
+        "text": "slight like small instances for the sake"
+      },
+      {
+        "start": 86.2,
+        "duration": 5.0,
+        "text": "of testing but uh in the"
+      },
+      {
+        "start": 88.52,
+        "duration": 5.84,
+        "text": "documentation uh we we have a page"
+      },
+      {
+        "start": 91.2,
+        "duration": 5.4,
+        "text": "around planning your installation and uh"
+      },
+      {
+        "start": 94.36,
+        "duration": 4.96,
+        "text": "what type of uh instances you should be"
+      },
+      {
+        "start": 96.6,
+        "duration": 6.28,
+        "text": "using uh depending on the type of not"
+      },
+      {
+        "start": 99.32,
+        "duration": 7.56,
+        "text": "pool uh so here just for the sake of"
+      },
+      {
+        "start": 102.88,
+        "duration": 7.16,
+        "text": "testing uh we'll use E2"
+      },
+      {
+        "start": 106.88,
+        "duration": 7.839,
+        "text": "medium and we're going to"
+      },
+      {
+        "start": 110.04,
+        "duration": 6.679,
+        "text": "indicate a label for this note pool so"
+      },
+      {
+        "start": 114.719,
+        "duration": 7.36,
+        "text": "that we can then"
+      },
+      {
+        "start": 116.719,
+        "duration": 9.641,
+        "text": "schedule uh our pods accordingly so I'll"
+      },
+      {
+        "start": 122.079,
+        "duration": 7.4,
+        "text": "add the platform roll label"
+      },
+      {
+        "start": 126.36,
+        "duration": 7.44,
+        "text": "here and I'm going to move on and create"
+      },
+      {
+        "start": 129.479,
+        "duration": 7.76,
+        "text": "a second poll which will name"
+      },
+      {
+        "start": 133.8,
+        "duration": 7.519,
+        "text": "database uh that's going to host our DSU"
+      },
+      {
+        "start": 137.239,
+        "duration": 7.241,
+        "text": "or Cassandra so uh yeah let's choose uh"
+      },
+      {
+        "start": 141.319,
+        "duration": 6.161,
+        "text": "three per zone so that's going to be"
+      },
+      {
+        "start": 144.48,
+        "duration": 5.72,
+        "text": "good and then we're going to use"
+      },
+      {
+        "start": 147.48,
+        "duration": 6.64,
+        "text": "slightly beefier instances so I'm going"
+      },
+      {
+        "start": 150.2,
+        "duration": 6.64,
+        "text": "to go with E2 standard 4 again not"
+      },
+      {
+        "start": 154.12,
+        "duration": 5.039,
+        "text": "recommended for uh production use uh"
+      },
+      {
+        "start": 156.84,
+        "duration": 5.8,
+        "text": "you're going to need uh bigger instances"
+      },
+      {
+        "start": 159.159,
+        "duration": 8.041,
+        "text": "than this uh but for testing and staging"
+      },
+      {
+        "start": 162.64,
+        "duration": 6.64,
+        "text": "uh it's uh it's perfect uh okay and"
+      },
+      {
+        "start": 167.2,
+        "duration": 5.319,
+        "text": "we're also going"
+      },
+      {
+        "start": 169.28,
+        "duration": 8.16,
+        "text": "to indicate which"
+      },
+      {
+        "start": 172.519,
+        "duration": 8.921,
+        "text": "role this one has uh through the r label"
+      },
+      {
+        "start": 177.44,
+        "duration": 7.6,
+        "text": "and the value will be database"
+      },
+      {
+        "start": 181.44,
+        "duration": 5.04,
+        "text": "okay so we're good to go uh this is"
+      },
+      {
+        "start": 185.04,
+        "duration": 4.96,
+        "text": "going to take a few minutes and then"
+      },
+      {
+        "start": 186.48,
+        "duration": 3.52,
+        "text": "we'll head back and install mission"
+      },
+      {
+        "start": 190.879,
+        "duration": 4.36,
+        "text": "control cluster is now uh fully"
+      },
+      {
+        "start": 193.56,
+        "duration": 5.319,
+        "text": "provisioned and we can see that it's"
+      },
+      {
+        "start": 195.239,
+        "duration": 7.72,
+        "text": "threading across three uh zones so us"
+      },
+      {
+        "start": 198.879,
+        "duration": 5.881,
+        "text": "Central One CB and F we'll get back to"
+      },
+      {
+        "start": 202.959,
+        "duration": 4.761,
+        "text": "that later right now we're going to"
+      },
+      {
+        "start": 204.76,
+        "duration": 5.96,
+        "text": "connect it so I'll just copy that"
+      },
+      {
+        "start": 207.72,
+        "duration": 6.28,
+        "text": "command line and"
+      },
+      {
+        "start": 210.72,
+        "duration": 9.36,
+        "text": "this allows me to have uh the context in"
+      },
+      {
+        "start": 214.0,
+        "duration": 6.08,
+        "text": "my Cube config so uh now I can"
+      },
+      {
+        "start": 220.519,
+        "duration": 3.201,
+        "text": "check get"
+      },
+      {
+        "start": 221.89,
+        "duration": 5.23,
+        "text": "[Music]"
+      },
+      {
+        "start": 223.72,
+        "duration": 6.64,
+        "text": "noes okay so I have my database nodes"
+      },
+      {
+        "start": 227.12,
+        "duration": 6.28,
+        "text": "and then my platform nodes so I can"
+      },
+      {
+        "start": 230.36,
+        "duration": 9.519,
+        "text": "proceed with the installation uh if you"
+      },
+      {
+        "start": 233.4,
+        "duration": 9.199,
+        "text": "check the um installation Docs"
+      },
+      {
+        "start": 239.879,
+        "duration": 5.681,
+        "text": "prepare your environment"
+      },
+      {
+        "start": 242.599,
+        "duration": 6.881,
+        "text": "cetes okay so you'll see that we need to"
+      },
+      {
+        "start": 245.56,
+        "duration": 6.44,
+        "text": "First install uh C manager it's a"
+      },
+      {
+        "start": 249.48,
+        "duration": 5.039,
+        "text": "prerequisite so I'm going to do this"
+      },
+      {
+        "start": 252.0,
+        "duration": 3.4,
+        "text": "right now using Helm but you can also do"
+      },
+      {
+        "start": 254.519,
+        "duration": 5.28,
+        "text": "it"
+      },
+      {
+        "start": 255.4,
+        "duration": 9.239,
+        "text": "using um Cube cuddle directly oh"
+      },
+      {
+        "start": 259.799,
+        "duration": 4.84,
+        "text": "interesting let me add the repository"
+      },
+      {
+        "start": 265.759,
+        "duration": 5.961,
+        "text": "then and let's run the installation"
+      },
+      {
+        "start": 268.479,
+        "duration": 3.241,
+        "text": "command again"
+      },
+      {
+        "start": 275.4,
+        "duration": 7.4,
+        "text": "okay deploy successfully let's check if"
+      },
+      {
+        "start": 279.8,
+        "duration": 4.28,
+        "text": "that's the case so let's get the pods in"
+      },
+      {
+        "start": 282.8,
+        "duration": 5.6,
+        "text": "the"
+      },
+      {
+        "start": 284.08,
+        "duration": 7.839,
+        "text": "insert manager name space everything is"
+      },
+      {
+        "start": 288.4,
+        "duration": 5.68,
+        "text": "up and running okay so if you check back"
+      },
+      {
+        "start": 291.919,
+        "duration": 4.401,
+        "text": "the the the docs you'll see that you"
+      },
+      {
+        "start": 294.08,
+        "duration": 3.559,
+        "text": "have some prerequisites so hopefully"
+      },
+      {
+        "start": 296.32,
+        "duration": 3.68,
+        "text": "since you're bringing your own"
+      },
+      {
+        "start": 297.639,
+        "duration": 4.721,
+        "text": "kubernetes you have cu cutle uh"
+      },
+      {
+        "start": 300.0,
+        "duration": 6.16,
+        "text": "installed and then you'll need"
+      },
+      {
+        "start": 302.36,
+        "duration": 6.559,
+        "text": "CS uh which is fairly simple to install"
+      },
+      {
+        "start": 306.16,
+        "duration": 6.68,
+        "text": "just this command line and you'll have"
+      },
+      {
+        "start": 308.919,
+        "duration": 8.56,
+        "text": "the uh CS Cube cuddle plugin available"
+      },
+      {
+        "start": 312.84,
+        "duration": 7.479,
+        "text": "uh locally uh so let's avoid putting"
+      },
+      {
+        "start": 317.479,
+        "duration": 5.881,
+        "text": "public preview and we'll roll with the"
+      },
+      {
+        "start": 320.319,
+        "duration": 6.201,
+        "text": "installation command here uh so it's"
+      },
+      {
+        "start": 323.36,
+        "duration": 5.6,
+        "text": "going Cube C cut install mission"
+      },
+      {
+        "start": 326.52,
+        "duration": 5.799,
+        "text": "control and then let's specify a"
+      },
+      {
+        "start": 328.96,
+        "duration": 5.28,
+        "text": "namespace so that the Cs uh pods don't"
+      },
+      {
+        "start": 332.319,
+        "duration": 4.841,
+        "text": "end up in the default name space which"
+      },
+      {
+        "start": 334.24,
+        "duration": 6.6,
+        "text": "is not a great practice"
+      },
+      {
+        "start": 337.16,
+        "duration": 3.68,
+        "text": "so let's run"
+      },
+      {
+        "start": 342.52,
+        "duration": 8.2,
+        "text": "this when prompted for it inputs a ad an"
+      },
+      {
+        "start": 348.199,
+        "duration": 7.12,
+        "text": "admin password uh that you're going to"
+      },
+      {
+        "start": 350.72,
+        "duration": 8.12,
+        "text": "use once you uh connect to the Cs web UI"
+      },
+      {
+        "start": 355.319,
+        "duration": 6.32,
+        "text": "where will perform the remaining of the"
+      },
+      {
+        "start": 358.84,
+        "duration": 2.799,
+        "text": "installation"
+      },
+      {
+        "start": 362.88,
+        "duration": 6.12,
+        "text": "so CS is fully installed so now we're"
+      },
+      {
+        "start": 365.6,
+        "duration": 6.64,
+        "text": "going to head to this"
+      },
+      {
+        "start": 369.0,
+        "duration": 6.4,
+        "text": "URL so here it's going to ask me for"
+      },
+      {
+        "start": 372.24,
+        "duration": 7.399,
+        "text": "that password that we just gave it and"
+      },
+      {
+        "start": 375.4,
+        "duration": 4.239,
+        "text": "then you need to upload your license"
+      },
+      {
+        "start": 385.199,
+        "duration": 8.881,
+        "text": "file so bypass the air gap environment"
+      },
+      {
+        "start": 390.479,
+        "duration": 6.801,
+        "text": "uh page and click here at the bottom"
+      },
+      {
+        "start": 394.08,
+        "duration": 5.92,
+        "text": "download uh mission control from the"
+      },
+      {
+        "start": 397.28,
+        "duration": 5.759,
+        "text": "internet we'll cover air gap"
+      },
+      {
+        "start": 400.0,
+        "duration": 5.919,
+        "text": "installations in a in a separate video"
+      },
+      {
+        "start": 403.039,
+        "duration": 6.361,
+        "text": "uh so then you land on the uh Mission"
+      },
+      {
+        "start": 405.919,
+        "duration": 6.12,
+        "text": "Control configuration screen so we'll"
+      },
+      {
+        "start": 409.4,
+        "duration": 5.32,
+        "text": "select control plane because at a"
+      },
+      {
+        "start": 412.039,
+        "duration": 6.081,
+        "text": "minimum you need to have one control"
+      },
+      {
+        "start": 414.72,
+        "duration": 5.56,
+        "text": "plane and then you can expand uh the"
+      },
+      {
+        "start": 418.12,
+        "duration": 5.0,
+        "text": "cluster across with regions and"
+      },
+      {
+        "start": 420.28,
+        "duration": 6.24,
+        "text": "kubernetes clusters by register uh"
+      },
+      {
+        "start": 423.12,
+        "duration": 7.4,
+        "text": "registering uh separate data"
+      },
+      {
+        "start": 426.52,
+        "duration": 7.399,
+        "text": "planes um you'll need"
+      },
+      {
+        "start": 430.52,
+        "duration": 6.6,
+        "text": "to indicate here which object storage"
+      },
+      {
+        "start": 433.919,
+        "duration": 6.481,
+        "text": "you're going to use for uh metrics and"
+      },
+      {
+        "start": 437.12,
+        "duration": 5.24,
+        "text": "logs so since we're running in GK we'll"
+      },
+      {
+        "start": 440.4,
+        "duration": 6.96,
+        "text": "go with"
+      },
+      {
+        "start": 442.36,
+        "duration": 8.44,
+        "text": "GCS I already have buckets set up for"
+      },
+      {
+        "start": 447.36,
+        "duration": 6.72,
+        "text": "both my metrics and logs so here you're"
+      },
+      {
+        "start": 450.8,
+        "duration": 7.56,
+        "text": "just going to paste the Json uh of the"
+      },
+      {
+        "start": 454.08,
+        "duration": 7.36,
+        "text": "service account uh key file"
+      },
+      {
+        "start": 458.36,
+        "duration": 7.799,
+        "text": "uh here you can tune the topology of"
+      },
+      {
+        "start": 461.44,
+        "duration": 9.36,
+        "text": "mimir so defaults are good and uh you"
+      },
+      {
+        "start": 466.159,
+        "duration": 7.16,
+        "text": "can scale Individual Services uh if you"
+      },
+      {
+        "start": 470.8,
+        "duration": 6.28,
+        "text": "uh if they don't keep up uh with the"
+      },
+      {
+        "start": 473.319,
+        "duration": 6.641,
+        "text": "pace uh head down to the object storage"
+      },
+      {
+        "start": 477.08,
+        "duration": 7.0,
+        "text": "section and indicate"
+      },
+      {
+        "start": 479.96,
+        "duration": 6.679,
+        "text": "the name of the bucket so I'll be using"
+      },
+      {
+        "start": 484.08,
+        "duration": 4.64,
+        "text": "MCM miror test here let me make that"
+      },
+      {
+        "start": 486.639,
+        "duration": 5.4,
+        "text": "bigger then you can set the storage"
+      },
+      {
+        "start": 488.72,
+        "duration": 5.4,
+        "text": "retention so if you want to retain one"
+      },
+      {
+        "start": 492.039,
+        "duration": 5.28,
+        "text": "year worth of"
+      },
+      {
+        "start": 494.12,
+        "duration": 6.759,
+        "text": "metrics then you can uh configure it"
+      },
+      {
+        "start": 497.319,
+        "duration": 7.0,
+        "text": "like this and if you're planning for a"
+      },
+      {
+        "start": 500.879,
+        "duration": 5.841,
+        "text": "production deployment or any deployment"
+      },
+      {
+        "start": 504.319,
+        "duration": 5.72,
+        "text": "that's going to have to uh run for"
+      },
+      {
+        "start": 506.72,
+        "duration": 6.199,
+        "text": "several days at least uh on tune"
+      },
+      {
+        "start": 510.039,
+        "duration": 4.601,
+        "text": "attached storage uh in the in the uh"
+      },
+      {
+        "start": 512.919,
+        "duration": 6.68,
+        "text": "documentation we have a reference"
+      },
+      {
+        "start": 514.64,
+        "duration": 8.079,
+        "text": "section uh that will give you all the um"
+      },
+      {
+        "start": 519.599,
+        "duration": 4.881,
+        "text": "explanations uh about these settings uh"
+      },
+      {
+        "start": 522.719,
+        "duration": 6.081,
+        "text": "but one thing you need to note is that"
+      },
+      {
+        "start": 524.48,
+        "duration": 8.44,
+        "text": "for production uh deployment your"
+      },
+      {
+        "start": 528.8,
+        "duration": 7.84,
+        "text": "compactor volume size should be 300 gigs"
+      },
+      {
+        "start": 532.92,
+        "duration": 7.159,
+        "text": "at least and then we'll set the ingestor"
+      },
+      {
+        "start": 536.64,
+        "duration": 6.8,
+        "text": "volume size to 100 gigs and I can show"
+      },
+      {
+        "start": 540.079,
+        "duration": 5.44,
+        "text": "you actually where that information is"
+      },
+      {
+        "start": 543.44,
+        "duration": 4.68,
+        "text": "in the documentation you can go here to"
+      },
+      {
+        "start": 545.519,
+        "duration": 6.121,
+        "text": "reference and then configuration"
+      },
+      {
+        "start": 548.12,
+        "duration": 6.52,
+        "text": "settings and we'll search for volume and"
+      },
+      {
+        "start": 551.64,
+        "duration": 5.24,
+        "text": "here we provide uh that uh that"
+      },
+      {
+        "start": 554.64,
+        "duration": 6.56,
+        "text": "information so 10 GB for the alert"
+      },
+      {
+        "start": 556.88,
+        "duration": 7.32,
+        "text": "manager 300 G 300 gigs for the compactor"
+      },
+      {
+        "start": 561.2,
+        "duration": 6.28,
+        "text": "uh 50 gigs for the sore Gateway and at"
+      },
+      {
+        "start": 564.2,
+        "duration": 6.24,
+        "text": "least 100 gigs for the ingestor"
+      },
+      {
+        "start": 567.48,
+        "duration": 4.16,
+        "text": "otherwise they may run out of this space"
+      },
+      {
+        "start": 570.44,
+        "duration": 3.8,
+        "text": "fairly"
+      },
+      {
+        "start": 571.64,
+        "duration": 5.4,
+        "text": "quickly and uh since they are deployed"
+      },
+      {
+        "start": 574.24,
+        "duration": 5.52,
+        "text": "as stateful sets uh you cannot easily"
+      },
+      {
+        "start": 577.04,
+        "duration": 5.56,
+        "text": "change the volume size uh"
+      },
+      {
+        "start": 579.76,
+        "duration": 6.96,
+        "text": "afterwards uh so"
+      },
+      {
+        "start": 582.6,
+        "duration": 8.4,
+        "text": "let's apply these so 10 gigs and I think"
+      },
+      {
+        "start": 586.72,
+        "duration": 4.28,
+        "text": "it was 50 gigs for the store"
+      },
+      {
+        "start": 592.839,
+        "duration": 6.801,
+        "text": "Gateway okay then logs you can tune the"
+      },
+      {
+        "start": 596.36,
+        "duration": 8.24,
+        "text": "topology uh of Loki as well uh which is"
+      },
+      {
+        "start": 599.64,
+        "duration": 4.96,
+        "text": "simpler because you have reader and wrer"
+      },
+      {
+        "start": 605.2,
+        "duration": 8.44,
+        "text": "instances I'm going to indicate the name"
+      },
+      {
+        "start": 609.56,
+        "duration": 7.279,
+        "text": "of the of the the lowy bucket you can"
+      },
+      {
+        "start": 613.64,
+        "duration": 6.68,
+        "text": "set the retention as well here and tune"
+      },
+      {
+        "start": 616.839,
+        "duration": 6.761,
+        "text": "the attach storage again uh then we'll"
+      },
+      {
+        "start": 620.32,
+        "duration": 7.519,
+        "text": "enable the web interface and"
+      },
+      {
+        "start": 623.6,
+        "duration": 7.64,
+        "text": "https so we enable htps by default uh"
+      },
+      {
+        "start": 627.839,
+        "duration": 5.721,
+        "text": "for security reason reasons uh but with"
+      },
+      {
+        "start": 631.24,
+        "duration": 4.039,
+        "text": "a we do it with a self-signed uh"
+      },
+      {
+        "start": 633.56,
+        "duration": 4.64,
+        "text": "certificate which means we'll get a"
+      },
+      {
+        "start": 635.279,
+        "duration": 5.721,
+        "text": "warning in the browser uh if you want to"
+      },
+      {
+        "start": 638.2,
+        "duration": 6.36,
+        "text": "set up your own um"
+      },
+      {
+        "start": 641.0,
+        "duration": 6.76,
+        "text": "https uh settings then turn it off here"
+      },
+      {
+        "start": 644.56,
+        "duration": 5.959,
+        "text": "and then you can set up an Ingress uh"
+      },
+      {
+        "start": 647.76,
+        "duration": 5.639,
+        "text": "which will use SE manager uh to generate"
+      },
+      {
+        "start": 650.519,
+        "duration": 7.481,
+        "text": "the certificate and you can use your own"
+      },
+      {
+        "start": 653.399,
+        "duration": 8.44,
+        "text": "uh root CA uh there uh so we'll enable"
+      },
+      {
+        "start": 658.0,
+        "duration": 6.16,
+        "text": "it then we'll have static credentials uh"
+      },
+      {
+        "start": 661.839,
+        "duration": 6.601,
+        "text": "and I'm going"
+      },
+      {
+        "start": 664.16,
+        "duration": 8.04,
+        "text": "to customize this so add me"
+      },
+      {
+        "start": 668.44,
+        "duration": 6.32,
+        "text": "demo.com username would be Alex and you"
+      },
+      {
+        "start": 672.2,
+        "duration": 6.24,
+        "text": "can see here how you can modify the"
+      },
+      {
+        "start": 674.76,
+        "duration": 3.68,
+        "text": "password so I'm going to"
+      },
+      {
+        "start": 678.88,
+        "duration": 6.32,
+        "text": "generate my own password for"
+      },
+      {
+        "start": 682.2,
+        "duration": 3.0,
+        "text": "this"
+      },
+      {
+        "start": 685.639,
+        "duration": 7.0,
+        "text": "uh let's call it demo one"
+      },
+      {
+        "start": 690.24,
+        "duration": 5.52,
+        "text": "okay so now what I have to do is"
+      },
+      {
+        "start": 692.639,
+        "duration": 7.401,
+        "text": "copy that"
+      },
+      {
+        "start": 695.76,
+        "duration": 8.28,
+        "text": "part and put it here uh you'll know that"
+      },
+      {
+        "start": 700.04,
+        "duration": 6.12,
+        "text": "you can also configure L app and open ID"
+      },
+      {
+        "start": 704.04,
+        "duration": 4.08,
+        "text": "as"
+      },
+      {
+        "start": 706.16,
+        "duration": 4.96,
+        "text": "authentication"
+      },
+      {
+        "start": 708.12,
+        "duration": 3.0,
+        "text": "uh"
+      },
+      {
+        "start": 716.36,
+        "duration": 5.76,
+        "text": "services so but the pre-flight checks"
+      },
+      {
+        "start": 719.32,
+        "duration": 5.04,
+        "text": "run should be all green and then you can"
+      },
+      {
+        "start": 722.12,
+        "duration": 2.24,
+        "text": "hit"
+      },
+      {
+        "start": 727.48,
+        "duration": 8.88,
+        "text": "deploy and we can"
+      },
+      {
+        "start": 730.16,
+        "duration": 10.919,
+        "text": "monitor the deployment here so going to"
+      },
+      {
+        "start": 736.36,
+        "duration": 7.039,
+        "text": "watch keep C get pods Das and and we're"
+      },
+      {
+        "start": 741.079,
+        "duration": 7.681,
+        "text": "going to monitor what's going on in the"
+      },
+      {
+        "start": 743.399,
+        "duration": 5.361,
+        "text": "mission control names space"
+      },
+      {
+        "start": 750.079,
+        "duration": 5.361,
+        "text": "okay so you can see that we have"
+      },
+      {
+        "start": 752.12,
+        "duration": 6.159,
+        "text": "some low key pods that are"
+      },
+      {
+        "start": 755.44,
+        "duration": 4.839,
+        "text": "created uh and then we have the mimir"
+      },
+      {
+        "start": 758.279,
+        "duration": 6.081,
+        "text": "ones and here we have the mission"
+      },
+      {
+        "start": 760.279,
+        "duration": 9.281,
+        "text": "control operator C operator ker"
+      },
+      {
+        "start": 764.36,
+        "duration": 11.039,
+        "text": "operator uh everything is starting"
+      },
+      {
+        "start": 769.56,
+        "duration": 11.12,
+        "text": "up and we also have our UI pod here so"
+      },
+      {
+        "start": 775.399,
+        "duration": 7.961,
+        "text": "we expose the uh UI through a not Port"
+      },
+      {
+        "start": 780.68,
+        "duration": 2.68,
+        "text": "so I can"
+      },
+      {
+        "start": 783.72,
+        "duration": 8.16,
+        "text": "check get services in the mission"
+      },
+      {
+        "start": 788.36,
+        "duration": 7.839,
+        "text": "control name space and here you see that"
+      },
+      {
+        "start": 791.88,
+        "duration": 7.84,
+        "text": "we have a mission control UI uh not Port"
+      },
+      {
+        "start": 796.199,
+        "duration": 7.64,
+        "text": "that's Exposed on Port"
+      },
+      {
+        "start": 799.72,
+        "duration": 8.119,
+        "text": "30880 uh so you can access that service"
+      },
+      {
+        "start": 803.839,
+        "duration": 7.24,
+        "text": "uh through all the nodes uh external"
+      },
+      {
+        "start": 807.839,
+        "duration": 6.56,
+        "text": "IPS uh in the cluster or you can port"
+      },
+      {
+        "start": 811.079,
+        "duration": 8.921,
+        "text": "forward it so that's what I'm going to"
+      },
+      {
+        "start": 814.399,
+        "duration": 5.601,
+        "text": "do here so port"
+      },
+      {
+        "start": 821.12,
+        "duration": 6.0,
+        "text": "forward uh service Mission Control"
+      },
+      {
+        "start": 827.6,
+        "duration": 9.32,
+        "text": "UI and that's on Port a80 and B let me"
+      },
+      {
+        "start": 833.68,
+        "duration": 7.36,
+        "text": "indicate the name space"
+      },
+      {
+        "start": 836.92,
+        "duration": 8.52,
+        "text": "first and hopefully 80 isn't used on my"
+      },
+      {
+        "start": 841.04,
+        "duration": 8.2,
+        "text": "machine yet yeah it's good so now I can"
+      },
+      {
+        "start": 845.44,
+        "duration": 6.8,
+        "text": "access it through Local"
+      },
+      {
+        "start": 849.24,
+        "duration": 3.0,
+        "text": "Host"
+      },
+      {
+        "start": 855.0,
+        "duration": 8.36,
+        "text": "whoops and of course like I mentioned"
+      },
+      {
+        "start": 858.519,
+        "duration": 7.841,
+        "text": "it's htps so you get the warning in"
+      },
+      {
+        "start": 863.36,
+        "duration": 3.0,
+        "text": "French"
+      },
+      {
+        "start": 867.24,
+        "duration": 5.68,
+        "text": "here and there I am so I think I"
+      },
+      {
+        "start": 870.68,
+        "duration": 7.64,
+        "text": "remember I did something like this admin"
+      },
+      {
+        "start": 872.92,
+        "duration": 5.4,
+        "text": "at demo.com and demo one as"
+      },
+      {
+        "start": 878.839,
+        "duration": 8.401,
+        "text": "password okay and here I can hit"
+      },
+      {
+        "start": 884.32,
+        "duration": 5.72,
+        "text": "accept and I mean for more information"
+      },
+      {
+        "start": 887.24,
+        "duration": 4.44,
+        "text": "on data Stacks Mission Control just head"
+      },
+      {
+        "start": 890.04,
+        "duration": 5.159,
+        "text": "on out to"
+      },
+      {
+        "start": 891.68,
+        "duration": 5.279,
+        "text": "data.com products slm Mission Control"
+      },
+      {
+        "start": 895.199,
+        "duration": 4.401,
+        "text": "there you can find all the information"
+      },
+      {
+        "start": 896.959,
+        "duration": 4.8,
+        "text": "you need including downloads and and"
+      },
+      {
+        "start": 899.6,
+        "duration": 4.72,
+        "text": "documentation thank you and have a great"
+      },
+      {
+        "start": 901.759,
+        "duration": 2.561,
+        "text": "day"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T17:11:26.440930+00:00"
+}

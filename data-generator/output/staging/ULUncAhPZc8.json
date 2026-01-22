@@ -1,0 +1,3031 @@
+{
+  "video_id": "ULUncAhPZc8",
+  "title": "Real-Time E-Commerce Product Recommendations using Vector Search and Apache CassandraⓇ",
+  "description": "In this session, we'll expand upon our existing E-commerce workshop material and add a Product Recommendation subsystem. We will focus on the add-to-cart process, and provide a recommendation for a similar product using a Vector Search.\nTech stack: Java, Spring Boot, React.js, Astra DB\nSession Details:\n- Quick overview of the existing E-commerce workshop application.\n- An introduction to Vector Search, and how it works in Astra.\n- Implementation of a microservice to execute a Vector Search by ANN for a product.\n\nGitHub: https://github.com/aar0np/workshop_ecommerce_prototype/\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs?sub_confirmation=1 \nTwitter: https://twitter.com/datastaxdevs\nTwitch: https://www.twitch.tv/datastaxdevs\n\nAbout DataStax:\nDataStax is the company behind the massively scalable, highly available, cloud-native NoSQL data platform built on Apache Cassandra™. DataStax gives developers and enterprises the freedom to run data in any cloud, Kubernetes, hybrid or bare metal at global scale with zero downtime and zero lock-in. More than 450 of the world’s leading enterprises including Capital One, Cisco, Comcast, Delta Airlines, Macy’s, McDonald’s, Safeway, Sony, and Walmart use DataStax to build transformational data architectures for real-world outcomes. For more, visit DataStax.com and @DataStax.\n\nAbout DataStax Developer:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2023-07-31T14:49:30Z",
+  "thumbnail": "https://i.ytimg.com/vi/ULUncAhPZc8/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "scalable",
+    "workshop",
+    "cassandra",
+    "search",
+    "tutorial",
+    "apache_cassandra",
+    "vector",
+    "nosql",
+    "introduction",
+    "astra",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=ULUncAhPZc8",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] found someone new now I have more room no more formats to change me on the same page [Music] I love you [Music] thank you foreign welcome to real-time e-commerce product recommendations with Vector search and Apache Cassandra um so that is uh that is what we're going to be talking about today um so you know I'm sure most of you know me but I'm a developer advocate for uh data Stacks you know I've uh you know worked with Cassandra for a very long time um for a lot of major e-tailers um I host the Apache Cassandra Corner podcast so um you know so yeah so if you have a great story about Cassandra or or about your use case I would uh would love to talk with you and uh help you tell your story let's see here all right so um if you've seen any of our other um or other you know e-commerce workshops that we've that we've run you know um you know a little bit about the tech stack behind it um where we we've done the front end and uh you know Tailwind CSS with uh you know react um the uh the service layer where where we've uh put out on Spring boot um and the back end has been done with spring data you know because it works super well with uh with spring boot especially when you're trying to do a uh like a web or an MVC pattern type of a type of an application um however due to the fact that that Vector search is really new and the inherent types that we needed in Cassandra and in Astrid B asterdb by the way is what we're going to use today for this um those types aren't recognized in Spring data just yet so I actually did have to um you know kind of write uh kind of write some kind of be able to code around it to um to get it to recognize the vector embeddings and I'll cover that in the code or at least it's my plan to cover that in the code we'll we'll see how things go along huh recommendations we're going to be talking about today and the idea is is that when we do an add to cart action uh we're going to go ahead and Trigger this some additional lookup and this lookup is actually going to um you know give us an additional option about what we might want to uh purchase in addition to you know what we've already put in our cart so we're going to return the first similar product um and we're going to determine that similarity uh using using something called a called a vector search and essentially Vector search allows us to go over like you know Vector embeddings that we create ahead of time um and the the embeddings that we're going to create are based on the product name um and we'll use the um the NLP based um you know uh technique of uh I think it's called oh bag of words that's right that's right where we've kind of built up our vocabulary based on the words that are in all of our product names um and then each product and their Vector embedding gets a one or a zero depending on whether or not um they they have that uh they have that product or not so the queries that we need to be able to support you know we need to be able to query a product by its ID or it's uh in Vector embedding and additionally we need to be able to query uh based on a uh an N or an approximate nearest neighbor based on you know a um another products Vector so that is what we're going to try to do today okay so uh Vector search is feature that is coming to Apache Cassandra um it'll be in version 50 when it's released by the end of the year and it is a part of cep seven so if you want to go out and read um cep seven that is actually oh yeah I have my wrong cep there that's actually for um the storage attached indexing which is required uh for Vector search to actually work and and it's it's actually required for uh for a few other major features that we're going to be seeing in um you know Cassandra 5-0 but it's live today out on astrudv so that's uh that's what we're gonna that's what we're gonna use um the other trick is that we we have to have a special kind of database created in astrud DB it has to be a vector enabled database uh so that is something that uh you know again I was hoping to have uh all built and running ahead of time but uh you know everyone's gonna get to watch me do that too this is really just a visualization of um I did a um a uh blog post oh you know what I don't know if this one's made it out there yet anyway so the idea here is that is that I created this fictitious category of like um of like pet related or dog related products and um created a vocabulary based on just these product names and that's how I created my product Vector um and then I kind of have the um you know the query down here showing you know um you know how you how you'd go ahead and pull that back by the vector ah and that's right cep7 is for the um uh storage attached indexing and then cep 30 is Vector search and both of those are making their way into Cassandra 5.0 okay for a simple data model um we built a um there's a one-to-one table and typically in in the database world you don't see a lot of one-to-one relationships but um in this case there's a lot on the product table that we just don't need in product vector but in the product Vector table um I added things that that we need to actually build up the pop-up you know that that comes up when we when we trigger a vector search and we're showing that uh that top result there um so in that case we basically have in that product Vector um table you know true to Cassandra modeling form we have exactly what we need to suit that query so that's what we're going to run with all right so well I guess that's about it um oh by the way in case you haven't tuned in to our new um uh new workshop format before we are going to try and get this done in about 30 minutes so that's why we're kind of burning through some things here but um essentially for the Hands-On uh we're going to sign in we're going to navigate through our products we are going to add some things to our cart and then hopefully if we did everything right that triggers a vector search um you can find this all out on um you know github.com aar0np Workshop underscore e-commerce underscore prototype um the reason that I had to do this in a separate git repo is that um you absolutely need a vector enabled database behind it um and once once I had that in there then the original e-commerce just would not uh it would not work um so I didn't want to I didn't want to take the chance of like hosing anyone who is who is going to try and um building up the original project um so here I have this prototype and uh and I'll worry about getting them like uh merged in properly at uh at some point here to create a vector database essentially I'll go down to this create a database button click it I'm going to make sure that instead of serverless database I'm selecting Vector database now I can name it um Ecom Vector that should work for the key space name I'm going to say e-commerce and I want to make sure that for the free tier you're in Google and for me the closest free region is Us East one in Monks Corner South Carolina now I can say create database let me go ahead and uh and run out here and just see what I can do with it second okay so if I say use e-commerce um and I'm going to be following uh the the readme that we have out there but if I say desk tables okay there we go so you can see I have I have all of these uh all of these tables out here maybe I'll increase the font just a little bit there we go then you can say desk table we'll say product vectors okay so as you can see I've gone ahead and created this product vectors table product ID is my loan primary key um the other thing we have on this table is that the product Vector is using the vector type it's using an internal data type of float and it is a 32 dimensional float now that 32 represents the um the total size of our our product and name vocabulary so if we were to look at all of the product names so I can say select um product name there we go and we'll say from product just like that oh it didn't like that at all oh you know what I think it's just name uh yeah actually hey there we go so you can see all of these uh these uh product names here like um you know go away annotation t-shirt data sacks black hoodie Apache contributor shirt um and some of these are doubled and tripled up again you know they're going to be in there for each time it has like a size you know so you're gonna have an entry in there for like both a small medium large XL etc etc um but anyway so this is this is what our our 32 word vocabulary is made of here is our product vectors table and you can see that I've created this index type it's create custom index on product vectors um and on the product Vector column and the idea is that it's using that storage attached index class which again is not available right now in uh Cassandra but it will be as a five once the um you know once cp7 gets in there um once you've done that you can go to cql Shell and I have a whole bunch of insert statements here that you can run and populate the data you can see session five Vector search data so these are the inserts that um that take you know the uh the products which have been built as vector embeddings and you can copy this and then paste it in and um you should have that table should that table all created so now if I go ahead and select from product vectors and and oh actually that's uh that's going to be a little difficult to read so why don't I be a little Judas on what I'm pulling back we'll say name and product vector okay well this is slightly better but um basically what you can see here is that you know we have our product name and then kind of like I described with a bag of words approach each each um word is given a uh like a column and then you have a each product has a one or a zero depending on whether or not it has that word and that actually allows us to perform a uh a vector query um so if I wanted to go ahead and just try this let's say that um let's go with um you know like a product ID here um so if I wanted to go with um yeah this this data Stacks black hoodie uh what I'm going to do is actually search by that vector so I'm going to say um I gotta remember how to do this now uh we'll say select a b and name and we'll say from product vector and we're going to say order by a-n-n of um and then we're going to give it I think it's product Vector so it's the um the column name first of the vector type and then I'm going to actually paste in the vector oh didn't like that okay uh yeah there it is order by oh ah okay okay yep I did the syntax wrong okay so I don't need it encapsulated inside of um inside of a Paramus it's just a n and then oh order by here we go so if we say order by product vector and then we say and and of oh come on table product Vector does not exist what you know what I bet I named that plural let's try that product vectors oh yep okay and this this is a good point I'm glad I stumbled on this in front of you when you run a cql query for a vector um obviously it's running it's using that secondary index or secondary storage attached index I should say so um you have to have a limit otherwise it'll run across the entire cluster and you don't want that so let me do a limit 10. okay hey yes all right we we did a vector query here so um based on this um initial Vector I did get 100 matches on the other data Stacks black hoodie sizes however the second one the first one that comes back that's not one of the product you know part of the product group that I was in is this data Stacks gray track jacket so that would actually be the product that I would that I would promote in this case um so all right so with that being said let's um let's let's try to make this work here um so what I'm going to do let's um go back to our databases so I have Vector DB active yeah let's just get rid of that for now all right so I'm going to try generating a new token here and because uh because spring boot um requires like schema X you need to make sure that that's a database administrator role token or sorry not spring boot spring data yep so I give it all that outstanding okay let it generate all right yeah let me put um my token info there and you know I I do recommend downloading it as well so we'll we'll go ahead and do that okay okay so as you can see um gitpod comes up with um you know open up in the uh opened up in the readme um one of the things that you'll need to do oh okay actually you know what I'm going to I'm going to change out my token here hang on just a sec all right okay so I've got that in there um my database ID looks correct I hope keyspace is e-commerce um the streaming stuff you know we don't really need it for this uh but the um you know the Google stuff we need if we wanted to actually sign in you can actually do this without having to sign in using uh using excuse me single sign-on but um having it there just just kind of makes things easier okay so with all that being there I'm gonna go down here and try start dot shell and let's get rid of that warning okay with any luck hopefully this does it you know okay found the database ID oh oh yes something it didn't like oh hey hey it started okay so um when when this happens in in gitpod uh you remember that you may need to allow it to allow pop-ups and that's because once you bring up Spring Boot and you're running it it brings it up inside of another window oh and and yeah yeah okay okay um let me go let me switch over to Ports here yeah there we go let's go open up 80 80. okay and that that actually did come up um now the thing is though I know none of you can see it so let me go to restream and jump over to the new tab okay let's go um here's our data Stacks black hoodie so if I click into this there we go that's that's coming back the fact that we're seeing images and and uh data coming back means that we are in fact getting through to the database all right so um I'm extra large so if I was gonna you know get another data Stacks black hoodie I would go ahead and um add it to my card as an Excel okay ah and here it is look it popped up and suggested that we might like the data Stacks great track jacket how about that huh all right so let me dismiss that for a sec let's um now that now that was the exact example that um you know I said that um I said that uh or that that I tried from um from the cql command line so let's let's try a different one just so you can see that um you know this isn't like like all pre-made or anything let's go with um let's go with t-shirts here um and we'll we'll go with the Apache Cassandra 3-0 contributor t-shirt and again I'm an extra large and when I say add to cart let's see what it suggests oh and now it likes the data Stacks black hoodie that's that's kind of cool we got a we got a little circular referencing going on there um but yeah so this is um this is this is kind of how it works where where it's it's able to to rely on a vector search and um provide recommendations or approximations you know in in real time um let's try the data Stacks Curry track jacket um actually if it works like two ways this should bring up the uh the hoodie I think yeah and there's there's the hoodie um so I I should also um let's see let me jump back to let me jump back to get pod for just a second here all right back in gitpod let's have a look at some of our code here so if I go into back end Source main Java um and we want service and this is going to be under product so yeah so now if you look in here um you can see where I wrote the product Vector Dell dot Java for data access layer um this is where I I integrated this all into the the e-commerce project so if we open this up and let's get ourselves some more real estate here maybe yeah bump the font one more time all right so kind of the way this this data access layer works is that it um first establishes a uh connection to Cassandra or Astra based on um you know the the environment variables that you're already providing um and then it works on this method of get product vector by ID so the thought is is that when we add a product to our cart we're calling this method because we have the product ID and we want to pull back the vector information um so we do this query here we're selecting from that product vectors table by ID once we have that we process the result set secondly we have this method of get products by a n so essentially on our recommendation service call we're taking the result of this get product vector by ID we're grabbing the vector and sending it back here so that's what we're searching on here um so we we go ahead and do this query again from product vectors but this time we're doing an order by uh product Vector a n of um whatever our Vector is and then limit eight is uh is what I have in there for now um just because you can get back several within a product group and and eight is you know in terms of like business requirements beyond what a normal product group would be so that that should be a safe number so essentially if your a n is of a size greater than one for the result set um it'll go ahead and put together a list of product vectors and return that so now if we have a look at the product um rest controller here and we go down oh come on where is it ah here we go get promotion product um so basically here we're taking a product ID here's where we're getting our original products vector by ID and then here's where we're getting our recommended products by the original product um by just sending that and then pulling the factory inside that inside that method um and again if our list of product vectors come back comes back and it's of size greater than one what we do is we start iterating through and we're pulling off that product group property and what that product group property is going to allow us to do is see whether or not the products coming back on the recommendation are within the original products product group because if they are well then they're the same product really and we don't want to show that but the first one we get that's not in that group is the one we want to return right here so that's a little bit about how the code Works behind the scenes so um so this is our Hands-On and uh we actually got most of this to work the sign-on didn't work but that's I realized that I used the wrong um Google ID remember when you set up single sign-on with Google you have to give it a um like a callback IP address well that ID that I used was when I created for testing on my own machine so it's trying to go back to 127.0.1 which does not work out in gitpod hey thank you all so much for uh for sticking around um you know this this one was certainly an adventure but uh in the end we got everything to work so hey um thanks everyone have a great day and uh we'll see you all for the next Workshop I found someone new now I have more room no more formats to change me on the same page [Music] [Music] [Music] thank you [Music] come on [Music] foreign foreign",
+    "segments": [
+      {
+        "start": 0.86,
+        "duration": 6.1,
+        "text": "[Music]"
+      },
+      {
+        "start": 1.399,
+        "duration": 11.261,
+        "text": "found someone new now I have more room"
+      },
+      {
+        "start": 6.96,
+        "duration": 6.71,
+        "text": "no more formats to change me on the same"
+      },
+      {
+        "start": 12.66,
+        "duration": 20.589,
+        "text": "page"
+      },
+      {
+        "start": 13.67,
+        "duration": 19.579,
+        "text": "[Music]"
+      },
+      {
+        "start": 33.68,
+        "duration": 4.9,
+        "text": "I"
+      },
+      {
+        "start": 35.66,
+        "duration": 26.8,
+        "text": "love you"
+      },
+      {
+        "start": 38.58,
+        "duration": 26.72,
+        "text": "[Music]"
+      },
+      {
+        "start": 62.46,
+        "duration": 2.84,
+        "text": "thank you"
+      },
+      {
+        "start": 71.46,
+        "duration": 2.18,
+        "text": "foreign"
+      },
+      {
+        "start": 76.52,
+        "duration": 5.8,
+        "text": "welcome to real-time e-commerce product"
+      },
+      {
+        "start": 79.56,
+        "duration": 5.099,
+        "text": "recommendations with Vector search and"
+      },
+      {
+        "start": 82.32,
+        "duration": 3.78,
+        "text": "Apache Cassandra"
+      },
+      {
+        "start": 84.659,
+        "duration": 4.401,
+        "text": "um so that is uh that is what we're"
+      },
+      {
+        "start": 86.1,
+        "duration": 2.96,
+        "text": "going to be talking about today"
+      },
+      {
+        "start": 89.28,
+        "duration": 5.28,
+        "text": "um so you know I'm sure most of you know"
+      },
+      {
+        "start": 91.799,
+        "duration": 5.761,
+        "text": "me but I'm a developer advocate for uh"
+      },
+      {
+        "start": 94.56,
+        "duration": 4.5,
+        "text": "data Stacks you know I've uh you know"
+      },
+      {
+        "start": 97.56,
+        "duration": 2.94,
+        "text": "worked with Cassandra for a very long"
+      },
+      {
+        "start": 99.06,
+        "duration": 4.32,
+        "text": "time"
+      },
+      {
+        "start": 100.5,
+        "duration": 4.92,
+        "text": "um for a lot of major e-tailers"
+      },
+      {
+        "start": 103.38,
+        "duration": 4.68,
+        "text": "um I host the Apache Cassandra Corner"
+      },
+      {
+        "start": 105.42,
+        "duration": 5.519,
+        "text": "podcast so"
+      },
+      {
+        "start": 108.06,
+        "duration": 4.8,
+        "text": "um you know so yeah so if you have a"
+      },
+      {
+        "start": 110.939,
+        "duration": 4.86,
+        "text": "great story about Cassandra or or about"
+      },
+      {
+        "start": 112.86,
+        "duration": 5.579,
+        "text": "your use case I would uh would love to"
+      },
+      {
+        "start": 115.799,
+        "duration": 3.541,
+        "text": "talk with you and uh help you tell your"
+      },
+      {
+        "start": 118.439,
+        "duration": 3.901,
+        "text": "story"
+      },
+      {
+        "start": 119.34,
+        "duration": 6.0,
+        "text": "let's see here all right so"
+      },
+      {
+        "start": 122.34,
+        "duration": 3.779,
+        "text": "um if you've seen any of our other"
+      },
+      {
+        "start": 125.34,
+        "duration": 3.779,
+        "text": "um"
+      },
+      {
+        "start": 126.119,
+        "duration": 5.76,
+        "text": "or other you know e-commerce workshops"
+      },
+      {
+        "start": 129.119,
+        "duration": 3.901,
+        "text": "that we've that we've run you know um"
+      },
+      {
+        "start": 131.879,
+        "duration": 2.461,
+        "text": "you know a little bit about the tech"
+      },
+      {
+        "start": 133.02,
+        "duration": 3.12,
+        "text": "stack behind it"
+      },
+      {
+        "start": 134.34,
+        "duration": 4.08,
+        "text": "um where we we've done the front end and"
+      },
+      {
+        "start": 136.14,
+        "duration": 4.14,
+        "text": "uh you know Tailwind CSS with uh you"
+      },
+      {
+        "start": 138.42,
+        "duration": 4.26,
+        "text": "know react"
+      },
+      {
+        "start": 140.28,
+        "duration": 5.64,
+        "text": "um the uh the service layer where where"
+      },
+      {
+        "start": 142.68,
+        "duration": 4.8,
+        "text": "we've uh put out on Spring boot"
+      },
+      {
+        "start": 145.92,
+        "duration": 3.06,
+        "text": "um and the back end has been done with"
+      },
+      {
+        "start": 147.48,
+        "duration": 3.36,
+        "text": "spring data you know because it works"
+      },
+      {
+        "start": 148.98,
+        "duration": 3.6,
+        "text": "super well with uh with spring boot"
+      },
+      {
+        "start": 150.84,
+        "duration": 4.619,
+        "text": "especially when you're trying to do a uh"
+      },
+      {
+        "start": 152.58,
+        "duration": 5.82,
+        "text": "like a web or an MVC pattern type of a"
+      },
+      {
+        "start": 155.459,
+        "duration": 5.941,
+        "text": "type of an application"
+      },
+      {
+        "start": 158.4,
+        "duration": 5.4,
+        "text": "um however"
+      },
+      {
+        "start": 161.4,
+        "duration": 5.339,
+        "text": "due to the fact that that Vector search"
+      },
+      {
+        "start": 163.8,
+        "duration": 5.579,
+        "text": "is really new and the inherent types"
+      },
+      {
+        "start": 166.739,
+        "duration": 4.981,
+        "text": "that we needed in Cassandra and in"
+      },
+      {
+        "start": 169.379,
+        "duration": 4.621,
+        "text": "Astrid B asterdb by the way is what"
+      },
+      {
+        "start": 171.72,
+        "duration": 4.799,
+        "text": "we're going to use today for this"
+      },
+      {
+        "start": 174.0,
+        "duration": 5.519,
+        "text": "um those types aren't recognized in"
+      },
+      {
+        "start": 176.519,
+        "duration": 5.701,
+        "text": "Spring data just yet so I actually did"
+      },
+      {
+        "start": 179.519,
+        "duration": 3.961,
+        "text": "have to um you know kind of write uh"
+      },
+      {
+        "start": 182.22,
+        "duration": 3.239,
+        "text": "kind of write some kind of be able to"
+      },
+      {
+        "start": 183.48,
+        "duration": 6.06,
+        "text": "code around it to um to get it to"
+      },
+      {
+        "start": 185.459,
+        "duration": 6.06,
+        "text": "recognize the vector embeddings and I'll"
+      },
+      {
+        "start": 189.54,
+        "duration": 3.839,
+        "text": "cover that in the code or at least it's"
+      },
+      {
+        "start": 191.519,
+        "duration": 4.201,
+        "text": "my plan to cover that in the code we'll"
+      },
+      {
+        "start": 193.379,
+        "duration": 3.841,
+        "text": "we'll see how things go along huh"
+      },
+      {
+        "start": 195.72,
+        "duration": 4.32,
+        "text": "recommendations we're going to be"
+      },
+      {
+        "start": 197.22,
+        "duration": 6.9,
+        "text": "talking about today and the idea is is"
+      },
+      {
+        "start": 200.04,
+        "duration": 6.9,
+        "text": "that when we do an add to cart action"
+      },
+      {
+        "start": 204.12,
+        "duration": 5.759,
+        "text": "uh we're going to go ahead and Trigger"
+      },
+      {
+        "start": 206.94,
+        "duration": 6.18,
+        "text": "this some additional lookup"
+      },
+      {
+        "start": 209.879,
+        "duration": 6.181,
+        "text": "and this lookup is actually going to"
+      },
+      {
+        "start": 213.12,
+        "duration": 5.699,
+        "text": "um you know give us an additional option"
+      },
+      {
+        "start": 216.06,
+        "duration": 4.62,
+        "text": "about what we might want to uh purchase"
+      },
+      {
+        "start": 218.819,
+        "duration": 4.321,
+        "text": "in addition to you know what we've"
+      },
+      {
+        "start": 220.68,
+        "duration": 5.58,
+        "text": "already put in our cart so we're going"
+      },
+      {
+        "start": 223.14,
+        "duration": 4.56,
+        "text": "to return the first similar product"
+      },
+      {
+        "start": 226.26,
+        "duration": 4.559,
+        "text": "um and we're going to determine that"
+      },
+      {
+        "start": 227.7,
+        "duration": 6.0,
+        "text": "similarity uh using using something"
+      },
+      {
+        "start": 230.819,
+        "duration": 5.461,
+        "text": "called a called a vector search and"
+      },
+      {
+        "start": 233.7,
+        "duration": 4.619,
+        "text": "essentially Vector search allows us to"
+      },
+      {
+        "start": 236.28,
+        "duration": 4.379,
+        "text": "go over like you know Vector embeddings"
+      },
+      {
+        "start": 238.319,
+        "duration": 3.601,
+        "text": "that we create ahead of time"
+      },
+      {
+        "start": 240.659,
+        "duration": 3.121,
+        "text": "um and the the embeddings that we're"
+      },
+      {
+        "start": 241.92,
+        "duration": 3.179,
+        "text": "going to create are based on the product"
+      },
+      {
+        "start": 243.78,
+        "duration": 5.64,
+        "text": "name"
+      },
+      {
+        "start": 245.099,
+        "duration": 7.86,
+        "text": "um and we'll use the um the NLP based um"
+      },
+      {
+        "start": 249.42,
+        "duration": 5.519,
+        "text": "you know uh technique of"
+      },
+      {
+        "start": 252.959,
+        "duration": 3.9,
+        "text": "uh I think it's called oh bag of words"
+      },
+      {
+        "start": 254.939,
+        "duration": 3.781,
+        "text": "that's right that's right where we've"
+      },
+      {
+        "start": 256.859,
+        "duration": 3.301,
+        "text": "kind of built up our vocabulary based on"
+      },
+      {
+        "start": 258.72,
+        "duration": 3.0,
+        "text": "the words that are in all of our product"
+      },
+      {
+        "start": 260.16,
+        "duration": 3.24,
+        "text": "names"
+      },
+      {
+        "start": 261.72,
+        "duration": 4.56,
+        "text": "um and then each product and their"
+      },
+      {
+        "start": 263.4,
+        "duration": 5.64,
+        "text": "Vector embedding gets a one or a zero"
+      },
+      {
+        "start": 266.28,
+        "duration": 4.8,
+        "text": "depending on whether or not"
+      },
+      {
+        "start": 269.04,
+        "duration": 3.78,
+        "text": "um they they have that uh they have that"
+      },
+      {
+        "start": 271.08,
+        "duration": 3.66,
+        "text": "product or not"
+      },
+      {
+        "start": 272.82,
+        "duration": 3.54,
+        "text": "so the queries that we need to be able"
+      },
+      {
+        "start": 274.74,
+        "duration": 5.519,
+        "text": "to support you know we need to be able"
+      },
+      {
+        "start": 276.36,
+        "duration": 6.6,
+        "text": "to query a product by its ID or"
+      },
+      {
+        "start": 280.259,
+        "duration": 5.401,
+        "text": "it's uh in Vector embedding and"
+      },
+      {
+        "start": 282.96,
+        "duration": 6.06,
+        "text": "additionally we need to be able to query"
+      },
+      {
+        "start": 285.66,
+        "duration": 7.08,
+        "text": "uh based on a uh an N or an approximate"
+      },
+      {
+        "start": 289.02,
+        "duration": 6.899,
+        "text": "nearest neighbor based on you know a um"
+      },
+      {
+        "start": 292.74,
+        "duration": 6.0,
+        "text": "another products Vector so that is what"
+      },
+      {
+        "start": 295.919,
+        "duration": 7.021,
+        "text": "we're going to try to do today"
+      },
+      {
+        "start": 298.74,
+        "duration": 6.78,
+        "text": "okay so uh Vector search is feature that"
+      },
+      {
+        "start": 302.94,
+        "duration": 4.319,
+        "text": "is coming to Apache Cassandra"
+      },
+      {
+        "start": 305.52,
+        "duration": 3.72,
+        "text": "um it'll be in version 50 when it's"
+      },
+      {
+        "start": 307.259,
+        "duration": 4.081,
+        "text": "released by the end of the year and it"
+      },
+      {
+        "start": 309.24,
+        "duration": 3.48,
+        "text": "is a part of cep seven so if you want to"
+      },
+      {
+        "start": 311.34,
+        "duration": 4.74,
+        "text": "go out and read"
+      },
+      {
+        "start": 312.72,
+        "duration": 5.28,
+        "text": "um cep seven that is actually oh yeah I"
+      },
+      {
+        "start": 316.08,
+        "duration": 4.619,
+        "text": "have my wrong cep there that's actually"
+      },
+      {
+        "start": 318.0,
+        "duration": 5.759,
+        "text": "for um the storage attached indexing"
+      },
+      {
+        "start": 320.699,
+        "duration": 4.741,
+        "text": "which is required uh for Vector search"
+      },
+      {
+        "start": 323.759,
+        "duration": 3.601,
+        "text": "to actually work and and it's it's"
+      },
+      {
+        "start": 325.44,
+        "duration": 3.9,
+        "text": "actually required for uh for a few other"
+      },
+      {
+        "start": 327.36,
+        "duration": 5.16,
+        "text": "major features that we're going to be"
+      },
+      {
+        "start": 329.34,
+        "duration": 5.639,
+        "text": "seeing in um you know Cassandra 5-0 but"
+      },
+      {
+        "start": 332.52,
+        "duration": 3.78,
+        "text": "it's live today out on astrudv so that's"
+      },
+      {
+        "start": 334.979,
+        "duration": 2.641,
+        "text": "uh that's what we're gonna that's what"
+      },
+      {
+        "start": 336.3,
+        "duration": 4.08,
+        "text": "we're gonna use"
+      },
+      {
+        "start": 337.62,
+        "duration": 7.26,
+        "text": "um the other trick is that we we have to"
+      },
+      {
+        "start": 340.38,
+        "duration": 6.9,
+        "text": "have a special kind of database created"
+      },
+      {
+        "start": 344.88,
+        "duration": 4.98,
+        "text": "in astrud DB it has to be a vector"
+      },
+      {
+        "start": 347.28,
+        "duration": 5.16,
+        "text": "enabled database uh so that is something"
+      },
+      {
+        "start": 349.86,
+        "duration": 5.1,
+        "text": "that uh you know again I was hoping to"
+      },
+      {
+        "start": 352.44,
+        "duration": 4.56,
+        "text": "have uh all built and running ahead of"
+      },
+      {
+        "start": 354.96,
+        "duration": 4.38,
+        "text": "time but uh you know everyone's gonna"
+      },
+      {
+        "start": 357.0,
+        "duration": 4.86,
+        "text": "get to watch me do that too this is"
+      },
+      {
+        "start": 359.34,
+        "duration": 5.579,
+        "text": "really just a visualization of um I did"
+      },
+      {
+        "start": 361.86,
+        "duration": 4.08,
+        "text": "a um a uh blog post oh you know what I"
+      },
+      {
+        "start": 364.919,
+        "duration": 3.301,
+        "text": "don't know if this one's made it out"
+      },
+      {
+        "start": 365.94,
+        "duration": 4.56,
+        "text": "there yet anyway so the idea here is"
+      },
+      {
+        "start": 368.22,
+        "duration": 5.52,
+        "text": "that is that I created this fictitious"
+      },
+      {
+        "start": 370.5,
+        "duration": 6.9,
+        "text": "category of like um of like pet related"
+      },
+      {
+        "start": 373.74,
+        "duration": 5.94,
+        "text": "or dog related products and um created a"
+      },
+      {
+        "start": 377.4,
+        "duration": 4.56,
+        "text": "vocabulary based on just these product"
+      },
+      {
+        "start": 379.68,
+        "duration": 3.78,
+        "text": "names and that's how I created my"
+      },
+      {
+        "start": 381.96,
+        "duration": 3.299,
+        "text": "product Vector"
+      },
+      {
+        "start": 383.46,
+        "duration": 4.5,
+        "text": "um and then I kind of have the um you"
+      },
+      {
+        "start": 385.259,
+        "duration": 4.56,
+        "text": "know the query down here showing you"
+      },
+      {
+        "start": 387.96,
+        "duration": 3.179,
+        "text": "know um you know how you how you'd go"
+      },
+      {
+        "start": 389.819,
+        "duration": 5.1,
+        "text": "ahead and pull that back by the vector"
+      },
+      {
+        "start": 391.139,
+        "duration": 6.18,
+        "text": "ah and that's right cep7 is for the um"
+      },
+      {
+        "start": 394.919,
+        "duration": 5.28,
+        "text": "uh storage attached indexing and then"
+      },
+      {
+        "start": 397.319,
+        "duration": 4.32,
+        "text": "cep 30 is Vector search and both of"
+      },
+      {
+        "start": 400.199,
+        "duration": 3.481,
+        "text": "those are making their way into"
+      },
+      {
+        "start": 401.639,
+        "duration": 4.68,
+        "text": "Cassandra 5.0"
+      },
+      {
+        "start": 403.68,
+        "duration": 5.459,
+        "text": "okay for a simple data model"
+      },
+      {
+        "start": 406.319,
+        "duration": 4.801,
+        "text": "um we built a um there's a one-to-one"
+      },
+      {
+        "start": 409.139,
+        "duration": 3.721,
+        "text": "table and typically in in the database"
+      },
+      {
+        "start": 411.12,
+        "duration": 4.68,
+        "text": "world you don't see a lot of one-to-one"
+      },
+      {
+        "start": 412.86,
+        "duration": 4.619,
+        "text": "relationships but um in this case"
+      },
+      {
+        "start": 415.8,
+        "duration": 4.56,
+        "text": "there's a lot on the product table that"
+      },
+      {
+        "start": 417.479,
+        "duration": 5.34,
+        "text": "we just don't need in product vector"
+      },
+      {
+        "start": 420.36,
+        "duration": 4.619,
+        "text": "but in the product Vector table"
+      },
+      {
+        "start": 422.819,
+        "duration": 5.041,
+        "text": "um I added things that that we need to"
+      },
+      {
+        "start": 424.979,
+        "duration": 5.28,
+        "text": "actually build up the pop-up you know"
+      },
+      {
+        "start": 427.86,
+        "duration": 4.32,
+        "text": "that that comes up when we when we"
+      },
+      {
+        "start": 430.259,
+        "duration": 5.16,
+        "text": "trigger a vector search and we're"
+      },
+      {
+        "start": 432.18,
+        "duration": 5.34,
+        "text": "showing that uh that top result there"
+      },
+      {
+        "start": 435.419,
+        "duration": 4.141,
+        "text": "um so in that case we basically have in"
+      },
+      {
+        "start": 437.52,
+        "duration": 4.079,
+        "text": "that product Vector"
+      },
+      {
+        "start": 439.56,
+        "duration": 4.44,
+        "text": "um table you know true to Cassandra"
+      },
+      {
+        "start": 441.599,
+        "duration": 4.801,
+        "text": "modeling form we have exactly what we"
+      },
+      {
+        "start": 444.0,
+        "duration": 4.44,
+        "text": "need to suit that query so that's what"
+      },
+      {
+        "start": 446.4,
+        "duration": 4.68,
+        "text": "we're going to run with"
+      },
+      {
+        "start": 448.44,
+        "duration": 4.68,
+        "text": "all right so"
+      },
+      {
+        "start": 451.08,
+        "duration": 3.54,
+        "text": "well I guess that's about it um oh by"
+      },
+      {
+        "start": 453.12,
+        "duration": 3.24,
+        "text": "the way in case you haven't tuned in to"
+      },
+      {
+        "start": 454.62,
+        "duration": 4.74,
+        "text": "our new"
+      },
+      {
+        "start": 456.36,
+        "duration": 4.38,
+        "text": "um uh new workshop format before we are"
+      },
+      {
+        "start": 459.36,
+        "duration": 3.36,
+        "text": "going to try and get this done in about"
+      },
+      {
+        "start": 460.74,
+        "duration": 3.6,
+        "text": "30 minutes so that's why we're kind of"
+      },
+      {
+        "start": 462.72,
+        "duration": 3.66,
+        "text": "burning through some things here but um"
+      },
+      {
+        "start": 464.34,
+        "duration": 3.96,
+        "text": "essentially for the Hands-On uh we're"
+      },
+      {
+        "start": 466.38,
+        "duration": 4.86,
+        "text": "going to sign in we're going to navigate"
+      },
+      {
+        "start": 468.3,
+        "duration": 4.92,
+        "text": "through our products we are going to add"
+      },
+      {
+        "start": 471.24,
+        "duration": 3.359,
+        "text": "some things to our cart and then"
+      },
+      {
+        "start": 473.22,
+        "duration": 4.199,
+        "text": "hopefully if we did everything right"
+      },
+      {
+        "start": 474.599,
+        "duration": 5.401,
+        "text": "that triggers a vector search"
+      },
+      {
+        "start": 477.419,
+        "duration": 5.301,
+        "text": "um you can find this all out on um you"
+      },
+      {
+        "start": 480.0,
+        "duration": 6.12,
+        "text": "know github.com"
+      },
+      {
+        "start": 482.72,
+        "duration": 5.44,
+        "text": "aar0np Workshop underscore e-commerce"
+      },
+      {
+        "start": 486.12,
+        "duration": 4.079,
+        "text": "underscore prototype"
+      },
+      {
+        "start": 488.16,
+        "duration": 5.039,
+        "text": "um the reason that I had to do this in a"
+      },
+      {
+        "start": 490.199,
+        "duration": 5.161,
+        "text": "separate git repo is that um you"
+      },
+      {
+        "start": 493.199,
+        "duration": 5.101,
+        "text": "absolutely need a vector"
+      },
+      {
+        "start": 495.36,
+        "duration": 5.82,
+        "text": "enabled database behind it"
+      },
+      {
+        "start": 498.3,
+        "duration": 6.299,
+        "text": "um and once once I had that in there"
+      },
+      {
+        "start": 501.18,
+        "duration": 5.76,
+        "text": "then the original e-commerce just would"
+      },
+      {
+        "start": 504.599,
+        "duration": 4.5,
+        "text": "not uh it would not work"
+      },
+      {
+        "start": 506.94,
+        "duration": 3.78,
+        "text": "um so I didn't want to I didn't want to"
+      },
+      {
+        "start": 509.099,
+        "duration": 3.601,
+        "text": "take the chance of like hosing anyone"
+      },
+      {
+        "start": 510.72,
+        "duration": 4.559,
+        "text": "who is who is going to try and um"
+      },
+      {
+        "start": 512.7,
+        "duration": 4.5,
+        "text": "building up the original project"
+      },
+      {
+        "start": 515.279,
+        "duration": 3.301,
+        "text": "um so here I have this prototype and uh"
+      },
+      {
+        "start": 517.2,
+        "duration": 3.66,
+        "text": "and I'll worry about getting them like"
+      },
+      {
+        "start": 518.58,
+        "duration": 3.6,
+        "text": "uh merged in properly at uh at some"
+      },
+      {
+        "start": 520.86,
+        "duration": 4.62,
+        "text": "point here"
+      },
+      {
+        "start": 522.18,
+        "duration": 6.0,
+        "text": "to create a vector database essentially"
+      },
+      {
+        "start": 525.48,
+        "duration": 4.2,
+        "text": "I'll go down to this create a database"
+      },
+      {
+        "start": 528.18,
+        "duration": 3.54,
+        "text": "button"
+      },
+      {
+        "start": 529.68,
+        "duration": 4.5,
+        "text": "click it I'm going to make sure that"
+      },
+      {
+        "start": 531.72,
+        "duration": 5.1,
+        "text": "instead of serverless database I'm"
+      },
+      {
+        "start": 534.18,
+        "duration": 5.339,
+        "text": "selecting Vector database"
+      },
+      {
+        "start": 536.82,
+        "duration": 7.56,
+        "text": "now I can name it"
+      },
+      {
+        "start": 539.519,
+        "duration": 7.5,
+        "text": "um Ecom Vector that should work"
+      },
+      {
+        "start": 544.38,
+        "duration": 5.16,
+        "text": "for the key space name"
+      },
+      {
+        "start": 547.019,
+        "duration": 4.26,
+        "text": "I'm going to say e-commerce and I want"
+      },
+      {
+        "start": 549.54,
+        "duration": 3.72,
+        "text": "to make sure that for the free tier"
+      },
+      {
+        "start": 551.279,
+        "duration": 3.0,
+        "text": "you're in Google"
+      },
+      {
+        "start": 553.26,
+        "duration": 3.6,
+        "text": "and"
+      },
+      {
+        "start": 554.279,
+        "duration": 6.5,
+        "text": "for me the closest free region is Us"
+      },
+      {
+        "start": 556.86,
+        "duration": 3.919,
+        "text": "East one in Monks Corner South Carolina"
+      },
+      {
+        "start": 560.88,
+        "duration": 5.94,
+        "text": "now I can say create database"
+      },
+      {
+        "start": 563.519,
+        "duration": 4.561,
+        "text": "let me go ahead and uh and run out here"
+      },
+      {
+        "start": 566.82,
+        "duration": 3.5,
+        "text": "and just see what I can do with it"
+      },
+      {
+        "start": 568.08,
+        "duration": 2.24,
+        "text": "second"
+      },
+      {
+        "start": 570.54,
+        "duration": 4.56,
+        "text": "okay"
+      },
+      {
+        "start": 571.92,
+        "duration": 6.419,
+        "text": "so if I say use e-commerce"
+      },
+      {
+        "start": 575.1,
+        "duration": 6.419,
+        "text": "um and I'm going to be following uh the"
+      },
+      {
+        "start": 578.339,
+        "duration": 6.421,
+        "text": "the readme that we have out there but if"
+      },
+      {
+        "start": 581.519,
+        "duration": 4.561,
+        "text": "I say desk tables"
+      },
+      {
+        "start": 584.76,
+        "duration": 3.42,
+        "text": "okay"
+      },
+      {
+        "start": 586.08,
+        "duration": 4.08,
+        "text": "there we go so you can see I have I have"
+      },
+      {
+        "start": 588.18,
+        "duration": 4.8,
+        "text": "all of these uh all of these tables out"
+      },
+      {
+        "start": 590.16,
+        "duration": 3.78,
+        "text": "here maybe I'll increase the font just a"
+      },
+      {
+        "start": 592.98,
+        "duration": 6.02,
+        "text": "little bit"
+      },
+      {
+        "start": 593.94,
+        "duration": 5.06,
+        "text": "there we go then you can say desk table"
+      },
+      {
+        "start": 599.58,
+        "duration": 6.54,
+        "text": "we'll say product vectors okay"
+      },
+      {
+        "start": 602.88,
+        "duration": 5.78,
+        "text": "so as you can see I've gone ahead and"
+      },
+      {
+        "start": 606.12,
+        "duration": 8.1,
+        "text": "created this product vectors table"
+      },
+      {
+        "start": 608.66,
+        "duration": 7.119,
+        "text": "product ID is my loan primary key"
+      },
+      {
+        "start": 614.22,
+        "duration": 4.32,
+        "text": "um the other thing we have on this table"
+      },
+      {
+        "start": 615.779,
+        "duration": 6.541,
+        "text": "is that the product Vector is using the"
+      },
+      {
+        "start": 618.54,
+        "duration": 8.22,
+        "text": "vector type it's using an internal data"
+      },
+      {
+        "start": 622.32,
+        "duration": 6.92,
+        "text": "type of float and it is a 32 dimensional"
+      },
+      {
+        "start": 626.76,
+        "duration": 6.12,
+        "text": "float now that 32"
+      },
+      {
+        "start": 629.24,
+        "duration": 6.7,
+        "text": "represents the um the total size of our"
+      },
+      {
+        "start": 632.88,
+        "duration": 5.399,
+        "text": "our product and name vocabulary so if we"
+      },
+      {
+        "start": 635.94,
+        "duration": 5.28,
+        "text": "were to look at all of the product names"
+      },
+      {
+        "start": 638.279,
+        "duration": 6.601,
+        "text": "so I can say select"
+      },
+      {
+        "start": 641.22,
+        "duration": 3.66,
+        "text": "um product name"
+      },
+      {
+        "start": 645.6,
+        "duration": 4.44,
+        "text": "there we go"
+      },
+      {
+        "start": 646.92,
+        "duration": 4.979,
+        "text": "and we'll say from product"
+      },
+      {
+        "start": 650.04,
+        "duration": 5.34,
+        "text": "just like that"
+      },
+      {
+        "start": 651.899,
+        "duration": 6.481,
+        "text": "oh it didn't like that at all"
+      },
+      {
+        "start": 655.38,
+        "duration": 6.36,
+        "text": "oh you know what I think it's just name"
+      },
+      {
+        "start": 658.38,
+        "duration": 5.639,
+        "text": "uh yeah actually hey there we go so you"
+      },
+      {
+        "start": 661.74,
+        "duration": 4.38,
+        "text": "can see all of these uh these uh product"
+      },
+      {
+        "start": 664.019,
+        "duration": 4.741,
+        "text": "names here like um you know go away"
+      },
+      {
+        "start": 666.12,
+        "duration": 5.339,
+        "text": "annotation t-shirt data sacks black"
+      },
+      {
+        "start": 668.76,
+        "duration": 3.78,
+        "text": "hoodie Apache contributor shirt"
+      },
+      {
+        "start": 671.459,
+        "duration": 2.521,
+        "text": "um and some of these are doubled and"
+      },
+      {
+        "start": 672.54,
+        "duration": 3.539,
+        "text": "tripled up again you know they're going"
+      },
+      {
+        "start": 673.98,
+        "duration": 4.08,
+        "text": "to be in there for each time it has like"
+      },
+      {
+        "start": 676.079,
+        "duration": 3.481,
+        "text": "a size you know so you're gonna have an"
+      },
+      {
+        "start": 678.06,
+        "duration": 4.56,
+        "text": "entry in there for like both a small"
+      },
+      {
+        "start": 679.56,
+        "duration": 4.62,
+        "text": "medium large XL etc etc"
+      },
+      {
+        "start": 682.62,
+        "duration": 6.26,
+        "text": "um but anyway so this is this is what"
+      },
+      {
+        "start": 684.18,
+        "duration": 9.48,
+        "text": "our our 32 word vocabulary is made of"
+      },
+      {
+        "start": 688.88,
+        "duration": 6.76,
+        "text": "here is our product vectors table and"
+      },
+      {
+        "start": 693.66,
+        "duration": 5.16,
+        "text": "you can see that I've created this index"
+      },
+      {
+        "start": 695.64,
+        "duration": 4.62,
+        "text": "type it's create custom index on product"
+      },
+      {
+        "start": 698.82,
+        "duration": 4.32,
+        "text": "vectors"
+      },
+      {
+        "start": 700.26,
+        "duration": 4.62,
+        "text": "um and on the product Vector column and"
+      },
+      {
+        "start": 703.14,
+        "duration": 4.92,
+        "text": "the idea is that it's using that storage"
+      },
+      {
+        "start": 704.88,
+        "duration": 5.88,
+        "text": "attached index class which again is not"
+      },
+      {
+        "start": 708.06,
+        "duration": 4.86,
+        "text": "available right now in uh Cassandra but"
+      },
+      {
+        "start": 710.76,
+        "duration": 5.22,
+        "text": "it will be as a five once the um you"
+      },
+      {
+        "start": 712.92,
+        "duration": 4.8,
+        "text": "know once cp7 gets in there"
+      },
+      {
+        "start": 715.98,
+        "duration": 3.96,
+        "text": "um once you've done that you can go to"
+      },
+      {
+        "start": 717.72,
+        "duration": 3.78,
+        "text": "cql Shell and I have a whole bunch of"
+      },
+      {
+        "start": 719.94,
+        "duration": 4.68,
+        "text": "insert statements here that you can run"
+      },
+      {
+        "start": 721.5,
+        "duration": 5.579,
+        "text": "and populate the data you can see"
+      },
+      {
+        "start": 724.62,
+        "duration": 5.82,
+        "text": "session five Vector search data so these"
+      },
+      {
+        "start": 727.079,
+        "duration": 5.7,
+        "text": "are the inserts that um that take you"
+      },
+      {
+        "start": 730.44,
+        "duration": 4.86,
+        "text": "know the uh the products which have been"
+      },
+      {
+        "start": 732.779,
+        "duration": 5.701,
+        "text": "built as vector embeddings and you can"
+      },
+      {
+        "start": 735.3,
+        "duration": 5.279,
+        "text": "copy this and then paste it in and um"
+      },
+      {
+        "start": 738.48,
+        "duration": 3.72,
+        "text": "you should have that table should that"
+      },
+      {
+        "start": 740.579,
+        "duration": 4.76,
+        "text": "table all created"
+      },
+      {
+        "start": 742.2,
+        "duration": 7.04,
+        "text": "so now if I go ahead and select from"
+      },
+      {
+        "start": 745.339,
+        "duration": 3.901,
+        "text": "product vectors"
+      },
+      {
+        "start": 750.959,
+        "duration": 5.521,
+        "text": "and and"
+      },
+      {
+        "start": 753.839,
+        "duration": 4.381,
+        "text": "oh actually that's uh that's going to be"
+      },
+      {
+        "start": 756.48,
+        "duration": 3.72,
+        "text": "a little difficult to read so why don't"
+      },
+      {
+        "start": 758.22,
+        "duration": 5.94,
+        "text": "I be a little Judas on what I'm pulling"
+      },
+      {
+        "start": 760.2,
+        "duration": 5.879,
+        "text": "back we'll say name and"
+      },
+      {
+        "start": 764.16,
+        "duration": 6.0,
+        "text": "product vector"
+      },
+      {
+        "start": 766.079,
+        "duration": 6.181,
+        "text": "okay well this is slightly better but um"
+      },
+      {
+        "start": 770.16,
+        "duration": 6.179,
+        "text": "basically what you can see here is that"
+      },
+      {
+        "start": 772.26,
+        "duration": 5.879,
+        "text": "you know we have our product name and"
+      },
+      {
+        "start": 776.339,
+        "duration": 4.161,
+        "text": "then kind of like I described with a bag"
+      },
+      {
+        "start": 778.139,
+        "duration": 6.481,
+        "text": "of words approach each"
+      },
+      {
+        "start": 780.5,
+        "duration": 6.459,
+        "text": "each um word is given a uh like a column"
+      },
+      {
+        "start": 784.62,
+        "duration": 3.899,
+        "text": "and then you have a each product has a"
+      },
+      {
+        "start": 786.959,
+        "duration": 4.44,
+        "text": "one or a zero depending on whether or"
+      },
+      {
+        "start": 788.519,
+        "duration": 8.221,
+        "text": "not it has that word and that actually"
+      },
+      {
+        "start": 791.399,
+        "duration": 7.021,
+        "text": "allows us to perform a uh a vector query"
+      },
+      {
+        "start": 796.74,
+        "duration": 4.5,
+        "text": "um so if I wanted to go ahead and just"
+      },
+      {
+        "start": 798.42,
+        "duration": 4.88,
+        "text": "try this let's say that"
+      },
+      {
+        "start": 801.24,
+        "duration": 2.06,
+        "text": "um"
+      },
+      {
+        "start": 803.94,
+        "duration": 3.839,
+        "text": "let's go with um you know like a product"
+      },
+      {
+        "start": 805.98,
+        "duration": 3.599,
+        "text": "ID here"
+      },
+      {
+        "start": 807.779,
+        "duration": 5.281,
+        "text": "um so if I wanted to go with um yeah"
+      },
+      {
+        "start": 809.579,
+        "duration": 5.461,
+        "text": "this this data Stacks black hoodie uh"
+      },
+      {
+        "start": 813.06,
+        "duration": 4.74,
+        "text": "what I'm going to do is actually search"
+      },
+      {
+        "start": 815.04,
+        "duration": 5.82,
+        "text": "by that vector"
+      },
+      {
+        "start": 817.8,
+        "duration": 4.92,
+        "text": "so I'm going to say"
+      },
+      {
+        "start": 820.86,
+        "duration": 5.419,
+        "text": "um I gotta remember how to do this now"
+      },
+      {
+        "start": 822.72,
+        "duration": 3.559,
+        "text": "uh we'll say select"
+      },
+      {
+        "start": 828.48,
+        "duration": 9.14,
+        "text": "a b and name and we'll say from product"
+      },
+      {
+        "start": 832.74,
+        "duration": 8.339,
+        "text": "vector and we're going to say order by"
+      },
+      {
+        "start": 837.62,
+        "duration": 5.2,
+        "text": "a-n-n of"
+      },
+      {
+        "start": 841.079,
+        "duration": 3.601,
+        "text": "um and then we're going to give it I"
+      },
+      {
+        "start": 842.82,
+        "duration": 5.4,
+        "text": "think it's product"
+      },
+      {
+        "start": 844.68,
+        "duration": 6.48,
+        "text": "Vector so it's the um the column name"
+      },
+      {
+        "start": 848.22,
+        "duration": 6.6,
+        "text": "first of the vector type and then I'm"
+      },
+      {
+        "start": 851.16,
+        "duration": 7.02,
+        "text": "going to actually paste in the vector"
+      },
+      {
+        "start": 854.82,
+        "duration": 7.92,
+        "text": "oh didn't like that okay uh yeah there"
+      },
+      {
+        "start": 858.18,
+        "duration": 7.2,
+        "text": "it is order by oh ah okay okay yep I did"
+      },
+      {
+        "start": 862.74,
+        "duration": 7.279,
+        "text": "the syntax wrong okay so I don't need it"
+      },
+      {
+        "start": 865.38,
+        "duration": 4.639,
+        "text": "encapsulated inside of um"
+      },
+      {
+        "start": 870.36,
+        "duration": 6.56,
+        "text": "inside of a Paramus it's just a n and"
+      },
+      {
+        "start": 874.68,
+        "duration": 2.24,
+        "text": "then"
+      },
+      {
+        "start": 876.959,
+        "duration": 6.601,
+        "text": "oh order by here we go so if we say"
+      },
+      {
+        "start": 880.26,
+        "duration": 6.12,
+        "text": "order by product vector and then we say"
+      },
+      {
+        "start": 883.56,
+        "duration": 5.76,
+        "text": "and and of"
+      },
+      {
+        "start": 886.38,
+        "duration": 4.86,
+        "text": "oh come on table product Vector does not"
+      },
+      {
+        "start": 889.32,
+        "duration": 5.04,
+        "text": "exist what"
+      },
+      {
+        "start": 891.24,
+        "duration": 6.36,
+        "text": "you know what I bet I named that plural"
+      },
+      {
+        "start": 894.36,
+        "duration": 5.339,
+        "text": "let's try that product vectors"
+      },
+      {
+        "start": 897.6,
+        "duration": 3.66,
+        "text": "oh yep okay and this this is a good"
+      },
+      {
+        "start": 899.699,
+        "duration": 3.421,
+        "text": "point I'm glad I stumbled on this in"
+      },
+      {
+        "start": 901.26,
+        "duration": 3.72,
+        "text": "front of you when you run a cql query"
+      },
+      {
+        "start": 903.12,
+        "duration": 4.019,
+        "text": "for a vector"
+      },
+      {
+        "start": 904.98,
+        "duration": 4.62,
+        "text": "um obviously it's running it's using"
+      },
+      {
+        "start": 907.139,
+        "duration": 5.88,
+        "text": "that secondary index or secondary"
+      },
+      {
+        "start": 909.6,
+        "duration": 5.22,
+        "text": "storage attached index I should say so"
+      },
+      {
+        "start": 913.019,
+        "duration": 3.661,
+        "text": "um you have to have a limit otherwise"
+      },
+      {
+        "start": 914.82,
+        "duration": 3.6,
+        "text": "it'll run across the entire cluster and"
+      },
+      {
+        "start": 916.68,
+        "duration": 2.88,
+        "text": "you don't want that so let me do a limit"
+      },
+      {
+        "start": 918.42,
+        "duration": 3.9,
+        "text": "10."
+      },
+      {
+        "start": 919.56,
+        "duration": 4.44,
+        "text": "okay hey yes all right we we did a"
+      },
+      {
+        "start": 922.32,
+        "duration": 2.459,
+        "text": "vector query here so"
+      },
+      {
+        "start": 924.0,
+        "duration": 4.62,
+        "text": "um"
+      },
+      {
+        "start": 924.779,
+        "duration": 5.06,
+        "text": "based on this um initial Vector I did"
+      },
+      {
+        "start": 928.62,
+        "duration": 4.86,
+        "text": "get 100"
+      },
+      {
+        "start": 929.839,
+        "duration": 7.661,
+        "text": "matches on the other data Stacks black"
+      },
+      {
+        "start": 933.48,
+        "duration": 6.299,
+        "text": "hoodie sizes however the second one the"
+      },
+      {
+        "start": 937.5,
+        "duration": 3.839,
+        "text": "first one that comes back that's not one"
+      },
+      {
+        "start": 939.779,
+        "duration": 3.841,
+        "text": "of the product you know part of the"
+      },
+      {
+        "start": 941.339,
+        "duration": 4.68,
+        "text": "product group that I was in is this data"
+      },
+      {
+        "start": 943.62,
+        "duration": 4.019,
+        "text": "Stacks gray track jacket so that would"
+      },
+      {
+        "start": 946.019,
+        "duration": 4.741,
+        "text": "actually be the product that I would"
+      },
+      {
+        "start": 947.639,
+        "duration": 6.241,
+        "text": "that I would promote in this case"
+      },
+      {
+        "start": 950.76,
+        "duration": 4.68,
+        "text": "um so all right so with that being said"
+      },
+      {
+        "start": 953.88,
+        "duration": 3.48,
+        "text": "let's"
+      },
+      {
+        "start": 955.44,
+        "duration": 4.259,
+        "text": "um let's let's try to make this work"
+      },
+      {
+        "start": 957.36,
+        "duration": 4.14,
+        "text": "here"
+      },
+      {
+        "start": 959.699,
+        "duration": 4.981,
+        "text": "um"
+      },
+      {
+        "start": 961.5,
+        "duration": 4.62,
+        "text": "so what I'm going to do"
+      },
+      {
+        "start": 964.68,
+        "duration": 2.399,
+        "text": "let's"
+      },
+      {
+        "start": 966.12,
+        "duration": 4.62,
+        "text": "um"
+      },
+      {
+        "start": 967.079,
+        "duration": 6.481,
+        "text": "go back to our databases"
+      },
+      {
+        "start": 970.74,
+        "duration": 4.68,
+        "text": "so I have Vector DB active yeah let's"
+      },
+      {
+        "start": 973.56,
+        "duration": 4.56,
+        "text": "just get rid of that for now"
+      },
+      {
+        "start": 975.42,
+        "duration": 6.62,
+        "text": "all right so I'm going to try generating"
+      },
+      {
+        "start": 978.12,
+        "duration": 9.18,
+        "text": "a new token here"
+      },
+      {
+        "start": 982.04,
+        "duration": 8.08,
+        "text": "and because uh because spring boot"
+      },
+      {
+        "start": 987.3,
+        "duration": 4.26,
+        "text": "um requires like schema X you need to"
+      },
+      {
+        "start": 990.12,
+        "duration": 4.68,
+        "text": "make sure that that's a database"
+      },
+      {
+        "start": 991.56,
+        "duration": 6.0,
+        "text": "administrator role token or sorry not"
+      },
+      {
+        "start": 994.8,
+        "duration": 5.52,
+        "text": "spring boot spring data yep so I give it"
+      },
+      {
+        "start": 997.56,
+        "duration": 4.38,
+        "text": "all that outstanding okay let it"
+      },
+      {
+        "start": 1000.32,
+        "duration": 3.18,
+        "text": "generate"
+      },
+      {
+        "start": 1001.94,
+        "duration": 3.78,
+        "text": "all right"
+      },
+      {
+        "start": 1003.5,
+        "duration": 6.779,
+        "text": "yeah let me put"
+      },
+      {
+        "start": 1005.72,
+        "duration": 4.559,
+        "text": "um my token info there"
+      },
+      {
+        "start": 1011.54,
+        "duration": 5.099,
+        "text": "and you know I I do recommend"
+      },
+      {
+        "start": 1014.18,
+        "duration": 4.56,
+        "text": "downloading it as well so we'll we'll go"
+      },
+      {
+        "start": 1016.639,
+        "duration": 2.88,
+        "text": "ahead and do that okay okay so as you"
+      },
+      {
+        "start": 1018.74,
+        "duration": 3.719,
+        "text": "can see"
+      },
+      {
+        "start": 1019.519,
+        "duration": 4.981,
+        "text": "um gitpod comes up with"
+      },
+      {
+        "start": 1022.459,
+        "duration": 4.201,
+        "text": "um you know open up in the uh opened up"
+      },
+      {
+        "start": 1024.5,
+        "duration": 3.72,
+        "text": "in the readme"
+      },
+      {
+        "start": 1026.66,
+        "duration": 4.139,
+        "text": "um one of the things that you'll need to"
+      },
+      {
+        "start": 1028.22,
+        "duration": 8.42,
+        "text": "do oh"
+      },
+      {
+        "start": 1030.799,
+        "duration": 5.841,
+        "text": "okay actually you know what I'm going to"
+      },
+      {
+        "start": 1036.86,
+        "duration": 7.26,
+        "text": "I'm going to"
+      },
+      {
+        "start": 1039.559,
+        "duration": 6.74,
+        "text": "change out my token here hang on just a"
+      },
+      {
+        "start": 1044.12,
+        "duration": 2.179,
+        "text": "sec"
+      },
+      {
+        "start": 1053.179,
+        "duration": 4.141,
+        "text": "all right"
+      },
+      {
+        "start": 1054.5,
+        "duration": 7.74,
+        "text": "okay so I've got that in there"
+      },
+      {
+        "start": 1057.32,
+        "duration": 8.099,
+        "text": "um my database ID looks correct I hope"
+      },
+      {
+        "start": 1062.24,
+        "duration": 5.76,
+        "text": "keyspace is e-commerce"
+      },
+      {
+        "start": 1065.419,
+        "duration": 5.161,
+        "text": "um the streaming stuff you know we don't"
+      },
+      {
+        "start": 1068.0,
+        "duration": 4.08,
+        "text": "really need it for this uh but the um"
+      },
+      {
+        "start": 1070.58,
+        "duration": 2.94,
+        "text": "you know the Google stuff we need if we"
+      },
+      {
+        "start": 1072.08,
+        "duration": 3.24,
+        "text": "wanted to actually sign in you can"
+      },
+      {
+        "start": 1073.52,
+        "duration": 4.74,
+        "text": "actually do this without having to sign"
+      },
+      {
+        "start": 1075.32,
+        "duration": 5.04,
+        "text": "in using uh using excuse me single"
+      },
+      {
+        "start": 1078.26,
+        "duration": 4.2,
+        "text": "sign-on but um having it there just just"
+      },
+      {
+        "start": 1080.36,
+        "duration": 5.939,
+        "text": "kind of makes things easier"
+      },
+      {
+        "start": 1082.46,
+        "duration": 7.2,
+        "text": "okay so with all that being there I'm"
+      },
+      {
+        "start": 1086.299,
+        "duration": 4.5,
+        "text": "gonna go down here and try start dot"
+      },
+      {
+        "start": 1089.66,
+        "duration": 4.08,
+        "text": "shell"
+      },
+      {
+        "start": 1090.799,
+        "duration": 7.101,
+        "text": "and let's get rid of that warning"
+      },
+      {
+        "start": 1093.74,
+        "duration": 4.16,
+        "text": "okay with any luck"
+      },
+      {
+        "start": 1098.419,
+        "duration": 3.201,
+        "text": "hopefully this does it"
+      },
+      {
+        "start": 1102.14,
+        "duration": 2.659,
+        "text": "you know"
+      },
+      {
+        "start": 1104.9,
+        "duration": 6.86,
+        "text": "okay found the database ID oh oh yes"
+      },
+      {
+        "start": 1108.86,
+        "duration": 2.9,
+        "text": "something it didn't like"
+      },
+      {
+        "start": 1114.799,
+        "duration": 5.461,
+        "text": "oh hey hey it started"
+      },
+      {
+        "start": 1117.88,
+        "duration": 5.32,
+        "text": "okay so"
+      },
+      {
+        "start": 1120.26,
+        "duration": 5.22,
+        "text": "um when when this happens in in gitpod"
+      },
+      {
+        "start": 1123.2,
+        "duration": 4.74,
+        "text": "uh you remember that you may need to"
+      },
+      {
+        "start": 1125.48,
+        "duration": 4.5,
+        "text": "allow it to allow pop-ups and that's"
+      },
+      {
+        "start": 1127.94,
+        "duration": 3.359,
+        "text": "because once you bring up Spring Boot"
+      },
+      {
+        "start": 1129.98,
+        "duration": 4.4,
+        "text": "and you're running it it brings it up"
+      },
+      {
+        "start": 1131.299,
+        "duration": 3.081,
+        "text": "inside of another window"
+      },
+      {
+        "start": 1135.32,
+        "duration": 4.08,
+        "text": "oh and"
+      },
+      {
+        "start": 1137.179,
+        "duration": 2.941,
+        "text": "and yeah yeah okay okay"
+      },
+      {
+        "start": 1139.4,
+        "duration": 2.82,
+        "text": "um"
+      },
+      {
+        "start": 1140.12,
+        "duration": 5.64,
+        "text": "let me go let me switch over to Ports"
+      },
+      {
+        "start": 1142.22,
+        "duration": 5.88,
+        "text": "here yeah there we go let's go open up"
+      },
+      {
+        "start": 1145.76,
+        "duration": 5.4,
+        "text": "80 80."
+      },
+      {
+        "start": 1148.1,
+        "duration": 4.56,
+        "text": "okay and that that actually did come up"
+      },
+      {
+        "start": 1151.16,
+        "duration": 3.36,
+        "text": "um now the thing is though I know none"
+      },
+      {
+        "start": 1152.66,
+        "duration": 6.06,
+        "text": "of you can see it so let me go to"
+      },
+      {
+        "start": 1154.52,
+        "duration": 7.2,
+        "text": "restream and jump over to the new tab"
+      },
+      {
+        "start": 1158.72,
+        "duration": 4.62,
+        "text": "okay let's go um here's our data Stacks"
+      },
+      {
+        "start": 1161.72,
+        "duration": 4.079,
+        "text": "black hoodie"
+      },
+      {
+        "start": 1163.34,
+        "duration": 4.38,
+        "text": "so if I click into this there we go"
+      },
+      {
+        "start": 1165.799,
+        "duration": 4.681,
+        "text": "that's that's coming back the fact that"
+      },
+      {
+        "start": 1167.72,
+        "duration": 4.44,
+        "text": "we're seeing images and and uh data"
+      },
+      {
+        "start": 1170.48,
+        "duration": 3.54,
+        "text": "coming back means that we are in fact"
+      },
+      {
+        "start": 1172.16,
+        "duration": 4.32,
+        "text": "getting through to the database all"
+      },
+      {
+        "start": 1174.02,
+        "duration": 4.2,
+        "text": "right so um I'm extra large so if I was"
+      },
+      {
+        "start": 1176.48,
+        "duration": 5.34,
+        "text": "gonna you know get another data Stacks"
+      },
+      {
+        "start": 1178.22,
+        "duration": 6.36,
+        "text": "black hoodie I would go ahead and um add"
+      },
+      {
+        "start": 1181.82,
+        "duration": 6.0,
+        "text": "it to my card as an Excel"
+      },
+      {
+        "start": 1184.58,
+        "duration": 4.56,
+        "text": "okay ah and here it is look it popped up"
+      },
+      {
+        "start": 1187.82,
+        "duration": 3.06,
+        "text": "and suggested that we might like the"
+      },
+      {
+        "start": 1189.14,
+        "duration": 3.48,
+        "text": "data Stacks great track jacket how about"
+      },
+      {
+        "start": 1190.88,
+        "duration": 3.659,
+        "text": "that huh"
+      },
+      {
+        "start": 1192.62,
+        "duration": 4.5,
+        "text": "all right so let me dismiss that for a"
+      },
+      {
+        "start": 1194.539,
+        "duration": 6.0,
+        "text": "sec let's um now that now that was the"
+      },
+      {
+        "start": 1197.12,
+        "duration": 4.919,
+        "text": "exact example that um you know I said"
+      },
+      {
+        "start": 1200.539,
+        "duration": 4.081,
+        "text": "that um"
+      },
+      {
+        "start": 1202.039,
+        "duration": 5.041,
+        "text": "I said that uh or that that I tried from"
+      },
+      {
+        "start": 1204.62,
+        "duration": 4.2,
+        "text": "um from the cql command line so let's"
+      },
+      {
+        "start": 1207.08,
+        "duration": 3.36,
+        "text": "let's try a different one just so you"
+      },
+      {
+        "start": 1208.82,
+        "duration": 3.599,
+        "text": "can see that um you know this isn't like"
+      },
+      {
+        "start": 1210.44,
+        "duration": 3.239,
+        "text": "like all pre-made or anything let's go"
+      },
+      {
+        "start": 1212.419,
+        "duration": 4.081,
+        "text": "with um"
+      },
+      {
+        "start": 1213.679,
+        "duration": 4.38,
+        "text": "let's go with t-shirts here"
+      },
+      {
+        "start": 1216.5,
+        "duration": 4.679,
+        "text": "um and we'll we'll go with the Apache"
+      },
+      {
+        "start": 1218.059,
+        "duration": 5.521,
+        "text": "Cassandra 3-0 contributor t-shirt and"
+      },
+      {
+        "start": 1221.179,
+        "duration": 6.321,
+        "text": "again I'm an extra large and when I say"
+      },
+      {
+        "start": 1223.58,
+        "duration": 3.92,
+        "text": "add to cart let's see what it suggests"
+      },
+      {
+        "start": 1227.539,
+        "duration": 5.0,
+        "text": "oh and now it likes the data Stacks"
+      },
+      {
+        "start": 1229.7,
+        "duration": 5.16,
+        "text": "black hoodie that's that's kind of cool"
+      },
+      {
+        "start": 1232.539,
+        "duration": 4.361,
+        "text": "we got a we got a little circular"
+      },
+      {
+        "start": 1234.86,
+        "duration": 4.199,
+        "text": "referencing going on there"
+      },
+      {
+        "start": 1236.9,
+        "duration": 4.08,
+        "text": "um but yeah so this is um this is this"
+      },
+      {
+        "start": 1239.059,
+        "duration": 5.641,
+        "text": "is kind of how it works where where it's"
+      },
+      {
+        "start": 1240.98,
+        "duration": 5.28,
+        "text": "it's able to to rely on a vector search"
+      },
+      {
+        "start": 1244.7,
+        "duration": 4.62,
+        "text": "and"
+      },
+      {
+        "start": 1246.26,
+        "duration": 6.96,
+        "text": "um provide recommendations or"
+      },
+      {
+        "start": 1249.32,
+        "duration": 5.82,
+        "text": "approximations you know in in real time"
+      },
+      {
+        "start": 1253.22,
+        "duration": 4.02,
+        "text": "um let's try the data Stacks Curry track"
+      },
+      {
+        "start": 1255.14,
+        "duration": 4.14,
+        "text": "jacket"
+      },
+      {
+        "start": 1257.24,
+        "duration": 3.9,
+        "text": "um actually if it works like two ways"
+      },
+      {
+        "start": 1259.28,
+        "duration": 2.7,
+        "text": "this should bring up the uh the hoodie I"
+      },
+      {
+        "start": 1261.14,
+        "duration": 3.0,
+        "text": "think"
+      },
+      {
+        "start": 1261.98,
+        "duration": 5.22,
+        "text": "yeah and there's there's the hoodie um"
+      },
+      {
+        "start": 1264.14,
+        "duration": 8.039,
+        "text": "so I I should also um let's see let me"
+      },
+      {
+        "start": 1267.2,
+        "duration": 8.64,
+        "text": "jump back to let me jump back to get pod"
+      },
+      {
+        "start": 1272.179,
+        "duration": 6.601,
+        "text": "for just a second here all right back in"
+      },
+      {
+        "start": 1275.84,
+        "duration": 4.079,
+        "text": "gitpod let's have a look at some of our"
+      },
+      {
+        "start": 1278.78,
+        "duration": 4.82,
+        "text": "code here"
+      },
+      {
+        "start": 1279.919,
+        "duration": 7.5,
+        "text": "so if I go into back end"
+      },
+      {
+        "start": 1283.6,
+        "duration": 7.18,
+        "text": "Source main Java"
+      },
+      {
+        "start": 1287.419,
+        "duration": 6.421,
+        "text": "um and we want service and this is going"
+      },
+      {
+        "start": 1290.78,
+        "duration": 5.519,
+        "text": "to be under product so yeah so now if"
+      },
+      {
+        "start": 1293.84,
+        "duration": 4.079,
+        "text": "you look in here"
+      },
+      {
+        "start": 1296.299,
+        "duration": 4.62,
+        "text": "um you can see where I wrote the product"
+      },
+      {
+        "start": 1297.919,
+        "duration": 4.201,
+        "text": "Vector Dell dot Java for data access"
+      },
+      {
+        "start": 1300.919,
+        "duration": 3.601,
+        "text": "layer"
+      },
+      {
+        "start": 1302.12,
+        "duration": 5.28,
+        "text": "um this is where I I integrated this all"
+      },
+      {
+        "start": 1304.52,
+        "duration": 5.46,
+        "text": "into the the e-commerce project so if we"
+      },
+      {
+        "start": 1307.4,
+        "duration": 5.34,
+        "text": "open this up and let's get ourselves"
+      },
+      {
+        "start": 1309.98,
+        "duration": 5.939,
+        "text": "some more real estate here maybe yeah"
+      },
+      {
+        "start": 1312.74,
+        "duration": 5.58,
+        "text": "bump the font one more time all right"
+      },
+      {
+        "start": 1315.919,
+        "duration": 5.101,
+        "text": "so kind of the way this this data access"
+      },
+      {
+        "start": 1318.32,
+        "duration": 5.88,
+        "text": "layer works is that it um first"
+      },
+      {
+        "start": 1321.02,
+        "duration": 7.44,
+        "text": "establishes a uh connection to"
+      },
+      {
+        "start": 1324.2,
+        "duration": 5.94,
+        "text": "Cassandra or Astra based on um you know"
+      },
+      {
+        "start": 1328.46,
+        "duration": 4.44,
+        "text": "the the environment variables that"
+      },
+      {
+        "start": 1330.14,
+        "duration": 5.039,
+        "text": "you're already providing"
+      },
+      {
+        "start": 1332.9,
+        "duration": 6.659,
+        "text": "um and then it works on this"
+      },
+      {
+        "start": 1335.179,
+        "duration": 6.181,
+        "text": "method of get product vector by ID so"
+      },
+      {
+        "start": 1339.559,
+        "duration": 3.48,
+        "text": "the thought is is that when we add a"
+      },
+      {
+        "start": 1341.36,
+        "duration": 2.939,
+        "text": "product to our cart we're calling this"
+      },
+      {
+        "start": 1343.039,
+        "duration": 4.62,
+        "text": "method"
+      },
+      {
+        "start": 1344.299,
+        "duration": 5.76,
+        "text": "because we have the product ID and we"
+      },
+      {
+        "start": 1347.659,
+        "duration": 4.26,
+        "text": "want to pull back the vector information"
+      },
+      {
+        "start": 1350.059,
+        "duration": 4.261,
+        "text": "um so we do this query here we're"
+      },
+      {
+        "start": 1351.919,
+        "duration": 4.88,
+        "text": "selecting from that product vectors"
+      },
+      {
+        "start": 1354.32,
+        "duration": 5.16,
+        "text": "table by ID"
+      },
+      {
+        "start": 1356.799,
+        "duration": 4.981,
+        "text": "once we have that we process the result"
+      },
+      {
+        "start": 1359.48,
+        "duration": 2.3,
+        "text": "set"
+      },
+      {
+        "start": 1361.82,
+        "duration": 6.239,
+        "text": "secondly we have this method of get"
+      },
+      {
+        "start": 1364.039,
+        "duration": 6.421,
+        "text": "products by a n so essentially on our"
+      },
+      {
+        "start": 1368.059,
+        "duration": 5.701,
+        "text": "recommendation service call we're taking"
+      },
+      {
+        "start": 1370.46,
+        "duration": 4.4,
+        "text": "the result of this get product vector by"
+      },
+      {
+        "start": 1373.76,
+        "duration": 4.919,
+        "text": "ID"
+      },
+      {
+        "start": 1374.86,
+        "duration": 6.58,
+        "text": "we're grabbing the vector"
+      },
+      {
+        "start": 1378.679,
+        "duration": 4.98,
+        "text": "and sending it back here so that's what"
+      },
+      {
+        "start": 1381.44,
+        "duration": 5.82,
+        "text": "we're searching on here"
+      },
+      {
+        "start": 1383.659,
+        "duration": 5.76,
+        "text": "um so we we go ahead and do this query"
+      },
+      {
+        "start": 1387.26,
+        "duration": 5.46,
+        "text": "again from product vectors but this time"
+      },
+      {
+        "start": 1389.419,
+        "duration": 6.841,
+        "text": "we're doing an order by uh product"
+      },
+      {
+        "start": 1392.72,
+        "duration": 5.88,
+        "text": "Vector a n of"
+      },
+      {
+        "start": 1396.26,
+        "duration": 5.34,
+        "text": "um whatever our Vector is and then limit"
+      },
+      {
+        "start": 1398.6,
+        "duration": 4.8,
+        "text": "eight is uh is what I have in there for"
+      },
+      {
+        "start": 1401.6,
+        "duration": 3.66,
+        "text": "now"
+      },
+      {
+        "start": 1403.4,
+        "duration": 4.62,
+        "text": "um just because you can get back several"
+      },
+      {
+        "start": 1405.26,
+        "duration": 4.08,
+        "text": "within a product group and and eight is"
+      },
+      {
+        "start": 1408.02,
+        "duration": 3.18,
+        "text": "you know in terms of like business"
+      },
+      {
+        "start": 1409.34,
+        "duration": 3.6,
+        "text": "requirements beyond what a normal"
+      },
+      {
+        "start": 1411.2,
+        "duration": 3.479,
+        "text": "product group would be so that that"
+      },
+      {
+        "start": 1412.94,
+        "duration": 5.34,
+        "text": "should be a safe number"
+      },
+      {
+        "start": 1414.679,
+        "duration": 6.181,
+        "text": "so essentially if your a n is of a size"
+      },
+      {
+        "start": 1418.28,
+        "duration": 5.46,
+        "text": "greater than one for the result set"
+      },
+      {
+        "start": 1420.86,
+        "duration": 7.38,
+        "text": "um it'll go ahead and put together a"
+      },
+      {
+        "start": 1423.74,
+        "duration": 9.299,
+        "text": "list of product vectors and return that"
+      },
+      {
+        "start": 1428.24,
+        "duration": 6.919,
+        "text": "so now if we have a look at the product"
+      },
+      {
+        "start": 1433.039,
+        "duration": 7.62,
+        "text": "um rest controller here"
+      },
+      {
+        "start": 1435.159,
+        "duration": 8.741,
+        "text": "and we go down oh come on where is it"
+      },
+      {
+        "start": 1440.659,
+        "duration": 6.481,
+        "text": "ah here we go get promotion product"
+      },
+      {
+        "start": 1443.9,
+        "duration": 6.24,
+        "text": "um so basically here we're taking a"
+      },
+      {
+        "start": 1447.14,
+        "duration": 7.86,
+        "text": "product ID here's where we're getting"
+      },
+      {
+        "start": 1450.14,
+        "duration": 6.06,
+        "text": "our original products vector by ID and"
+      },
+      {
+        "start": 1455.0,
+        "duration": 3.84,
+        "text": "then here's where we're getting our"
+      },
+      {
+        "start": 1456.2,
+        "duration": 4.56,
+        "text": "recommended products by the original"
+      },
+      {
+        "start": 1458.84,
+        "duration": 3.6,
+        "text": "product"
+      },
+      {
+        "start": 1460.76,
+        "duration": 4.02,
+        "text": "um by just sending that and then pulling"
+      },
+      {
+        "start": 1462.44,
+        "duration": 4.02,
+        "text": "the factory inside that inside that"
+      },
+      {
+        "start": 1464.78,
+        "duration": 2.46,
+        "text": "method"
+      },
+      {
+        "start": 1466.46,
+        "duration": 3.06,
+        "text": "um"
+      },
+      {
+        "start": 1467.24,
+        "duration": 4.14,
+        "text": "and again if our list of product vectors"
+      },
+      {
+        "start": 1469.52,
+        "duration": 4.92,
+        "text": "come back comes back and it's of size"
+      },
+      {
+        "start": 1471.38,
+        "duration": 5.58,
+        "text": "greater than one what we do is we start"
+      },
+      {
+        "start": 1474.44,
+        "duration": 5.82,
+        "text": "iterating through and we're pulling off"
+      },
+      {
+        "start": 1476.96,
+        "duration": 4.74,
+        "text": "that product group property and what"
+      },
+      {
+        "start": 1480.26,
+        "duration": 4.26,
+        "text": "that product group property is going to"
+      },
+      {
+        "start": 1481.7,
+        "duration": 3.959,
+        "text": "allow us to do is see whether or not the"
+      },
+      {
+        "start": 1484.52,
+        "duration": 3.659,
+        "text": "products coming back on the"
+      },
+      {
+        "start": 1485.659,
+        "duration": 4.38,
+        "text": "recommendation are within the original"
+      },
+      {
+        "start": 1488.179,
+        "duration": 3.181,
+        "text": "products product group because if they"
+      },
+      {
+        "start": 1490.039,
+        "duration": 3.541,
+        "text": "are well then they're the same product"
+      },
+      {
+        "start": 1491.36,
+        "duration": 5.34,
+        "text": "really and we don't want to show that"
+      },
+      {
+        "start": 1493.58,
+        "duration": 5.12,
+        "text": "but the first one we get that's not in"
+      },
+      {
+        "start": 1496.7,
+        "duration": 4.68,
+        "text": "that group is the one we want to return"
+      },
+      {
+        "start": 1498.7,
+        "duration": 5.979,
+        "text": "right here so that's a little bit about"
+      },
+      {
+        "start": 1501.38,
+        "duration": 5.82,
+        "text": "how the code Works behind the scenes so"
+      },
+      {
+        "start": 1504.679,
+        "duration": 4.021,
+        "text": "um so this is our Hands-On and uh we"
+      },
+      {
+        "start": 1507.2,
+        "duration": 3.12,
+        "text": "actually got most of this to work the"
+      },
+      {
+        "start": 1508.7,
+        "duration": 3.959,
+        "text": "sign-on didn't work but that's I"
+      },
+      {
+        "start": 1510.32,
+        "duration": 4.44,
+        "text": "realized that I used the wrong um Google"
+      },
+      {
+        "start": 1512.659,
+        "duration": 3.841,
+        "text": "ID remember when you set up single"
+      },
+      {
+        "start": 1514.76,
+        "duration": 4.62,
+        "text": "sign-on with Google you have to give it"
+      },
+      {
+        "start": 1516.5,
+        "duration": 5.1,
+        "text": "a um like a callback IP address well"
+      },
+      {
+        "start": 1519.38,
+        "duration": 4.08,
+        "text": "that ID that I used was when I created"
+      },
+      {
+        "start": 1521.6,
+        "duration": 4.5,
+        "text": "for testing on my own machine so it's"
+      },
+      {
+        "start": 1523.46,
+        "duration": 4.44,
+        "text": "trying to go back to 127.0.1 which does"
+      },
+      {
+        "start": 1526.1,
+        "duration": 4.5,
+        "text": "not work out in gitpod"
+      },
+      {
+        "start": 1527.9,
+        "duration": 4.379,
+        "text": "hey thank you all so much for uh for"
+      },
+      {
+        "start": 1530.6,
+        "duration": 3.78,
+        "text": "sticking around"
+      },
+      {
+        "start": 1532.279,
+        "duration": 4.081,
+        "text": "um you know this this one was certainly"
+      },
+      {
+        "start": 1534.38,
+        "duration": 4.799,
+        "text": "an adventure but uh in the end we got"
+      },
+      {
+        "start": 1536.36,
+        "duration": 5.34,
+        "text": "everything to work so hey"
+      },
+      {
+        "start": 1539.179,
+        "duration": 4.321,
+        "text": "um thanks everyone have a great day and"
+      },
+      {
+        "start": 1541.7,
+        "duration": 3.44,
+        "text": "uh we'll see you all for the next"
+      },
+      {
+        "start": 1543.5,
+        "duration": 8.34,
+        "text": "Workshop"
+      },
+      {
+        "start": 1545.14,
+        "duration": 12.34,
+        "text": "I found someone new now I have more room"
+      },
+      {
+        "start": 1551.84,
+        "duration": 6.58,
+        "text": "no more formats to change me on the same"
+      },
+      {
+        "start": 1557.48,
+        "duration": 13.759,
+        "text": "page"
+      },
+      {
+        "start": 1558.42,
+        "duration": 12.819,
+        "text": "[Music]"
+      },
+      {
+        "start": 1574.44,
+        "duration": 6.44,
+        "text": "[Music]"
+      },
+      {
+        "start": 1583.36,
+        "duration": 15.84,
+        "text": "[Music]"
+      },
+      {
+        "start": 1596.2,
+        "duration": 3.0,
+        "text": "thank you"
+      },
+      {
+        "start": 1604.22,
+        "duration": 4.22,
+        "text": "[Music]"
+      },
+      {
+        "start": 1608.659,
+        "duration": 3.02,
+        "text": "come on"
+      },
+      {
+        "start": 1612.3,
+        "duration": 7.58,
+        "text": "[Music]"
+      },
+      {
+        "start": 1618.26,
+        "duration": 4.62,
+        "text": "foreign"
+      },
+      {
+        "start": 1619.88,
+        "duration": 3.0,
+        "text": "foreign"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T17:43:41.326753+00:00"
+}

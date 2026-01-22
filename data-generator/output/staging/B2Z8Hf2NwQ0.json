@@ -1,0 +1,4069 @@
+{
+  "video_id": "B2Z8Hf2NwQ0",
+  "title": "The Edge of Exploration by Frank Sepulveda | DataStax Presents",
+  "description": "Frank Sepulveda is a Senior Data Scientist at Pioneer Natural Resources, a Fortune-500 independent oil and gas company, and a geoscience Ph.D. candidate at Baylor University. In this talk he discusses the design, system integration, and testing of a strategy for the automation of data acquisition, distribution, and processing of seismic data “at the edge”.  The solution utilizes inexpensive embedded systems to acquire data from seismic data acquisition systems and insert it into DataStax Enterprise (DSE), powered by Apache Cassandra, to confront the “real-world” constraints of acquiring, distributing, and processing seismic data at the edge.",
+  "published_at": "2019-05-15T13:00:00Z",
+  "thumbnail": "https://i.ytimg.com/vi/B2Z8Hf2NwQ0/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "apache_cassandra",
+    "talk",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=B2Z8Hf2NwQ0",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Applause] hello everyone my name is Frank Sepulveda first thing I want to clarify because someone already asked me a question I do not work for data sex okay I actually work for Pioneer natural resources up in Dallas in Irving I'm a data scientist senior data scientist at pioneer in addition to that that's my day job my night job is a PhD candidate at Baylor University and geophysics so that's the other thing I do the work that I'm going to talk to you about today is this work that we're doing right here for the US Department of Energy so let's go ahead and jump into this and see how it goes so what are we trying to do this is me and my collaborators at Baylor well we're trying to do as part of that you know funding opportunity that we got from the Department of Energy is to come up with a nodal solution that is capable of acquiring and transmitting and processing seismic data okay great we have all kinds of nodal solutions right they're already existing Fairfield's you know you know there's a bunch out there sir so so let's kind of dive a little bit deeper into that right so how many nodes are we talking about what is our seismic processing method and of course what is go where is this gonna happen and how long right so essentially what we're trying to do is take a bunch of systems put them out in the desert collect some data and do some ambient seismic interferometry which is just a form of seismic processing at the edge just as a curiosity how many people here work for oil and gas Wow okay so you guys know what I'm talking about them right so you can see what we're shooting for six days of collection outside and the you know geothermal plan in Nevada follow that up with the question of well why is our solution necessary well there's a couple reasons why we need this noddle seismic solution that's capable of processing data at the edge the main reason is is that we're using passive seismic methods now what that means is that we're not introducing sources into the ground I'm sure you know a lot of you are familiar with those big vibrating trucks that oil and gas uses those are active right you're putting energy into the ground and you know what you're putting in and you know what you're getting back essentially right so or what you should get back what we're using is we're using just recorded ground motions that are basically noise this could be anthropogenic noise man-made noise or this could be just you know natural occurring noise micro sized zones or earthquakes that are occurring the reason why we're using these passive methods is of course reduce costs lower impact to the environment and also kind of lower the logistical effort required to do these sort of deployments and I know I threw up there the number 150 so what we do 10,000 node lines in oil and gas right well we're research where earthquake seismology okay so cut us a little slack 150 is a lot for us but with that being said a couple other reasons why the solution was necessary and I'm sure that you know our endeavor isn't the only one the the tendency is to have more sensors at higher sample rates and the reason is is you know there's a lot of lateral heterogeneity just the earth changes very abruptly from location and location so you know typically you want to have better spatial sampling which means more nodes of course also you know I know there's probably some data scientists in the audience if you're going to do some feature engineering you want a data set that enables you to do some rich feature extraction preferably both in the time domain and the frequency domain and the wavelet domain and the curve low domain so you need higher sample rates which means more data the problem with that is the real-world logistic constraints of doing this in the field which are always going to be power in telemetry if you have more radios transmitting at higher wattage over longer distances that eats up more power that shortens your deployment durations so this is why we felt that this solution was necessary so what's the problem well under normal active source situations you know when you put the energy into the ground you know when you're done with passive how do you know when you're done right you're just using ambient noise so there's a couple different ways that you can tackle this problem one is you can pull data nightly but once again this requires that you disturb your nodes you have to walk the line pull disks take them back to your hotel room copy the data into a laptop and then look at it right which means you also probably have to stop acquisition which isn't a good thing you can do multiple field deployments but of course that introduces the problem of well now you have to deal with logistics and cost there's money associated with these deployments the other solution which is typically what people do especially in the research area is just over collect we're gonna do a two-week collect why because we have two weeks worth of money and we're just going to do that right which to me is not the best way to do this the other thing that's an issue is data volume we ended up settling on 144 station configuration that's mostly because of symmetry and you'll see the the architecture later it'll make sense but we're gonna acquire six point there excuse me six hundred and twenty-two million samples per day that's a lot I don't care who you are and what industry or and what science that is a lot of data the reality is is that's just one channel at 50 Hertz right fifty samples per second we're actually acquiring three channels at 250 samples per second but what I'm inserting into Cassandra is essentially a decimated and reduced version because that's all we needed I'm sorry that was you or me there so with that being said if you take the full bandwidth of the data if it was not decimated and reduced it would be a nine point three billion samples per day which once again is to be a phenomenal amount of data and lastly you know this is University project funded by the government so it had to be cheap we're trying to keep the cost per node way down so what was the solution so when I first started attending Baylor I had spent about ten years working for the Department of Defense in the intelligence community primarily in their R&D projects supporting Geoscience related stuff and as about as far into it as I can get but one of the concepts that had come to me while I was doing this work is we had a lot of vendors you know the the big defense contractors that were always selling us these really high-end boxes that would acquire this you know seismic or acoustic or electromagnetic data they were very expensive and what I notice is a lot of them struggled with consistency in the quality of the data there'd be cross talk between channels they'd be GPS timing errors there were very cottage industry and it really had an impact on the of science that we could do so what I when I came to graduate school I asked my advisor said hey can I take a commercial off-the-shelf data acquisition system which is this ref tech one 3001 it's been around for 15 years anyone that's worked in earthquake seismology is familiar with it you know actually Pascal iris they're a group that maintains a large inventory of sensors and data acquisition systems for the US government has about like 800 of them that they share with partners be it you know universities and other people that are part of their consortium and then if I add an embedded system and for those of you that are not familiar with a Raspberry Pi essentially what it is is it's a small single board computer it's about $35 it came out of the UK the reason why they invented the Raspberry Pi was they wanted to have an affordable solution so that young people children would be able to learn coding as well as interacting with hardware the Raspberry Pi has sold tens of millions of units how many people are familiar with a Raspberry Pi yeah exactly so it has just a extremely broad echo system and is an extremely versatile solution so what I did is I integrated these two pieces of equipment and came up with what I call the rapier the Raspberry Pi enhanced ref tech so what I did is I basically added to this data acquisition system a brain and what I did is instead of the archive being saved to these compact flash cards that are inaccessible unless you pull them right and instead of having to transmit the data all the way back to the lab you now built the archive at the edge right and here are some of the motivations of some of the factors that I took into this you know I needed data of sufficient quality had to be inexpensive using skills common to geoscientists I didn't want us to have to collaborate with a computer science department of computer engineering departments you know just using what you know geo scientists know and then of course I wanted to be able to leverage existing methods and tools no need to invent new algorithms right yes I think it's about 7,000 we borrowed those we didn't buy them now the interesting thing is there's other work that's been done by some other authors where they took the eye size Sigma which is a couple thousand it's one of the ones that uh it's that group up at Ponca City you saw they it's like an oil and gas knodel system they've integrated it with a Raspberry Pi as well pretty much if you have a system that records seismic data that you can compile it software for the ARM architecture which the Raspberry Pi uses an ARM architecture you can save anything to it so we borrowed the systems from iris we didn't have to buy them that's that's Zen answer your question they're compact flash cards yep and typically the ones that they provide are two or four gigabytes all right those are the only ones that are vetted which once again doesn't give you a whole lot of collection in high sample rates so this was great and I got a publication out of it in 2016 my adviser said good job Frank he said however this is a great single node solution all the science that we do is geo scientist is multi node we're comparing signals between different station receiver pairs right so what are we gonna do what do I need well what I need is an at the edge based database so I didn't go into this thinking Cassandra or data stacks I went to this saying I have a list of requirements which is I think how all technology endeavors should begin right with a list of requirements I needed something that could deploy on modest hardware I needed something that was open source distributed and decentralized I needed something that would work as clusters of nodes I needed peer-to-peer I needed I couldn't deal with a you know master worker architecture right I needed to be peer to peer I needed something that was elastically scale of what could go from you know it doesn't know it's to 100 nodes to thousands of nodes it wouldn't matter depending on what we're trying to do I needed highly available and fault tolerant and I especially needed it to be ideally suited for time series data I don't know if anybody has any experience working with sequel and time series data does not go well right there are better databases for time series data no sequel being one of them so after I did all of my research I came up with a conclusion that you know what I like this Apache Cassandra thing the dilemma was the Raspberry Pi and it's very modest capabilities right you're talking a gig of ram you're talking you know a 10 by 100 nits on that you're looking at shared IO between the USB and Ethernet you know kind of limitations of the equipment right so it was really a question of performance tuning let's see how much juice we can squeeze out of that so our first attempt was back in June of 2017 what we did is we went to this geothermal field outside of Fallon Nevada as a soda lake field event and we put 20 seismic stations out which you can see right there along that line the line was about 575 meters and it was about 30 meter spacing and what we did is kind of what the the architecture looks like is we put each one of these seismic stations which was a rapier had a Raspberry Pi which was running Apache Cassandra so you ended up with a 20 no data center and since there's some folks in here that are not very familiar with Apache Cassandra cluster it's top level data center and then node okay data center doesn't mean data center like it does NIT data center just basically means a collection of nodes they can be in the cloud they can be on it can be whatever right it's just so kind of like a logical organization but without being said I had a 20 node data center which was handling my transactional workload which was basically taking the files from that ref Tech converting them out of a proprietary format and then writing the data into Apache Cassandra that data was then replicated to a three node data center which was at the center of our array which was then connected to a laptop which was running the seismic analysis software any questions on the architecture here or the terminology that I used yes sir I was able they do they do not have an open interface I was fortunate in that I was able to so first off clarification ref tech is owned by Trimble right so it's Trimble / ref tech all right it's just a clarification of your Google in them you know that's the way to look for mr. looki Trumbull but no they don't actually have an open protocol they have an RTP protocol which is the ref tech protocol right so what I did is I had a version of their acquisition software that was compiled on the ARM architecture and I was given that by ref tech and that's what I used so basically they provided me their archive software and I just poured it onto the Raspberry Pi so the results the science it worked here you can see a shot gather from some hammer blows at one of the stations you can see the straight lines indicating some direct arrivals there of course you've got your compressional waves your shear waves VPS you know BP vs ratios are there you'll notice like hey wait a second Frank what's happening here with node number six well it didn't work perfectly the science worked the technology is our first go you can notice there's some gaps in the data here right so let me explain what happened stations one through seven and ten drop telemetry at some point stations that of course didn't experience any sort of power failure or telemetry issues you know 99.9% of the data files that were created by the ref tech were copied on to the Raspberry Pi so that worked really well but only about ninety two point five percent of our data was actually inserted into Apache Cassandra for this test run now there were three reasons one we were using very cottage industry components home routers right just standard equipment that you just use in the household so we were using very inexpensive dc-to-dc converters that said they were three amp that really weren't three amp and the Raspberry Pi needs to point four amps preferably 2.5 amps so we ran into some issues there where nodes were dying the Wi-Fi dongles that we were using were very cheap Wi-Fi dongles which sometimes would basically just conk out on us right so we ended up with part of the network not being able to talk to the other network and of course Cassandra doing what Cassandra does which is just power through it said well those nodes are deprecated I'm gonna keep inserting data and move on right and then lastly we would just get some random failures where nodes would just die and the reason is is Cassandra runs in a JVM raspberry pi has one gigabyte of RAM I ran it headless but even then this wasn't a whole lot of RAM left so any you know and I am NOT an expert in the garbage collection on JVM if you want to know more about the go see John Haddad stocks he works well last pickle he's got a bunch of videos online he could talk he can talk you in circles about jvm and performance tuning but with that being said or talk to some of the data folks guys data sack spokes Shannon was just a little too much for the Raspberry Pi when a lot of overhead you know available so kind of summarizing what that all means we realized the advantages of doing science at the edge we were able to kind of do a continuous assessment by processing the data hourly and batch which is what worked best for our seismic method we had the option to leave the array out there longer or shorter if we got the convergence that we were looking for and then of course we had a high level of confidence that the survey was completed right we knew when we were done which is difficult and passive seismic methods but the recommendations that we came up with after that first event was we needed a better architecture and we needed some better tech we needed to scale up to 150 nodes the first year of this work for DOA was 20 nodes next year second year funding was contingent upon delivering approximately 150 nodes we needed a robust architecture that could handle failure and of course we needed to transition from this one cluster with you know big data center another data center to something that was a little bit more nimble and then of course we need to be able to exercise more control over the data traffic so with that being said I did my research yes sir you give me a chance to drink water don't feel bad are so what we're doing is we're stacking data to converge the greens function right so this is a seismic thing not convergence from a database you know as far as what is here is here this is a seismic processing artifact that we're looking for which is to say it is zero when it is supposed to be zero so essentially it's like knowing when you're done if your signal is no longer improving you're done oh I'm sorry the question was convergence he was asking what I meant by convergence what I was saying was that he was thinking that I was talking about database convergence like as far as kind of like acid you know compliant like you know I was talking this is a seismic signal itself sorry on the solution correct that's that's the whole point behind it's a no 1 you're done you can model it but the issue that you have is the you're going off of ambient noise so for instance if a train happens to be coming by you fill in some frequencies if there happened to be a small seismic event micro seismic event a little you might fill in some other frequencies no one source produces all the frequencies that you're interested in human noise is typically above 10 Hertz in a sense convergence is basically you've just arrived at a solution we can talk offline yeah so moving forward what I did is I upgraded the embedded system for Cassandra so instead of running out on a Raspberry Pi I started running it on an ASIS tinker tinker is very similar to the Raspberry Pi but it has a second gig of ram it has 2 gigs of ram I added I modified the workload to the to the rapier to the Raspberry Pi because basically I had one seismic system per Raspberry Pi and if I'm not running Cassandra on it that thing is going to be sitting there idle the vast majority of the time so I upped it to three seismic systems for a Raspberry Pi primarily once again to reduce cost I utilize DSC advanced replication which I'll talk about in a second and then of course I kind of made some ideological decisions to be creative with a solution but then also not to do anything weird with Cassandra and I know that there may be some IT professionals in the room you know what I mean by weird where you use a piece of software or a solution in a way that it wasn't intended because it satisfies your immediate need but long term it's not sustainable that's what I mean by weird doing some crazy stuff with key spaces or tables or whatnot and Cassandra so DSC is a is a product that is an add-on right and you know James talked about graph and solar right full index searching and he talked about spark but another product that data sacks offers is advanced replication now what advanced replication does is a basic allows two different clusters to talk to each other in a way such that if the communications link between them goes down when that link comes back up it just starts talking again this is a developed for applications such as oil and gas where you have a rig communicating back to headquarters you have a rig communicating back to headquarters the two rigs don't need to talk to each other but they both need to talk back to headquarters and then headquarters needs to replicate the data to a different data center maybe in another location or in the cloud right which data stacks Apache Cassandra is really good at doing this sort of replication from location to location as joe says automatically so this is what I was leveraging with advance replication this hub-and-spoke to Paula G so with that being said let me introduce you to the architecture and some of the players here the symbols here you know purple triangle is a ref tech squares raspberry pi circle as the Asus tinkerer so what you have is nine ref Tech's connected to three raspberry PI's connected to one Asus tinkerer this is called a flight I came up with this name while I was sitting at the bar in New Orleans waiting for a plane we can get imagine what I was drinking you take multiple flights and you end up with a squadron okay it is not running on the place I'll show you a slide right now where Cassandra's actually running I'm just introducing the characters right now a good question and of course each squadron has to have a headquarters the headquarters would be some centralized location in our case it's the center of the line where our little tent is but it could be anywhere could be in the cloud could be on the moon doesn't matter so where's Cassandra running to answer a gentleman's question what we have now is a four node cluster which is handing our transactional workload running on the ASIS tinkers that is then replicating data using advanced replication to a four node cluster running at headquarters and this is per squadron right and then of course attached to this is where I have my laptop and actually we're using an Intel nook just because it's lower power and I kind of broke my laptop the last time I was in the desert so I don't want to do that again so that's what the architecture looks like so let's talk about the connectivity how everything is connected between the ref Tech and the raspberry PI's everything's hardwired and the main reason is is the only way for us to really make there's no Wi-Fi option on the ref tech that I'm aware of and the only way we could do it is if we were to use some Ethernet bridges which once again you know a pair will cost you you know five to nine hundred dollars which is kind of cost prohibitive so these stay hardwired essentially what we do is we just stretch them using Ethernet cable down the line the next level here is the connection between the raspberry PI's and the Asus tinker's well the raspberry PI's have Wi-Fi capability and the teachers have Wi-Fi capability but they also have Ethernet capability so this can be either hard wired or Wireless above that you then have wireless connectivity between the squadron and the headquarters now obviously at this point you're dealing with distances that go beyond the 300 feet that you're allowed for Ethernet or that is recommended for Ethernet but if you had media converters you could convert it to fiber it doesn't matter it's using tcp/ip right and then of course at the headquarters level now these are all sitting next to each other they're all hardwired through a switch there's no reason to connect them through anything else they're literally sitting right next to each other on a rack so that's kind of the architecture any questions here good yes what the headquarter node is doing is its serving up the data from for a query right so the dilemma with time series data is if I were to use something like you know my sequel or something at the edge the performance is very slow I can write data for each node for an entire squadron if I'm doing them all at the same time I can get about maybe 1400 writes per second at each node which is fast enough to handle my 50 Hertz one channel you know 9 seismic systems and when I'm reading I don't have any benchmarks as I'm testing it right now but I can pull an hour's worth of data for an entire squadron I want to say in about 7 minutes right so you're looking at you know 60 times 60 times 50 whatever that is so basically I'm able to query the data out very quickly considering the very modest hardware that I'm using and the reason that is and this gets a little deeper into Apache Cassandra but what it is is and this just happens to be the structure of Apache Cassandra of course data Stax's that time series data is written to disk sequentially based on a partitioning algorithm so when I say pull an hour's worth of data for a specific station for specific channel it knows exactly where that data is on the SD card right and it goes exactly to that location and reads off that hours worth of data which is how we're able to get these read and write speeds once again I leave it to the data sets folks or if you want to talk offline to answer some more in-depth questions around the actual underlying architecture of Cassandra I'm happy to talk about it it's what it's all noise we are introducing no signals we may get some random signals that occur some impulsive signals but we are it's all noise correct so the reason why we have to use all of the data is it's from a seismic perspective what ends up happening is you basically stack the data noise has a tendency of canceling out signal has a tendency of multiplying right so essentially a you know of stacking up so that's essentially what we're doing so we're just pretty much acquiring all the noise stacking it which is why we pull out all of it hourly and it just continuously feeds into our processing and just improves our result does that answer your question you out here at the edge we could the sacrifice would be so one of the things about about Cassandra and data stacks is it's typically architected or deployed in a multi workload fashion so for instance you have clusters that are dedicated to transactions you have clusters that are dedicated to analytics if you're gonna need spark you stand up a cluster you replicate the data you run spark on that my concern would be by trying to do any additional processing out here we would potentially cause problems with the ingest of the data but there's a very simple solution for that add another data center out here and make this a - data center cluster all that's going to cost you is four more aces tinkers which is about $180 just so you could do that if it could be done that we could talk offline as far as error as far as the data ingest it's a trade-off it's a performance I mean the limit to how much data you would want to put on an individual Cassandra node is about two terabytes so we're way under that right the issue here is the modest the limiting factor is the modest capabilities of these nodes and the telemetry method that we're using but well I got like one more slide and then we can talk all right so with that being said what's next so this talk I was originally planning on giving it data stacks accelerate for those who are unfamiliar data sets accelerate is going to be you know kind of like a Cassandra summit that's gonna be held in Maryland you know I guess about less than a month a little bit about a month from now actually and unfortunately I'm gonna be in the field so I was supposed to give this talk on the 22nd but some schedules shifted a little bit to the right and now beyond annal 10 so you're the only ones who get to see this talk right with that being said you know just to kind of summarize once again we're looking at 145 44 seismic stations 48 raspberry PI's 32 tankers looking at DSC running with Apache excuse me with advanced replication we have these you know here's Squadron Squadron Squadron Squadron so we've got for destination clusters for source clusters 3 telemetry options so we're gonna do is do different iterations we're gonna start off with a wired option for two days and swap over to hybrid and then swap over to wireless and really what I'm looking at the bottleneck once again is the telemetry is that right rate how fast I can write data into the cluster and replicate it across that's my that's my throttling point we're gonna test it with three different considerations because what I'd like to do is in this publication which is the goal of all this is to have some curves that I can say here's what you should expect right when you switch telemetry methods this is the best case this is the worst case here's what this all looks like [Laughter] this is my lab at Baylor these are the ref texts as you can see there's a bunch of them and what I'm doing right here is I'm doing some configuration as well as you know just kind of some testing we're testing radios kind of you know we don't want to go out there without having done all the telemetry tests because that can be a bear here you can see the rack so this rack has the 48 raspberry PI's and 16 ASA stinkers and then off picture over there on another rack as the other 16 tinker's here's kind of like a closer up this is my bedroom in my apartment which is about 15 degrees hotter than the rest of my apartment and so you know why now what does this node look like once you button it up it's very unassuming it's just a action Packer and what it has is it has a battery and the ref tech goes right here you have a switch you have a DC to DC converter and then of course right here you have the Raspberry Pi mounted or the Asus tinkerer mounted with a little dongle and then of course there's an antenna sitting on top I'd like to say thank you to you all for coming out to hear me talk I'd like to thank my advisor of course as well as my collaborators at Baylor I'd like to thank the data sex folks for helping organize this as well as the Houston Energy data science meetup group and lastly you know I'd like to thank the Department of Energy for giving me money [Applause]",
+    "segments": [
+      {
+        "start": 1.21,
+        "duration": 6.8,
+        "text": "[Applause]"
+      },
+      {
+        "start": 6.02,
+        "duration": 3.97,
+        "text": "hello everyone my name is Frank"
+      },
+      {
+        "start": 8.01,
+        "duration": 3.54,
+        "text": "Sepulveda first thing I want to clarify"
+      },
+      {
+        "start": 9.99,
+        "duration": 4.439,
+        "text": "because someone already asked me a"
+      },
+      {
+        "start": 11.55,
+        "duration": 4.8,
+        "text": "question I do not work for data sex okay"
+      },
+      {
+        "start": 14.429,
+        "duration": 4.531,
+        "text": "I actually work for Pioneer natural"
+      },
+      {
+        "start": 16.35,
+        "duration": 4.74,
+        "text": "resources up in Dallas in Irving I'm a"
+      },
+      {
+        "start": 18.96,
+        "duration": 4.17,
+        "text": "data scientist senior data scientist at"
+      },
+      {
+        "start": 21.09,
+        "duration": 5.04,
+        "text": "pioneer in addition to that that's my"
+      },
+      {
+        "start": 23.13,
+        "duration": 6.229,
+        "text": "day job my night job is a PhD candidate"
+      },
+      {
+        "start": 26.13,
+        "duration": 6.78,
+        "text": "at Baylor University and geophysics so"
+      },
+      {
+        "start": 29.359,
+        "duration": 4.391,
+        "text": "that's the other thing I do the work"
+      },
+      {
+        "start": 32.91,
+        "duration": 1.5,
+        "text": "that I'm going to talk to you about"
+      },
+      {
+        "start": 33.75,
+        "duration": 2.85,
+        "text": "today"
+      },
+      {
+        "start": 34.41,
+        "duration": 5.25,
+        "text": "is this work that we're doing right here"
+      },
+      {
+        "start": 36.6,
+        "duration": 5.58,
+        "text": "for the US Department of Energy so let's"
+      },
+      {
+        "start": 39.66,
+        "duration": 6.12,
+        "text": "go ahead and jump into this and see how"
+      },
+      {
+        "start": 42.18,
+        "duration": 5.219,
+        "text": "it goes so what are we trying to do this"
+      },
+      {
+        "start": 45.78,
+        "duration": 3.959,
+        "text": "is me and my collaborators at Baylor"
+      },
+      {
+        "start": 47.399,
+        "duration": 5.011,
+        "text": "well we're trying to do as part of that"
+      },
+      {
+        "start": 49.739,
+        "duration": 4.741,
+        "text": "you know funding opportunity that we got"
+      },
+      {
+        "start": 52.41,
+        "duration": 4.14,
+        "text": "from the Department of Energy is to come"
+      },
+      {
+        "start": 54.48,
+        "duration": 3.39,
+        "text": "up with a nodal solution that is capable"
+      },
+      {
+        "start": 56.55,
+        "duration": 3.75,
+        "text": "of acquiring and transmitting and"
+      },
+      {
+        "start": 57.87,
+        "duration": 3.9,
+        "text": "processing seismic data okay great"
+      },
+      {
+        "start": 60.3,
+        "duration": 2.73,
+        "text": "we have all kinds of nodal solutions"
+      },
+      {
+        "start": 61.77,
+        "duration": 2.55,
+        "text": "right they're already existing"
+      },
+      {
+        "start": 63.03,
+        "duration": 3.42,
+        "text": "Fairfield's you know you know there's a"
+      },
+      {
+        "start": 64.32,
+        "duration": 4.38,
+        "text": "bunch out there sir so so let's kind of"
+      },
+      {
+        "start": 66.45,
+        "duration": 4.849,
+        "text": "dive a little bit deeper into that right"
+      },
+      {
+        "start": 68.7,
+        "duration": 5.099,
+        "text": "so how many nodes are we talking about"
+      },
+      {
+        "start": 71.299,
+        "duration": 3.941,
+        "text": "what is our seismic processing method"
+      },
+      {
+        "start": 73.799,
+        "duration": 3.451,
+        "text": "and of course what is go where is this"
+      },
+      {
+        "start": 75.24,
+        "duration": 3.51,
+        "text": "gonna happen and how long right so"
+      },
+      {
+        "start": 77.25,
+        "duration": 3.9,
+        "text": "essentially what we're trying to do is"
+      },
+      {
+        "start": 78.75,
+        "duration": 4.619,
+        "text": "take a bunch of systems put them out in"
+      },
+      {
+        "start": 81.15,
+        "duration": 4.32,
+        "text": "the desert collect some data and do some"
+      },
+      {
+        "start": 83.369,
+        "duration": 3.721,
+        "text": "ambient seismic interferometry which is"
+      },
+      {
+        "start": 85.47,
+        "duration": 3.719,
+        "text": "just a form of seismic processing at the"
+      },
+      {
+        "start": 87.09,
+        "duration": 5.76,
+        "text": "edge just as a curiosity how many people"
+      },
+      {
+        "start": 89.189,
+        "duration": 4.591,
+        "text": "here work for oil and gas Wow okay so"
+      },
+      {
+        "start": 92.85,
+        "duration": 4.229,
+        "text": "you guys know what I'm talking about"
+      },
+      {
+        "start": 93.78,
+        "duration": 4.769,
+        "text": "them right so you can see what we're"
+      },
+      {
+        "start": 97.079,
+        "duration": 4.561,
+        "text": "shooting for six days of collection"
+      },
+      {
+        "start": 98.549,
+        "duration": 6.061,
+        "text": "outside and the you know geothermal plan"
+      },
+      {
+        "start": 101.64,
+        "duration": 5.31,
+        "text": "in Nevada follow that up with the"
+      },
+      {
+        "start": 104.61,
+        "duration": 4.2,
+        "text": "question of well why is our solution"
+      },
+      {
+        "start": 106.95,
+        "duration": 4.11,
+        "text": "necessary well there's a couple reasons"
+      },
+      {
+        "start": 108.81,
+        "duration": 4.68,
+        "text": "why we need this noddle seismic solution"
+      },
+      {
+        "start": 111.06,
+        "duration": 4.589,
+        "text": "that's capable of processing data at the"
+      },
+      {
+        "start": 113.49,
+        "duration": 4.739,
+        "text": "edge the main reason is is that we're"
+      },
+      {
+        "start": 115.649,
+        "duration": 4.561,
+        "text": "using passive seismic methods now what"
+      },
+      {
+        "start": 118.229,
+        "duration": 3.661,
+        "text": "that means is that we're not introducing"
+      },
+      {
+        "start": 120.21,
+        "duration": 3.839,
+        "text": "sources into the ground"
+      },
+      {
+        "start": 121.89,
+        "duration": 3.659,
+        "text": "I'm sure you know a lot of you are"
+      },
+      {
+        "start": 124.049,
+        "duration": 3.661,
+        "text": "familiar with those big vibrating trucks"
+      },
+      {
+        "start": 125.549,
+        "duration": 3.541,
+        "text": "that oil and gas uses those are active"
+      },
+      {
+        "start": 127.71,
+        "duration": 2.549,
+        "text": "right you're putting energy into the"
+      },
+      {
+        "start": 129.09,
+        "duration": 2.52,
+        "text": "ground and you know what you're putting"
+      },
+      {
+        "start": 130.259,
+        "duration": 2.081,
+        "text": "in and you know what you're getting back"
+      },
+      {
+        "start": 131.61,
+        "duration": 2.68,
+        "text": "essentially"
+      },
+      {
+        "start": 132.34,
+        "duration": 4.289,
+        "text": "right so or what you should get back"
+      },
+      {
+        "start": 134.29,
+        "duration": 4.529,
+        "text": "what we're using is we're using just"
+      },
+      {
+        "start": 136.629,
+        "duration": 4.321,
+        "text": "recorded ground motions that are"
+      },
+      {
+        "start": 138.819,
+        "duration": 4.111,
+        "text": "basically noise this could be"
+      },
+      {
+        "start": 140.95,
+        "duration": 3.869,
+        "text": "anthropogenic noise man-made noise or"
+      },
+      {
+        "start": 142.93,
+        "duration": 3.54,
+        "text": "this could be just you know natural"
+      },
+      {
+        "start": 144.819,
+        "duration": 3.721,
+        "text": "occurring noise micro sized zones or"
+      },
+      {
+        "start": 146.47,
+        "duration": 3.659,
+        "text": "earthquakes that are occurring the"
+      },
+      {
+        "start": 148.54,
+        "duration": 4.169,
+        "text": "reason why we're using these passive"
+      },
+      {
+        "start": 150.129,
+        "duration": 4.47,
+        "text": "methods is of course reduce costs lower"
+      },
+      {
+        "start": 152.709,
+        "duration": 4.021,
+        "text": "impact to the environment and also kind"
+      },
+      {
+        "start": 154.599,
+        "duration": 3.78,
+        "text": "of lower the logistical effort required"
+      },
+      {
+        "start": 156.73,
+        "duration": 4.53,
+        "text": "to do these sort of deployments and I"
+      },
+      {
+        "start": 158.379,
+        "duration": 5.881,
+        "text": "know I threw up there the number 150 so"
+      },
+      {
+        "start": 161.26,
+        "duration": 5.52,
+        "text": "what we do 10,000 node lines in oil and"
+      },
+      {
+        "start": 164.26,
+        "duration": 4.53,
+        "text": "gas right well we're research where"
+      },
+      {
+        "start": 166.78,
+        "duration": 4.679,
+        "text": "earthquake seismology okay so cut us a"
+      },
+      {
+        "start": 168.79,
+        "duration": 4.35,
+        "text": "little slack 150 is a lot for us but"
+      },
+      {
+        "start": 171.459,
+        "duration": 3.421,
+        "text": "with that being said a couple other"
+      },
+      {
+        "start": 173.14,
+        "duration": 3.689,
+        "text": "reasons why the solution was necessary"
+      },
+      {
+        "start": 174.88,
+        "duration": 4.469,
+        "text": "and I'm sure that you know our endeavor"
+      },
+      {
+        "start": 176.829,
+        "duration": 4.8,
+        "text": "isn't the only one the the tendency is"
+      },
+      {
+        "start": 179.349,
+        "duration": 3.78,
+        "text": "to have more sensors at higher sample"
+      },
+      {
+        "start": 181.629,
+        "duration": 4.08,
+        "text": "rates and the reason is is you know"
+      },
+      {
+        "start": 183.129,
+        "duration": 4.741,
+        "text": "there's a lot of lateral heterogeneity"
+      },
+      {
+        "start": 185.709,
+        "duration": 4.17,
+        "text": "just the earth changes very abruptly"
+      },
+      {
+        "start": 187.87,
+        "duration": 3.03,
+        "text": "from location and location so you know"
+      },
+      {
+        "start": 189.879,
+        "duration": 2.761,
+        "text": "typically you want to have better"
+      },
+      {
+        "start": 190.9,
+        "duration": 3.99,
+        "text": "spatial sampling which means more nodes"
+      },
+      {
+        "start": 192.64,
+        "duration": 3.78,
+        "text": "of course also you know I know there's"
+      },
+      {
+        "start": 194.89,
+        "duration": 2.67,
+        "text": "probably some data scientists in the"
+      },
+      {
+        "start": 196.42,
+        "duration": 3.78,
+        "text": "audience if you're going to do some"
+      },
+      {
+        "start": 197.56,
+        "duration": 4.86,
+        "text": "feature engineering you want a data set"
+      },
+      {
+        "start": 200.2,
+        "duration": 4.439,
+        "text": "that enables you to do some rich feature"
+      },
+      {
+        "start": 202.42,
+        "duration": 4.02,
+        "text": "extraction preferably both in the time"
+      },
+      {
+        "start": 204.639,
+        "duration": 3.421,
+        "text": "domain and the frequency domain and the"
+      },
+      {
+        "start": 206.44,
+        "duration": 3.99,
+        "text": "wavelet domain and the curve low domain"
+      },
+      {
+        "start": 208.06,
+        "duration": 5.16,
+        "text": "so you need higher sample rates which"
+      },
+      {
+        "start": 210.43,
+        "duration": 4.919,
+        "text": "means more data the problem with that is"
+      },
+      {
+        "start": 213.22,
+        "duration": 4.56,
+        "text": "the real-world logistic constraints of"
+      },
+      {
+        "start": 215.349,
+        "duration": 4.95,
+        "text": "doing this in the field which are always"
+      },
+      {
+        "start": 217.78,
+        "duration": 4.53,
+        "text": "going to be power in telemetry if you"
+      },
+      {
+        "start": 220.299,
+        "duration": 4.081,
+        "text": "have more radios transmitting at higher"
+      },
+      {
+        "start": 222.31,
+        "duration": 3.48,
+        "text": "wattage over longer distances that eats"
+      },
+      {
+        "start": 224.38,
+        "duration": 3.81,
+        "text": "up more power that shortens your"
+      },
+      {
+        "start": 225.79,
+        "duration": 6.029,
+        "text": "deployment durations so this is why we"
+      },
+      {
+        "start": 228.19,
+        "duration": 6.329,
+        "text": "felt that this solution was necessary so"
+      },
+      {
+        "start": 231.819,
+        "duration": 5.551,
+        "text": "what's the problem well under normal"
+      },
+      {
+        "start": 234.519,
+        "duration": 4.201,
+        "text": "active source situations you know when"
+      },
+      {
+        "start": 237.37,
+        "duration": 4.35,
+        "text": "you put the energy into the ground you"
+      },
+      {
+        "start": 238.72,
+        "duration": 5.16,
+        "text": "know when you're done with passive how"
+      },
+      {
+        "start": 241.72,
+        "duration": 4.41,
+        "text": "do you know when you're done right"
+      },
+      {
+        "start": 243.88,
+        "duration": 3.6,
+        "text": "you're just using ambient noise so"
+      },
+      {
+        "start": 246.13,
+        "duration": 3.15,
+        "text": "there's a couple different ways that you"
+      },
+      {
+        "start": 247.48,
+        "duration": 4.11,
+        "text": "can tackle this problem one is you can"
+      },
+      {
+        "start": 249.28,
+        "duration": 4.41,
+        "text": "pull data nightly but once again this"
+      },
+      {
+        "start": 251.59,
+        "duration": 4.259,
+        "text": "requires that you disturb your nodes you"
+      },
+      {
+        "start": 253.69,
+        "duration": 3.75,
+        "text": "have to walk the line pull disks take"
+      },
+      {
+        "start": 255.849,
+        "duration": 3.181,
+        "text": "them back to your hotel room copy the"
+      },
+      {
+        "start": 257.44,
+        "duration": 3.81,
+        "text": "data into a laptop and then look at it"
+      },
+      {
+        "start": 259.03,
+        "duration": 3.6,
+        "text": "right which means you also probably have"
+      },
+      {
+        "start": 261.25,
+        "duration": 3.84,
+        "text": "to stop acquisition which isn't a good"
+      },
+      {
+        "start": 262.63,
+        "duration": 3.66,
+        "text": "thing you can do multiple field"
+      },
+      {
+        "start": 265.09,
+        "duration": 4.71,
+        "text": "deployments but of course"
+      },
+      {
+        "start": 266.29,
+        "duration": 6.51,
+        "text": "that introduces the problem of well now"
+      },
+      {
+        "start": 269.8,
+        "duration": 4.71,
+        "text": "you have to deal with logistics and cost"
+      },
+      {
+        "start": 272.8,
+        "duration": 4.98,
+        "text": "there's money associated with these"
+      },
+      {
+        "start": 274.51,
+        "duration": 4.8,
+        "text": "deployments the other solution which is"
+      },
+      {
+        "start": 277.78,
+        "duration": 3.09,
+        "text": "typically what people do especially in"
+      },
+      {
+        "start": 279.31,
+        "duration": 3.39,
+        "text": "the research area is just over collect"
+      },
+      {
+        "start": 280.87,
+        "duration": 3.54,
+        "text": "we're gonna do a two-week collect why"
+      },
+      {
+        "start": 282.7,
+        "duration": 3.99,
+        "text": "because we have two weeks worth of money"
+      },
+      {
+        "start": 284.41,
+        "duration": 4.11,
+        "text": "and we're just going to do that right"
+      },
+      {
+        "start": 286.69,
+        "duration": 4.47,
+        "text": "which to me is not the best way to do"
+      },
+      {
+        "start": 288.52,
+        "duration": 5.85,
+        "text": "this the other thing that's an issue is"
+      },
+      {
+        "start": 291.16,
+        "duration": 4.65,
+        "text": "data volume we ended up settling on 144"
+      },
+      {
+        "start": 294.37,
+        "duration": 2.85,
+        "text": "station configuration that's mostly"
+      },
+      {
+        "start": 295.81,
+        "duration": 2.97,
+        "text": "because of symmetry and you'll see the"
+      },
+      {
+        "start": 297.22,
+        "duration": 5.25,
+        "text": "the architecture later it'll make sense"
+      },
+      {
+        "start": 298.78,
+        "duration": 5.01,
+        "text": "but we're gonna acquire six point there"
+      },
+      {
+        "start": 302.47,
+        "duration": 4.41,
+        "text": "excuse me six hundred and twenty-two"
+      },
+      {
+        "start": 303.79,
+        "duration": 5.91,
+        "text": "million samples per day that's a lot I"
+      },
+      {
+        "start": 306.88,
+        "duration": 4.56,
+        "text": "don't care who you are and what industry"
+      },
+      {
+        "start": 309.7,
+        "duration": 4.2,
+        "text": "or and what science that is a lot of"
+      },
+      {
+        "start": 311.44,
+        "duration": 4.71,
+        "text": "data the reality is is that's just one"
+      },
+      {
+        "start": 313.9,
+        "duration": 4.05,
+        "text": "channel at 50 Hertz right fifty samples"
+      },
+      {
+        "start": 316.15,
+        "duration": 4.68,
+        "text": "per second we're actually acquiring"
+      },
+      {
+        "start": 317.95,
+        "duration": 5.07,
+        "text": "three channels at 250 samples per second"
+      },
+      {
+        "start": 320.83,
+        "duration": 4.11,
+        "text": "but what I'm inserting into Cassandra is"
+      },
+      {
+        "start": 323.02,
+        "duration": 3.66,
+        "text": "essentially a decimated and reduced"
+      },
+      {
+        "start": 324.94,
+        "duration": 8.28,
+        "text": "version because that's all we needed"
+      },
+      {
+        "start": 326.68,
+        "duration": 8.55,
+        "text": "I'm sorry that was you or me there so"
+      },
+      {
+        "start": 333.22,
+        "duration": 4.53,
+        "text": "with that being said if you take the"
+      },
+      {
+        "start": 335.23,
+        "duration": 5.01,
+        "text": "full bandwidth of the data if it was not"
+      },
+      {
+        "start": 337.75,
+        "duration": 4.32,
+        "text": "decimated and reduced it would be a nine"
+      },
+      {
+        "start": 340.24,
+        "duration": 3.63,
+        "text": "point three billion samples per day"
+      },
+      {
+        "start": 342.07,
+        "duration": 4.68,
+        "text": "which once again is to be a phenomenal"
+      },
+      {
+        "start": 343.87,
+        "duration": 4.44,
+        "text": "amount of data and lastly you know this"
+      },
+      {
+        "start": 346.75,
+        "duration": 3.27,
+        "text": "is University project funded by the"
+      },
+      {
+        "start": 348.31,
+        "duration": 3.12,
+        "text": "government so it had to be cheap we're"
+      },
+      {
+        "start": 350.02,
+        "duration": 6.36,
+        "text": "trying to keep the cost per node way"
+      },
+      {
+        "start": 351.43,
+        "duration": 7.77,
+        "text": "down so what was the solution so when I"
+      },
+      {
+        "start": 356.38,
+        "duration": 4.68,
+        "text": "first started attending Baylor I had"
+      },
+      {
+        "start": 359.2,
+        "duration": 2.97,
+        "text": "spent about ten years working for the"
+      },
+      {
+        "start": 361.06,
+        "duration": 2.94,
+        "text": "Department of Defense in the"
+      },
+      {
+        "start": 362.17,
+        "duration": 4.89,
+        "text": "intelligence community primarily in"
+      },
+      {
+        "start": 364.0,
+        "duration": 5.04,
+        "text": "their R&D projects supporting Geoscience"
+      },
+      {
+        "start": 367.06,
+        "duration": 4.92,
+        "text": "related stuff and as about as far into"
+      },
+      {
+        "start": 369.04,
+        "duration": 3.96,
+        "text": "it as I can get but one of the concepts"
+      },
+      {
+        "start": 371.98,
+        "duration": 3.24,
+        "text": "that had come to me while I was doing"
+      },
+      {
+        "start": 373.0,
+        "duration": 3.66,
+        "text": "this work is we had a lot of vendors you"
+      },
+      {
+        "start": 375.22,
+        "duration": 3.39,
+        "text": "know the the big defense contractors"
+      },
+      {
+        "start": 376.66,
+        "duration": 4.59,
+        "text": "that were always selling us these really"
+      },
+      {
+        "start": 378.61,
+        "duration": 4.62,
+        "text": "high-end boxes that would acquire this"
+      },
+      {
+        "start": 381.25,
+        "duration": 3.63,
+        "text": "you know seismic or acoustic or"
+      },
+      {
+        "start": 383.23,
+        "duration": 3.81,
+        "text": "electromagnetic data they were very"
+      },
+      {
+        "start": 384.88,
+        "duration": 5.34,
+        "text": "expensive and what I notice is a lot of"
+      },
+      {
+        "start": 387.04,
+        "duration": 4.68,
+        "text": "them struggled with consistency in the"
+      },
+      {
+        "start": 390.22,
+        "duration": 3.06,
+        "text": "quality of the data there'd be cross"
+      },
+      {
+        "start": 391.72,
+        "duration": 4.47,
+        "text": "talk between channels they'd be"
+      },
+      {
+        "start": 393.28,
+        "duration": 5.76,
+        "text": "GPS timing errors there were very"
+      },
+      {
+        "start": 396.19,
+        "duration": 3.67,
+        "text": "cottage industry and it really had an"
+      },
+      {
+        "start": 399.04,
+        "duration": 3.49,
+        "text": "impact on the"
+      },
+      {
+        "start": 399.86,
+        "duration": 4.5,
+        "text": "of science that we could do so what I"
+      },
+      {
+        "start": 402.53,
+        "duration": 3.9,
+        "text": "when I came to graduate school I asked"
+      },
+      {
+        "start": 404.36,
+        "duration": 3.57,
+        "text": "my advisor said hey can I take a"
+      },
+      {
+        "start": 406.43,
+        "duration": 3.57,
+        "text": "commercial off-the-shelf data"
+      },
+      {
+        "start": 407.93,
+        "duration": 4.289,
+        "text": "acquisition system which is this ref"
+      },
+      {
+        "start": 410.0,
+        "duration": 2.61,
+        "text": "tech one 3001 it's been around for 15"
+      },
+      {
+        "start": 412.219,
+        "duration": 2.01,
+        "text": "years"
+      },
+      {
+        "start": 412.61,
+        "duration": 4.5,
+        "text": "anyone that's worked in earthquake"
+      },
+      {
+        "start": 414.229,
+        "duration": 5.49,
+        "text": "seismology is familiar with it you know"
+      },
+      {
+        "start": 417.11,
+        "duration": 4.799,
+        "text": "actually Pascal iris they're a group"
+      },
+      {
+        "start": 419.719,
+        "duration": 4.41,
+        "text": "that maintains a large inventory of"
+      },
+      {
+        "start": 421.909,
+        "duration": 4.32,
+        "text": "sensors and data acquisition systems for"
+      },
+      {
+        "start": 424.129,
+        "duration": 5.521,
+        "text": "the US government has about like 800 of"
+      },
+      {
+        "start": 426.229,
+        "duration": 5.791,
+        "text": "them that they share with partners be it"
+      },
+      {
+        "start": 429.65,
+        "duration": 5.069,
+        "text": "you know universities and other people"
+      },
+      {
+        "start": 432.02,
+        "duration": 6.299,
+        "text": "that are part of their consortium and"
+      },
+      {
+        "start": 434.719,
+        "duration": 4.801,
+        "text": "then if I add an embedded system and for"
+      },
+      {
+        "start": 438.319,
+        "duration": 3.03,
+        "text": "those of you that are not familiar with"
+      },
+      {
+        "start": 439.52,
+        "duration": 3.509,
+        "text": "a Raspberry Pi essentially what it is is"
+      },
+      {
+        "start": 441.349,
+        "duration": 4.771,
+        "text": "it's a small single board computer it's"
+      },
+      {
+        "start": 443.029,
+        "duration": 4.711,
+        "text": "about $35 it came out of the UK the"
+      },
+      {
+        "start": 446.12,
+        "duration": 3.96,
+        "text": "reason why they invented the Raspberry"
+      },
+      {
+        "start": 447.74,
+        "duration": 4.979,
+        "text": "Pi was they wanted to have an affordable"
+      },
+      {
+        "start": 450.08,
+        "duration": 5.16,
+        "text": "solution so that young people children"
+      },
+      {
+        "start": 452.719,
+        "duration": 4.44,
+        "text": "would be able to learn coding as well as"
+      },
+      {
+        "start": 455.24,
+        "duration": 4.229,
+        "text": "interacting with hardware the Raspberry"
+      },
+      {
+        "start": 457.159,
+        "duration": 3.78,
+        "text": "Pi has sold tens of millions of units"
+      },
+      {
+        "start": 459.469,
+        "duration": 4.831,
+        "text": "how many people are familiar with a"
+      },
+      {
+        "start": 460.939,
+        "duration": 6.361,
+        "text": "Raspberry Pi yeah exactly so it has just"
+      },
+      {
+        "start": 464.3,
+        "duration": 5.7,
+        "text": "a extremely broad echo system and is an"
+      },
+      {
+        "start": 467.3,
+        "duration": 4.38,
+        "text": "extremely versatile solution so what I"
+      },
+      {
+        "start": 470.0,
+        "duration": 3.449,
+        "text": "did is I integrated these two pieces of"
+      },
+      {
+        "start": 471.68,
+        "duration": 4.5,
+        "text": "equipment and came up with what I call"
+      },
+      {
+        "start": 473.449,
+        "duration": 5.011,
+        "text": "the rapier the Raspberry Pi enhanced ref"
+      },
+      {
+        "start": 476.18,
+        "duration": 4.38,
+        "text": "tech so what I did is I basically added"
+      },
+      {
+        "start": 478.46,
+        "duration": 5.34,
+        "text": "to this data acquisition system a brain"
+      },
+      {
+        "start": 480.56,
+        "duration": 5.88,
+        "text": "and what I did is instead of the archive"
+      },
+      {
+        "start": 483.8,
+        "duration": 4.229,
+        "text": "being saved to these compact flash cards"
+      },
+      {
+        "start": 486.44,
+        "duration": 5.129,
+        "text": "that are inaccessible unless you pull"
+      },
+      {
+        "start": 488.029,
+        "duration": 5.371,
+        "text": "them right and instead of having to"
+      },
+      {
+        "start": 491.569,
+        "duration": 5.07,
+        "text": "transmit the data all the way back to"
+      },
+      {
+        "start": 493.4,
+        "duration": 6.96,
+        "text": "the lab you now built the archive at the"
+      },
+      {
+        "start": 496.639,
+        "duration": 5.221,
+        "text": "edge right and here are some of the"
+      },
+      {
+        "start": 500.36,
+        "duration": 3.269,
+        "text": "motivations of some of the factors that"
+      },
+      {
+        "start": 501.86,
+        "duration": 3.39,
+        "text": "I took into this you know I needed data"
+      },
+      {
+        "start": 503.629,
+        "duration": 3.81,
+        "text": "of sufficient quality had to be"
+      },
+      {
+        "start": 505.25,
+        "duration": 4.05,
+        "text": "inexpensive using skills common to"
+      },
+      {
+        "start": 507.439,
+        "duration": 3.391,
+        "text": "geoscientists I didn't want us to have"
+      },
+      {
+        "start": 509.3,
+        "duration": 2.579,
+        "text": "to collaborate with a computer science"
+      },
+      {
+        "start": 510.83,
+        "duration": 3.18,
+        "text": "department of computer engineering"
+      },
+      {
+        "start": 511.879,
+        "duration": 4.261,
+        "text": "departments you know just using what you"
+      },
+      {
+        "start": 514.01,
+        "duration": 3.18,
+        "text": "know geo scientists know and then of"
+      },
+      {
+        "start": 516.14,
+        "duration": 3.209,
+        "text": "course I wanted to be able to leverage"
+      },
+      {
+        "start": 517.19,
+        "duration": 8.85,
+        "text": "existing methods and tools no need to"
+      },
+      {
+        "start": 519.349,
+        "duration": 9.711,
+        "text": "invent new algorithms right yes I think"
+      },
+      {
+        "start": 526.04,
+        "duration": 3.02,
+        "text": "it's about 7,000"
+      },
+      {
+        "start": 529.47,
+        "duration": 5.77,
+        "text": "we borrowed those we didn't buy them now"
+      },
+      {
+        "start": 533.889,
+        "duration": 2.731,
+        "text": "the interesting thing is there's other"
+      },
+      {
+        "start": 535.24,
+        "duration": 3.089,
+        "text": "work that's been done by some other"
+      },
+      {
+        "start": 536.62,
+        "duration": 3.81,
+        "text": "authors where they took the eye size"
+      },
+      {
+        "start": 538.329,
+        "duration": 2.88,
+        "text": "Sigma which is a couple thousand it's"
+      },
+      {
+        "start": 540.43,
+        "duration": 3.99,
+        "text": "one of the ones that uh"
+      },
+      {
+        "start": 541.209,
+        "duration": 5.791,
+        "text": "it's that group up at Ponca City you saw"
+      },
+      {
+        "start": 544.42,
+        "duration": 4.109,
+        "text": "they it's like an oil and gas knodel"
+      },
+      {
+        "start": 547.0,
+        "duration": 3.449,
+        "text": "system they've integrated it with a"
+      },
+      {
+        "start": 548.529,
+        "duration": 3.87,
+        "text": "Raspberry Pi as well pretty much if you"
+      },
+      {
+        "start": 550.449,
+        "duration": 4.921,
+        "text": "have a system that records seismic data"
+      },
+      {
+        "start": 552.399,
+        "duration": 4.921,
+        "text": "that you can compile it software for the"
+      },
+      {
+        "start": 555.37,
+        "duration": 4.68,
+        "text": "ARM architecture which the Raspberry Pi"
+      },
+      {
+        "start": 557.32,
+        "duration": 5.459,
+        "text": "uses an ARM architecture you can save"
+      },
+      {
+        "start": 560.05,
+        "duration": 4.32,
+        "text": "anything to it so we borrowed the"
+      },
+      {
+        "start": 562.779,
+        "duration": 3.42,
+        "text": "systems from iris we didn't have to buy"
+      },
+      {
+        "start": 564.37,
+        "duration": 8.79,
+        "text": "them that's that's Zen answer your"
+      },
+      {
+        "start": 566.199,
+        "duration": 9.57,
+        "text": "question they're compact flash cards yep"
+      },
+      {
+        "start": 573.16,
+        "duration": 5.039,
+        "text": "and typically the ones that they provide"
+      },
+      {
+        "start": 575.769,
+        "duration": 3.601,
+        "text": "are two or four gigabytes all right"
+      },
+      {
+        "start": 578.199,
+        "duration": 3.121,
+        "text": "those are the only ones that are vetted"
+      },
+      {
+        "start": 579.37,
+        "duration": 3.269,
+        "text": "which once again doesn't give you a"
+      },
+      {
+        "start": 581.32,
+        "duration": 5.31,
+        "text": "whole lot of collection in high sample"
+      },
+      {
+        "start": 582.639,
+        "duration": 6.301,
+        "text": "rates so this was great and I got a"
+      },
+      {
+        "start": 586.63,
+        "duration": 4.47,
+        "text": "publication out of it in 2016 my adviser"
+      },
+      {
+        "start": 588.94,
+        "duration": 4.019,
+        "text": "said good job Frank he said however this"
+      },
+      {
+        "start": 591.1,
+        "duration": 3.75,
+        "text": "is a great single node solution all the"
+      },
+      {
+        "start": 592.959,
+        "duration": 3.81,
+        "text": "science that we do is geo scientist is"
+      },
+      {
+        "start": 594.85,
+        "duration": 3.359,
+        "text": "multi node we're comparing signals"
+      },
+      {
+        "start": 596.769,
+        "duration": 3.901,
+        "text": "between different station receiver pairs"
+      },
+      {
+        "start": 598.209,
+        "duration": 5.281,
+        "text": "right so what are we gonna do what do I"
+      },
+      {
+        "start": 600.67,
+        "duration": 6.24,
+        "text": "need well what I need is an at the edge"
+      },
+      {
+        "start": 603.49,
+        "duration": 6.24,
+        "text": "based database so I didn't go into this"
+      },
+      {
+        "start": 606.91,
+        "duration": 3.989,
+        "text": "thinking Cassandra or data stacks I went"
+      },
+      {
+        "start": 609.73,
+        "duration": 2.969,
+        "text": "to this saying I have a list of"
+      },
+      {
+        "start": 610.899,
+        "duration": 3.63,
+        "text": "requirements which is I think how all"
+      },
+      {
+        "start": 612.699,
+        "duration": 3.991,
+        "text": "technology endeavors should begin right"
+      },
+      {
+        "start": 614.529,
+        "duration": 3.42,
+        "text": "with a list of requirements I needed"
+      },
+      {
+        "start": 616.69,
+        "duration": 2.61,
+        "text": "something that could deploy on modest"
+      },
+      {
+        "start": 617.949,
+        "duration": 2.551,
+        "text": "hardware I needed something that was"
+      },
+      {
+        "start": 619.3,
+        "duration": 3.06,
+        "text": "open source distributed and"
+      },
+      {
+        "start": 620.5,
+        "duration": 3.6,
+        "text": "decentralized I needed something that"
+      },
+      {
+        "start": 622.36,
+        "duration": 3.57,
+        "text": "would work as clusters of nodes I needed"
+      },
+      {
+        "start": 624.1,
+        "duration": 4.62,
+        "text": "peer-to-peer I needed I couldn't deal"
+      },
+      {
+        "start": 625.93,
+        "duration": 4.68,
+        "text": "with a you know master worker"
+      },
+      {
+        "start": 628.72,
+        "duration": 3.359,
+        "text": "architecture right I needed to be peer"
+      },
+      {
+        "start": 630.61,
+        "duration": 3.27,
+        "text": "to peer I needed something that was"
+      },
+      {
+        "start": 632.079,
+        "duration": 3.271,
+        "text": "elastically scale of what could go from"
+      },
+      {
+        "start": 633.88,
+        "duration": 2.88,
+        "text": "you know it doesn't know it's to 100"
+      },
+      {
+        "start": 635.35,
+        "duration": 3.0,
+        "text": "nodes to thousands of nodes it wouldn't"
+      },
+      {
+        "start": 636.76,
+        "duration": 3.569,
+        "text": "matter depending on what we're trying to"
+      },
+      {
+        "start": 638.35,
+        "duration": 4.2,
+        "text": "do I needed highly available and fault"
+      },
+      {
+        "start": 640.329,
+        "duration": 4.591,
+        "text": "tolerant and I especially needed it to"
+      },
+      {
+        "start": 642.55,
+        "duration": 3.75,
+        "text": "be ideally suited for time series data I"
+      },
+      {
+        "start": 644.92,
+        "duration": 3.32,
+        "text": "don't know if anybody has any experience"
+      },
+      {
+        "start": 646.3,
+        "duration": 3.839,
+        "text": "working with sequel and time series data"
+      },
+      {
+        "start": 648.24,
+        "duration": 4.27,
+        "text": "does not go well"
+      },
+      {
+        "start": 650.139,
+        "duration": 4.38,
+        "text": "right there are better databases for"
+      },
+      {
+        "start": 652.51,
+        "duration": 3.66,
+        "text": "time series data no sequel being one of"
+      },
+      {
+        "start": 654.519,
+        "duration": 2.94,
+        "text": "them so after I did all of my research I"
+      },
+      {
+        "start": 656.17,
+        "duration": 3.779,
+        "text": "came up with a conclusion that you know"
+      },
+      {
+        "start": 657.459,
+        "duration": 4.831,
+        "text": "what I like this Apache Cassandra thing"
+      },
+      {
+        "start": 659.949,
+        "duration": 4.231,
+        "text": "the dilemma was"
+      },
+      {
+        "start": 662.29,
+        "duration": 4.17,
+        "text": "the Raspberry Pi and it's very modest"
+      },
+      {
+        "start": 664.18,
+        "duration": 4.98,
+        "text": "capabilities right you're talking a gig"
+      },
+      {
+        "start": 666.46,
+        "duration": 5.16,
+        "text": "of ram you're talking you know a 10 by"
+      },
+      {
+        "start": 669.16,
+        "duration": 4.62,
+        "text": "100 nits on that you're looking at"
+      },
+      {
+        "start": 671.62,
+        "duration": 4.71,
+        "text": "shared IO"
+      },
+      {
+        "start": 673.78,
+        "duration": 4.11,
+        "text": "between the USB and Ethernet you know"
+      },
+      {
+        "start": 676.33,
+        "duration": 4.23,
+        "text": "kind of limitations of the equipment"
+      },
+      {
+        "start": 677.89,
+        "duration": 4.68,
+        "text": "right so it was really a question of"
+      },
+      {
+        "start": 680.56,
+        "duration": 6.48,
+        "text": "performance tuning let's see how much"
+      },
+      {
+        "start": 682.57,
+        "duration": 7.1,
+        "text": "juice we can squeeze out of that so our"
+      },
+      {
+        "start": 687.04,
+        "duration": 4.68,
+        "text": "first attempt was back in June of 2017"
+      },
+      {
+        "start": 689.67,
+        "duration": 4.18,
+        "text": "what we did is we went to this"
+      },
+      {
+        "start": 691.72,
+        "duration": 4.68,
+        "text": "geothermal field outside of Fallon"
+      },
+      {
+        "start": 693.85,
+        "duration": 4.83,
+        "text": "Nevada as a soda lake field event and we"
+      },
+      {
+        "start": 696.4,
+        "duration": 4.17,
+        "text": "put 20 seismic stations out which you"
+      },
+      {
+        "start": 698.68,
+        "duration": 5.67,
+        "text": "can see right there along that line the"
+      },
+      {
+        "start": 700.57,
+        "duration": 5.82,
+        "text": "line was about 575 meters and it was"
+      },
+      {
+        "start": 704.35,
+        "duration": 3.63,
+        "text": "about 30 meter spacing and what we did"
+      },
+      {
+        "start": 706.39,
+        "duration": 4.05,
+        "text": "is kind of what the the architecture"
+      },
+      {
+        "start": 707.98,
+        "duration": 4.86,
+        "text": "looks like is we put each one of these"
+      },
+      {
+        "start": 710.44,
+        "duration": 4.23,
+        "text": "seismic stations which was a rapier had"
+      },
+      {
+        "start": 712.84,
+        "duration": 4.68,
+        "text": "a Raspberry Pi which was running Apache"
+      },
+      {
+        "start": 714.67,
+        "duration": 6.39,
+        "text": "Cassandra so you ended up with a 20 no"
+      },
+      {
+        "start": 717.52,
+        "duration": 4.8,
+        "text": "data center and since there's some folks"
+      },
+      {
+        "start": 721.06,
+        "duration": 4.35,
+        "text": "in here that are not very familiar with"
+      },
+      {
+        "start": 722.32,
+        "duration": 6.06,
+        "text": "Apache Cassandra cluster it's top level"
+      },
+      {
+        "start": 725.41,
+        "duration": 4.77,
+        "text": "data center and then node okay"
+      },
+      {
+        "start": 728.38,
+        "duration": 3.45,
+        "text": "data center doesn't mean data center"
+      },
+      {
+        "start": 730.18,
+        "duration": 3.48,
+        "text": "like it does NIT data center just"
+      },
+      {
+        "start": 731.83,
+        "duration": 3.78,
+        "text": "basically means a collection of nodes"
+      },
+      {
+        "start": 733.66,
+        "duration": 3.78,
+        "text": "they can be in the cloud they can be on"
+      },
+      {
+        "start": 735.61,
+        "duration": 4.05,
+        "text": "it can be whatever right it's just so"
+      },
+      {
+        "start": 737.44,
+        "duration": 4.32,
+        "text": "kind of like a logical organization but"
+      },
+      {
+        "start": 739.66,
+        "duration": 3.27,
+        "text": "without being said I had a 20 node data"
+      },
+      {
+        "start": 741.76,
+        "duration": 3.0,
+        "text": "center which was handling my"
+      },
+      {
+        "start": 742.93,
+        "duration": 4.23,
+        "text": "transactional workload which was"
+      },
+      {
+        "start": 744.76,
+        "duration": 4.26,
+        "text": "basically taking the files from that ref"
+      },
+      {
+        "start": 747.16,
+        "duration": 4.05,
+        "text": "Tech converting them out of a"
+      },
+      {
+        "start": 749.02,
+        "duration": 4.65,
+        "text": "proprietary format and then writing the"
+      },
+      {
+        "start": 751.21,
+        "duration": 5.55,
+        "text": "data into Apache Cassandra that data was"
+      },
+      {
+        "start": 753.67,
+        "duration": 4.71,
+        "text": "then replicated to a three node data"
+      },
+      {
+        "start": 756.76,
+        "duration": 3.63,
+        "text": "center which was at the center of our"
+      },
+      {
+        "start": 758.38,
+        "duration": 3.9,
+        "text": "array which was then connected to a"
+      },
+      {
+        "start": 760.39,
+        "duration": 5.67,
+        "text": "laptop which was running the seismic"
+      },
+      {
+        "start": 762.28,
+        "duration": 5.28,
+        "text": "analysis software any questions on the"
+      },
+      {
+        "start": 766.06,
+        "duration": 9.24,
+        "text": "architecture here or the terminology"
+      },
+      {
+        "start": 767.56,
+        "duration": 10.23,
+        "text": "that I used yes sir I was able they do"
+      },
+      {
+        "start": 775.3,
+        "duration": 4.89,
+        "text": "they do not have an open interface I was"
+      },
+      {
+        "start": 777.79,
+        "duration": 4.86,
+        "text": "fortunate in that I was able to so first"
+      },
+      {
+        "start": 780.19,
+        "duration": 3.09,
+        "text": "off clarification ref tech is owned by"
+      },
+      {
+        "start": 782.65,
+        "duration": 3.75,
+        "text": "Trimble"
+      },
+      {
+        "start": 783.28,
+        "duration": 4.95,
+        "text": "right so it's Trimble / ref tech all"
+      },
+      {
+        "start": 786.4,
+        "duration": 3.18,
+        "text": "right it's just a clarification of your"
+      },
+      {
+        "start": 788.23,
+        "duration": 3.18,
+        "text": "Google in them you know that's the way"
+      },
+      {
+        "start": 789.58,
+        "duration": 3.09,
+        "text": "to look for mr. looki Trumbull but no"
+      },
+      {
+        "start": 791.41,
+        "duration": 3.24,
+        "text": "they don't actually have an open"
+      },
+      {
+        "start": 792.67,
+        "duration": 3.03,
+        "text": "protocol they have an RTP protocol which"
+      },
+      {
+        "start": 794.65,
+        "duration": 3.84,
+        "text": "is the ref tech protocol"
+      },
+      {
+        "start": 795.7,
+        "duration": 4.62,
+        "text": "right so what I did is I had a version"
+      },
+      {
+        "start": 798.49,
+        "duration": 4.23,
+        "text": "of their acquisition software that was"
+      },
+      {
+        "start": 800.32,
+        "duration": 4.2,
+        "text": "compiled on the ARM architecture and I"
+      },
+      {
+        "start": 802.72,
+        "duration": 4.05,
+        "text": "was given that by ref tech and that's"
+      },
+      {
+        "start": 804.52,
+        "duration": 3.96,
+        "text": "what I used so basically they provided"
+      },
+      {
+        "start": 806.77,
+        "duration": 4.08,
+        "text": "me their archive software and I just"
+      },
+      {
+        "start": 808.48,
+        "duration": 5.37,
+        "text": "poured it onto the Raspberry Pi so the"
+      },
+      {
+        "start": 810.85,
+        "duration": 4.68,
+        "text": "results the science it worked here you"
+      },
+      {
+        "start": 813.85,
+        "duration": 3.78,
+        "text": "can see a shot gather from some hammer"
+      },
+      {
+        "start": 815.53,
+        "duration": 3.48,
+        "text": "blows at one of the stations you can see"
+      },
+      {
+        "start": 817.63,
+        "duration": 2.73,
+        "text": "the straight lines indicating some"
+      },
+      {
+        "start": 819.01,
+        "duration": 2.58,
+        "text": "direct arrivals there of course you've"
+      },
+      {
+        "start": 820.36,
+        "duration": 4.44,
+        "text": "got your compressional waves your shear"
+      },
+      {
+        "start": 821.59,
+        "duration": 5.1,
+        "text": "waves VPS you know BP vs ratios are"
+      },
+      {
+        "start": 824.8,
+        "duration": 3.12,
+        "text": "there you'll notice like hey wait a"
+      },
+      {
+        "start": 826.69,
+        "duration": 3.66,
+        "text": "second Frank what's happening here with"
+      },
+      {
+        "start": 827.92,
+        "duration": 5.79,
+        "text": "node number six well it didn't work"
+      },
+      {
+        "start": 830.35,
+        "duration": 6.03,
+        "text": "perfectly the science worked the"
+      },
+      {
+        "start": 833.71,
+        "duration": 3.87,
+        "text": "technology is our first go you can"
+      },
+      {
+        "start": 836.38,
+        "duration": 3.18,
+        "text": "notice there's some gaps in the data"
+      },
+      {
+        "start": 837.58,
+        "duration": 4.62,
+        "text": "here right so let me explain what"
+      },
+      {
+        "start": 839.56,
+        "duration": 5.12,
+        "text": "happened stations one through seven and"
+      },
+      {
+        "start": 842.2,
+        "duration": 4.47,
+        "text": "ten drop telemetry at some point"
+      },
+      {
+        "start": 844.68,
+        "duration": 3.79,
+        "text": "stations that of course didn't"
+      },
+      {
+        "start": 846.67,
+        "duration": 5.07,
+        "text": "experience any sort of power failure or"
+      },
+      {
+        "start": 848.47,
+        "duration": 5.04,
+        "text": "telemetry issues you know 99.9% of the"
+      },
+      {
+        "start": 851.74,
+        "duration": 4.5,
+        "text": "data files that were created by the ref"
+      },
+      {
+        "start": 853.51,
+        "duration": 4.8,
+        "text": "tech were copied on to the Raspberry Pi"
+      },
+      {
+        "start": 856.24,
+        "duration": 3.54,
+        "text": "so that worked really well but only"
+      },
+      {
+        "start": 858.31,
+        "duration": 3.09,
+        "text": "about ninety two point five percent of"
+      },
+      {
+        "start": 859.78,
+        "duration": 3.96,
+        "text": "our data was actually inserted into"
+      },
+      {
+        "start": 861.4,
+        "duration": 4.92,
+        "text": "Apache Cassandra for this test run now"
+      },
+      {
+        "start": 863.74,
+        "duration": 4.68,
+        "text": "there were three reasons one we were"
+      },
+      {
+        "start": 866.32,
+        "duration": 5.28,
+        "text": "using very cottage industry components"
+      },
+      {
+        "start": 868.42,
+        "duration": 4.17,
+        "text": "home routers right just standard"
+      },
+      {
+        "start": 871.6,
+        "duration": 3.66,
+        "text": "equipment that you just use in the"
+      },
+      {
+        "start": 872.59,
+        "duration": 5.37,
+        "text": "household so we were using very"
+      },
+      {
+        "start": 875.26,
+        "duration": 5.01,
+        "text": "inexpensive dc-to-dc converters that"
+      },
+      {
+        "start": 877.96,
+        "duration": 4.2,
+        "text": "said they were three amp that really"
+      },
+      {
+        "start": 880.27,
+        "duration": 4.2,
+        "text": "weren't three amp and the Raspberry Pi"
+      },
+      {
+        "start": 882.16,
+        "duration": 4.47,
+        "text": "needs to point four amps preferably 2.5"
+      },
+      {
+        "start": 884.47,
+        "duration": 4.41,
+        "text": "amps so we ran into some issues there"
+      },
+      {
+        "start": 886.63,
+        "duration": 4.26,
+        "text": "where nodes were dying the Wi-Fi dongles"
+      },
+      {
+        "start": 888.88,
+        "duration": 3.99,
+        "text": "that we were using were very cheap Wi-Fi"
+      },
+      {
+        "start": 890.89,
+        "duration": 5.82,
+        "text": "dongles which sometimes would basically"
+      },
+      {
+        "start": 892.87,
+        "duration": 5.31,
+        "text": "just conk out on us right so we ended up"
+      },
+      {
+        "start": 896.71,
+        "duration": 2.88,
+        "text": "with part of the network not being able"
+      },
+      {
+        "start": 898.18,
+        "duration": 2.94,
+        "text": "to talk to the other network and of"
+      },
+      {
+        "start": 899.59,
+        "duration": 3.39,
+        "text": "course Cassandra doing what Cassandra"
+      },
+      {
+        "start": 901.12,
+        "duration": 3.36,
+        "text": "does which is just power through it said"
+      },
+      {
+        "start": 902.98,
+        "duration": 2.79,
+        "text": "well those nodes are deprecated I'm"
+      },
+      {
+        "start": 904.48,
+        "duration": 5.4,
+        "text": "gonna keep inserting data and move on"
+      },
+      {
+        "start": 905.77,
+        "duration": 6.0,
+        "text": "right and then lastly we would just get"
+      },
+      {
+        "start": 909.88,
+        "duration": 5.16,
+        "text": "some random failures where nodes would"
+      },
+      {
+        "start": 911.77,
+        "duration": 5.91,
+        "text": "just die and the reason is is Cassandra"
+      },
+      {
+        "start": 915.04,
+        "duration": 5.4,
+        "text": "runs in a JVM raspberry pi has one"
+      },
+      {
+        "start": 917.68,
+        "duration": 5.16,
+        "text": "gigabyte of RAM I ran it headless but"
+      },
+      {
+        "start": 920.44,
+        "duration": 5.76,
+        "text": "even then this wasn't a whole lot of RAM"
+      },
+      {
+        "start": 922.84,
+        "duration": 5.25,
+        "text": "left so any you know and I am NOT an"
+      },
+      {
+        "start": 926.2,
+        "duration": 3.48,
+        "text": "expert in the garbage collection on JVM"
+      },
+      {
+        "start": 928.09,
+        "duration": 4.41,
+        "text": "if you want to know more about the"
+      },
+      {
+        "start": 929.68,
+        "duration": 4.05,
+        "text": "go see John Haddad stocks he works well"
+      },
+      {
+        "start": 932.5,
+        "duration": 3.57,
+        "text": "last pickle he's got a bunch of videos"
+      },
+      {
+        "start": 933.73,
+        "duration": 4.56,
+        "text": "online he could talk he can talk you in"
+      },
+      {
+        "start": 936.07,
+        "duration": 3.99,
+        "text": "circles about jvm and performance tuning"
+      },
+      {
+        "start": 938.29,
+        "duration": 4.22,
+        "text": "but with that being said or talk to some"
+      },
+      {
+        "start": 940.06,
+        "duration": 4.41,
+        "text": "of the data folks guys data sack spokes"
+      },
+      {
+        "start": 942.51,
+        "duration": 4.269,
+        "text": "Shannon was just a little too much for"
+      },
+      {
+        "start": 944.47,
+        "duration": 6.45,
+        "text": "the Raspberry Pi when a lot of overhead"
+      },
+      {
+        "start": 946.779,
+        "duration": 6.451,
+        "text": "you know available so kind of"
+      },
+      {
+        "start": 950.92,
+        "duration": 4.26,
+        "text": "summarizing what that all means we"
+      },
+      {
+        "start": 953.23,
+        "duration": 4.29,
+        "text": "realized the advantages of doing science"
+      },
+      {
+        "start": 955.18,
+        "duration": 4.08,
+        "text": "at the edge we were able to kind of do a"
+      },
+      {
+        "start": 957.52,
+        "duration": 3.9,
+        "text": "continuous assessment by processing the"
+      },
+      {
+        "start": 959.26,
+        "duration": 5.639,
+        "text": "data hourly and batch which is what"
+      },
+      {
+        "start": 961.42,
+        "duration": 5.13,
+        "text": "worked best for our seismic method we"
+      },
+      {
+        "start": 964.899,
+        "duration": 4.261,
+        "text": "had the option to leave the array out"
+      },
+      {
+        "start": 966.55,
+        "duration": 4.14,
+        "text": "there longer or shorter if we got the"
+      },
+      {
+        "start": 969.16,
+        "duration": 3.33,
+        "text": "convergence that we were looking for and"
+      },
+      {
+        "start": 970.69,
+        "duration": 3.51,
+        "text": "then of course we had a high level of"
+      },
+      {
+        "start": 972.49,
+        "duration": 3.24,
+        "text": "confidence that the survey was completed"
+      },
+      {
+        "start": 974.2,
+        "duration": 3.53,
+        "text": "right we knew when we were done which is"
+      },
+      {
+        "start": 975.73,
+        "duration": 4.26,
+        "text": "difficult and passive seismic methods"
+      },
+      {
+        "start": 977.73,
+        "duration": 4.54,
+        "text": "but the recommendations that we came up"
+      },
+      {
+        "start": 979.99,
+        "duration": 3.539,
+        "text": "with after that first event was we"
+      },
+      {
+        "start": 982.27,
+        "duration": 3.36,
+        "text": "needed a better architecture and we"
+      },
+      {
+        "start": 983.529,
+        "duration": 4.921,
+        "text": "needed some better tech we needed to"
+      },
+      {
+        "start": 985.63,
+        "duration": 5.04,
+        "text": "scale up to 150 nodes the first year of"
+      },
+      {
+        "start": 988.45,
+        "duration": 3.84,
+        "text": "this work for DOA was 20 nodes next year"
+      },
+      {
+        "start": 990.67,
+        "duration": 4.59,
+        "text": "second year funding was contingent upon"
+      },
+      {
+        "start": 992.29,
+        "duration": 4.47,
+        "text": "delivering approximately 150 nodes we"
+      },
+      {
+        "start": 995.26,
+        "duration": 3.21,
+        "text": "needed a robust architecture that could"
+      },
+      {
+        "start": 996.76,
+        "duration": 4.11,
+        "text": "handle failure and of course we needed"
+      },
+      {
+        "start": 998.47,
+        "duration": 3.96,
+        "text": "to transition from this one cluster with"
+      },
+      {
+        "start": 1000.87,
+        "duration": 2.49,
+        "text": "you know big data center another data"
+      },
+      {
+        "start": 1002.43,
+        "duration": 2.64,
+        "text": "center to something that was a little"
+      },
+      {
+        "start": 1003.36,
+        "duration": 3.09,
+        "text": "bit more nimble and then of course we"
+      },
+      {
+        "start": 1005.07,
+        "duration": 3.09,
+        "text": "need to be able to exercise more control"
+      },
+      {
+        "start": 1006.45,
+        "duration": 5.67,
+        "text": "over the data traffic so with that being"
+      },
+      {
+        "start": 1008.16,
+        "duration": 5.1,
+        "text": "said I did my research yes sir you give"
+      },
+      {
+        "start": 1012.12,
+        "duration": 8.04,
+        "text": "me a chance to drink water don't feel"
+      },
+      {
+        "start": 1013.26,
+        "duration": 8.67,
+        "text": "bad are so what we're doing is we're"
+      },
+      {
+        "start": 1020.16,
+        "duration": 4.14,
+        "text": "stacking data to converge the greens"
+      },
+      {
+        "start": 1021.93,
+        "duration": 4.35,
+        "text": "function right so this is a seismic"
+      },
+      {
+        "start": 1024.3,
+        "duration": 3.87,
+        "text": "thing not convergence from a database"
+      },
+      {
+        "start": 1026.28,
+        "duration": 5.1,
+        "text": "you know as far as what is here is here"
+      },
+      {
+        "start": 1028.17,
+        "duration": 5.039,
+        "text": "this is a seismic processing artifact"
+      },
+      {
+        "start": 1031.38,
+        "duration": 3.66,
+        "text": "that we're looking for which is to say"
+      },
+      {
+        "start": 1033.209,
+        "duration": 3.961,
+        "text": "it is zero when it is supposed to be"
+      },
+      {
+        "start": 1035.04,
+        "duration": 3.87,
+        "text": "zero so essentially it's like knowing"
+      },
+      {
+        "start": 1037.17,
+        "duration": 5.46,
+        "text": "when you're done if your signal is no"
+      },
+      {
+        "start": 1038.91,
+        "duration": 5.7,
+        "text": "longer improving you're done oh I'm"
+      },
+      {
+        "start": 1042.63,
+        "duration": 3.6,
+        "text": "sorry the question was convergence he"
+      },
+      {
+        "start": 1044.61,
+        "duration": 3.63,
+        "text": "was asking what I meant by convergence"
+      },
+      {
+        "start": 1046.23,
+        "duration": 3.03,
+        "text": "what I was saying was that he was"
+      },
+      {
+        "start": 1048.24,
+        "duration": 3.51,
+        "text": "thinking that I was talking about"
+      },
+      {
+        "start": 1049.26,
+        "duration": 3.33,
+        "text": "database convergence like as far as kind"
+      },
+      {
+        "start": 1051.75,
+        "duration": 2.4,
+        "text": "of like acid"
+      },
+      {
+        "start": 1052.59,
+        "duration": 3.11,
+        "text": "you know compliant like you know I was"
+      },
+      {
+        "start": 1054.15,
+        "duration": 4.55,
+        "text": "talking this is a seismic signal itself"
+      },
+      {
+        "start": 1055.7,
+        "duration": 3.0,
+        "text": "sorry"
+      },
+      {
+        "start": 1066.36,
+        "duration": 4.45,
+        "text": "on the solution correct that's that's"
+      },
+      {
+        "start": 1069.16,
+        "duration": 6.72,
+        "text": "the whole point behind it's a no 1"
+      },
+      {
+        "start": 1070.81,
+        "duration": 7.35,
+        "text": "you're done you can model it but the"
+      },
+      {
+        "start": 1075.88,
+        "duration": 4.86,
+        "text": "issue that you have is the you're going"
+      },
+      {
+        "start": 1078.16,
+        "duration": 4.74,
+        "text": "off of ambient noise so for instance if"
+      },
+      {
+        "start": 1080.74,
+        "duration": 3.99,
+        "text": "a train happens to be coming by you fill"
+      },
+      {
+        "start": 1082.9,
+        "duration": 3.75,
+        "text": "in some frequencies if there happened to"
+      },
+      {
+        "start": 1084.73,
+        "duration": 3.72,
+        "text": "be a small seismic event micro seismic"
+      },
+      {
+        "start": 1086.65,
+        "duration": 4.14,
+        "text": "event a little you might fill in some"
+      },
+      {
+        "start": 1088.45,
+        "duration": 4.11,
+        "text": "other frequencies no one source produces"
+      },
+      {
+        "start": 1090.79,
+        "duration": 3.93,
+        "text": "all the frequencies that you're"
+      },
+      {
+        "start": 1092.56,
+        "duration": 12.09,
+        "text": "interested in human noise is typically"
+      },
+      {
+        "start": 1094.72,
+        "duration": 11.31,
+        "text": "above 10 Hertz in a sense convergence is"
+      },
+      {
+        "start": 1104.65,
+        "duration": 6.03,
+        "text": "basically you've just arrived at a"
+      },
+      {
+        "start": 1106.03,
+        "duration": 8.13,
+        "text": "solution we can talk offline yeah so"
+      },
+      {
+        "start": 1110.68,
+        "duration": 5.31,
+        "text": "moving forward what I did is I upgraded"
+      },
+      {
+        "start": 1114.16,
+        "duration": 3.48,
+        "text": "the embedded system for Cassandra so"
+      },
+      {
+        "start": 1115.99,
+        "duration": 3.69,
+        "text": "instead of running out on a Raspberry Pi"
+      },
+      {
+        "start": 1117.64,
+        "duration": 4.11,
+        "text": "I started running it on an ASIS tinker"
+      },
+      {
+        "start": 1119.68,
+        "duration": 4.05,
+        "text": "tinker is very similar to the Raspberry"
+      },
+      {
+        "start": 1121.75,
+        "duration": 5.67,
+        "text": "Pi but it has a second gig of ram it has"
+      },
+      {
+        "start": 1123.73,
+        "duration": 5.58,
+        "text": "2 gigs of ram I added I modified the"
+      },
+      {
+        "start": 1127.42,
+        "duration": 3.48,
+        "text": "workload to the to the rapier to the"
+      },
+      {
+        "start": 1129.31,
+        "duration": 4.59,
+        "text": "Raspberry Pi because basically I had one"
+      },
+      {
+        "start": 1130.9,
+        "duration": 4.86,
+        "text": "seismic system per Raspberry Pi and if"
+      },
+      {
+        "start": 1133.9,
+        "duration": 3.18,
+        "text": "I'm not running Cassandra on it that"
+      },
+      {
+        "start": 1135.76,
+        "duration": 3.51,
+        "text": "thing is going to be sitting there idle"
+      },
+      {
+        "start": 1137.08,
+        "duration": 4.14,
+        "text": "the vast majority of the time so I upped"
+      },
+      {
+        "start": 1139.27,
+        "duration": 3.78,
+        "text": "it to three seismic systems for a"
+      },
+      {
+        "start": 1141.22,
+        "duration": 2.73,
+        "text": "Raspberry Pi primarily once again to"
+      },
+      {
+        "start": 1143.05,
+        "duration": 4.26,
+        "text": "reduce cost"
+      },
+      {
+        "start": 1143.95,
+        "duration": 5.25,
+        "text": "I utilize DSC advanced replication which"
+      },
+      {
+        "start": 1147.31,
+        "duration": 4.26,
+        "text": "I'll talk about in a second and then of"
+      },
+      {
+        "start": 1149.2,
+        "duration": 4.35,
+        "text": "course I kind of made some ideological"
+      },
+      {
+        "start": 1151.57,
+        "duration": 3.96,
+        "text": "decisions to be creative with a solution"
+      },
+      {
+        "start": 1153.55,
+        "duration": 4.2,
+        "text": "but then also not to do anything weird"
+      },
+      {
+        "start": 1155.53,
+        "duration": 4.14,
+        "text": "with Cassandra and I know that there may"
+      },
+      {
+        "start": 1157.75,
+        "duration": 3.75,
+        "text": "be some IT professionals in the room you"
+      },
+      {
+        "start": 1159.67,
+        "duration": 3.69,
+        "text": "know what I mean by weird where you use"
+      },
+      {
+        "start": 1161.5,
+        "duration": 3.3,
+        "text": "a piece of software or a solution in a"
+      },
+      {
+        "start": 1163.36,
+        "duration": 3.36,
+        "text": "way that it wasn't intended because it"
+      },
+      {
+        "start": 1164.8,
+        "duration": 4.05,
+        "text": "satisfies your immediate need but long"
+      },
+      {
+        "start": 1166.72,
+        "duration": 3.9,
+        "text": "term it's not sustainable that's what I"
+      },
+      {
+        "start": 1168.85,
+        "duration": 3.93,
+        "text": "mean by weird doing some crazy stuff"
+      },
+      {
+        "start": 1170.62,
+        "duration": 6.81,
+        "text": "with key spaces or tables or whatnot and"
+      },
+      {
+        "start": 1172.78,
+        "duration": 7.62,
+        "text": "Cassandra so DSC is a is a product that"
+      },
+      {
+        "start": 1177.43,
+        "duration": 5.94,
+        "text": "is an add-on right and you know James"
+      },
+      {
+        "start": 1180.4,
+        "duration": 4.05,
+        "text": "talked about graph and solar right full"
+      },
+      {
+        "start": 1183.37,
+        "duration": 3.66,
+        "text": "index searching and he talked about"
+      },
+      {
+        "start": 1184.45,
+        "duration": 4.62,
+        "text": "spark but another product that data"
+      },
+      {
+        "start": 1187.03,
+        "duration": 3.51,
+        "text": "sacks offers is advanced replication now"
+      },
+      {
+        "start": 1189.07,
+        "duration": 2.01,
+        "text": "what advanced replication does is a"
+      },
+      {
+        "start": 1190.54,
+        "duration": 4.44,
+        "text": "basic"
+      },
+      {
+        "start": 1191.08,
+        "duration": 5.849,
+        "text": "allows two different clusters to talk to"
+      },
+      {
+        "start": 1194.98,
+        "duration": 3.75,
+        "text": "each other in a way such that if the"
+      },
+      {
+        "start": 1196.929,
+        "duration": 4.651,
+        "text": "communications link between them goes"
+      },
+      {
+        "start": 1198.73,
+        "duration": 5.39,
+        "text": "down when that link comes back up it"
+      },
+      {
+        "start": 1201.58,
+        "duration": 5.939,
+        "text": "just starts talking again this is a"
+      },
+      {
+        "start": 1204.12,
+        "duration": 5.32,
+        "text": "developed for applications such as oil"
+      },
+      {
+        "start": 1207.519,
+        "duration": 4.621,
+        "text": "and gas where you have a rig"
+      },
+      {
+        "start": 1209.44,
+        "duration": 3.93,
+        "text": "communicating back to headquarters you"
+      },
+      {
+        "start": 1212.14,
+        "duration": 3.06,
+        "text": "have a rig communicating back to"
+      },
+      {
+        "start": 1213.37,
+        "duration": 3.27,
+        "text": "headquarters the two rigs don't need to"
+      },
+      {
+        "start": 1215.2,
+        "duration": 2.969,
+        "text": "talk to each other but they both need to"
+      },
+      {
+        "start": 1216.64,
+        "duration": 3.3,
+        "text": "talk back to headquarters and then"
+      },
+      {
+        "start": 1218.169,
+        "duration": 3.39,
+        "text": "headquarters needs to replicate the data"
+      },
+      {
+        "start": 1219.94,
+        "duration": 3.359,
+        "text": "to a different data center maybe in"
+      },
+      {
+        "start": 1221.559,
+        "duration": 4.5,
+        "text": "another location or in the cloud right"
+      },
+      {
+        "start": 1223.299,
+        "duration": 4.171,
+        "text": "which data stacks Apache Cassandra is"
+      },
+      {
+        "start": 1226.059,
+        "duration": 3.72,
+        "text": "really good at doing this sort of"
+      },
+      {
+        "start": 1227.47,
+        "duration": 5.49,
+        "text": "replication from location to location as"
+      },
+      {
+        "start": 1229.779,
+        "duration": 4.77,
+        "text": "joe says automatically so this is what I"
+      },
+      {
+        "start": 1232.96,
+        "duration": 6.24,
+        "text": "was leveraging with advance replication"
+      },
+      {
+        "start": 1234.549,
+        "duration": 6.0,
+        "text": "this hub-and-spoke to Paula G so with"
+      },
+      {
+        "start": 1239.2,
+        "duration": 2.579,
+        "text": "that being said let me introduce you to"
+      },
+      {
+        "start": 1240.549,
+        "duration": 3.84,
+        "text": "the architecture and some of the players"
+      },
+      {
+        "start": 1241.779,
+        "duration": 5.13,
+        "text": "here the symbols here you know purple"
+      },
+      {
+        "start": 1244.389,
+        "duration": 4.77,
+        "text": "triangle is a ref tech squares raspberry"
+      },
+      {
+        "start": 1246.909,
+        "duration": 6.691,
+        "text": "pi circle as the Asus tinkerer so what"
+      },
+      {
+        "start": 1249.159,
+        "duration": 7.711,
+        "text": "you have is nine ref Tech's connected to"
+      },
+      {
+        "start": 1253.6,
+        "duration": 6.36,
+        "text": "three raspberry PI's connected to one"
+      },
+      {
+        "start": 1256.87,
+        "duration": 4.62,
+        "text": "Asus tinkerer this is called a flight I"
+      },
+      {
+        "start": 1259.96,
+        "duration": 3.599,
+        "text": "came up with this name while I was"
+      },
+      {
+        "start": 1261.49,
+        "duration": 3.84,
+        "text": "sitting at the bar in New Orleans"
+      },
+      {
+        "start": 1263.559,
+        "duration": 6.151,
+        "text": "waiting for a plane we can get imagine"
+      },
+      {
+        "start": 1265.33,
+        "duration": 7.579,
+        "text": "what I was drinking you take multiple"
+      },
+      {
+        "start": 1269.71,
+        "duration": 11.67,
+        "text": "flights and you end up with a squadron"
+      },
+      {
+        "start": 1272.909,
+        "duration": 9.61,
+        "text": "okay it is not running on the place I'll"
+      },
+      {
+        "start": 1281.38,
+        "duration": 2.46,
+        "text": "show you a slide right now where"
+      },
+      {
+        "start": 1282.519,
+        "duration": 2.971,
+        "text": "Cassandra's actually running I'm just"
+      },
+      {
+        "start": 1283.84,
+        "duration": 3.9,
+        "text": "introducing the characters right now a"
+      },
+      {
+        "start": 1285.49,
+        "duration": 3.87,
+        "text": "good question and of course each"
+      },
+      {
+        "start": 1287.74,
+        "duration": 3.36,
+        "text": "squadron has to have a headquarters the"
+      },
+      {
+        "start": 1289.36,
+        "duration": 3.569,
+        "text": "headquarters would be some centralized"
+      },
+      {
+        "start": 1291.1,
+        "duration": 5.039,
+        "text": "location in our case it's the center of"
+      },
+      {
+        "start": 1292.929,
+        "duration": 4.35,
+        "text": "the line where our little tent is but it"
+      },
+      {
+        "start": 1296.139,
+        "duration": 4.831,
+        "text": "could be anywhere could be in the cloud"
+      },
+      {
+        "start": 1297.279,
+        "duration": 5.49,
+        "text": "could be on the moon doesn't matter so"
+      },
+      {
+        "start": 1300.97,
+        "duration": 3.99,
+        "text": "where's Cassandra running to answer a"
+      },
+      {
+        "start": 1302.769,
+        "duration": 4.981,
+        "text": "gentleman's question what we have now is"
+      },
+      {
+        "start": 1304.96,
+        "duration": 4.17,
+        "text": "a four node cluster which is handing our"
+      },
+      {
+        "start": 1307.75,
+        "duration": 3.72,
+        "text": "transactional workload running on the"
+      },
+      {
+        "start": 1309.13,
+        "duration": 4.71,
+        "text": "ASIS tinkers that is then replicating"
+      },
+      {
+        "start": 1311.47,
+        "duration": 3.75,
+        "text": "data using advanced replication to a"
+      },
+      {
+        "start": 1313.84,
+        "duration": 3.42,
+        "text": "four node cluster running at"
+      },
+      {
+        "start": 1315.22,
+        "duration": 4.439,
+        "text": "headquarters and this is per squadron"
+      },
+      {
+        "start": 1317.26,
+        "duration": 4.23,
+        "text": "right and then of course attached to"
+      },
+      {
+        "start": 1319.659,
+        "duration": 3.301,
+        "text": "this is where I have my laptop and"
+      },
+      {
+        "start": 1321.49,
+        "duration": 2.94,
+        "text": "actually we're using an Intel nook just"
+      },
+      {
+        "start": 1322.96,
+        "duration": 3.33,
+        "text": "because it's lower power and"
+      },
+      {
+        "start": 1324.43,
+        "duration": 2.97,
+        "text": "I kind of broke my laptop the last time"
+      },
+      {
+        "start": 1326.29,
+        "duration": 4.41,
+        "text": "I was in the desert so I don't want to"
+      },
+      {
+        "start": 1327.4,
+        "duration": 5.85,
+        "text": "do that again so that's what the"
+      },
+      {
+        "start": 1330.7,
+        "duration": 4.74,
+        "text": "architecture looks like so let's talk"
+      },
+      {
+        "start": 1333.25,
+        "duration": 5.64,
+        "text": "about the connectivity how everything is"
+      },
+      {
+        "start": 1335.44,
+        "duration": 5.19,
+        "text": "connected between the ref Tech and the"
+      },
+      {
+        "start": 1338.89,
+        "duration": 4.56,
+        "text": "raspberry PI's everything's hardwired"
+      },
+      {
+        "start": 1340.63,
+        "duration": 4.35,
+        "text": "and the main reason is is the only way"
+      },
+      {
+        "start": 1343.45,
+        "duration": 3.63,
+        "text": "for us to really make there's no Wi-Fi"
+      },
+      {
+        "start": 1344.98,
+        "duration": 4.2,
+        "text": "option on the ref tech that I'm aware of"
+      },
+      {
+        "start": 1347.08,
+        "duration": 3.54,
+        "text": "and the only way we could do it is if we"
+      },
+      {
+        "start": 1349.18,
+        "duration": 3.03,
+        "text": "were to use some Ethernet bridges which"
+      },
+      {
+        "start": 1350.62,
+        "duration": 3.0,
+        "text": "once again you know a pair will cost you"
+      },
+      {
+        "start": 1352.21,
+        "duration": 2.79,
+        "text": "you know five to nine hundred dollars"
+      },
+      {
+        "start": 1353.62,
+        "duration": 3.9,
+        "text": "which is kind of cost prohibitive"
+      },
+      {
+        "start": 1355.0,
+        "duration": 3.809,
+        "text": "so these stay hardwired essentially what"
+      },
+      {
+        "start": 1357.52,
+        "duration": 5.34,
+        "text": "we do is we just stretch them using"
+      },
+      {
+        "start": 1358.809,
+        "duration": 6.721,
+        "text": "Ethernet cable down the line the next"
+      },
+      {
+        "start": 1362.86,
+        "duration": 4.29,
+        "text": "level here is the connection between the"
+      },
+      {
+        "start": 1365.53,
+        "duration": 3.27,
+        "text": "raspberry PI's and the Asus tinker's"
+      },
+      {
+        "start": 1367.15,
+        "duration": 3.45,
+        "text": "well the raspberry PI's have Wi-Fi"
+      },
+      {
+        "start": 1368.8,
+        "duration": 3.84,
+        "text": "capability and the teachers have Wi-Fi"
+      },
+      {
+        "start": 1370.6,
+        "duration": 4.05,
+        "text": "capability but they also have Ethernet"
+      },
+      {
+        "start": 1372.64,
+        "duration": 5.82,
+        "text": "capability so this can be either hard"
+      },
+      {
+        "start": 1374.65,
+        "duration": 5.52,
+        "text": "wired or Wireless above that you then"
+      },
+      {
+        "start": 1378.46,
+        "duration": 3.21,
+        "text": "have wireless connectivity between the"
+      },
+      {
+        "start": 1380.17,
+        "duration": 3.18,
+        "text": "squadron and the headquarters now"
+      },
+      {
+        "start": 1381.67,
+        "duration": 4.32,
+        "text": "obviously at this point you're dealing"
+      },
+      {
+        "start": 1383.35,
+        "duration": 5.01,
+        "text": "with distances that go beyond the 300"
+      },
+      {
+        "start": 1385.99,
+        "duration": 4.56,
+        "text": "feet that you're allowed for Ethernet or"
+      },
+      {
+        "start": 1388.36,
+        "duration": 3.81,
+        "text": "that is recommended for Ethernet but if"
+      },
+      {
+        "start": 1390.55,
+        "duration": 3.18,
+        "text": "you had media converters you could"
+      },
+      {
+        "start": 1392.17,
+        "duration": 5.97,
+        "text": "convert it to fiber it doesn't matter"
+      },
+      {
+        "start": 1393.73,
+        "duration": 6.48,
+        "text": "it's using tcp/ip right and then of"
+      },
+      {
+        "start": 1398.14,
+        "duration": 3.45,
+        "text": "course at the headquarters level now"
+      },
+      {
+        "start": 1400.21,
+        "duration": 2.76,
+        "text": "these are all sitting next to each other"
+      },
+      {
+        "start": 1401.59,
+        "duration": 2.64,
+        "text": "they're all hardwired through a switch"
+      },
+      {
+        "start": 1402.97,
+        "duration": 2.67,
+        "text": "there's no reason to connect them"
+      },
+      {
+        "start": 1404.23,
+        "duration": 2.55,
+        "text": "through anything else they're literally"
+      },
+      {
+        "start": 1405.64,
+        "duration": 2.88,
+        "text": "sitting right next to each other on a"
+      },
+      {
+        "start": 1406.78,
+        "duration": 7.76,
+        "text": "rack so that's kind of the architecture"
+      },
+      {
+        "start": 1408.52,
+        "duration": 6.02,
+        "text": "any questions here good yes"
+      },
+      {
+        "start": 1419.019,
+        "duration": 4.75,
+        "text": "what the headquarter node is doing is"
+      },
+      {
+        "start": 1421.7,
+        "duration": 5.13,
+        "text": "its serving up the data from for a query"
+      },
+      {
+        "start": 1423.769,
+        "duration": 4.591,
+        "text": "right so the dilemma with time series"
+      },
+      {
+        "start": 1426.83,
+        "duration": 3.12,
+        "text": "data is if I were to use something like"
+      },
+      {
+        "start": 1428.36,
+        "duration": 5.37,
+        "text": "you know my sequel or something at the"
+      },
+      {
+        "start": 1429.95,
+        "duration": 8.4,
+        "text": "edge the performance is very slow I can"
+      },
+      {
+        "start": 1433.73,
+        "duration": 7.98,
+        "text": "write data for each node for an entire"
+      },
+      {
+        "start": 1438.35,
+        "duration": 5.819,
+        "text": "squadron if I'm doing them all at the"
+      },
+      {
+        "start": 1441.71,
+        "duration": 4.98,
+        "text": "same time I can get about maybe 1400"
+      },
+      {
+        "start": 1444.169,
+        "duration": 5.37,
+        "text": "writes per second at each node which is"
+      },
+      {
+        "start": 1446.69,
+        "duration": 5.67,
+        "text": "fast enough to handle my 50 Hertz one"
+      },
+      {
+        "start": 1449.539,
+        "duration": 5.461,
+        "text": "channel you know 9 seismic systems and"
+      },
+      {
+        "start": 1452.36,
+        "duration": 4.08,
+        "text": "when I'm reading I don't have any"
+      },
+      {
+        "start": 1455.0,
+        "duration": 4.94,
+        "text": "benchmarks as I'm testing it right now"
+      },
+      {
+        "start": 1456.44,
+        "duration": 7.38,
+        "text": "but I can pull an hour's worth of data"
+      },
+      {
+        "start": 1459.94,
+        "duration": 6.67,
+        "text": "for an entire squadron I want to say in"
+      },
+      {
+        "start": 1463.82,
+        "duration": 5.94,
+        "text": "about 7 minutes right so you're looking"
+      },
+      {
+        "start": 1466.61,
+        "duration": 6.9,
+        "text": "at you know 60 times 60 times 50"
+      },
+      {
+        "start": 1469.76,
+        "duration": 5.94,
+        "text": "whatever that is so basically I'm able"
+      },
+      {
+        "start": 1473.51,
+        "duration": 4.049,
+        "text": "to query the data out very quickly"
+      },
+      {
+        "start": 1475.7,
+        "duration": 3.87,
+        "text": "considering the very modest hardware"
+      },
+      {
+        "start": 1477.559,
+        "duration": 3.271,
+        "text": "that I'm using and the reason that is"
+      },
+      {
+        "start": 1479.57,
+        "duration": 3.69,
+        "text": "and this gets a little deeper into"
+      },
+      {
+        "start": 1480.83,
+        "duration": 4.68,
+        "text": "Apache Cassandra but what it is is and"
+      },
+      {
+        "start": 1483.26,
+        "duration": 3.87,
+        "text": "this just happens to be the structure of"
+      },
+      {
+        "start": 1485.51,
+        "duration": 4.879,
+        "text": "Apache Cassandra of course data Stax's"
+      },
+      {
+        "start": 1487.13,
+        "duration": 5.94,
+        "text": "that time series data is written to disk"
+      },
+      {
+        "start": 1490.389,
+        "duration": 5.41,
+        "text": "sequentially based on a partitioning"
+      },
+      {
+        "start": 1493.07,
+        "duration": 4.979,
+        "text": "algorithm so when I say pull an hour's"
+      },
+      {
+        "start": 1495.799,
+        "duration": 5.461,
+        "text": "worth of data for a specific station for"
+      },
+      {
+        "start": 1498.049,
+        "duration": 6.331,
+        "text": "specific channel it knows exactly where"
+      },
+      {
+        "start": 1501.26,
+        "duration": 5.1,
+        "text": "that data is on the SD card right and it"
+      },
+      {
+        "start": 1504.38,
+        "duration": 3.659,
+        "text": "goes exactly to that location and reads"
+      },
+      {
+        "start": 1506.36,
+        "duration": 3.059,
+        "text": "off that hours worth of data which is"
+      },
+      {
+        "start": 1508.039,
+        "duration": 2.461,
+        "text": "how we're able to get these read and"
+      },
+      {
+        "start": 1509.419,
+        "duration": 2.76,
+        "text": "write speeds"
+      },
+      {
+        "start": 1510.5,
+        "duration": 3.69,
+        "text": "once again I leave it to the data sets"
+      },
+      {
+        "start": 1512.179,
+        "duration": 3.12,
+        "text": "folks or if you want to talk offline to"
+      },
+      {
+        "start": 1514.19,
+        "duration": 3.27,
+        "text": "answer some more in-depth questions"
+      },
+      {
+        "start": 1515.299,
+        "duration": 4.321,
+        "text": "around the actual underlying"
+      },
+      {
+        "start": 1517.46,
+        "duration": 4.64,
+        "text": "architecture of Cassandra I'm happy to"
+      },
+      {
+        "start": 1519.62,
+        "duration": 2.48,
+        "text": "talk about it"
+      },
+      {
+        "start": 1527.679,
+        "duration": 3.271,
+        "text": "it's what"
+      },
+      {
+        "start": 1532.12,
+        "duration": 5.74,
+        "text": "it's all noise we are introducing no"
+      },
+      {
+        "start": 1535.19,
+        "duration": 4.98,
+        "text": "signals we may get some random signals"
+      },
+      {
+        "start": 1537.86,
+        "duration": 20.55,
+        "text": "that occur some impulsive signals but we"
+      },
+      {
+        "start": 1540.17,
+        "duration": 20.57,
+        "text": "are it's all noise correct so the reason"
+      },
+      {
+        "start": 1558.41,
+        "duration": 5.64,
+        "text": "why we have to use all of the data is"
+      },
+      {
+        "start": 1560.74,
+        "duration": 5.77,
+        "text": "it's from a seismic perspective what"
+      },
+      {
+        "start": 1564.05,
+        "duration": 5.25,
+        "text": "ends up happening is you basically stack"
+      },
+      {
+        "start": 1566.51,
+        "duration": 5.28,
+        "text": "the data noise has a tendency of"
+      },
+      {
+        "start": 1569.3,
+        "duration": 4.68,
+        "text": "canceling out signal has a tendency of"
+      },
+      {
+        "start": 1571.79,
+        "duration": 3.72,
+        "text": "multiplying right so essentially a you"
+      },
+      {
+        "start": 1573.98,
+        "duration": 2.58,
+        "text": "know of stacking up so that's"
+      },
+      {
+        "start": 1575.51,
+        "duration": 3.11,
+        "text": "essentially what we're doing so we're"
+      },
+      {
+        "start": 1576.56,
+        "duration": 4.2,
+        "text": "just pretty much acquiring all the noise"
+      },
+      {
+        "start": 1578.62,
+        "duration": 4.45,
+        "text": "stacking it which is why we pull out all"
+      },
+      {
+        "start": 1580.76,
+        "duration": 4.92,
+        "text": "of it hourly and it just continuously"
+      },
+      {
+        "start": 1583.07,
+        "duration": 5.01,
+        "text": "feeds into our processing and just"
+      },
+      {
+        "start": 1585.68,
+        "duration": 17.79,
+        "text": "improves our result does that answer"
+      },
+      {
+        "start": 1588.08,
+        "duration": 19.83,
+        "text": "your question you out here at the edge"
+      },
+      {
+        "start": 1603.47,
+        "duration": 6.06,
+        "text": "we could the sacrifice would be so one"
+      },
+      {
+        "start": 1607.91,
+        "duration": 3.38,
+        "text": "of the things about about Cassandra and"
+      },
+      {
+        "start": 1609.53,
+        "duration": 4.14,
+        "text": "data stacks is it's typically"
+      },
+      {
+        "start": 1611.29,
+        "duration": 4.63,
+        "text": "architected or deployed in a multi"
+      },
+      {
+        "start": 1613.67,
+        "duration": 3.72,
+        "text": "workload fashion so for instance you"
+      },
+      {
+        "start": 1615.92,
+        "duration": 3.0,
+        "text": "have clusters that are dedicated to"
+      },
+      {
+        "start": 1617.39,
+        "duration": 3.33,
+        "text": "transactions you have clusters that are"
+      },
+      {
+        "start": 1618.92,
+        "duration": 3.69,
+        "text": "dedicated to analytics if you're gonna"
+      },
+      {
+        "start": 1620.72,
+        "duration": 3.54,
+        "text": "need spark you stand up a cluster you"
+      },
+      {
+        "start": 1622.61,
+        "duration": 4.41,
+        "text": "replicate the data you run spark on that"
+      },
+      {
+        "start": 1624.26,
+        "duration": 5.46,
+        "text": "my concern would be by trying to do any"
+      },
+      {
+        "start": 1627.02,
+        "duration": 4.53,
+        "text": "additional processing out here we would"
+      },
+      {
+        "start": 1629.72,
+        "duration": 3.78,
+        "text": "potentially cause problems with the"
+      },
+      {
+        "start": 1631.55,
+        "duration": 4.44,
+        "text": "ingest of the data but there's a very"
+      },
+      {
+        "start": 1633.5,
+        "duration": 4.41,
+        "text": "simple solution for that add another"
+      },
+      {
+        "start": 1635.99,
+        "duration": 3.54,
+        "text": "data center out here and make this a -"
+      },
+      {
+        "start": 1637.91,
+        "duration": 4.02,
+        "text": "data center cluster all that's going to"
+      },
+      {
+        "start": 1639.53,
+        "duration": 6.66,
+        "text": "cost you is four more aces tinkers which"
+      },
+      {
+        "start": 1641.93,
+        "duration": 7.95,
+        "text": "is about $180 just so you could do that"
+      },
+      {
+        "start": 1646.19,
+        "duration": 5.99,
+        "text": "if it could be done that we could talk"
+      },
+      {
+        "start": 1649.88,
+        "duration": 2.3,
+        "text": "offline"
+      },
+      {
+        "start": 1660.2,
+        "duration": 16.12,
+        "text": "as far as error as far as the data"
+      },
+      {
+        "start": 1663.63,
+        "duration": 14.91,
+        "text": "ingest it's a trade-off it's a"
+      },
+      {
+        "start": 1676.32,
+        "duration": 3.96,
+        "text": "performance I mean the limit to how much"
+      },
+      {
+        "start": 1678.54,
+        "duration": 3.21,
+        "text": "data you would want to put on an"
+      },
+      {
+        "start": 1680.28,
+        "duration": 4.26,
+        "text": "individual Cassandra node is about two"
+      },
+      {
+        "start": 1681.75,
+        "duration": 4.47,
+        "text": "terabytes so we're way under that right"
+      },
+      {
+        "start": 1684.54,
+        "duration": 3.06,
+        "text": "the issue here is the modest the"
+      },
+      {
+        "start": 1686.22,
+        "duration": 3.63,
+        "text": "limiting factor is the modest"
+      },
+      {
+        "start": 1687.6,
+        "duration": 4.26,
+        "text": "capabilities of these nodes and the"
+      },
+      {
+        "start": 1689.85,
+        "duration": 3.93,
+        "text": "telemetry method that we're using but"
+      },
+      {
+        "start": 1691.86,
+        "duration": 5.97,
+        "text": "well I got like one more slide and then"
+      },
+      {
+        "start": 1693.78,
+        "duration": 6.51,
+        "text": "we can talk all right so with that being"
+      },
+      {
+        "start": 1697.83,
+        "duration": 4.62,
+        "text": "said what's next"
+      },
+      {
+        "start": 1700.29,
+        "duration": 4.32,
+        "text": "so this talk I was originally planning"
+      },
+      {
+        "start": 1702.45,
+        "duration": 4.11,
+        "text": "on giving it data stacks accelerate for"
+      },
+      {
+        "start": 1704.61,
+        "duration": 3.24,
+        "text": "those who are unfamiliar data sets"
+      },
+      {
+        "start": 1706.56,
+        "duration": 3.18,
+        "text": "accelerate is going to be you know kind"
+      },
+      {
+        "start": 1707.85,
+        "duration": 3.21,
+        "text": "of like a Cassandra summit that's gonna"
+      },
+      {
+        "start": 1709.74,
+        "duration": 3.03,
+        "text": "be held in Maryland"
+      },
+      {
+        "start": 1711.06,
+        "duration": 2.73,
+        "text": "you know I guess about less than a month"
+      },
+      {
+        "start": 1712.77,
+        "duration": 3.78,
+        "text": "a little bit about a month from now"
+      },
+      {
+        "start": 1713.79,
+        "duration": 4.5,
+        "text": "actually and unfortunately I'm gonna be"
+      },
+      {
+        "start": 1716.55,
+        "duration": 4.11,
+        "text": "in the field so I was supposed to give"
+      },
+      {
+        "start": 1718.29,
+        "duration": 3.96,
+        "text": "this talk on the 22nd but some schedules"
+      },
+      {
+        "start": 1720.66,
+        "duration": 3.36,
+        "text": "shifted a little bit to the right and"
+      },
+      {
+        "start": 1722.25,
+        "duration": 4.59,
+        "text": "now beyond annal 10 so you're the only"
+      },
+      {
+        "start": 1724.02,
+        "duration": 4.44,
+        "text": "ones who get to see this talk right with"
+      },
+      {
+        "start": 1726.84,
+        "duration": 2.94,
+        "text": "that being said you know just to kind of"
+      },
+      {
+        "start": 1728.46,
+        "duration": 4.26,
+        "text": "summarize once again we're looking at"
+      },
+      {
+        "start": 1729.78,
+        "duration": 6.09,
+        "text": "145 44 seismic stations 48 raspberry"
+      },
+      {
+        "start": 1732.72,
+        "duration": 4.86,
+        "text": "PI's 32 tankers looking at DSC running"
+      },
+      {
+        "start": 1735.87,
+        "duration": 4.14,
+        "text": "with Apache excuse me with advanced"
+      },
+      {
+        "start": 1737.58,
+        "duration": 3.99,
+        "text": "replication we have these you know"
+      },
+      {
+        "start": 1740.01,
+        "duration": 3.48,
+        "text": "here's Squadron Squadron Squadron"
+      },
+      {
+        "start": 1741.57,
+        "duration": 3.87,
+        "text": "Squadron so we've got for destination"
+      },
+      {
+        "start": 1743.49,
+        "duration": 3.81,
+        "text": "clusters for source clusters 3 telemetry"
+      },
+      {
+        "start": 1745.44,
+        "duration": 3.72,
+        "text": "options so we're gonna do is do"
+      },
+      {
+        "start": 1747.3,
+        "duration": 3.72,
+        "text": "different iterations we're gonna start"
+      },
+      {
+        "start": 1749.16,
+        "duration": 5.16,
+        "text": "off with a wired option for two days and"
+      },
+      {
+        "start": 1751.02,
+        "duration": 4.89,
+        "text": "swap over to hybrid and then swap over"
+      },
+      {
+        "start": 1754.32,
+        "duration": 3.45,
+        "text": "to wireless and really what I'm looking"
+      },
+      {
+        "start": 1755.91,
+        "duration": 5.4,
+        "text": "at the bottleneck once again is the"
+      },
+      {
+        "start": 1757.77,
+        "duration": 5.4,
+        "text": "telemetry is that right rate how fast I"
+      },
+      {
+        "start": 1761.31,
+        "duration": 4.71,
+        "text": "can write data into the cluster and"
+      },
+      {
+        "start": 1763.17,
+        "duration": 4.95,
+        "text": "replicate it across that's my that's my"
+      },
+      {
+        "start": 1766.02,
+        "duration": 3.3,
+        "text": "throttling point we're gonna test it"
+      },
+      {
+        "start": 1768.12,
+        "duration": 3.06,
+        "text": "with three different considerations"
+      },
+      {
+        "start": 1769.32,
+        "duration": 3.36,
+        "text": "because what I'd like to do is in this"
+      },
+      {
+        "start": 1771.18,
+        "duration": 3.84,
+        "text": "publication which is the goal of all"
+      },
+      {
+        "start": 1772.68,
+        "duration": 5.07,
+        "text": "this is to have some curves that I can"
+      },
+      {
+        "start": 1775.02,
+        "duration": 4.47,
+        "text": "say here's what you should expect right"
+      },
+      {
+        "start": 1777.75,
+        "duration": 5.42,
+        "text": "when you switch telemetry methods this"
+      },
+      {
+        "start": 1779.49,
+        "duration": 3.68,
+        "text": "is the best case this is the worst case"
+      },
+      {
+        "start": 1783.23,
+        "duration": 6.29,
+        "text": "here's what this all looks like"
+      },
+      {
+        "start": 1785.02,
+        "duration": 4.5,
+        "text": "[Laughter]"
+      },
+      {
+        "start": 1789.99,
+        "duration": 4.72,
+        "text": "this is my lab at Baylor these are the"
+      },
+      {
+        "start": 1793.09,
+        "duration": 3.75,
+        "text": "ref texts as you can see there's a bunch"
+      },
+      {
+        "start": 1794.71,
+        "duration": 3.84,
+        "text": "of them and what I'm doing right here is"
+      },
+      {
+        "start": 1796.84,
+        "duration": 3.93,
+        "text": "I'm doing some configuration as well as"
+      },
+      {
+        "start": 1798.55,
+        "duration": 4.8,
+        "text": "you know just kind of some testing we're"
+      },
+      {
+        "start": 1800.77,
+        "duration": 3.54,
+        "text": "testing radios kind of you know we don't"
+      },
+      {
+        "start": 1803.35,
+        "duration": 2.19,
+        "text": "want to go out there without having done"
+      },
+      {
+        "start": 1804.31,
+        "duration": 3.69,
+        "text": "all the telemetry tests because that can"
+      },
+      {
+        "start": 1805.54,
+        "duration": 4.62,
+        "text": "be a bear here you can see the rack so"
+      },
+      {
+        "start": 1808.0,
+        "duration": 6.06,
+        "text": "this rack has the 48 raspberry PI's and"
+      },
+      {
+        "start": 1810.16,
+        "duration": 5.43,
+        "text": "16 ASA stinkers and then off picture"
+      },
+      {
+        "start": 1814.06,
+        "duration": 4.11,
+        "text": "over there on another rack as the other"
+      },
+      {
+        "start": 1815.59,
+        "duration": 5.19,
+        "text": "16 tinker's here's kind of like a closer"
+      },
+      {
+        "start": 1818.17,
+        "duration": 4.41,
+        "text": "up this is my bedroom in my apartment"
+      },
+      {
+        "start": 1820.78,
+        "duration": 3.99,
+        "text": "which is about 15 degrees hotter than"
+      },
+      {
+        "start": 1822.58,
+        "duration": 4.26,
+        "text": "the rest of my apartment and so you know"
+      },
+      {
+        "start": 1824.77,
+        "duration": 4.47,
+        "text": "why now what does this node look like"
+      },
+      {
+        "start": 1826.84,
+        "duration": 4.65,
+        "text": "once you button it up it's very"
+      },
+      {
+        "start": 1829.24,
+        "duration": 4.08,
+        "text": "unassuming it's just a action Packer and"
+      },
+      {
+        "start": 1831.49,
+        "duration": 3.12,
+        "text": "what it has is it has a battery and the"
+      },
+      {
+        "start": 1833.32,
+        "duration": 3.57,
+        "text": "ref tech goes right here you have a"
+      },
+      {
+        "start": 1834.61,
+        "duration": 3.75,
+        "text": "switch you have a DC to DC converter and"
+      },
+      {
+        "start": 1836.89,
+        "duration": 4.05,
+        "text": "then of course right here you have the"
+      },
+      {
+        "start": 1838.36,
+        "duration": 4.41,
+        "text": "Raspberry Pi mounted or the Asus"
+      },
+      {
+        "start": 1840.94,
+        "duration": 3.21,
+        "text": "tinkerer mounted with a little dongle"
+      },
+      {
+        "start": 1842.77,
+        "duration": 5.34,
+        "text": "and then of course there's an antenna"
+      },
+      {
+        "start": 1844.15,
+        "duration": 5.31,
+        "text": "sitting on top I'd like to say thank you"
+      },
+      {
+        "start": 1848.11,
+        "duration": 3.18,
+        "text": "to you all for coming out to hear me"
+      },
+      {
+        "start": 1849.46,
+        "duration": 3.33,
+        "text": "talk I'd like to thank my advisor of"
+      },
+      {
+        "start": 1851.29,
+        "duration": 3.48,
+        "text": "course as well as my collaborators at"
+      },
+      {
+        "start": 1852.79,
+        "duration": 3.81,
+        "text": "Baylor I'd like to thank the data sex"
+      },
+      {
+        "start": 1854.77,
+        "duration": 3.96,
+        "text": "folks for helping organize this as well"
+      },
+      {
+        "start": 1856.6,
+        "duration": 4.5,
+        "text": "as the Houston Energy data science"
+      },
+      {
+        "start": 1858.73,
+        "duration": 3.63,
+        "text": "meetup group and lastly you know I'd"
+      },
+      {
+        "start": 1861.1,
+        "duration": 3.4,
+        "text": "like to thank the Department of Energy"
+      },
+      {
+        "start": 1862.36,
+        "duration": 7.259,
+        "text": "for giving me money"
+      },
+      {
+        "start": 1864.5,
+        "duration": 5.119,
+        "text": "[Applause]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T04:57:53.426269+00:00"
+}

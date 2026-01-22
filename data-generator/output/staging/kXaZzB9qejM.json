@@ -1,0 +1,1284 @@
+{
+  "video_id": "kXaZzB9qejM",
+  "title": "DS320.20 Key/Value Pairs: Joins | DataStax Enterprise Analytics",
+  "description": "#DataStaxAcademy #DS320\nDS320.20 Key/Value Pairs: Joins\nIn this course, you will learn how to effectively and efficiently solve analytical problems with Apache Spark™, Apache Cassandra™, and DataStax Enterprise. You will learn about the Spark API, Spark-Cassandra Connector, Spark SQL, Spark Streaming, and crucial performance optimization techniques.  You will also learn the basics of the productive and robust Scala programming language for data analysis and processing in Apache Spark™.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-16T00:28:59Z",
+  "thumbnail": "https://i.ytimg.com/vi/kXaZzB9qejM/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "performance",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=kXaZzB9qejM",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] now when people learn cassandra data modeling one of the things they learn to give up is a database that does joins for you now that feels like a very powerful feature and it often is for smaller data sets it becomes an expensive thing on large data sets and it's a typical step in relational optimization to give up joins that you had started with at a smaller scale however spark lets us add this back in we want to approach it with some caution because they can still be expensive operations but they are incredibly useful fundamentally what they do is they combine values from two or more pair rdds based on the equality of their keys in practice we can use them for things like enforcing referential integrity and doing schema evolution and data migration and things like that they're really handy we're going to use them here to solve a couple of challenges those are going to be a schema evolution for the playlists by user table we want to add some features to that table and we have to evolve that schema and transform the data to make that happen we're also going to validate some referential integrity constraints for that same table that's another feature that cassandra doesn't natively have you can refer from one table to another that's easy any any database supports that but it's not asserting the integrity of that reference that's a thing that we can go back in with a spark job and make those assertions in a batch process let's take a look at how we do this the join transformation performs a standard inner join if you know relational databases at all and you probably do this behaves exactly the way you'd expect we call join on one rdd passing in the rdd that we're joining and it will look for keys that have the same value and it will create a new rdd containing records of those keys and collections of the values it finds now on this slide we haven't drawn the lines for you and i'd like you actually to stop the video and just trace out with your finger on the screen follow this through as an exercise for yourself and watch the joining happen here between these tables you've got the source rdd on the left the other rdd in the middle and the output rdd on the right go ahead and pause it and see the join take place now if you did that you'll note that the output rdd has two rows for k1 now why is that that's because there are two k1 rows in the left hand rdd with values v1 and v3 and you see those v1 and v3 values show up in the output there is a single k1 row in the other rdd in the middle there with value w1 and so there are as a result two rows in the output rdd where that value shows up likewise there is a single k2 in the left-hand rdd in the right-hand rdd there are two k2s and so we still get two k2 rows in that output k3 and k4 are not common to the two rdds so they don't show up in the output this being an inner join the left outer join transformation works just like a left outer join in a relational database we're getting records in the output that have common keys between the left table and the right table and records in the output that correspond to all of the keys in the left-hand table so if a key shows up in the left-hand table but not in the right-hand table it's still in the output if a key shows up in the right-hand table but not the left-hand table it's not in the output and of course if the key is in both it is in the output so again you might benefit by pausing the video on this slide and just tracing with your finger which keys are common to the left and right tables and whether they show up in the output likewise right outer join except now the direction is switched so if a key only occurs in the left hand rdd but not the right hand rdd it doesn't show up in the output but if it is in the right hand rdd and not the left-hand rdd it will show up in the output and of course if it's common to both it shows up in the output and finally there's full outer join that insists on creating as many records as possible it'll join what it can but if a key only shows up in the left or only shows up on the right that's okay it'll also be in the output this is certainly the most expensive kind of join because it is by definition going to return the largest potential result set now let's look at a schema evolution challenge now this is a problem everywhere it's not like this just crops up in a database like cassandra schema evolution is always hard it's just even harder when you've got that much more data in your schema fortunately spark makes this a pretty achievable problem so we're going to add a couple of columns to our table definition we'll run the alter table statements which you see here to change the metadata we're altering playlists by user we're going to add a column called genres which is a set of strings and a rating which is a float so genres and rating are things that are in our movie tables we'd like to bring those into the playlist as well and that denormalizing step is a very common sort of thing to do in cassandra data modeling if you're not familiar with cassandra data modeling this is not considered an anti-pattern this is considered a very normal way to model data unfortunately we didn't see that coming when we first made this table and now we have to transform the schema late in the game when data is already in the system and you can see also if you look at those table diagrams on the slide what the schema looked like on the left and what it will look like on the right when we've added those two new columns so let's apply some of these joins we've been looking at to make the schema evolution happen let's walk through the code first we'll make an rdd for the playlists data we're not being terribly picky we're getting all of the playlists by user that could be a very large rdd if this is a successful site but we're selecting the user id the playlist name the release here the title and the movie id and we are making that into a tuple that contains movie id as the first entry and then all of the other metadata as a tuple for the second entry so kind of our own definition of the key value pair there that's the playlists we're going to do a very similar thing with movies and note on that final line in the the second block they're creating the movies rdd we're doing the same mapping with as making the movie id that uuid as effectively the key of this pair rdd the value there is going to be the genre and the ratings so it looks like we're going to have everything we want here all lined up to go into this new table now we step back just a moment i want you to look at this slide and remind yourself of the schema user id playlist name release year title movie id genres and rating u p r t m g r let's take a look at that back to the code if you look at that join at the bottom we are joining movies to playlist which spark is going to do on the basis of movie id for us it will give us a value in that pair rdd consisting of the value of playlists and the value of movies that's that first tuple that's u p y t that second tuple that's g and r and we're effectively going to flatten those out into a single tuple whose values happen to map neatly to the columns in the migrated schema of the playlists by user table that's going to allow us in the final line to save to cassandra to the playlist by user table in a fairly trivial way the mapping is going to happen for us from the tuple to the columns because we did our join in a smart way [Music]",
+    "segments": [
+      {
+        "start": 0.06,
+        "duration": 3.45,
+        "text": "[Music]"
+      },
+      {
+        "start": 6.24,
+        "duration": 2.96,
+        "text": "now when people learn cassandra data"
+      },
+      {
+        "start": 7.839,
+        "duration": 2.161,
+        "text": "modeling one of the things they learn to"
+      },
+      {
+        "start": 9.2,
+        "duration": 3.12,
+        "text": "give up"
+      },
+      {
+        "start": 10.0,
+        "duration": 4.16,
+        "text": "is a database that does joins for you"
+      },
+      {
+        "start": 12.32,
+        "duration": 2.64,
+        "text": "now that feels like a very powerful"
+      },
+      {
+        "start": 14.16,
+        "duration": 3.28,
+        "text": "feature"
+      },
+      {
+        "start": 14.96,
+        "duration": 4.479,
+        "text": "and it often is for smaller data sets it"
+      },
+      {
+        "start": 17.44,
+        "duration": 2.56,
+        "text": "becomes an expensive thing on large data"
+      },
+      {
+        "start": 19.439,
+        "duration": 2.561,
+        "text": "sets"
+      },
+      {
+        "start": 20.0,
+        "duration": 3.039,
+        "text": "and it's a typical step in relational"
+      },
+      {
+        "start": 22.0,
+        "duration": 3.279,
+        "text": "optimization"
+      },
+      {
+        "start": 23.039,
+        "duration": 4.56,
+        "text": "to give up joins that you had started"
+      },
+      {
+        "start": 25.279,
+        "duration": 2.641,
+        "text": "with at a smaller scale however spark"
+      },
+      {
+        "start": 27.599,
+        "duration": 2.401,
+        "text": "lets"
+      },
+      {
+        "start": 27.92,
+        "duration": 3.279,
+        "text": "us add this back in we want to approach"
+      },
+      {
+        "start": 30.0,
+        "duration": 2.8,
+        "text": "it with some caution because they can"
+      },
+      {
+        "start": 31.199,
+        "duration": 3.841,
+        "text": "still be expensive operations"
+      },
+      {
+        "start": 32.8,
+        "duration": 3.84,
+        "text": "but they are incredibly useful"
+      },
+      {
+        "start": 35.04,
+        "duration": 3.6,
+        "text": "fundamentally what they do is they"
+      },
+      {
+        "start": 36.64,
+        "duration": 2.72,
+        "text": "combine values from two or more pair"
+      },
+      {
+        "start": 38.64,
+        "duration": 2.8,
+        "text": "rdds"
+      },
+      {
+        "start": 39.36,
+        "duration": 3.68,
+        "text": "based on the equality of their keys in"
+      },
+      {
+        "start": 41.44,
+        "duration": 3.279,
+        "text": "practice we can use them for things like"
+      },
+      {
+        "start": 43.04,
+        "duration": 2.16,
+        "text": "enforcing referential integrity and"
+      },
+      {
+        "start": 44.719,
+        "duration": 2.561,
+        "text": "doing"
+      },
+      {
+        "start": 45.2,
+        "duration": 3.76,
+        "text": "schema evolution and data migration and"
+      },
+      {
+        "start": 47.28,
+        "duration": 2.799,
+        "text": "things like that they're really handy"
+      },
+      {
+        "start": 48.96,
+        "duration": 3.2,
+        "text": "we're going to use them here"
+      },
+      {
+        "start": 50.079,
+        "duration": 4.081,
+        "text": "to solve a couple of challenges those"
+      },
+      {
+        "start": 52.16,
+        "duration": 3.76,
+        "text": "are going to be a schema evolution for"
+      },
+      {
+        "start": 54.16,
+        "duration": 4.239,
+        "text": "the playlists by"
+      },
+      {
+        "start": 55.92,
+        "duration": 3.92,
+        "text": "user table we want to add some features"
+      },
+      {
+        "start": 58.399,
+        "duration": 2.881,
+        "text": "to that table and we have to"
+      },
+      {
+        "start": 59.84,
+        "duration": 3.039,
+        "text": "evolve that schema and transform the"
+      },
+      {
+        "start": 61.28,
+        "duration": 2.959,
+        "text": "data to make that happen we're also"
+      },
+      {
+        "start": 62.879,
+        "duration": 2.64,
+        "text": "going to validate some referential"
+      },
+      {
+        "start": 64.239,
+        "duration": 3.2,
+        "text": "integrity constraints"
+      },
+      {
+        "start": 65.519,
+        "duration": 4.241,
+        "text": "for that same table that's another"
+      },
+      {
+        "start": 67.439,
+        "duration": 2.72,
+        "text": "feature that cassandra doesn't natively"
+      },
+      {
+        "start": 69.76,
+        "duration": 2.56,
+        "text": "have"
+      },
+      {
+        "start": 70.159,
+        "duration": 3.841,
+        "text": "you can refer from one table to another"
+      },
+      {
+        "start": 72.32,
+        "duration": 2.799,
+        "text": "that's easy any any database supports"
+      },
+      {
+        "start": 74.0,
+        "duration": 3.84,
+        "text": "that but it's not"
+      },
+      {
+        "start": 75.119,
+        "duration": 4.241,
+        "text": "asserting the integrity of that"
+      },
+      {
+        "start": 77.84,
+        "duration": 3.04,
+        "text": "reference that's a thing that we can go"
+      },
+      {
+        "start": 79.36,
+        "duration": 3.759,
+        "text": "back in with a spark job"
+      },
+      {
+        "start": 80.88,
+        "duration": 3.919,
+        "text": "and make those assertions in a batch"
+      },
+      {
+        "start": 83.119,
+        "duration": 2.081,
+        "text": "process let's take a look at how we do"
+      },
+      {
+        "start": 84.799,
+        "duration": 2.32,
+        "text": "this"
+      },
+      {
+        "start": 85.2,
+        "duration": 3.279,
+        "text": "the join transformation performs a"
+      },
+      {
+        "start": 87.119,
+        "duration": 2.96,
+        "text": "standard inner join"
+      },
+      {
+        "start": 88.479,
+        "duration": 4.241,
+        "text": "if you know relational databases at all"
+      },
+      {
+        "start": 90.079,
+        "duration": 3.761,
+        "text": "and you probably do this behaves exactly"
+      },
+      {
+        "start": 92.72,
+        "duration": 3.92,
+        "text": "the way you'd expect"
+      },
+      {
+        "start": 93.84,
+        "duration": 4.48,
+        "text": "we call join on one rdd passing in the"
+      },
+      {
+        "start": 96.64,
+        "duration": 4.08,
+        "text": "rdd that we're joining"
+      },
+      {
+        "start": 98.32,
+        "duration": 3.6,
+        "text": "and it will look for keys that have the"
+      },
+      {
+        "start": 100.72,
+        "duration": 4.079,
+        "text": "same value"
+      },
+      {
+        "start": 101.92,
+        "duration": 3.44,
+        "text": "and it will create a new rdd containing"
+      },
+      {
+        "start": 104.799,
+        "duration": 3.121,
+        "text": "records"
+      },
+      {
+        "start": 105.36,
+        "duration": 4.079,
+        "text": "of those keys and collections of the"
+      },
+      {
+        "start": 107.92,
+        "duration": 3.92,
+        "text": "values it finds"
+      },
+      {
+        "start": 109.439,
+        "duration": 4.161,
+        "text": "now on this slide we haven't drawn the"
+      },
+      {
+        "start": 111.84,
+        "duration": 3.279,
+        "text": "lines for you and i'd like you actually"
+      },
+      {
+        "start": 113.6,
+        "duration": 3.68,
+        "text": "to stop the video"
+      },
+      {
+        "start": 115.119,
+        "duration": 3.04,
+        "text": "and just trace out with your finger on"
+      },
+      {
+        "start": 117.28,
+        "duration": 3.439,
+        "text": "the screen"
+      },
+      {
+        "start": 118.159,
+        "duration": 3.361,
+        "text": "follow this through as an exercise for"
+      },
+      {
+        "start": 120.719,
+        "duration": 2.801,
+        "text": "yourself"
+      },
+      {
+        "start": 121.52,
+        "duration": 3.279,
+        "text": "and watch the joining happen here"
+      },
+      {
+        "start": 123.52,
+        "duration": 4.56,
+        "text": "between these tables"
+      },
+      {
+        "start": 124.799,
+        "duration": 5.361,
+        "text": "you've got the source rdd on the left"
+      },
+      {
+        "start": 128.08,
+        "duration": 3.44,
+        "text": "the other rdd in the middle and the"
+      },
+      {
+        "start": 130.16,
+        "duration": 3.6,
+        "text": "output rdd"
+      },
+      {
+        "start": 131.52,
+        "duration": 5.439,
+        "text": "on the right go ahead and pause it and"
+      },
+      {
+        "start": 133.76,
+        "duration": 5.04,
+        "text": "see the join take place"
+      },
+      {
+        "start": 136.959,
+        "duration": 3.36,
+        "text": "now if you did that you'll note that the"
+      },
+      {
+        "start": 138.8,
+        "duration": 4.64,
+        "text": "output rdd has"
+      },
+      {
+        "start": 140.319,
+        "duration": 4.241,
+        "text": "two rows for k1 now why is that that's"
+      },
+      {
+        "start": 143.44,
+        "duration": 4.64,
+        "text": "because there are"
+      },
+      {
+        "start": 144.56,
+        "duration": 7.28,
+        "text": "two k1 rows in the left hand"
+      },
+      {
+        "start": 148.08,
+        "duration": 5.84,
+        "text": "rdd with values v1 and v3 and you see"
+      },
+      {
+        "start": 151.84,
+        "duration": 4.88,
+        "text": "those v1 and v3 values"
+      },
+      {
+        "start": 153.92,
+        "duration": 3.76,
+        "text": "show up in the output there is a single"
+      },
+      {
+        "start": 156.72,
+        "duration": 3.84,
+        "text": "k1"
+      },
+      {
+        "start": 157.68,
+        "duration": 3.279,
+        "text": "row in the other rdd in the middle there"
+      },
+      {
+        "start": 160.56,
+        "duration": 4.08,
+        "text": "with"
+      },
+      {
+        "start": 160.959,
+        "duration": 5.92,
+        "text": "value w1 and so there are as a result"
+      },
+      {
+        "start": 164.64,
+        "duration": 3.52,
+        "text": "two rows in the output rdd where that"
+      },
+      {
+        "start": 166.879,
+        "duration": 4.241,
+        "text": "value shows up"
+      },
+      {
+        "start": 168.16,
+        "duration": 4.24,
+        "text": "likewise there is a single k2 in the"
+      },
+      {
+        "start": 171.12,
+        "duration": 4.08,
+        "text": "left-hand rdd"
+      },
+      {
+        "start": 172.4,
+        "duration": 4.0,
+        "text": "in the right-hand rdd there are two k2s"
+      },
+      {
+        "start": 175.2,
+        "duration": 5.2,
+        "text": "and so we still get"
+      },
+      {
+        "start": 176.4,
+        "duration": 6.24,
+        "text": "two k2 rows in that output k3 and k4"
+      },
+      {
+        "start": 180.4,
+        "duration": 4.08,
+        "text": "are not common to the two rdds so they"
+      },
+      {
+        "start": 182.64,
+        "duration": 4.0,
+        "text": "don't show up in the output"
+      },
+      {
+        "start": 184.48,
+        "duration": 3.6,
+        "text": "this being an inner join the left outer"
+      },
+      {
+        "start": 186.64,
+        "duration": 3.28,
+        "text": "join transformation"
+      },
+      {
+        "start": 188.08,
+        "duration": 3.36,
+        "text": "works just like a left outer join in a"
+      },
+      {
+        "start": 189.92,
+        "duration": 3.12,
+        "text": "relational database we're getting"
+      },
+      {
+        "start": 191.44,
+        "duration": 3.76,
+        "text": "records in the output that have"
+      },
+      {
+        "start": 193.04,
+        "duration": 3.199,
+        "text": "common keys between the left table and"
+      },
+      {
+        "start": 195.2,
+        "duration": 2.88,
+        "text": "the right table"
+      },
+      {
+        "start": 196.239,
+        "duration": 3.92,
+        "text": "and records in the output that"
+      },
+      {
+        "start": 198.08,
+        "duration": 3.84,
+        "text": "correspond to all of the keys"
+      },
+      {
+        "start": 200.159,
+        "duration": 3.121,
+        "text": "in the left-hand table so if a key shows"
+      },
+      {
+        "start": 201.92,
+        "duration": 3.2,
+        "text": "up in the left-hand table"
+      },
+      {
+        "start": 203.28,
+        "duration": 4.0,
+        "text": "but not in the right-hand table it's"
+      },
+      {
+        "start": 205.12,
+        "duration": 3.36,
+        "text": "still in the output if a key shows up in"
+      },
+      {
+        "start": 207.28,
+        "duration": 3.519,
+        "text": "the right-hand table"
+      },
+      {
+        "start": 208.48,
+        "duration": 3.039,
+        "text": "but not the left-hand table it's not in"
+      },
+      {
+        "start": 210.799,
+        "duration": 3.041,
+        "text": "the output"
+      },
+      {
+        "start": 211.519,
+        "duration": 3.201,
+        "text": "and of course if the key is in both it"
+      },
+      {
+        "start": 213.84,
+        "duration": 2.56,
+        "text": "is in the output"
+      },
+      {
+        "start": 214.72,
+        "duration": 3.12,
+        "text": "so again you might benefit by pausing"
+      },
+      {
+        "start": 216.4,
+        "duration": 4.16,
+        "text": "the video on this slide"
+      },
+      {
+        "start": 217.84,
+        "duration": 4.56,
+        "text": "and just tracing with your finger which"
+      },
+      {
+        "start": 220.56,
+        "duration": 4.48,
+        "text": "keys are common to the left"
+      },
+      {
+        "start": 222.4,
+        "duration": 3.28,
+        "text": "and right tables and whether they show"
+      },
+      {
+        "start": 225.04,
+        "duration": 3.759,
+        "text": "up"
+      },
+      {
+        "start": 225.68,
+        "duration": 5.919,
+        "text": "in the output likewise right"
+      },
+      {
+        "start": 228.799,
+        "duration": 3.52,
+        "text": "outer join except now the direction is"
+      },
+      {
+        "start": 231.599,
+        "duration": 3.36,
+        "text": "switched"
+      },
+      {
+        "start": 232.319,
+        "duration": 4.881,
+        "text": "so if a key only occurs in the left hand"
+      },
+      {
+        "start": 234.959,
+        "duration": 4.48,
+        "text": "rdd but not the right hand rdd"
+      },
+      {
+        "start": 237.2,
+        "duration": 3.44,
+        "text": "it doesn't show up in the output but if"
+      },
+      {
+        "start": 239.439,
+        "duration": 4.401,
+        "text": "it is in the right hand"
+      },
+      {
+        "start": 240.64,
+        "duration": 4.72,
+        "text": "rdd and not the left-hand rdd it will"
+      },
+      {
+        "start": 243.84,
+        "duration": 3.119,
+        "text": "show up in the output and of course if"
+      },
+      {
+        "start": 245.36,
+        "duration": 2.079,
+        "text": "it's common to both it shows up in the"
+      },
+      {
+        "start": 246.959,
+        "duration": 2.721,
+        "text": "output"
+      },
+      {
+        "start": 247.439,
+        "duration": 4.481,
+        "text": "and finally there's full outer join that"
+      },
+      {
+        "start": 249.68,
+        "duration": 2.96,
+        "text": "insists on creating as many records as"
+      },
+      {
+        "start": 251.92,
+        "duration": 2.72,
+        "text": "possible"
+      },
+      {
+        "start": 252.64,
+        "duration": 3.599,
+        "text": "it'll join what it can but if a key only"
+      },
+      {
+        "start": 254.64,
+        "duration": 2.64,
+        "text": "shows up in the left or only shows up on"
+      },
+      {
+        "start": 256.239,
+        "duration": 4.161,
+        "text": "the right that's okay"
+      },
+      {
+        "start": 257.28,
+        "duration": 4.479,
+        "text": "it'll also be in the output this is"
+      },
+      {
+        "start": 260.4,
+        "duration": 1.92,
+        "text": "certainly the most expensive kind of"
+      },
+      {
+        "start": 261.759,
+        "duration": 2.561,
+        "text": "join"
+      },
+      {
+        "start": 262.32,
+        "duration": 4.4,
+        "text": "because it is by definition going to"
+      },
+      {
+        "start": 264.32,
+        "duration": 5.2,
+        "text": "return the largest potential result set"
+      },
+      {
+        "start": 266.72,
+        "duration": 3.52,
+        "text": "now let's look at a schema evolution"
+      },
+      {
+        "start": 269.52,
+        "duration": 2.32,
+        "text": "challenge"
+      },
+      {
+        "start": 270.24,
+        "duration": 2.959,
+        "text": "now this is a problem everywhere it's"
+      },
+      {
+        "start": 271.84,
+        "duration": 3.2,
+        "text": "not like this just crops up in a"
+      },
+      {
+        "start": 273.199,
+        "duration": 2.081,
+        "text": "database like cassandra schema evolution"
+      },
+      {
+        "start": 275.04,
+        "duration": 2.719,
+        "text": "is"
+      },
+      {
+        "start": 275.28,
+        "duration": 3.919,
+        "text": "always hard it's just even harder when"
+      },
+      {
+        "start": 277.759,
+        "duration": 3.201,
+        "text": "you've got that much more data"
+      },
+      {
+        "start": 279.199,
+        "duration": 3.521,
+        "text": "in your schema fortunately spark makes"
+      },
+      {
+        "start": 280.96,
+        "duration": 3.28,
+        "text": "this a pretty achievable problem"
+      },
+      {
+        "start": 282.72,
+        "duration": 3.6,
+        "text": "so we're going to add a couple of"
+      },
+      {
+        "start": 284.24,
+        "duration": 3.76,
+        "text": "columns to our table definition"
+      },
+      {
+        "start": 286.32,
+        "duration": 3.36,
+        "text": "we'll run the alter table statements"
+      },
+      {
+        "start": 288.0,
+        "duration": 3.84,
+        "text": "which you see here to change"
+      },
+      {
+        "start": 289.68,
+        "duration": 3.2,
+        "text": "the metadata we're altering playlists by"
+      },
+      {
+        "start": 291.84,
+        "duration": 3.2,
+        "text": "user we're going to add"
+      },
+      {
+        "start": 292.88,
+        "duration": 3.28,
+        "text": "a column called genres which is a set of"
+      },
+      {
+        "start": 295.04,
+        "duration": 4.159,
+        "text": "strings and"
+      },
+      {
+        "start": 296.16,
+        "duration": 4.8,
+        "text": "a rating which is a float so genres"
+      },
+      {
+        "start": 299.199,
+        "duration": 3.601,
+        "text": "and rating are things that are in our"
+      },
+      {
+        "start": 300.96,
+        "duration": 2.959,
+        "text": "movie tables we'd like to bring those"
+      },
+      {
+        "start": 302.8,
+        "duration": 3.6,
+        "text": "into the playlist"
+      },
+      {
+        "start": 303.919,
+        "duration": 4.161,
+        "text": "as well and that denormalizing step is a"
+      },
+      {
+        "start": 306.4,
+        "duration": 3.6,
+        "text": "very common sort of thing to do"
+      },
+      {
+        "start": 308.08,
+        "duration": 3.36,
+        "text": "in cassandra data modeling if you're not"
+      },
+      {
+        "start": 310.0,
+        "duration": 3.12,
+        "text": "familiar with cassandra data modeling"
+      },
+      {
+        "start": 311.44,
+        "duration": 3.36,
+        "text": "this is not considered an anti-pattern"
+      },
+      {
+        "start": 313.12,
+        "duration": 3.359,
+        "text": "this is considered a very normal way to"
+      },
+      {
+        "start": 314.8,
+        "duration": 2.959,
+        "text": "model data unfortunately we didn't see"
+      },
+      {
+        "start": 316.479,
+        "duration": 1.841,
+        "text": "that coming when we first made this"
+      },
+      {
+        "start": 317.759,
+        "duration": 3.28,
+        "text": "table"
+      },
+      {
+        "start": 318.32,
+        "duration": 3.76,
+        "text": "and now we have to transform the schema"
+      },
+      {
+        "start": 321.039,
+        "duration": 2.72,
+        "text": "late in the game"
+      },
+      {
+        "start": 322.08,
+        "duration": 3.679,
+        "text": "when data is already in the system and"
+      },
+      {
+        "start": 323.759,
+        "duration": 4.081,
+        "text": "you can see also if you look at those"
+      },
+      {
+        "start": 325.759,
+        "duration": 3.28,
+        "text": "table diagrams on the slide what the"
+      },
+      {
+        "start": 327.84,
+        "duration": 3.76,
+        "text": "schema looked like"
+      },
+      {
+        "start": 329.039,
+        "duration": 3.44,
+        "text": "on the left and what it will look like"
+      },
+      {
+        "start": 331.6,
+        "duration": 3.68,
+        "text": "on the right"
+      },
+      {
+        "start": 332.479,
+        "duration": 4.16,
+        "text": "when we've added those two new columns"
+      },
+      {
+        "start": 335.28,
+        "duration": 2.08,
+        "text": "so let's apply some of these joins we've"
+      },
+      {
+        "start": 336.639,
+        "duration": 2.321,
+        "text": "been looking at"
+      },
+      {
+        "start": 337.36,
+        "duration": 3.04,
+        "text": "to make the schema evolution happen"
+      },
+      {
+        "start": 338.96,
+        "duration": 2.079,
+        "text": "let's walk through the code first we'll"
+      },
+      {
+        "start": 340.4,
+        "duration": 3.76,
+        "text": "make"
+      },
+      {
+        "start": 341.039,
+        "duration": 4.641,
+        "text": "an rdd for the playlists data we're not"
+      },
+      {
+        "start": 344.16,
+        "duration": 3.36,
+        "text": "being terribly picky we're getting all"
+      },
+      {
+        "start": 345.68,
+        "duration": 4.079,
+        "text": "of the playlists by user that could be a"
+      },
+      {
+        "start": 347.52,
+        "duration": 4.399,
+        "text": "very large rdd if this is a successful"
+      },
+      {
+        "start": 349.759,
+        "duration": 3.841,
+        "text": "site but we're selecting the user id the"
+      },
+      {
+        "start": 351.919,
+        "duration": 4.72,
+        "text": "playlist name the release here"
+      },
+      {
+        "start": 353.6,
+        "duration": 6.64,
+        "text": "the title and the movie id"
+      },
+      {
+        "start": 356.639,
+        "duration": 6.241,
+        "text": "and we are making that into"
+      },
+      {
+        "start": 360.24,
+        "duration": 3.6,
+        "text": "a tuple that contains movie id as the"
+      },
+      {
+        "start": 362.88,
+        "duration": 3.039,
+        "text": "first entry"
+      },
+      {
+        "start": 363.84,
+        "duration": 4.16,
+        "text": "and then all of the other metadata as a"
+      },
+      {
+        "start": 365.919,
+        "duration": 2.72,
+        "text": "tuple for the second entry so kind of"
+      },
+      {
+        "start": 368.0,
+        "duration": 2.96,
+        "text": "our own"
+      },
+      {
+        "start": 368.639,
+        "duration": 3.521,
+        "text": "definition of the key value pair there"
+      },
+      {
+        "start": 370.96,
+        "duration": 3.04,
+        "text": "that's the playlists"
+      },
+      {
+        "start": 372.16,
+        "duration": 3.12,
+        "text": "we're going to do a very similar thing"
+      },
+      {
+        "start": 374.0,
+        "duration": 3.68,
+        "text": "with movies"
+      },
+      {
+        "start": 375.28,
+        "duration": 3.919,
+        "text": "and note on that final line in the the"
+      },
+      {
+        "start": 377.68,
+        "duration": 2.32,
+        "text": "second block they're creating the movies"
+      },
+      {
+        "start": 379.199,
+        "duration": 2.961,
+        "text": "rdd"
+      },
+      {
+        "start": 380.0,
+        "duration": 3.84,
+        "text": "we're doing the same mapping with as"
+      },
+      {
+        "start": 382.16,
+        "duration": 5.599,
+        "text": "making the movie"
+      },
+      {
+        "start": 383.84,
+        "duration": 6.72,
+        "text": "id that uuid as effectively the key"
+      },
+      {
+        "start": 387.759,
+        "duration": 4.401,
+        "text": "of this pair rdd the value there is"
+      },
+      {
+        "start": 390.56,
+        "duration": 3.6,
+        "text": "going to be the genre"
+      },
+      {
+        "start": 392.16,
+        "duration": 4.24,
+        "text": "and the ratings so it looks like we're"
+      },
+      {
+        "start": 394.16,
+        "duration": 4.319,
+        "text": "going to have everything we want here"
+      },
+      {
+        "start": 396.4,
+        "duration": 4.079,
+        "text": "all lined up to go into this new table"
+      },
+      {
+        "start": 398.479,
+        "duration": 4.0,
+        "text": "now we step back just a moment i want"
+      },
+      {
+        "start": 400.479,
+        "duration": 3.361,
+        "text": "you to look at this slide and remind"
+      },
+      {
+        "start": 402.479,
+        "duration": 4.16,
+        "text": "yourself of the schema"
+      },
+      {
+        "start": 403.84,
+        "duration": 3.76,
+        "text": "user id playlist name release year title"
+      },
+      {
+        "start": 406.639,
+        "duration": 4.161,
+        "text": "movie id"
+      },
+      {
+        "start": 407.6,
+        "duration": 6.48,
+        "text": "genres and rating u p"
+      },
+      {
+        "start": 410.8,
+        "duration": 5.44,
+        "text": "r t m g r"
+      },
+      {
+        "start": 414.08,
+        "duration": 3.76,
+        "text": "let's take a look at that back to the"
+      },
+      {
+        "start": 416.24,
+        "duration": 4.16,
+        "text": "code if you look at that"
+      },
+      {
+        "start": 417.84,
+        "duration": 3.28,
+        "text": "join at the bottom we are joining movies"
+      },
+      {
+        "start": 420.4,
+        "duration": 2.56,
+        "text": "to playlist"
+      },
+      {
+        "start": 421.12,
+        "duration": 3.359,
+        "text": "which spark is going to do on the basis"
+      },
+      {
+        "start": 422.96,
+        "duration": 4.4,
+        "text": "of movie id for us"
+      },
+      {
+        "start": 424.479,
+        "duration": 3.921,
+        "text": "it will give us a value in that pair rdd"
+      },
+      {
+        "start": 427.36,
+        "duration": 4.239,
+        "text": "consisting of"
+      },
+      {
+        "start": 428.4,
+        "duration": 3.919,
+        "text": "the value of playlists and the value of"
+      },
+      {
+        "start": 431.599,
+        "duration": 3.841,
+        "text": "movies"
+      },
+      {
+        "start": 432.319,
+        "duration": 5.841,
+        "text": "that's that first tuple that's u p y t"
+      },
+      {
+        "start": 435.44,
+        "duration": 4.479,
+        "text": "that second tuple that's g and r and"
+      },
+      {
+        "start": 438.16,
+        "duration": 4.08,
+        "text": "we're effectively going to flatten those"
+      },
+      {
+        "start": 439.919,
+        "duration": 3.28,
+        "text": "out into a single tuple whose values"
+      },
+      {
+        "start": 442.24,
+        "duration": 3.6,
+        "text": "happen to map"
+      },
+      {
+        "start": 443.199,
+        "duration": 3.521,
+        "text": "neatly to the columns in the migrated"
+      },
+      {
+        "start": 445.84,
+        "duration": 3.44,
+        "text": "schema"
+      },
+      {
+        "start": 446.72,
+        "duration": 3.36,
+        "text": "of the playlists by user table that's"
+      },
+      {
+        "start": 449.28,
+        "duration": 3.919,
+        "text": "going to allow us"
+      },
+      {
+        "start": 450.08,
+        "duration": 5.28,
+        "text": "in the final line to save to cassandra"
+      },
+      {
+        "start": 453.199,
+        "duration": 3.44,
+        "text": "to the playlist by user table in a"
+      },
+      {
+        "start": 455.36,
+        "duration": 3.44,
+        "text": "fairly trivial way"
+      },
+      {
+        "start": 456.639,
+        "duration": 3.28,
+        "text": "the mapping is going to happen for us"
+      },
+      {
+        "start": 458.8,
+        "duration": 3.04,
+        "text": "from the tuple"
+      },
+      {
+        "start": 459.919,
+        "duration": 5.801,
+        "text": "to the columns because we did our join"
+      },
+      {
+        "start": 461.84,
+        "duration": 8.329,
+        "text": "in a smart way"
+      },
+      {
+        "start": 465.72,
+        "duration": 4.449,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T23:38:32.372955+00:00"
+}

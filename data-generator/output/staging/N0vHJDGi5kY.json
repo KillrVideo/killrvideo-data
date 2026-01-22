@@ -1,0 +1,1313 @@
+{
+  "video_id": "N0vHJDGi5kY",
+  "title": "Apache Cassandra Chaos on Kubernetes",
+  "description": "Applications go down all the time, when those applications are databases it becomes a big deal. Join us as we explore different failure scenarios for an Apache Cassandra cluster on Kubernetes and observe how operators keep everything running without human interaction.\n\nStay in the loop on all things K8ssandra at:\nK8ssandra - https://k8ssandra.io/\nTwitter - https://twitter.com/k8ssandra\nGitHub - https://github.com/k8ssandra\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs?sub_confirmation=1 \nTwitter: https://twitter.com/datastaxdevs\nTwitch: https://www.twitch.tv/datastaxdevs\n\nAbout DataStax:\nDataStax is the company behind the massively scalable, highly available, cloud-native NoSQL data platform built on Apache Cassandra™. DataStax gives developers and enterprises the freedom to run data in any cloud, Kubernetes, hybrid or bare metal at global scale with zero downtime and zero lock-in. More than 450 of the world’s leading enterprises including Capital One, Cisco, Comcast, Delta Airlines, Macy’s, McDonald’s, Safeway, Sony, and Walmart use DataStax to build transformational data architectures for real-world outcomes. For more, visit DataStax.com and @DataStax.\n\nAbout DataStax Developer:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2021-10-25T21:38:09Z",
+  "thumbnail": "https://i.ytimg.com/vi/N0vHJDGi5kY/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "scalable",
+    "workshop",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "tutorial",
+    "nosql",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=N0vHJDGi5kY",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to the Kat Sandra chaos demo in this demo we're going to cover how a Kat Sandra cluster recovers from failure conditions to get started let's review our environment we already have a Kate sander cluster up and running it's composed of three Apache Cassandra nodes these nodes are each running on separate Cloud managed kubernetes workers one node per a and a regional deployment our first test will show how Kate sander responds to the loss of an instance via deleting the Pod so here we can see the C operator running along with our fre Apache kid standard nodes uh this first one right here should be running in US Central 1A on gcp and we want to get well we just want to delete it so let's click the delete button remove and it immediately disappears and we can see the status is terminating now the kubernetes stateful set controller replaces the Pod with a new pod since we're using persistence volumes the data is reconnected to the Pod should this pod end up rescheduled on a different worker the persistent Vol will either have to move when possible or we could run some replace node logic that brings up an empty pod and recovers its data from replicas on other nodes in either case once the podt is restarted the cast operator handles bootstrapping the node and monitoring progress here we can see our nck containers have already finished coming up that's why these three are gray our server system logger is up and running and the cassander container is running the cander container is made up of a management API and the actual cander process so if we click on this container and look at the logs we can see our management API logs right here we go to server system logger and these are the actual logs of the node as the node comes up it reaches out to a service to discover the rest of the nodes in the cluster opens connections to those nodes and finishes its bootstrapping process so we see it just went green the startup is complete if it missed any data while it was down the other notes cluster will handle uh sending those hints over and we're good to continue so now that our pod is back up let's take a look at another failure type that of the kubernetes worker in this scenario we'll log into our Cloud console and terminate one of the worker instances so we're going to Target that same node that just came back up and we go here and look at the node identifier and that is uh ccfa ddk 68 so if I switch over to my console I already have it selected here and we're just going to delete the instance and now we have to type delete okay so this instance is just going to go down now it's worth noting that we have have nine nodes total in this kubernetes cluster so there's plenty of capacity uh to reschedule on um we don't have to worry about waiting for a a new instance to come back up but in some cases and in some environments maybe you have Auto scaling groups set up uh you may have to wait for the new worker to get reprovisioned uh and come online now like we mentioned earlier uh the storage will actually have to be disconnected from this host and then connect it to wherever uh the Pod gets rescheduled so we're going to go back here we should see the Readiness probe fail here shortly and then the kubernetes control plane will handle rescheduling this pod okay the probe has failed which is to be expected we just deleted the instance that was running it and it says that the note is down so we'll give this a moment to run check our Cloud console says the instance is being deleted we can refresh and see how progress is going there it's still in the process of deleting that's great we should see this go orange as it gets rescheduled and uh pending initialization now kubernetes is giving a little a little bit of time in case that note is is flapping maybe it comes back then it will have to move volumes around uh but we'll see here shortly it gets rescheduled and one of the ways we can check that is to look at the node value here it's still the node that we deleted so we want to give that a little bit longer and then we'll also check the uh the events we'll most likely see an event where the storage gets moved as well when the pot is rescheduled there we go notice how we're all orange now and if we scroll up here we can see now we're scheduled on a new node 681 n but it's within the same group that's because it's within the same a as the previous kubernetes worker and we do that because we want to make sure that we have uh our data replicated across failure boundaries that would be an individual kubernetes worker the a or even a region all these containers say waiting because we're waiting for uh the storage to move over that's what this error message here is is we're trying to attach the volume from the old node uh to this new one and it's blocking that and that's going to happen for a little bit it's happens with eventually consistent systems at least in the cloud provider side uh it should just be a few minutes in any case as the human operator involved here uh I don't actually have to do anything the cloud provider and the kubernetes control plane along with the CSI will sort attaching the volume to the right worker and then starting the process one of the other things you can do is you can go look at that instance that's 681 November and we can see the progress of moving that volume by looking at the additional disc field so if we scroll down here we can see the boot dis and there are no additional disc so uh that that API call to move the disc to this worker uh will retrive periodically we just have to be patient while we're waiting for it to resched we can take a look at the containers involved here we have our base config AIT which pulls the base configuration from our Cassandra image then we run this server configit which uses the C config Builder uh to render out the configuration files on disk uh it takes in a blob of Json as an input and turns that into a collection of configuration files within a volume uh this other container sets up a jmax credentials file within the Pod and then our other two containers ERS are the actual cassander container which contains the management API as well as the cassander Damon and the server system logger which Tails VAR log Cassandra system.log and that way we can get both the logs of the management API process and the cassander process via cctl and we're just waiting for this event to clear the back see if it's showing up in here no we still don't have the additional disc yet so still waiting on the CSI here okay another event that it's still waiting to attach the volumes where the timeout involved that's okay still waiting for that volume to move over that's okay now it's worth noting that while this Noe is down uh hints are occurring on the other nodes for any queries rights that are coming into the system and that would Target that node uh but since it's unavailable they'll just hold on those hints for a period of time when that node comes back up we can see our PV has attached now when that node comes back up it'll replay those hints against the node to bring it up to speed with the current state of data now there's a number of anti-v systems present within Cassandra to account for these types of issues uh we just uh let those those systems run to to keep things in Sy whether that be at query time whether it be through the out ofand repair process this hint mechanism it's a layered approach to keeping data consistent across the multiple nodes okay so the fact that the volume attached is a really good sign it's just going to take one more moment and I bet if we refresh the screen over here we can see that additional dis will show up now we scroll down there's our dis that has our data back in here and we should see these start to clear here shortly we'll go down to the initializers we'll just watch these status Fields right here all right we see it's pulling the images now means everything's the volumes are attached it's ready to actually start so if we scroll up we can see when these actually fire so that one's already finished completed with exit Code Zero now we have the server config in nit for the C config Builder image it's going to fire off it's running it's writing files out the dis it's pulling things like the host IP and the Pod IP from the uh pod ref pod status and now finally we're running the management API if we go over here and look at the logs for the Cassandra uh container these are the logs of the management API and we can actually see it's already received the start command from the Cass operator if we go over here to server system logger we see the logs are populated so this is where it's reaching out it's gossiping with its peers getting the topology of the cluster from the other nodes and we will see it turn green here surely and there we go we're now listening for connections and startup is complete so over the course of this demo we've highlighted the failure of PODS and aat sander cluster along with its automatic reconciliation K sener supports multicluster deployments where a failure could happen at the node a or even Regional level while still keeping your data safe and streamlining operations thank you so much for attending this demo we have a bunch of other demos at our booth and uh join us over at K sander. thank you so much",
+    "segments": [
+      {
+        "start": 0.64,
+        "duration": 3.88,
+        "text": "welcome to the Kat Sandra chaos demo in"
+      },
+      {
+        "start": 3.08,
+        "duration": 3.199,
+        "text": "this demo we're going to cover how a Kat"
+      },
+      {
+        "start": 4.52,
+        "duration": 3.96,
+        "text": "Sandra cluster recovers from failure"
+      },
+      {
+        "start": 6.279,
+        "duration": 3.961,
+        "text": "conditions to get started let's review"
+      },
+      {
+        "start": 8.48,
+        "duration": 3.159,
+        "text": "our environment we already have a Kate"
+      },
+      {
+        "start": 10.24,
+        "duration": 4.0,
+        "text": "sander cluster up and running it's"
+      },
+      {
+        "start": 11.639,
+        "duration": 4.361,
+        "text": "composed of three Apache Cassandra nodes"
+      },
+      {
+        "start": 14.24,
+        "duration": 3.799,
+        "text": "these nodes are each running on separate"
+      },
+      {
+        "start": 16.0,
+        "duration": 5.279,
+        "text": "Cloud managed kubernetes workers one"
+      },
+      {
+        "start": 18.039,
+        "duration": 4.881,
+        "text": "node per a and a regional deployment our"
+      },
+      {
+        "start": 21.279,
+        "duration": 3.721,
+        "text": "first test will show how Kate sander"
+      },
+      {
+        "start": 22.92,
+        "duration": 5.0,
+        "text": "responds to the loss of an instance via"
+      },
+      {
+        "start": 25.0,
+        "duration": 5.279,
+        "text": "deleting the Pod so here we can see the"
+      },
+      {
+        "start": 27.92,
+        "duration": 3.679,
+        "text": "C operator running along with our fre"
+      },
+      {
+        "start": 30.279,
+        "duration": 3.761,
+        "text": "Apache kid standard"
+      },
+      {
+        "start": 31.599,
+        "duration": 5.561,
+        "text": "nodes uh this first one right here"
+      },
+      {
+        "start": 34.04,
+        "duration": 6.24,
+        "text": "should be running in US Central 1A on"
+      },
+      {
+        "start": 37.16,
+        "duration": 4.76,
+        "text": "gcp and we want to get well we just want"
+      },
+      {
+        "start": 40.28,
+        "duration": 5.36,
+        "text": "to delete it so let's click the delete"
+      },
+      {
+        "start": 41.92,
+        "duration": 6.44,
+        "text": "button remove and it immediately"
+      },
+      {
+        "start": 45.64,
+        "duration": 4.84,
+        "text": "disappears and we can see the status is"
+      },
+      {
+        "start": 48.36,
+        "duration": 3.879,
+        "text": "terminating now the kubernetes stateful"
+      },
+      {
+        "start": 50.48,
+        "duration": 3.879,
+        "text": "set controller replaces the Pod with a"
+      },
+      {
+        "start": 52.239,
+        "duration": 4.041,
+        "text": "new pod since we're using persistence"
+      },
+      {
+        "start": 54.359,
+        "duration": 4.081,
+        "text": "volumes the data is reconnected to the"
+      },
+      {
+        "start": 56.28,
+        "duration": 3.919,
+        "text": "Pod should this pod end up rescheduled"
+      },
+      {
+        "start": 58.44,
+        "duration": 3.919,
+        "text": "on a different worker the persistent Vol"
+      },
+      {
+        "start": 60.199,
+        "duration": 4.32,
+        "text": "will either have to move when possible"
+      },
+      {
+        "start": 62.359,
+        "duration": 3.921,
+        "text": "or we could run some replace node logic"
+      },
+      {
+        "start": 64.519,
+        "duration": 4.361,
+        "text": "that brings up an empty pod and recovers"
+      },
+      {
+        "start": 66.28,
+        "duration": 4.159,
+        "text": "its data from replicas on other nodes in"
+      },
+      {
+        "start": 68.88,
+        "duration": 3.0,
+        "text": "either case once the podt is restarted"
+      },
+      {
+        "start": 70.439,
+        "duration": 3.281,
+        "text": "the cast operator handles bootstrapping"
+      },
+      {
+        "start": 71.88,
+        "duration": 3.64,
+        "text": "the node and monitoring"
+      },
+      {
+        "start": 73.72,
+        "duration": 3.399,
+        "text": "progress here we can see our nck"
+      },
+      {
+        "start": 75.52,
+        "duration": 4.84,
+        "text": "containers have already finished coming"
+      },
+      {
+        "start": 77.119,
+        "duration": 5.081,
+        "text": "up that's why these three are gray our"
+      },
+      {
+        "start": 80.36,
+        "duration": 3.439,
+        "text": "server system logger is up and running"
+      },
+      {
+        "start": 82.2,
+        "duration": 3.0,
+        "text": "and the cassander container is running"
+      },
+      {
+        "start": 83.799,
+        "duration": 3.32,
+        "text": "the cander container is made up of a"
+      },
+      {
+        "start": 85.2,
+        "duration": 4.919,
+        "text": "management API and the actual cander"
+      },
+      {
+        "start": 87.119,
+        "duration": 5.0,
+        "text": "process so if we click on this container"
+      },
+      {
+        "start": 90.119,
+        "duration": 4.28,
+        "text": "and look at the logs we can see our"
+      },
+      {
+        "start": 92.119,
+        "duration": 4.241,
+        "text": "management API logs right here we go to"
+      },
+      {
+        "start": 94.399,
+        "duration": 4.281,
+        "text": "server system logger and these are the"
+      },
+      {
+        "start": 96.36,
+        "duration": 4.68,
+        "text": "actual logs of the node as the node"
+      },
+      {
+        "start": 98.68,
+        "duration": 3.439,
+        "text": "comes up it reaches out to a service to"
+      },
+      {
+        "start": 101.04,
+        "duration": 4.399,
+        "text": "discover the rest of the nodes in the"
+      },
+      {
+        "start": 102.119,
+        "duration": 5.32,
+        "text": "cluster opens connections to those nodes"
+      },
+      {
+        "start": 105.439,
+        "duration": 4.401,
+        "text": "and finishes its bootstrapping process"
+      },
+      {
+        "start": 107.439,
+        "duration": 4.68,
+        "text": "so we see it just went green the startup"
+      },
+      {
+        "start": 109.84,
+        "duration": 4.559,
+        "text": "is complete if it missed any data while"
+      },
+      {
+        "start": 112.119,
+        "duration": 5.201,
+        "text": "it was down the other notes cluster will"
+      },
+      {
+        "start": 114.399,
+        "duration": 4.881,
+        "text": "handle uh sending those hints over and"
+      },
+      {
+        "start": 117.32,
+        "duration": 3.439,
+        "text": "we're good to continue so now that our"
+      },
+      {
+        "start": 119.28,
+        "duration": 2.759,
+        "text": "pod is back up"
+      },
+      {
+        "start": 120.759,
+        "duration": 3.201,
+        "text": "let's take a look at another failure"
+      },
+      {
+        "start": 122.039,
+        "duration": 3.36,
+        "text": "type that of the kubernetes worker in"
+      },
+      {
+        "start": 123.96,
+        "duration": 2.96,
+        "text": "this scenario we'll log into our Cloud"
+      },
+      {
+        "start": 125.399,
+        "duration": 3.48,
+        "text": "console and terminate one of the worker"
+      },
+      {
+        "start": 126.92,
+        "duration": 4.56,
+        "text": "instances so we're going to Target that"
+      },
+      {
+        "start": 128.879,
+        "duration": 4.36,
+        "text": "same node that just came back up and we"
+      },
+      {
+        "start": 131.48,
+        "duration": 6.399,
+        "text": "go here and look at the node identifier"
+      },
+      {
+        "start": 133.239,
+        "duration": 7.72,
+        "text": "and that is uh ccfa ddk 68 so if I"
+      },
+      {
+        "start": 137.879,
+        "duration": 6.0,
+        "text": "switch over to my console I already have"
+      },
+      {
+        "start": 140.959,
+        "duration": 4.521,
+        "text": "it selected here and we're just going to"
+      },
+      {
+        "start": 143.879,
+        "duration": 3.681,
+        "text": "delete the instance and now we have to"
+      },
+      {
+        "start": 145.48,
+        "duration": 3.68,
+        "text": "type delete okay so this instance is"
+      },
+      {
+        "start": 147.56,
+        "duration": 3.0,
+        "text": "just going to go down now it's worth"
+      },
+      {
+        "start": 149.16,
+        "duration": 3.4,
+        "text": "noting that we have have nine nodes"
+      },
+      {
+        "start": 150.56,
+        "duration": 4.759,
+        "text": "total in this kubernetes cluster so"
+      },
+      {
+        "start": 152.56,
+        "duration": 4.92,
+        "text": "there's plenty of capacity uh to"
+      },
+      {
+        "start": 155.319,
+        "duration": 4.401,
+        "text": "reschedule on um we don't have to worry"
+      },
+      {
+        "start": 157.48,
+        "duration": 4.399,
+        "text": "about waiting for a a new instance to"
+      },
+      {
+        "start": 159.72,
+        "duration": 3.4,
+        "text": "come back up but in some cases and in"
+      },
+      {
+        "start": 161.879,
+        "duration": 3.241,
+        "text": "some environments maybe you have Auto"
+      },
+      {
+        "start": 163.12,
+        "duration": 3.6,
+        "text": "scaling groups set up uh you may have to"
+      },
+      {
+        "start": 165.12,
+        "duration": 3.6,
+        "text": "wait for the new worker to get"
+      },
+      {
+        "start": 166.72,
+        "duration": 5.04,
+        "text": "reprovisioned uh and come"
+      },
+      {
+        "start": 168.72,
+        "duration": 4.239,
+        "text": "online now like we mentioned earlier uh"
+      },
+      {
+        "start": 171.76,
+        "duration": 3.0,
+        "text": "the storage will actually have to be"
+      },
+      {
+        "start": 172.959,
+        "duration": 4.601,
+        "text": "disconnected from this host and then"
+      },
+      {
+        "start": 174.76,
+        "duration": 4.6,
+        "text": "connect it to wherever uh the Pod gets"
+      },
+      {
+        "start": 177.56,
+        "duration": 4.28,
+        "text": "rescheduled so we're going to go back"
+      },
+      {
+        "start": 179.36,
+        "duration": 4.48,
+        "text": "here we should see the Readiness probe"
+      },
+      {
+        "start": 181.84,
+        "duration": 3.84,
+        "text": "fail here shortly and then the"
+      },
+      {
+        "start": 183.84,
+        "duration": 4.8,
+        "text": "kubernetes control plane will handle"
+      },
+      {
+        "start": 185.68,
+        "duration": 4.96,
+        "text": "rescheduling this pod okay the probe has"
+      },
+      {
+        "start": 188.64,
+        "duration": 3.879,
+        "text": "failed which is to be expected we just"
+      },
+      {
+        "start": 190.64,
+        "duration": 3.76,
+        "text": "deleted the instance that was running it"
+      },
+      {
+        "start": 192.519,
+        "duration": 4.241,
+        "text": "and it says that the note is down so"
+      },
+      {
+        "start": 194.4,
+        "duration": 4.32,
+        "text": "we'll give this a moment to run check"
+      },
+      {
+        "start": 196.76,
+        "duration": 4.199,
+        "text": "our Cloud console says the instance is"
+      },
+      {
+        "start": 198.72,
+        "duration": 4.12,
+        "text": "being deleted we can refresh and see how"
+      },
+      {
+        "start": 200.959,
+        "duration": 4.28,
+        "text": "progress is going there it's still in"
+      },
+      {
+        "start": 202.84,
+        "duration": 5.039,
+        "text": "the process of deleting that's great we"
+      },
+      {
+        "start": 205.239,
+        "duration": 5.64,
+        "text": "should see this go orange as it gets"
+      },
+      {
+        "start": 207.879,
+        "duration": 4.961,
+        "text": "rescheduled and uh pending"
+      },
+      {
+        "start": 210.879,
+        "duration": 4.521,
+        "text": "initialization now kubernetes is giving"
+      },
+      {
+        "start": 212.84,
+        "duration": 4.36,
+        "text": "a little a little bit of time in case"
+      },
+      {
+        "start": 215.4,
+        "duration": 3.8,
+        "text": "that note is is flapping maybe it comes"
+      },
+      {
+        "start": 217.2,
+        "duration": 4.16,
+        "text": "back then it will have to move volumes"
+      },
+      {
+        "start": 219.2,
+        "duration": 4.399,
+        "text": "around uh but we'll see here shortly it"
+      },
+      {
+        "start": 221.36,
+        "duration": 3.76,
+        "text": "gets rescheduled and one of the ways we"
+      },
+      {
+        "start": 223.599,
+        "duration": 3.681,
+        "text": "can check that is to look at the node"
+      },
+      {
+        "start": 225.12,
+        "duration": 3.72,
+        "text": "value here it's still the node that we"
+      },
+      {
+        "start": 227.28,
+        "duration": 4.4,
+        "text": "deleted so we want to give that a little"
+      },
+      {
+        "start": 228.84,
+        "duration": 5.039,
+        "text": "bit longer and then we'll also check the"
+      },
+      {
+        "start": 231.68,
+        "duration": 3.839,
+        "text": "uh the events we'll most likely see an"
+      },
+      {
+        "start": 233.879,
+        "duration": 3.881,
+        "text": "event where the storage gets moved as"
+      },
+      {
+        "start": 235.519,
+        "duration": 4.881,
+        "text": "well when the pot is rescheduled there"
+      },
+      {
+        "start": 237.76,
+        "duration": 3.679,
+        "text": "we go notice how we're all orange now"
+      },
+      {
+        "start": 240.4,
+        "duration": 3.28,
+        "text": "and if we"
+      },
+      {
+        "start": 241.439,
+        "duration": 6.44,
+        "text": "scroll up here we can see now we're"
+      },
+      {
+        "start": 243.68,
+        "duration": 5.479,
+        "text": "scheduled on a new node 681 n but it's"
+      },
+      {
+        "start": 247.879,
+        "duration": 3.92,
+        "text": "within the same group that's because"
+      },
+      {
+        "start": 249.159,
+        "duration": 4.44,
+        "text": "it's within the same a as the previous"
+      },
+      {
+        "start": 251.799,
+        "duration": 4.121,
+        "text": "kubernetes worker and we do that because"
+      },
+      {
+        "start": 253.599,
+        "duration": 3.841,
+        "text": "we want to make sure that we have uh our"
+      },
+      {
+        "start": 255.92,
+        "duration": 3.839,
+        "text": "data replicated across failure"
+      },
+      {
+        "start": 257.44,
+        "duration": 6.08,
+        "text": "boundaries that would be an individual"
+      },
+      {
+        "start": 259.759,
+        "duration": 5.521,
+        "text": "kubernetes worker the a or even a region"
+      },
+      {
+        "start": 263.52,
+        "duration": 3.959,
+        "text": "all these containers say waiting because"
+      },
+      {
+        "start": 265.28,
+        "duration": 4.6,
+        "text": "we're waiting for uh the storage to move"
+      },
+      {
+        "start": 267.479,
+        "duration": 4.881,
+        "text": "over that's what this error message here"
+      },
+      {
+        "start": 269.88,
+        "duration": 5.8,
+        "text": "is is we're trying to attach the volume"
+      },
+      {
+        "start": 272.36,
+        "duration": 4.92,
+        "text": "from the old node uh to this new one and"
+      },
+      {
+        "start": 275.68,
+        "duration": 3.16,
+        "text": "it's blocking that and that's going to"
+      },
+      {
+        "start": 277.28,
+        "duration": 3.639,
+        "text": "happen for a little bit it's happens"
+      },
+      {
+        "start": 278.84,
+        "duration": 5.199,
+        "text": "with eventually consistent systems at"
+      },
+      {
+        "start": 280.919,
+        "duration": 4.761,
+        "text": "least in the cloud provider side uh it"
+      },
+      {
+        "start": 284.039,
+        "duration": 3.841,
+        "text": "should just be a few"
+      },
+      {
+        "start": 285.68,
+        "duration": 4.239,
+        "text": "minutes in any case as the human"
+      },
+      {
+        "start": 287.88,
+        "duration": 3.2,
+        "text": "operator involved here uh I don't"
+      },
+      {
+        "start": 289.919,
+        "duration": 3.28,
+        "text": "actually have to do"
+      },
+      {
+        "start": 291.08,
+        "duration": 4.24,
+        "text": "anything the cloud provider and the"
+      },
+      {
+        "start": 293.199,
+        "duration": 4.84,
+        "text": "kubernetes control plane along with the"
+      },
+      {
+        "start": 295.32,
+        "duration": 5.0,
+        "text": "CSI will sort attaching the volume to"
+      },
+      {
+        "start": 298.039,
+        "duration": 4.16,
+        "text": "the right worker and then starting the"
+      },
+      {
+        "start": 300.32,
+        "duration": 3.4,
+        "text": "process one of the other things you can"
+      },
+      {
+        "start": 302.199,
+        "duration": 4.681,
+        "text": "do is you can go look at that instance"
+      },
+      {
+        "start": 303.72,
+        "duration": 6.0,
+        "text": "that's 681 November and we can see the"
+      },
+      {
+        "start": 306.88,
+        "duration": 4.8,
+        "text": "progress of moving that volume by"
+      },
+      {
+        "start": 309.72,
+        "duration": 4.64,
+        "text": "looking at the additional disc field so"
+      },
+      {
+        "start": 311.68,
+        "duration": 4.359,
+        "text": "if we scroll down here we can see the"
+      },
+      {
+        "start": 314.36,
+        "duration": 5.64,
+        "text": "boot dis and there are no additional"
+      },
+      {
+        "start": 316.039,
+        "duration": 6.841,
+        "text": "disc so uh that that API call to move"
+      },
+      {
+        "start": 320.0,
+        "duration": 5.44,
+        "text": "the disc to this worker uh will retrive"
+      },
+      {
+        "start": 322.88,
+        "duration": 3.92,
+        "text": "periodically we just have to be patient"
+      },
+      {
+        "start": 325.44,
+        "duration": 2.44,
+        "text": "while we're waiting for it to resched we"
+      },
+      {
+        "start": 326.8,
+        "duration": 3.36,
+        "text": "can take a look at the containers"
+      },
+      {
+        "start": 327.88,
+        "duration": 4.36,
+        "text": "involved here we have our base config"
+      },
+      {
+        "start": 330.16,
+        "duration": 5.8,
+        "text": "AIT which pulls the base configuration"
+      },
+      {
+        "start": 332.24,
+        "duration": 6.079,
+        "text": "from our Cassandra image then we run"
+      },
+      {
+        "start": 335.96,
+        "duration": 3.2,
+        "text": "this server configit which uses the C"
+      },
+      {
+        "start": 338.319,
+        "duration": 2.801,
+        "text": "config"
+      },
+      {
+        "start": 339.16,
+        "duration": 4.96,
+        "text": "Builder uh to render out the"
+      },
+      {
+        "start": 341.12,
+        "duration": 6.799,
+        "text": "configuration files on disk uh it takes"
+      },
+      {
+        "start": 344.12,
+        "duration": 5.6,
+        "text": "in a blob of Json as an input and turns"
+      },
+      {
+        "start": 347.919,
+        "duration": 3.641,
+        "text": "that into a collection of configuration"
+      },
+      {
+        "start": 349.72,
+        "duration": 5.24,
+        "text": "files within a"
+      },
+      {
+        "start": 351.56,
+        "duration": 6.04,
+        "text": "volume uh this other container sets up a"
+      },
+      {
+        "start": 354.96,
+        "duration": 4.679,
+        "text": "jmax credentials file within the"
+      },
+      {
+        "start": 357.6,
+        "duration": 3.76,
+        "text": "Pod and then our other two containers"
+      },
+      {
+        "start": 359.639,
+        "duration": 3.721,
+        "text": "ERS are the actual cassander container"
+      },
+      {
+        "start": 361.36,
+        "duration": 3.52,
+        "text": "which contains the management API as"
+      },
+      {
+        "start": 363.36,
+        "duration": 3.92,
+        "text": "well as the cassander"
+      },
+      {
+        "start": 364.88,
+        "duration": 4.52,
+        "text": "Damon and the server system logger which"
+      },
+      {
+        "start": 367.28,
+        "duration": 5.28,
+        "text": "Tails VAR log"
+      },
+      {
+        "start": 369.4,
+        "duration": 6.48,
+        "text": "Cassandra system.log and that way we can"
+      },
+      {
+        "start": 372.56,
+        "duration": 5.4,
+        "text": "get both the logs of the management API"
+      },
+      {
+        "start": 375.88,
+        "duration": 4.12,
+        "text": "process and the cassander process via"
+      },
+      {
+        "start": 377.96,
+        "duration": 3.16,
+        "text": "cctl and we're just waiting for this"
+      },
+      {
+        "start": 380.0,
+        "duration": 4.08,
+        "text": "event to"
+      },
+      {
+        "start": 381.12,
+        "duration": 4.88,
+        "text": "clear the back see if it's showing up in"
+      },
+      {
+        "start": 384.08,
+        "duration": 4.48,
+        "text": "here no we still don't have the"
+      },
+      {
+        "start": 386.0,
+        "duration": 4.36,
+        "text": "additional disc yet so still waiting on"
+      },
+      {
+        "start": 388.56,
+        "duration": 3.479,
+        "text": "the CSI here"
+      },
+      {
+        "start": 390.36,
+        "duration": 4.04,
+        "text": "okay another event that it's still"
+      },
+      {
+        "start": 392.039,
+        "duration": 4.681,
+        "text": "waiting to attach the"
+      },
+      {
+        "start": 394.4,
+        "duration": 3.4,
+        "text": "volumes where the timeout involved"
+      },
+      {
+        "start": 396.72,
+        "duration": 3.44,
+        "text": "that's"
+      },
+      {
+        "start": 397.8,
+        "duration": 4.76,
+        "text": "okay still waiting for that volume to"
+      },
+      {
+        "start": 400.16,
+        "duration": 5.96,
+        "text": "move over that's okay now it's worth"
+      },
+      {
+        "start": 402.56,
+        "duration": 5.479,
+        "text": "noting that while this Noe is down uh"
+      },
+      {
+        "start": 406.12,
+        "duration": 3.079,
+        "text": "hints are occurring on the other nodes"
+      },
+      {
+        "start": 408.039,
+        "duration": 3.321,
+        "text": "for any"
+      },
+      {
+        "start": 409.199,
+        "duration": 4.041,
+        "text": "queries rights that are coming into the"
+      },
+      {
+        "start": 411.36,
+        "duration": 3.119,
+        "text": "system and that would Target that node"
+      },
+      {
+        "start": 413.24,
+        "duration": 2.76,
+        "text": "uh but since it's unavailable they'll"
+      },
+      {
+        "start": 414.479,
+        "duration": 4.041,
+        "text": "just hold on those hints for a period of"
+      },
+      {
+        "start": 416.0,
+        "duration": 4.96,
+        "text": "time when that node comes back up we can"
+      },
+      {
+        "start": 418.52,
+        "duration": 4.239,
+        "text": "see our PV has attached now when that"
+      },
+      {
+        "start": 420.96,
+        "duration": 4.32,
+        "text": "node comes back up it'll replay those"
+      },
+      {
+        "start": 422.759,
+        "duration": 5.0,
+        "text": "hints against the node to bring it up to"
+      },
+      {
+        "start": 425.28,
+        "duration": 4.88,
+        "text": "speed with the current state of data now"
+      },
+      {
+        "start": 427.759,
+        "duration": 5.601,
+        "text": "there's a number of anti-v systems"
+      },
+      {
+        "start": 430.16,
+        "duration": 4.28,
+        "text": "present within Cassandra to account for"
+      },
+      {
+        "start": 433.36,
+        "duration": 5.48,
+        "text": "these types of"
+      },
+      {
+        "start": 434.44,
+        "duration": 6.12,
+        "text": "issues uh we just uh let those those"
+      },
+      {
+        "start": 438.84,
+        "duration": 4.479,
+        "text": "systems run to to keep things in Sy"
+      },
+      {
+        "start": 440.56,
+        "duration": 4.6,
+        "text": "whether that be at query time whether it"
+      },
+      {
+        "start": 443.319,
+        "duration": 4.041,
+        "text": "be through the out ofand repair process"
+      },
+      {
+        "start": 445.16,
+        "duration": 3.92,
+        "text": "this hint mechanism it's a layered"
+      },
+      {
+        "start": 447.36,
+        "duration": 3.119,
+        "text": "approach to keeping data consistent"
+      },
+      {
+        "start": 449.08,
+        "duration": 3.76,
+        "text": "across the multiple"
+      },
+      {
+        "start": 450.479,
+        "duration": 4.961,
+        "text": "nodes okay so the fact that the volume"
+      },
+      {
+        "start": 452.84,
+        "duration": 4.0,
+        "text": "attached is a really good sign it's just"
+      },
+      {
+        "start": 455.44,
+        "duration": 2.92,
+        "text": "going to take one more moment and I bet"
+      },
+      {
+        "start": 456.84,
+        "duration": 4.759,
+        "text": "if we refresh the screen over here we"
+      },
+      {
+        "start": 458.36,
+        "duration": 6.92,
+        "text": "can see that additional dis will show up"
+      },
+      {
+        "start": 461.599,
+        "duration": 6.32,
+        "text": "now we scroll down there's our dis that"
+      },
+      {
+        "start": 465.28,
+        "duration": 5.0,
+        "text": "has our data back in here and we should"
+      },
+      {
+        "start": 467.919,
+        "duration": 5.28,
+        "text": "see these start to clear here shortly"
+      },
+      {
+        "start": 470.28,
+        "duration": 4.359,
+        "text": "we'll go down to the initializers we'll"
+      },
+      {
+        "start": 473.199,
+        "duration": 3.321,
+        "text": "just watch these status Fields right"
+      },
+      {
+        "start": 474.639,
+        "duration": 4.96,
+        "text": "here all right we see it's pulling the"
+      },
+      {
+        "start": 476.52,
+        "duration": 4.32,
+        "text": "images now means everything's the"
+      },
+      {
+        "start": 479.599,
+        "duration": 3.6,
+        "text": "volumes are attached it's ready to"
+      },
+      {
+        "start": 480.84,
+        "duration": 4.96,
+        "text": "actually start so if we scroll up we can"
+      },
+      {
+        "start": 483.199,
+        "duration": 3.96,
+        "text": "see when these actually fire so that"
+      },
+      {
+        "start": 485.8,
+        "duration": 3.839,
+        "text": "one's already finished completed with"
+      },
+      {
+        "start": 487.159,
+        "duration": 4.6,
+        "text": "exit Code Zero now we have the server"
+      },
+      {
+        "start": 489.639,
+        "duration": 3.761,
+        "text": "config in nit for the C config Builder"
+      },
+      {
+        "start": 491.759,
+        "duration": 4.56,
+        "text": "image it's going to fire off it's"
+      },
+      {
+        "start": 493.4,
+        "duration": 4.479,
+        "text": "running it's writing files out the dis"
+      },
+      {
+        "start": 496.319,
+        "duration": 5.72,
+        "text": "it's pulling things like the host IP and"
+      },
+      {
+        "start": 497.879,
+        "duration": 7.081,
+        "text": "the Pod IP from the uh pod ref pod"
+      },
+      {
+        "start": 502.039,
+        "duration": 4.72,
+        "text": "status and now finally we're running the"
+      },
+      {
+        "start": 504.96,
+        "duration": 3.16,
+        "text": "management API if we go over here and"
+      },
+      {
+        "start": 506.759,
+        "duration": 3.801,
+        "text": "look at the logs for the"
+      },
+      {
+        "start": 508.12,
+        "duration": 4.64,
+        "text": "Cassandra uh container these are the"
+      },
+      {
+        "start": 510.56,
+        "duration": 3.64,
+        "text": "logs of the management API and we can"
+      },
+      {
+        "start": 512.76,
+        "duration": 3.279,
+        "text": "actually see it's already received the"
+      },
+      {
+        "start": 514.2,
+        "duration": 4.079,
+        "text": "start command from the Cass operator if"
+      },
+      {
+        "start": 516.039,
+        "duration": 4.041,
+        "text": "we go over here to server system logger"
+      },
+      {
+        "start": 518.279,
+        "duration": 3.961,
+        "text": "we see the logs are"
+      },
+      {
+        "start": 520.08,
+        "duration": 4.079,
+        "text": "populated so this is where it's reaching"
+      },
+      {
+        "start": 522.24,
+        "duration": 4.159,
+        "text": "out it's gossiping with its peers"
+      },
+      {
+        "start": 524.159,
+        "duration": 4.601,
+        "text": "getting the topology of the cluster from"
+      },
+      {
+        "start": 526.399,
+        "duration": 5.56,
+        "text": "the other nodes and we will see it turn"
+      },
+      {
+        "start": 528.76,
+        "duration": 4.32,
+        "text": "green here surely and there we go we're"
+      },
+      {
+        "start": 531.959,
+        "duration": 4.041,
+        "text": "now listening for connections and"
+      },
+      {
+        "start": 533.08,
+        "duration": 4.16,
+        "text": "startup is complete so over the course"
+      },
+      {
+        "start": 536.0,
+        "duration": 3.0,
+        "text": "of this demo we've highlighted the"
+      },
+      {
+        "start": 537.24,
+        "duration": 4.2,
+        "text": "failure of PODS and aat sander cluster"
+      },
+      {
+        "start": 539.0,
+        "duration": 3.72,
+        "text": "along with its automatic reconciliation"
+      },
+      {
+        "start": 541.44,
+        "duration": 2.76,
+        "text": "K sener supports multicluster"
+      },
+      {
+        "start": 542.72,
+        "duration": 3.799,
+        "text": "deployments where a failure could happen"
+      },
+      {
+        "start": 544.2,
+        "duration": 3.96,
+        "text": "at the node a or even Regional level"
+      },
+      {
+        "start": 546.519,
+        "duration": 3.641,
+        "text": "while still keeping your data safe and"
+      },
+      {
+        "start": 548.16,
+        "duration": 3.64,
+        "text": "streamlining operations thank you so"
+      },
+      {
+        "start": 550.16,
+        "duration": 3.799,
+        "text": "much for attending this demo we have a"
+      },
+      {
+        "start": 551.8,
+        "duration": 4.36,
+        "text": "bunch of other demos at our booth and uh"
+      },
+      {
+        "start": 553.959,
+        "duration": 5.041,
+        "text": "join us over at K sander. thank you so"
+      },
+      {
+        "start": 556.16,
+        "duration": 2.84,
+        "text": "much"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T19:44:38.946812+00:00"
+}

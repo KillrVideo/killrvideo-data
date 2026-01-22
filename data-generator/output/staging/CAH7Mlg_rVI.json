@@ -1,0 +1,3551 @@
+{
+  "video_id": "CAH7Mlg_rVI",
+  "title": "Distributed Data Show Episode 49: Bulk Loading with Brian Hess",
+  "description": "0:15 - Jeff welcomes Brian Hess to the show and discusses the scalability of sweater vest clusters\n1:09 - Why bulk loading is a capability that people just assume exists for all databases\n2:29 - Existing tools for bulk loading for Cassandra / DSE include: 1) the cqlsh COPY TO / FROM command - which doesn’t scale or handle errors well\n3:31 - 2) Cassandra’s sstableloader can be used to load data but isn’t really a bulk loader.\n4:21 - 3) People have also used Spark and the DSE Spark Connector to load data\n4:53 - 4) Brian wrote his own “Cassandra loader” open source project using CQL\n6:32 - Introducing DS Bulk, a brand new bulk loader which builds on lessons learned from Cassandra loader\n7:25 - Features include loading/unloading from JSON or CSV, number/data formats, security, \n8:41 - Supported transformations include support for the now() function, not case management. The tool operates via std in/out so that you can chain results with tools like sed and awk\n9:52 - Unloading features include column selection and filtering / limiting\n11:24 - What makes DS Bulk a superior tool: 1) high performance (4x faster than cqlsh COPY)\n13:12 - 2) Error handling including the ability to isolate errors and continue, and a dry run mode\n16:08 - 3) Ease of use and configurability\n16:42 - Challenging parts of building the driver were handling some offbeat use cases, getting the user experience right, and prioritizing features for this first release \n20:02 - DS Bulk is a distinct tool from the DSE Graph Loader - at least for now\n22:13 - Brian’s shout outs to the DS Bulk team \n\nABOUT DATASTAX ENTERPRISE 6\nDataStax  powers  the  Right-Now  Enterprise  with  the  always-on,  distributed  cloud  database  built  on  Apache  Cassandra™  and designed for hybrid cloud. DataStax Enterprise 6 (DSE 6) includes industry-leading performance, self-driving operational simplicity, and robust analytics.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://www.datastax.com/produ",
+  "published_at": "2018-05-29T17:00:48Z",
+  "thumbnail": "https://i.ytimg.com/vi/CAH7Mlg_rVI/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cql",
+    "cassandra",
+    "database",
+    "performance",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=CAH7Mlg_rVI",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems hey I'm Jeff carpenter and I'm here with Brian Hess howdy now you're an expert in all things analytics with respect to data sacks enterprise but today we're not going to talk with you about analytics we're gonna talk about bulk loading another favorite topic of mine ok we've been trying to get you on the show for a very long time just so that I could ask you my one non bulk loading question all right is okay so now that we have DSC six out and we're featuring the advanced performance you know kind of like double the throughput etc that means that you can do twice the workload on the same hardware will we be able to remove some of the nodes from the sweater vest or will we just double the workload I think we would double the workload I get more done in this sweater vest now with DSC 6 ok that's a good answer i we can roll with that okay but I digress we do want to talk about bulk loading and ok so this is like this is one of those distributed systems distributed database problems that no one really thinks about like top of mind yeah is it it's sort of funny like when I'm shopping for a new database but what's the bulk loader like right it's it's sort of just assumed right yes this is just something you do that was actually my experience when I first came to Cassandra I started at theta stacks and started working with Cassandra and it was like alright so I don't put the data in and and there was sort of like crickets like wait you just start writing and I'm like well but I have like a data set I want to play with it I know it I do ok a little bit stirred up a little bit of controversy then it was it was a little bit funny right and then and then of course you know the where should I start but comes this thing I was new to Cassandra like I said yeah so it really is that natural I'm just and I don't think it's unique to data stacks enterprising cos and I think it's just databases in general or data systems I have data I want to put it in and you work with it this is like be out of the gate question I think then you sort of wants to get past that it becomes what we've seen is become much more mechanical of data flows I have a big data system data is coming in of various ways one of the ways will be like file I just need to put it in and fast right so this becomes a regular occurrence not just a newbie occurrence okay yes so it's a general problem right that we have now let's talk about the specifics like what was the previous state of the art for bulk loading with Cassandra and DSE yeah so I think the primary tool people looked at was CQ LSH so the sequel shell for CQ l shell for Cassandra had a copy from copy to command yes and so SAS V yep actually I think any deliver you could change the delimiter in some settings but so I started there in my when I came here and and of course I I loaded like a thousand records and was like a perfect right no but no big deal and I think okay and then I you know went and got a bigger data set because a thousand records is not really a distributed database kind of size and you start to realize that that tool was was not really suited for it a little slow little clumsy some of the data was not in a great format and so it didn't handle errors very well so it's a tool and I still think you know if you have a small amount of data and you just want to pop in the couple you know a thousand or just use it like that's right um the other big tool if you if you do a Google search on Cassandra bulk loading you'll get the SS table loader okay and so SS tables that the proprietary form or the internal format I should say of Cassandra for the the back end of the database SS table loader will reload those somewhere so if you have SS tables it's great okay so that's not that's not a bulk loader now say yeah I think of it more like a story story yeah exactly I think of it okay yeah totally but it is if you do the query on bulk loader that comes up and of course you stuck with the problem of but my data came from you know came from a day-to-day to base or a file you know on file somewhere yeah it's not in SS table format now what do I do and and actually the answer is there's this kind of painful cql SH copy not right yeah right exactly and then I think the other tool that I'll make a plug on the analytic side is if the data is sitting in in a distributed system a distributed file system as three HDFS even our DSC FS you use SPARC to read that data in bulk and use the SPARC Cassandra connector or the DSC SPARC connector to put the data in as well but that's sort of you know if your data is in a distributed place right okay yeah that makes perfect sense there are definitely some use cases where use using spark would be the perfectly sensible thing to do absolutely and then the last one I guess is your write your own program which is wait wait that's what you did we skipped one because I'm sorry where there is one more right a bulk loader of your own I did so the other the other one was thank you I've already moved on to the S bulk so the the other challenge was what is the best way and I did a little bit of a study on that okay I talked about it at Cassandra summit in 2015 about comparing a bunch of things and writing through the front door of Cassandra and CQL was a very efficient way to do it if you use some best practices and so I wrote a tool to kind of codified those things into a read delimited files and use them called Cassandra loader and it was out there I I mean I'm proud mentally better than yeah it was out there previously correct and but still a community tool right there was also this challenge of there was like one developer a part time right so if you had an issue like I would I would go occasionally and kind of clear out some some little things but that's not you know what you expect from a big distributed system is a moderately well supported github project right as you do right exactly that said people needed it they used it there are people out there used it in production I think the big benefit from my involvement in that project was really seeing what are people really trying to do with it this was a way to kind of crowdsource what's the need there you go and and that was great it was it was a lot of interesting things then you know we added so I added some stuff there where one guy not needed it and we were like I won't but maybe that's not as important yeah okay so let's talk a little remote people needed learn basically crowdsource the requirements for this yo D s bulk your results yeah absolutely yeah so the first myth all dispel is it is not we took Cassandra loader and brought it into Data stacks and refined it and pushed it out now what we did we did not okay um there was the the data stacks team that does drivers knew a lot about the about the best ways to push data into the database and they took the learnings of some of the things that I had learned in Cassandra loader some of the things they knew way more than I did and so it is basically ground-up rebuild of this whole idea okay um there were a few tips and tricks that they stole when you know imitation is the best form of flattery so I was also with that yeah and the tool is is I mean I would direct anybody in that direction now okay so let's back up cuz you're a little backwards yeah sorry first of all what is we talked a little how was made yeah but what is des folks okay like the nutshell des bulk is is loading from files delimited and JSON that was one of the things we learned through Cassandra loader was there is a JSON need out there yeah we picked those formats we have ways to extend it like when we built the tool we thought forward to other things we might need later but starting with delimited files and JSON and kind of the idea of like I've got a pile of files here on my laptop or on a Linux server and I just want to push it into the database yeah I want to handle things like the number format might be different because of internationalization I might want it the big one that everybody always bumps into is your date format as always month date Wow exactly how are we doing it so you want to support that configuring how to interpret the data right so the format's but also then control how we want to connect to the database with things like security do I need to have password security or Kerberos all these things that are now getting into that enterprise level yes note that that's always a little bit painful right so the idea got a pile files here and I really just want to put them there and please do it efficiently and and that's that's kind of the cry of what des bulk is trying to go after okay see you mentioned some sort of lightweight transformations that take place with respect to dates but right what about transforms in general yeah so so this was one of the things that I think we tried to sort of stay very narrow on was that we're gonna just take the files that are ready to be loaded and okay so no no there's a handful of transformations of things like got a pretty common thing in Cassandra is to throw a timestamp in for a record and you do that by calling the now function so there's we wanted to be able to say well you can do the now and add oh you can use now yeah that kind of thing so but that's about it none of this I want to like you know change everything to uppercase we're just going to be trying to take the files and put them in and the idea there is there are other tools that do that and we can build bring those in so if you want to use Perl or Python or awk I'm gonna guy myself to tweak like whatever the data to tweak whatever that it is and then pipe it in right we wanted to support standard in and standard out this idea standard UNIX command-line utility it's one function it does one thing right really well right and then you chain them and together yeah oh the other the other thing I always do this you want a load data you also want to unload it we want to have the symmetry I need implied right yeah but the same sort of deal how do you want the data to look when it comes on out okay on that one you do have some things like I only need these three columns like I don't need all the data Oh couple column right let's just take that out that one actually will let you throw in a where clause like maybe you only want like one if you're trying to debug something I need only this partition or limit clause Olinda clause will work as well okay yeah so it's funny yeah you could do that with cql or you could just pipe it to head okay so you did make some some affordances yeah yeah and and so on the unloading it's much easier on the loading there there is some stuff and it's probably not on this sort of chat to kind of get into the details of but there's powerful ways to sort of indicate this column in the in the input file is supposed to be like the name in the database and this column happens to be the address column right so there's there's ways to articulate to me that's just a mapping of you know field seven is is zip code right it's not really a transform as much as understand what the format is okay but yeah they chain those things together and keep it nice and simple I think that when it tries to get fancy you start now like we didn't want to build an entire ETL system there's a single process on one that was that wasn't done the product roadmap huh no no I mean I would I would refer people over to to you know spark in analytics to there you go those sorts of things okay but I but I can tell that you are proud of me here yeah yes okay so let's let's brag on things a little bit like water what makes this a better tool so I think that one one of the things that we sort of said if we're gonna do bulk we got to do it fast okay there's a performance angle yeah to this and the question was sort of like alright so but but how or a we'll start with how much faster I'm asking the question yeah I'm sorry so we compare ourselves to the the two big tools when we were thinking was to compare the performance of cql escaped the cql sh and the Cassandra loader tool since it's out there and sherry okay and you Joe we did we exceeded Cassandra loader by a fair amount and and C kill SH by about like 4x okay so it's just okay this is the tool you would use the supported you know capable tool for X performance in terms of how we measure that the idea is like how fast can the client how perhaps can your laptop push data to the cluster not that we like the cluster is the limiting factor you need to make the cluster big enough so yeah of course right right so how efficient can we make this tool and there's sort of a few pieces to that one is how well can you parse the the files themselves let's make that very efficient sure and then the other is the part like I said that the the Java driver team was very well suited to be in the ones to go well this is how I would push the absolute limits of the Java drivers okay so you are built you are using Java drive the data sex drive a driver yes correct yeah and there's some advancements there that I think we'll see roll into the driver itself in terms of ease of use and abilities okay those are sort of futures but there's a lot of lessons learnt where we went home we should steal that trick and let everybody else get in on the fun nice okay so the the one angle is performance yeah the other one spent a long career in data in general and often times data is messy and so errors and how you want to handle but you know do you want to you want to stop on the first error or do you just sort of say well what are we gonna do when we hit an error like a water matt is different oh good you could I mean that's a very reasonable thing to want to do it's usually not what I wanted to do when I worked on this I swear I wanted to take the seven lines that were terrible out of a million and just copy them to another file right and so that's sort of the approach we took is you can set how what is your threshold if you're gonna get hundreds and hundreds of errors then we kind of want everything to stop okay so there is a point at which you're like okay this is too much this file is clearly not well suited for import that's right this table so just bored and there's actually a to that and there is a if you're super safe person there's a dry run where it'll go through the file is okay of course yeah and and that's perfect for you know that there's that with some of the like there's no rollback so you can't unto if you really need to be very safe about it right there's a safety mechanism the support get data hygiene that's right yeah there's a so the mo in my mind is you you you run this and if you get this bad file the file is gonna have all the lines as they were written in the original one so that you can go and make whatever changes I'd say the big common ones are things like the date format was different in these few records for whatever reason another big one is if you've got strings in your in your data and you have and if you don't put bullets and you have a delimiter and then it's the number of fields is wrong I've never done that yeah I hear that other people gave me I do that that's right so and then you can just like if it's only a few then you just modify those and then you could even run you know the bulk loader again on this new file okay with different arguments or whatever I've also seen you know as data goes in it's coming from somewhere someone changed how the data was produced they change the printf and so now you're like halfway through the file it just changes and so you're like okay well I'll just now I can run it a second time with a different command try to keep it simple yeah there's there's a whole lot of error handling there's a lot of metrics around Huzur how's my performance how much writes per second and bytes per second am I actually pushing that's kind of the again the metric that you would want for right but you can see the progress then and see how things are going and and see that things are actually getting inserted a little bit of visibility I I hate the tools where you hit go and there's nothing and you drop back at the end and you're like yeah did anything happen so this is trying to give that you know visibility you can track zero results 29.7 second right so and then it's it's it's crazy configurable and actually that's that's good and I always worry a little bit when we make things too configurable there's a lot of docs on how to get into all the details okay we took like the top 20 and made sort of shortcut or very nice so like the host is just - eh right as opposed to the bigger Longer name or whatever but it does allow for that flexibility okay so that's been sort of like to me those are the big parts it's the ease of use and then the speed is kind of the only way I would be measuring great bulk loading tool okay all right so as I as a can I refer to you as sort of like a proud parent of this project we know that we like to brag on our kids but then we also kind of know some of the growth areas let's say so like or what were the some of the hard parts of this effort and kind of seeing this come to fruition yeah I think that understanding like how to really turn the screws in the right way of the driver for the use cases so we did have some learnings yeah there were times where we compared against some of the other tools really we really should have done better but this use case a little weird this is a tuning problem or are we actually talking about it was in the developer level I think we've taken all those learnings and apply it so that was the challenge in the process of building it in terms of using it I think you know it's a new tool so understanding the the way in which the config is set up and how you want to like oh I need to change the delimiter that's going to be in this part of the configuration I think that's probably the hardest part there are some okay so like a user experience a little bit and it's something I guess I'm just sensitive to any new tool yeah on is it gonna be easy the feedback we've gotten is it's it's straightforward right I mean and and so it's it's mostly easy once you sort of go okay yeah this is how the the sets of components are set up or where to go right for help we also I think there's there's a lot of configurations around or flexibility around like is it a directory of input files or you do want all the input files in that directory or just like the dot CSV s and how do i articulate oh so like wild carding yeah you can actually do that you can take you can say there's a directory here and I just want all of it but I only want that CSV ones not the other things and sort of being able to progress through that you know I think that there's also this question of like do you want to you know people have asked in some of the early questions we got back was like well what if my date is in s3 and I think it's going back into that well then I probably wouldn't use this tool right right now come back to some of the other tools like XML file like I was oh yeah asking you recently about yeah so that's the other challenges if the data is not actually in the right format yeah that is the other question well what should I do and and my answer to that would be what do you like right like if you like python use python if you like you know yeah the graph loader tool that we have for DSC uses groovy and if you will really want groovy then you know write a groovy script this is all you know going back to the transform json yeah so we write exactly we'll leave that to be you know not part of the problem of the tool xml is one where i think we could think about if this is a common enough use case we'll just bring in it i you start hearing that request right frequently enough yeah if you ask it enough times then I will latitude but now I we're trying to make it like I said we made it to be an extensible tool we're not necessarily making it to be that the the world is able to add the extensions but we made it knowing we're gonna want to have other formats we're going to want to have you know other other options here under the hood that will want to be bringing in and so that's that we thought forward in that way it's a command-line tool there were thoughts of well what about as a GUI someday and I think that we still think as a GUI someday I'd be good but we built it with the command-line interface is kind of you can rip that off and put a GUI on and the engine stays those yeah you know we thought about those things we built it well have a few product ideas for you all right well you know we'll talk about those later offline okay so there there is an existing graph loader project that we have people are familiar with DAC graph our graph database so can you help kind of disambiguate there what's the relationship between TS bulk and this graph loader that we have yeah so I think the graph loader is great it's built for graph data to come in and it interacts with DAC graph very well it's sort of that the mo of some of the challenges that you have when you work with graph data involves a bit more transformations of how should I be interpreting this stuff yeah the graph loader actually incorporated a lot of these transforms in because the operation of loading data into graph really kind of needs that really close you could of course always have something upstream that did a you know whatever java program to convert the data to another format and then use the graph loader on that I mean I was always so part of the story um we we did not want to do that in terms of just loading tabular data it very mint naturally as like well CSV is a pretty tabular sort of structure and JSON so we targeted on that use case okay I will say that we're aware of these two tools right right and we don't want there to be too long in the long run but we really wanted to build the right tool you know for the the tabular data right the representation of a graph it seems different not entirely dissimilar but there could be enough differences that you want to get each one of those right before we start thinking about merging those concepts yeah and then the merge is absolutely right I mean regardless of whether or not we somehow are able to put it all under one umbrella or if we just have one interface to two tools we do kind of want to have these things merged together in one way we wanted to focus on des bulk on on tabular data because that's what you know the bulk of DSE and and Cassandra is right the use is really on there and let's target for that as opposed to targeting for graph and trying to like bolt on tabular we want to make sure that they're bright really getting the good love I think it's a goal for ours to to bring the pads of these two tools together so there's only one tool how that'll look and that's sort of bearing out those kind of things go forward do you have any other thoughts that you want to share as we're wrapping up about where bulk loading is going yes sir directions um so yeah so that's a good question I think the big part for us is we got to I'll brag not I mean so you caught my baby I think that's a little unfair that totally needs to be a shout out to the whole team that was working on this I get to be the one in front of the camera so yeah I'll claim all the credit but that's totally not fair that that team we built actually we had goals to really just deliver the delimited file and we're able to just go actually we did we did this pretty quickly and pretty well and yeah we're pretty happy with it and kind of excited about this project let's do the JSON stuff too and so we grabbed out I came in um I think we're at a good spot to really be getting feedback from everybody writes the new tool it's out there it does very basic things very well we know that we know it goes beyond that as well but now we really want to see well where do people need to drive it is it a you know maybe an advanced security piece that we had taken that or there's an opportunity there if it's input formats like XML where we yeah let's add that obviously more people run it they're gonna bump into some you know some issue that we didn't see in our testing because you can't test everything so we're sort of expecting as this gets used we'll see some some bumps that happens but right now we're kind of I think in receive mode where's this coming we have no obvious next steps that we we really want to be getting out there it's you know it's in in v1 is out with dc-6 it's actually included in DSC when you download it okay um it's right there in the bin directory but it's also a standalone tool runs on Windows and and was exciting so we kind of again you've got a lot of people actually windows developers working on stuff and writing you know applications to go against the database and they want to be able to load right from there and I'm not exactly so it's also downloadable as a standalone tool so you don't have to have DSC to pull it down but just this tool separately so I think really for us we're excited to hear you know people use it and kind of not just in a direction a lot of a lot of good good pieces it's funny because it is just going back to the beginning of this conversation it's just kind of a given like it'll just ditch should just do right it should just be there right ants to think about it and I think we we sort of are in the same place we don't want you to think about the pain either just use the tool and go yeah no I think it's a great boon to our developer and operations community and one of those areas that you know honestly you don't maybe think about it's not front of mine when you're thinking about distributed systems distributed databases and adopting them so we're absolutely glad to have it and we're glad to have you on so thank you thank you very much Brian terrific thanks alright until next time thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data stacks Academy and tell us what you think you can also find us on the data stacks Academy YouTube channel or find our podcast on iTunes Google Play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.31,
+        "duration": 4.29,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.6,
+        "duration": 4.05,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 8.73,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 8.67,
+        "text": "large-scale distributed systems hey I'm"
+      },
+      {
+        "start": 17.19,
+        "duration": 3.21,
+        "text": "Jeff carpenter and I'm here with Brian"
+      },
+      {
+        "start": 19.32,
+        "duration": 2.959,
+        "text": "Hess howdy"
+      },
+      {
+        "start": 20.4,
+        "duration": 4.5,
+        "text": "now you're an expert in all things"
+      },
+      {
+        "start": 22.279,
+        "duration": 4.691,
+        "text": "analytics with respect to data sacks"
+      },
+      {
+        "start": 24.9,
+        "duration": 3.69,
+        "text": "enterprise but today we're not going to"
+      },
+      {
+        "start": 26.97,
+        "duration": 5.039,
+        "text": "talk with you about analytics we're"
+      },
+      {
+        "start": 28.59,
+        "duration": 5.1,
+        "text": "gonna talk about bulk loading another"
+      },
+      {
+        "start": 32.009,
+        "duration": 3.931,
+        "text": "favorite topic of mine ok we've been"
+      },
+      {
+        "start": 33.69,
+        "duration": 4.59,
+        "text": "trying to get you on the show for a very"
+      },
+      {
+        "start": 35.94,
+        "duration": 4.5,
+        "text": "long time just so that I could ask you"
+      },
+      {
+        "start": 38.28,
+        "duration": 4.59,
+        "text": "my one non bulk loading question all"
+      },
+      {
+        "start": 40.44,
+        "duration": 6.119,
+        "text": "right is okay so now that we have DSC"
+      },
+      {
+        "start": 42.87,
+        "duration": 5.4,
+        "text": "six out and we're featuring the advanced"
+      },
+      {
+        "start": 46.559,
+        "duration": 3.961,
+        "text": "performance you know kind of like double"
+      },
+      {
+        "start": 48.27,
+        "duration": 3.39,
+        "text": "the throughput etc that means that you"
+      },
+      {
+        "start": 50.52,
+        "duration": 3.75,
+        "text": "can do twice the workload on the same"
+      },
+      {
+        "start": 51.66,
+        "duration": 5.669,
+        "text": "hardware will we be able to remove some"
+      },
+      {
+        "start": 54.27,
+        "duration": 4.41,
+        "text": "of the nodes from the sweater vest or"
+      },
+      {
+        "start": 57.329,
+        "duration": 2.701,
+        "text": "will we just double the workload"
+      },
+      {
+        "start": 58.68,
+        "duration": 3.51,
+        "text": "I think we would double the workload I"
+      },
+      {
+        "start": 60.03,
+        "duration": 5.129,
+        "text": "get more done in this sweater vest now"
+      },
+      {
+        "start": 62.19,
+        "duration": 5.249,
+        "text": "with DSC 6 ok that's a good answer"
+      },
+      {
+        "start": 65.159,
+        "duration": 5.131,
+        "text": "i we can roll with that okay but I"
+      },
+      {
+        "start": 67.439,
+        "duration": 5.161,
+        "text": "digress we do want to talk about bulk"
+      },
+      {
+        "start": 70.29,
+        "duration": 3.96,
+        "text": "loading and ok so this is like this is"
+      },
+      {
+        "start": 72.6,
+        "duration": 3.75,
+        "text": "one of those distributed systems"
+      },
+      {
+        "start": 74.25,
+        "duration": 5.06,
+        "text": "distributed database problems that no"
+      },
+      {
+        "start": 76.35,
+        "duration": 5.58,
+        "text": "one really thinks about like top of mind"
+      },
+      {
+        "start": 79.31,
+        "duration": 4.449,
+        "text": "yeah is it it's sort of funny like when"
+      },
+      {
+        "start": 81.93,
+        "duration": 3.689,
+        "text": "I'm shopping for a new database but"
+      },
+      {
+        "start": 83.759,
+        "duration": 3.961,
+        "text": "what's the bulk loader like right it's"
+      },
+      {
+        "start": 85.619,
+        "duration": 4.14,
+        "text": "it's sort of just assumed right yes this"
+      },
+      {
+        "start": 87.72,
+        "duration": 3.09,
+        "text": "is just something you do that was"
+      },
+      {
+        "start": 89.759,
+        "duration": 3.121,
+        "text": "actually my experience when I first came"
+      },
+      {
+        "start": 90.81,
+        "duration": 4.349,
+        "text": "to Cassandra I started at theta stacks"
+      },
+      {
+        "start": 92.88,
+        "duration": 3.629,
+        "text": "and started working with Cassandra and"
+      },
+      {
+        "start": 95.159,
+        "duration": 2.941,
+        "text": "it was like alright so I don't put the"
+      },
+      {
+        "start": 96.509,
+        "duration": 3.57,
+        "text": "data in and and there was sort of like"
+      },
+      {
+        "start": 98.1,
+        "duration": 3.36,
+        "text": "crickets like wait you just start"
+      },
+      {
+        "start": 100.079,
+        "duration": 3.211,
+        "text": "writing and I'm like well but I have"
+      },
+      {
+        "start": 101.46,
+        "duration": 6.089,
+        "text": "like a data set I want to play with it I"
+      },
+      {
+        "start": 103.29,
+        "duration": 5.969,
+        "text": "know it I do ok a little bit stirred up"
+      },
+      {
+        "start": 107.549,
+        "duration": 3.03,
+        "text": "a little bit of controversy then it was"
+      },
+      {
+        "start": 109.259,
+        "duration": 4.951,
+        "text": "it was a little bit funny right and then"
+      },
+      {
+        "start": 110.579,
+        "duration": 5.101,
+        "text": "and then of course you know the where"
+      },
+      {
+        "start": 114.21,
+        "duration": 3.33,
+        "text": "should I start but comes this thing I"
+      },
+      {
+        "start": 115.68,
+        "duration": 4.229,
+        "text": "was new to Cassandra like I said yeah so"
+      },
+      {
+        "start": 117.54,
+        "duration": 4.35,
+        "text": "it really is that natural I'm just and I"
+      },
+      {
+        "start": 119.909,
+        "duration": 3.121,
+        "text": "don't think it's unique to data stacks"
+      },
+      {
+        "start": 121.89,
+        "duration": 3.329,
+        "text": "enterprising cos and I think it's just"
+      },
+      {
+        "start": 123.03,
+        "duration": 3.71,
+        "text": "databases in general or data systems I"
+      },
+      {
+        "start": 125.219,
+        "duration": 3.831,
+        "text": "have data I want to put it in and"
+      },
+      {
+        "start": 126.74,
+        "duration": 5.16,
+        "text": "you work with it this is like be out of"
+      },
+      {
+        "start": 129.05,
+        "duration": 4.32,
+        "text": "the gate question I think then you sort"
+      },
+      {
+        "start": 131.9,
+        "duration": 3.72,
+        "text": "of wants to get past that it becomes"
+      },
+      {
+        "start": 133.37,
+        "duration": 4.74,
+        "text": "what we've seen is become much more"
+      },
+      {
+        "start": 135.62,
+        "duration": 4.44,
+        "text": "mechanical of data flows I have a big"
+      },
+      {
+        "start": 138.11,
+        "duration": 4.44,
+        "text": "data system data is coming in of various"
+      },
+      {
+        "start": 140.06,
+        "duration": 4.11,
+        "text": "ways one of the ways will be like file I"
+      },
+      {
+        "start": 142.55,
+        "duration": 3.84,
+        "text": "just need to put it in and fast right so"
+      },
+      {
+        "start": 144.17,
+        "duration": 5.22,
+        "text": "this becomes a regular occurrence not"
+      },
+      {
+        "start": 146.39,
+        "duration": 5.069,
+        "text": "just a newbie occurrence okay yes so"
+      },
+      {
+        "start": 149.39,
+        "duration": 3.599,
+        "text": "it's a general problem right that we"
+      },
+      {
+        "start": 151.459,
+        "duration": 3.661,
+        "text": "have now let's talk about the specifics"
+      },
+      {
+        "start": 152.989,
+        "duration": 4.651,
+        "text": "like what was the previous state of the"
+      },
+      {
+        "start": 155.12,
+        "duration": 5.61,
+        "text": "art for bulk loading with Cassandra and"
+      },
+      {
+        "start": 157.64,
+        "duration": 5.37,
+        "text": "DSE yeah so I think the primary tool"
+      },
+      {
+        "start": 160.73,
+        "duration": 4.44,
+        "text": "people looked at was CQ LSH so the"
+      },
+      {
+        "start": 163.01,
+        "duration": 4.5,
+        "text": "sequel shell for CQ l shell for"
+      },
+      {
+        "start": 165.17,
+        "duration": 6.72,
+        "text": "Cassandra had a copy from copy to"
+      },
+      {
+        "start": 167.51,
+        "duration": 5.789,
+        "text": "command yes and so SAS V yep actually I"
+      },
+      {
+        "start": 171.89,
+        "duration": 4.379,
+        "text": "think any deliver you could change the"
+      },
+      {
+        "start": 173.299,
+        "duration": 5.22,
+        "text": "delimiter in some settings but so I"
+      },
+      {
+        "start": 176.269,
+        "duration": 3.991,
+        "text": "started there in my when I came here and"
+      },
+      {
+        "start": 178.519,
+        "duration": 3.601,
+        "text": "and of course I I loaded like a thousand"
+      },
+      {
+        "start": 180.26,
+        "duration": 4.02,
+        "text": "records and was like a perfect right no"
+      },
+      {
+        "start": 182.12,
+        "duration": 3.57,
+        "text": "but no big deal and I think okay and"
+      },
+      {
+        "start": 184.28,
+        "duration": 3.209,
+        "text": "then I you know went and got a bigger"
+      },
+      {
+        "start": 185.69,
+        "duration": 3.39,
+        "text": "data set because a thousand records is"
+      },
+      {
+        "start": 187.489,
+        "duration": 4.141,
+        "text": "not really a distributed database kind"
+      },
+      {
+        "start": 189.08,
+        "duration": 4.529,
+        "text": "of size and you start to realize that"
+      },
+      {
+        "start": 191.63,
+        "duration": 3.96,
+        "text": "that tool was was not really suited for"
+      },
+      {
+        "start": 193.609,
+        "duration": 4.861,
+        "text": "it a little slow little clumsy some of"
+      },
+      {
+        "start": 195.59,
+        "duration": 5.61,
+        "text": "the data was not in a great format and"
+      },
+      {
+        "start": 198.47,
+        "duration": 5.1,
+        "text": "so it didn't handle errors very well so"
+      },
+      {
+        "start": 201.2,
+        "duration": 3.629,
+        "text": "it's a tool and I still think you know"
+      },
+      {
+        "start": 203.57,
+        "duration": 3.479,
+        "text": "if you have a small amount of data and"
+      },
+      {
+        "start": 204.829,
+        "duration": 3.481,
+        "text": "you just want to pop in the couple you"
+      },
+      {
+        "start": 207.049,
+        "duration": 4.201,
+        "text": "know a thousand or just use it like"
+      },
+      {
+        "start": 208.31,
+        "duration": 4.62,
+        "text": "that's right um the other big tool if"
+      },
+      {
+        "start": 211.25,
+        "duration": 3.57,
+        "text": "you if you do a Google search on"
+      },
+      {
+        "start": 212.93,
+        "duration": 5.16,
+        "text": "Cassandra bulk loading you'll get the SS"
+      },
+      {
+        "start": 214.82,
+        "duration": 4.889,
+        "text": "table loader okay and so SS tables that"
+      },
+      {
+        "start": 218.09,
+        "duration": 4.14,
+        "text": "the proprietary form or the internal"
+      },
+      {
+        "start": 219.709,
+        "duration": 5.431,
+        "text": "format I should say of Cassandra for the"
+      },
+      {
+        "start": 222.23,
+        "duration": 5.25,
+        "text": "the back end of the database SS table"
+      },
+      {
+        "start": 225.14,
+        "duration": 3.99,
+        "text": "loader will reload those somewhere so if"
+      },
+      {
+        "start": 227.48,
+        "duration": 4.77,
+        "text": "you have SS tables it's great okay so"
+      },
+      {
+        "start": 229.13,
+        "duration": 5.31,
+        "text": "that's not that's not a bulk loader now"
+      },
+      {
+        "start": 232.25,
+        "duration": 3.69,
+        "text": "say yeah I think of it more like a story"
+      },
+      {
+        "start": 234.44,
+        "duration": 3.419,
+        "text": "story yeah exactly"
+      },
+      {
+        "start": 235.94,
+        "duration": 3.99,
+        "text": "I think of it okay yeah totally but it"
+      },
+      {
+        "start": 237.859,
+        "duration": 3.931,
+        "text": "is if you do the query on bulk loader"
+      },
+      {
+        "start": 239.93,
+        "duration": 4.29,
+        "text": "that comes up and of course you stuck"
+      },
+      {
+        "start": 241.79,
+        "duration": 4.979,
+        "text": "with the problem of but my data came"
+      },
+      {
+        "start": 244.22,
+        "duration": 4.019,
+        "text": "from you know came from a day-to-day to"
+      },
+      {
+        "start": 246.769,
+        "duration": 3.75,
+        "text": "base or a file you know on file"
+      },
+      {
+        "start": 248.239,
+        "duration": 4.441,
+        "text": "somewhere yeah it's not in SS table"
+      },
+      {
+        "start": 250.519,
+        "duration": 3.991,
+        "text": "format now what do I do and and actually"
+      },
+      {
+        "start": 252.68,
+        "duration": 2.959,
+        "text": "the answer is there's this kind of"
+      },
+      {
+        "start": 254.51,
+        "duration": 5.069,
+        "text": "painful"
+      },
+      {
+        "start": 255.639,
+        "duration": 6.25,
+        "text": "cql SH copy not right yeah right"
+      },
+      {
+        "start": 259.579,
+        "duration": 4.501,
+        "text": "exactly and then I think the other tool"
+      },
+      {
+        "start": 261.889,
+        "duration": 4.201,
+        "text": "that I'll make a plug on the analytic"
+      },
+      {
+        "start": 264.08,
+        "duration": 3.45,
+        "text": "side is if the data is sitting in in a"
+      },
+      {
+        "start": 266.09,
+        "duration": 6.419,
+        "text": "distributed system a distributed file"
+      },
+      {
+        "start": 267.53,
+        "duration": 7.229,
+        "text": "system as three HDFS even our DSC FS you"
+      },
+      {
+        "start": 272.509,
+        "duration": 4.201,
+        "text": "use SPARC to read that data in bulk and"
+      },
+      {
+        "start": 274.759,
+        "duration": 4.321,
+        "text": "use the SPARC Cassandra connector or the"
+      },
+      {
+        "start": 276.71,
+        "duration": 4.59,
+        "text": "DSC SPARC connector to put the data in"
+      },
+      {
+        "start": 279.08,
+        "duration": 3.869,
+        "text": "as well but that's sort of you know if"
+      },
+      {
+        "start": 281.3,
+        "duration": 4.799,
+        "text": "your data is in a distributed place"
+      },
+      {
+        "start": 282.949,
+        "duration": 4.68,
+        "text": "right okay yeah that makes perfect sense"
+      },
+      {
+        "start": 286.099,
+        "duration": 3.72,
+        "text": "there are definitely some use cases"
+      },
+      {
+        "start": 287.629,
+        "duration": 3.961,
+        "text": "where use using spark would be the"
+      },
+      {
+        "start": 289.819,
+        "duration": 3.63,
+        "text": "perfectly sensible thing to do"
+      },
+      {
+        "start": 291.59,
+        "duration": 3.299,
+        "text": "absolutely and then the last one I guess"
+      },
+      {
+        "start": 293.449,
+        "duration": 3.27,
+        "text": "is your write your own program which is"
+      },
+      {
+        "start": 294.889,
+        "duration": 3.511,
+        "text": "wait wait that's what you did we skipped"
+      },
+      {
+        "start": 296.719,
+        "duration": 3.57,
+        "text": "one because I'm sorry where there is one"
+      },
+      {
+        "start": 298.4,
+        "duration": 4.29,
+        "text": "more right a bulk loader of your own I"
+      },
+      {
+        "start": 300.289,
+        "duration": 5.13,
+        "text": "did so the other the other one was thank"
+      },
+      {
+        "start": 302.69,
+        "duration": 6.18,
+        "text": "you I've already moved on to the S bulk"
+      },
+      {
+        "start": 305.419,
+        "duration": 5.25,
+        "text": "so the the other challenge was what is"
+      },
+      {
+        "start": 308.87,
+        "duration": 3.57,
+        "text": "the best way and I did a little bit of a"
+      },
+      {
+        "start": 310.669,
+        "duration": 5.191,
+        "text": "study on that okay I talked about it at"
+      },
+      {
+        "start": 312.44,
+        "duration": 4.89,
+        "text": "Cassandra summit in 2015 about comparing"
+      },
+      {
+        "start": 315.86,
+        "duration": 4.649,
+        "text": "a bunch of things and writing through"
+      },
+      {
+        "start": 317.33,
+        "duration": 4.949,
+        "text": "the front door of Cassandra and CQL was"
+      },
+      {
+        "start": 320.509,
+        "duration": 4.02,
+        "text": "a very efficient way to do it if you use"
+      },
+      {
+        "start": 322.279,
+        "duration": 4.35,
+        "text": "some best practices and so I wrote a"
+      },
+      {
+        "start": 324.529,
+        "duration": 4.13,
+        "text": "tool to kind of codified those things"
+      },
+      {
+        "start": 326.629,
+        "duration": 4.891,
+        "text": "into a read delimited files and use them"
+      },
+      {
+        "start": 328.659,
+        "duration": 5.921,
+        "text": "called Cassandra loader and it was out"
+      },
+      {
+        "start": 331.52,
+        "duration": 4.709,
+        "text": "there I I mean I'm proud mentally better"
+      },
+      {
+        "start": 334.58,
+        "duration": 4.259,
+        "text": "than yeah it was out there previously"
+      },
+      {
+        "start": 336.229,
+        "duration": 4.521,
+        "text": "correct and but still a community tool"
+      },
+      {
+        "start": 338.839,
+        "duration": 4.29,
+        "text": "right there was also this challenge of"
+      },
+      {
+        "start": 340.75,
+        "duration": 5.139,
+        "text": "there was like one developer a part time"
+      },
+      {
+        "start": 343.129,
+        "duration": 4.35,
+        "text": "right so if you had an issue like I"
+      },
+      {
+        "start": 345.889,
+        "duration": 3.301,
+        "text": "would I would go occasionally and kind"
+      },
+      {
+        "start": 347.479,
+        "duration": 3.99,
+        "text": "of clear out some some little things but"
+      },
+      {
+        "start": 349.19,
+        "duration": 4.289,
+        "text": "that's not you know what you expect from"
+      },
+      {
+        "start": 351.469,
+        "duration": 3.841,
+        "text": "a big distributed system is a moderately"
+      },
+      {
+        "start": 353.479,
+        "duration": 4.321,
+        "text": "well supported github project right as"
+      },
+      {
+        "start": 355.31,
+        "duration": 5.219,
+        "text": "you do right exactly"
+      },
+      {
+        "start": 357.8,
+        "duration": 4.35,
+        "text": "that said people needed it they used it"
+      },
+      {
+        "start": 360.529,
+        "duration": 4.531,
+        "text": "there are people out there used it in"
+      },
+      {
+        "start": 362.15,
+        "duration": 4.769,
+        "text": "production I think the big benefit from"
+      },
+      {
+        "start": 365.06,
+        "duration": 3.719,
+        "text": "my involvement in that project was"
+      },
+      {
+        "start": 366.919,
+        "duration": 3.631,
+        "text": "really seeing what are people really"
+      },
+      {
+        "start": 368.779,
+        "duration": 3.39,
+        "text": "trying to do with it this was a way to"
+      },
+      {
+        "start": 370.55,
+        "duration": 3.78,
+        "text": "kind of crowdsource what's the need"
+      },
+      {
+        "start": 372.169,
+        "duration": 4.141,
+        "text": "there you go and and that was great it"
+      },
+      {
+        "start": 374.33,
+        "duration": 4.35,
+        "text": "was it was a lot of interesting things"
+      },
+      {
+        "start": 376.31,
+        "duration": 4.62,
+        "text": "then you know we added so I added some"
+      },
+      {
+        "start": 378.68,
+        "duration": 3.84,
+        "text": "stuff there where one guy not needed it"
+      },
+      {
+        "start": 380.93,
+        "duration": 2.7,
+        "text": "and we were like I won't but maybe"
+      },
+      {
+        "start": 382.52,
+        "duration": 5.85,
+        "text": "that's not as important"
+      },
+      {
+        "start": 383.63,
+        "duration": 5.94,
+        "text": "yeah okay so let's talk a little remote"
+      },
+      {
+        "start": 388.37,
+        "duration": 3.12,
+        "text": "people needed learn basically"
+      },
+      {
+        "start": 389.57,
+        "duration": 5.34,
+        "text": "crowdsource the requirements for this yo"
+      },
+      {
+        "start": 391.49,
+        "duration": 7.56,
+        "text": "D s bulk your results yeah absolutely"
+      },
+      {
+        "start": 394.91,
+        "duration": 6.33,
+        "text": "yeah so the first myth all dispel is it"
+      },
+      {
+        "start": 399.05,
+        "duration": 4.47,
+        "text": "is not we took Cassandra loader and"
+      },
+      {
+        "start": 401.24,
+        "duration": 4.65,
+        "text": "brought it into Data stacks and refined"
+      },
+      {
+        "start": 403.52,
+        "duration": 5.28,
+        "text": "it and pushed it out now what we did we"
+      },
+      {
+        "start": 405.89,
+        "duration": 5.34,
+        "text": "did not okay um there was the the data"
+      },
+      {
+        "start": 408.8,
+        "duration": 5.64,
+        "text": "stacks team that does drivers knew a lot"
+      },
+      {
+        "start": 411.23,
+        "duration": 5.43,
+        "text": "about the about the best ways to push"
+      },
+      {
+        "start": 414.44,
+        "duration": 4.32,
+        "text": "data into the database and they took the"
+      },
+      {
+        "start": 416.66,
+        "duration": 3.6,
+        "text": "learnings of some of the things that I"
+      },
+      {
+        "start": 418.76,
+        "duration": 3.02,
+        "text": "had learned in Cassandra loader some of"
+      },
+      {
+        "start": 420.26,
+        "duration": 6.42,
+        "text": "the things they knew way more than I did"
+      },
+      {
+        "start": 421.78,
+        "duration": 6.91,
+        "text": "and so it is basically ground-up rebuild"
+      },
+      {
+        "start": 426.68,
+        "duration": 3.84,
+        "text": "of this whole idea okay um"
+      },
+      {
+        "start": 428.69,
+        "duration": 3.81,
+        "text": "there were a few tips and tricks that"
+      },
+      {
+        "start": 430.52,
+        "duration": 3.6,
+        "text": "they stole when you know imitation is"
+      },
+      {
+        "start": 432.5,
+        "duration": 4.47,
+        "text": "the best form of flattery so I was also"
+      },
+      {
+        "start": 434.12,
+        "duration": 4.29,
+        "text": "with that yeah and the tool is is I mean"
+      },
+      {
+        "start": 436.97,
+        "duration": 2.07,
+        "text": "I would direct anybody in that direction"
+      },
+      {
+        "start": 438.41,
+        "duration": 1.92,
+        "text": "now"
+      },
+      {
+        "start": 439.04,
+        "duration": 3.0,
+        "text": "okay so let's back up cuz you're a"
+      },
+      {
+        "start": 440.33,
+        "duration": 3.48,
+        "text": "little backwards yeah sorry first of all"
+      },
+      {
+        "start": 442.04,
+        "duration": 3.99,
+        "text": "what is we talked a little how was made"
+      },
+      {
+        "start": 443.81,
+        "duration": 4.89,
+        "text": "yeah but what is des folks okay like the"
+      },
+      {
+        "start": 446.03,
+        "duration": 5.97,
+        "text": "nutshell des bulk is is loading from"
+      },
+      {
+        "start": 448.7,
+        "duration": 4.77,
+        "text": "files delimited and JSON that was one of"
+      },
+      {
+        "start": 452.0,
+        "duration": 3.21,
+        "text": "the things we learned through Cassandra"
+      },
+      {
+        "start": 453.47,
+        "duration": 4.71,
+        "text": "loader was there is a JSON need out"
+      },
+      {
+        "start": 455.21,
+        "duration": 5.01,
+        "text": "there yeah we picked those formats we"
+      },
+      {
+        "start": 458.18,
+        "duration": 3.81,
+        "text": "have ways to extend it like when we"
+      },
+      {
+        "start": 460.22,
+        "duration": 3.54,
+        "text": "built the tool we thought forward to"
+      },
+      {
+        "start": 461.99,
+        "duration": 3.96,
+        "text": "other things we might need later but"
+      },
+      {
+        "start": 463.76,
+        "duration": 4.65,
+        "text": "starting with delimited files and JSON"
+      },
+      {
+        "start": 465.95,
+        "duration": 5.31,
+        "text": "and kind of the idea of like I've got a"
+      },
+      {
+        "start": 468.41,
+        "duration": 4.71,
+        "text": "pile of files here on my laptop or on a"
+      },
+      {
+        "start": 471.26,
+        "duration": 4.14,
+        "text": "Linux server and I just want to push it"
+      },
+      {
+        "start": 473.12,
+        "duration": 5.13,
+        "text": "into the database yeah I want to handle"
+      },
+      {
+        "start": 475.4,
+        "duration": 3.51,
+        "text": "things like the number format might be"
+      },
+      {
+        "start": 478.25,
+        "duration": 2.64,
+        "text": "different because of"
+      },
+      {
+        "start": 478.91,
+        "duration": 3.57,
+        "text": "internationalization I might want it the"
+      },
+      {
+        "start": 480.89,
+        "duration": 5.25,
+        "text": "big one that everybody always bumps into"
+      },
+      {
+        "start": 482.48,
+        "duration": 6.24,
+        "text": "is your date format as always month date"
+      },
+      {
+        "start": 486.14,
+        "duration": 3.92,
+        "text": "Wow exactly how are we doing it so you"
+      },
+      {
+        "start": 488.72,
+        "duration": 3.3,
+        "text": "want to support that"
+      },
+      {
+        "start": 490.06,
+        "duration": 4.15,
+        "text": "configuring how to interpret the data"
+      },
+      {
+        "start": 492.02,
+        "duration": 4.68,
+        "text": "right so the format's but also then"
+      },
+      {
+        "start": 494.21,
+        "duration": 4.77,
+        "text": "control how we want to connect to the"
+      },
+      {
+        "start": 496.7,
+        "duration": 3.81,
+        "text": "database with things like security do I"
+      },
+      {
+        "start": 498.98,
+        "duration": 4.11,
+        "text": "need to have password security or"
+      },
+      {
+        "start": 500.51,
+        "duration": 4.62,
+        "text": "Kerberos all these things that are now"
+      },
+      {
+        "start": 503.09,
+        "duration": 3.84,
+        "text": "getting into that enterprise level yes"
+      },
+      {
+        "start": 505.13,
+        "duration": 5.97,
+        "text": "note that that's always a little bit"
+      },
+      {
+        "start": 506.93,
+        "duration": 5.7,
+        "text": "painful right so the idea got a pile"
+      },
+      {
+        "start": 511.1,
+        "duration": 3.3,
+        "text": "files here and I really just want to put"
+      },
+      {
+        "start": 512.63,
+        "duration": 4.69,
+        "text": "them there and please do it efficiently"
+      },
+      {
+        "start": 514.4,
+        "duration": 5.74,
+        "text": "and and that's that's kind of the cry"
+      },
+      {
+        "start": 517.32,
+        "duration": 6.81,
+        "text": "of what des bulk is trying to go after"
+      },
+      {
+        "start": 520.14,
+        "duration": 5.43,
+        "text": "okay see you mentioned some sort of"
+      },
+      {
+        "start": 524.13,
+        "duration": 3.45,
+        "text": "lightweight transformations that take"
+      },
+      {
+        "start": 525.57,
+        "duration": 4.89,
+        "text": "place with respect to dates but right"
+      },
+      {
+        "start": 527.58,
+        "duration": 4.26,
+        "text": "what about transforms in general yeah so"
+      },
+      {
+        "start": 530.46,
+        "duration": 3.09,
+        "text": "so this was one of the things that I"
+      },
+      {
+        "start": 531.84,
+        "duration": 4.2,
+        "text": "think we tried to sort of stay very"
+      },
+      {
+        "start": 533.55,
+        "duration": 3.9,
+        "text": "narrow on was that we're gonna just take"
+      },
+      {
+        "start": 536.04,
+        "duration": 4.44,
+        "text": "the files that are ready to be loaded"
+      },
+      {
+        "start": 537.45,
+        "duration": 5.64,
+        "text": "and okay so no no there's a handful of"
+      },
+      {
+        "start": 540.48,
+        "duration": 4.17,
+        "text": "transformations of things like got a"
+      },
+      {
+        "start": 543.09,
+        "duration": 3.57,
+        "text": "pretty common thing in Cassandra is to"
+      },
+      {
+        "start": 544.65,
+        "duration": 3.69,
+        "text": "throw a timestamp in for a record and"
+      },
+      {
+        "start": 546.66,
+        "duration": 3.27,
+        "text": "you do that by calling the now function"
+      },
+      {
+        "start": 548.34,
+        "duration": 4.08,
+        "text": "so there's we wanted to be able to say"
+      },
+      {
+        "start": 549.93,
+        "duration": 4.86,
+        "text": "well you can do the now and add oh you"
+      },
+      {
+        "start": 552.42,
+        "duration": 4.38,
+        "text": "can use now yeah that kind of thing so"
+      },
+      {
+        "start": 554.79,
+        "duration": 3.93,
+        "text": "but that's about it none of this I want"
+      },
+      {
+        "start": 556.8,
+        "duration": 4.32,
+        "text": "to like you know change everything to"
+      },
+      {
+        "start": 558.72,
+        "duration": 4.41,
+        "text": "uppercase we're just going to be trying"
+      },
+      {
+        "start": 561.12,
+        "duration": 4.05,
+        "text": "to take the files and put them in and"
+      },
+      {
+        "start": 563.13,
+        "duration": 4.11,
+        "text": "the idea there is there are other tools"
+      },
+      {
+        "start": 565.17,
+        "duration": 3.72,
+        "text": "that do that and we can build bring"
+      },
+      {
+        "start": 567.24,
+        "duration": 4.38,
+        "text": "those in so if you want to use Perl or"
+      },
+      {
+        "start": 568.89,
+        "duration": 6.06,
+        "text": "Python or awk I'm gonna guy myself"
+      },
+      {
+        "start": 571.62,
+        "duration": 4.86,
+        "text": "to tweak like whatever the data to tweak"
+      },
+      {
+        "start": 574.95,
+        "duration": 3.12,
+        "text": "whatever that it is and then pipe it in"
+      },
+      {
+        "start": 576.48,
+        "duration": 5.94,
+        "text": "right we wanted to support standard in"
+      },
+      {
+        "start": 578.07,
+        "duration": 7.17,
+        "text": "and standard out this idea standard UNIX"
+      },
+      {
+        "start": 582.42,
+        "duration": 4.41,
+        "text": "command-line utility it's one function"
+      },
+      {
+        "start": 585.24,
+        "duration": 3.02,
+        "text": "it does one thing right really well"
+      },
+      {
+        "start": 586.83,
+        "duration": 3.63,
+        "text": "right and then you chain them and"
+      },
+      {
+        "start": 588.26,
+        "duration": 5.26,
+        "text": "together yeah oh the other the other"
+      },
+      {
+        "start": 590.46,
+        "duration": 5.46,
+        "text": "thing I always do this you want a load"
+      },
+      {
+        "start": 593.52,
+        "duration": 4.38,
+        "text": "data you also want to unload it we want"
+      },
+      {
+        "start": 595.92,
+        "duration": 4.2,
+        "text": "to have the symmetry I need implied"
+      },
+      {
+        "start": 597.9,
+        "duration": 3.27,
+        "text": "right yeah but the same sort of deal how"
+      },
+      {
+        "start": 600.12,
+        "duration": 3.39,
+        "text": "do you want the data to look when it"
+      },
+      {
+        "start": 601.17,
+        "duration": 3.9,
+        "text": "comes on out okay on that one you do"
+      },
+      {
+        "start": 603.51,
+        "duration": 3.24,
+        "text": "have some things like I only need these"
+      },
+      {
+        "start": 605.07,
+        "duration": 3.75,
+        "text": "three columns like I don't need all the"
+      },
+      {
+        "start": 606.75,
+        "duration": 4.26,
+        "text": "data Oh couple column right let's just"
+      },
+      {
+        "start": 608.82,
+        "duration": 3.75,
+        "text": "take that out that one actually will let"
+      },
+      {
+        "start": 611.01,
+        "duration": 3.6,
+        "text": "you throw in a where clause like maybe"
+      },
+      {
+        "start": 612.57,
+        "duration": 3.66,
+        "text": "you only want like one if you're trying"
+      },
+      {
+        "start": 614.61,
+        "duration": 3.9,
+        "text": "to debug something I need only this"
+      },
+      {
+        "start": 616.23,
+        "duration": 5.22,
+        "text": "partition or limit clause Olinda clause"
+      },
+      {
+        "start": 618.51,
+        "duration": 4.95,
+        "text": "will work as well okay yeah so it's"
+      },
+      {
+        "start": 621.45,
+        "duration": 8.25,
+        "text": "funny yeah you could do that with cql or"
+      },
+      {
+        "start": 623.46,
+        "duration": 8.61,
+        "text": "you could just pipe it to head okay so"
+      },
+      {
+        "start": 629.7,
+        "duration": 4.47,
+        "text": "you did make some some affordances yeah"
+      },
+      {
+        "start": 632.07,
+        "duration": 3.87,
+        "text": "yeah and and so on the unloading it's"
+      },
+      {
+        "start": 634.17,
+        "duration": 3.12,
+        "text": "much easier on the loading there there"
+      },
+      {
+        "start": 635.94,
+        "duration": 3.48,
+        "text": "is some stuff and it's probably not on"
+      },
+      {
+        "start": 637.29,
+        "duration": 4.38,
+        "text": "this sort of chat to kind of get into"
+      },
+      {
+        "start": 639.42,
+        "duration": 5.34,
+        "text": "the details of but there's powerful ways"
+      },
+      {
+        "start": 641.67,
+        "duration": 5.01,
+        "text": "to sort of indicate this column in the"
+      },
+      {
+        "start": 644.76,
+        "duration": 2.699,
+        "text": "in the input file is supposed to be like"
+      },
+      {
+        "start": 646.68,
+        "duration": 2.759,
+        "text": "the name"
+      },
+      {
+        "start": 647.459,
+        "duration": 3.54,
+        "text": "in the database and this column happens"
+      },
+      {
+        "start": 649.439,
+        "duration": 3.63,
+        "text": "to be the address column right so"
+      },
+      {
+        "start": 650.999,
+        "duration": 4.26,
+        "text": "there's there's ways to articulate to me"
+      },
+      {
+        "start": 653.069,
+        "duration": 4.981,
+        "text": "that's just a mapping of you know field"
+      },
+      {
+        "start": 655.259,
+        "duration": 5.13,
+        "text": "seven is is zip code right it's not"
+      },
+      {
+        "start": 658.05,
+        "duration": 4.979,
+        "text": "really a transform as much as understand"
+      },
+      {
+        "start": 660.389,
+        "duration": 3.87,
+        "text": "what the format is okay but yeah they"
+      },
+      {
+        "start": 663.029,
+        "duration": 3.84,
+        "text": "chain those things together and keep it"
+      },
+      {
+        "start": 664.259,
+        "duration": 4.531,
+        "text": "nice and simple I think that when it"
+      },
+      {
+        "start": 666.869,
+        "duration": 3.421,
+        "text": "tries to get fancy you start now like we"
+      },
+      {
+        "start": 668.79,
+        "duration": 4.859,
+        "text": "didn't want to build an entire ETL"
+      },
+      {
+        "start": 670.29,
+        "duration": 5.669,
+        "text": "system there's a single process on one"
+      },
+      {
+        "start": 673.649,
+        "duration": 4.56,
+        "text": "that was that wasn't done the product"
+      },
+      {
+        "start": 675.959,
+        "duration": 4.651,
+        "text": "roadmap huh no no I mean I would I would"
+      },
+      {
+        "start": 678.209,
+        "duration": 3.841,
+        "text": "refer people over to to you know spark"
+      },
+      {
+        "start": 680.61,
+        "duration": 3.539,
+        "text": "in analytics to there you go those sorts"
+      },
+      {
+        "start": 682.05,
+        "duration": 5.579,
+        "text": "of things okay but I but I can tell that"
+      },
+      {
+        "start": 684.149,
+        "duration": 5.19,
+        "text": "you are proud of me here yeah yes okay"
+      },
+      {
+        "start": 687.629,
+        "duration": 3.24,
+        "text": "so let's let's brag on things a little"
+      },
+      {
+        "start": 689.339,
+        "duration": 3.81,
+        "text": "bit like water what makes this a better"
+      },
+      {
+        "start": 690.869,
+        "duration": 3.21,
+        "text": "tool so I think that one one of the"
+      },
+      {
+        "start": 693.149,
+        "duration": 2.37,
+        "text": "things that we sort of said if we're"
+      },
+      {
+        "start": 694.079,
+        "duration": 4.31,
+        "text": "gonna do bulk we got to do it fast okay"
+      },
+      {
+        "start": 695.519,
+        "duration": 4.8,
+        "text": "there's a performance angle yeah to this"
+      },
+      {
+        "start": 698.389,
+        "duration": 4.211,
+        "text": "and the question was sort of like"
+      },
+      {
+        "start": 700.319,
+        "duration": 4.02,
+        "text": "alright so but but how or a we'll start"
+      },
+      {
+        "start": 702.6,
+        "duration": 5.489,
+        "text": "with how much faster I'm asking the"
+      },
+      {
+        "start": 704.339,
+        "duration": 5.701,
+        "text": "question yeah I'm sorry so we compare"
+      },
+      {
+        "start": 708.089,
+        "duration": 3.331,
+        "text": "ourselves to the the two big tools when"
+      },
+      {
+        "start": 710.04,
+        "duration": 3.959,
+        "text": "we were thinking was to compare the"
+      },
+      {
+        "start": 711.42,
+        "duration": 5.07,
+        "text": "performance of cql escaped the cql sh"
+      },
+      {
+        "start": 713.999,
+        "duration": 4.8,
+        "text": "and the Cassandra loader tool since it's"
+      },
+      {
+        "start": 716.49,
+        "duration": 4.889,
+        "text": "out there and sherry okay and you Joe we"
+      },
+      {
+        "start": 718.799,
+        "duration": 4.77,
+        "text": "did we exceeded Cassandra loader by a"
+      },
+      {
+        "start": 721.379,
+        "duration": 5.25,
+        "text": "fair amount and and C kill SH by about"
+      },
+      {
+        "start": 723.569,
+        "duration": 5.13,
+        "text": "like 4x okay so it's just okay this is"
+      },
+      {
+        "start": 726.629,
+        "duration": 5.611,
+        "text": "the tool you would use the supported you"
+      },
+      {
+        "start": 728.699,
+        "duration": 5.58,
+        "text": "know capable tool for X performance in"
+      },
+      {
+        "start": 732.24,
+        "duration": 5.159,
+        "text": "terms of how we measure that the idea is"
+      },
+      {
+        "start": 734.279,
+        "duration": 5.81,
+        "text": "like how fast can the client how perhaps"
+      },
+      {
+        "start": 737.399,
+        "duration": 5.011,
+        "text": "can your laptop push data to the cluster"
+      },
+      {
+        "start": 740.089,
+        "duration": 3.581,
+        "text": "not that we like the cluster is the"
+      },
+      {
+        "start": 742.41,
+        "duration": 3.599,
+        "text": "limiting factor you need to make the"
+      },
+      {
+        "start": 743.67,
+        "duration": 4.379,
+        "text": "cluster big enough so yeah of course"
+      },
+      {
+        "start": 746.009,
+        "duration": 4.86,
+        "text": "right right so how efficient can we make"
+      },
+      {
+        "start": 748.049,
+        "duration": 4.441,
+        "text": "this tool and there's sort of a few"
+      },
+      {
+        "start": 750.869,
+        "duration": 4.71,
+        "text": "pieces to that one is how well can you"
+      },
+      {
+        "start": 752.49,
+        "duration": 4.949,
+        "text": "parse the the files themselves let's"
+      },
+      {
+        "start": 755.579,
+        "duration": 3.031,
+        "text": "make that very efficient sure and then"
+      },
+      {
+        "start": 757.439,
+        "duration": 3.45,
+        "text": "the other is the part like I said that"
+      },
+      {
+        "start": 758.61,
+        "duration": 4.62,
+        "text": "the the Java driver team was very well"
+      },
+      {
+        "start": 760.889,
+        "duration": 4.68,
+        "text": "suited to be in the ones to go well this"
+      },
+      {
+        "start": 763.23,
+        "duration": 4.859,
+        "text": "is how I would push the absolute limits"
+      },
+      {
+        "start": 765.569,
+        "duration": 4.68,
+        "text": "of the Java drivers okay so you are"
+      },
+      {
+        "start": 768.089,
+        "duration": 4.59,
+        "text": "built you are using Java drive the data"
+      },
+      {
+        "start": 770.249,
+        "duration": 4.83,
+        "text": "sex drive a driver yes correct"
+      },
+      {
+        "start": 772.679,
+        "duration": 4.62,
+        "text": "yeah and there's some advancements there"
+      },
+      {
+        "start": 775.079,
+        "duration": 4.05,
+        "text": "that I think we'll see roll into the"
+      },
+      {
+        "start": 777.299,
+        "duration": 2.871,
+        "text": "driver itself in terms of ease of use"
+      },
+      {
+        "start": 779.129,
+        "duration": 2.991,
+        "text": "and"
+      },
+      {
+        "start": 780.17,
+        "duration": 3.51,
+        "text": "abilities okay those are sort of futures"
+      },
+      {
+        "start": 782.12,
+        "duration": 2.73,
+        "text": "but there's a lot of lessons learnt"
+      },
+      {
+        "start": 783.68,
+        "duration": 2.55,
+        "text": "where we went home we should steal that"
+      },
+      {
+        "start": 784.85,
+        "duration": 3.63,
+        "text": "trick and let everybody else get in on"
+      },
+      {
+        "start": 786.23,
+        "duration": 5.34,
+        "text": "the fun nice okay"
+      },
+      {
+        "start": 788.48,
+        "duration": 5.4,
+        "text": "so the the one angle is performance yeah"
+      },
+      {
+        "start": 791.57,
+        "duration": 5.4,
+        "text": "the other one spent a long career in"
+      },
+      {
+        "start": 793.88,
+        "duration": 6.0,
+        "text": "data in general and often times data is"
+      },
+      {
+        "start": 796.97,
+        "duration": 5.489,
+        "text": "messy and so errors and how you want to"
+      },
+      {
+        "start": 799.88,
+        "duration": 6.6,
+        "text": "handle but you know do you want to you"
+      },
+      {
+        "start": 802.459,
+        "duration": 5.43,
+        "text": "want to stop on the first error or do"
+      },
+      {
+        "start": 806.48,
+        "duration": 2.659,
+        "text": "you just sort of say well what are we"
+      },
+      {
+        "start": 807.889,
+        "duration": 4.14,
+        "text": "gonna do when we hit an error like a"
+      },
+      {
+        "start": 809.139,
+        "duration": 4.51,
+        "text": "water matt is different oh good you"
+      },
+      {
+        "start": 812.029,
+        "duration": 4.17,
+        "text": "could I mean that's a very reasonable"
+      },
+      {
+        "start": 813.649,
+        "duration": 4.021,
+        "text": "thing to want to do it's usually not"
+      },
+      {
+        "start": 816.199,
+        "duration": 3.151,
+        "text": "what I wanted to do when I worked on"
+      },
+      {
+        "start": 817.67,
+        "duration": 3.27,
+        "text": "this I swear I wanted to take the seven"
+      },
+      {
+        "start": 819.35,
+        "duration": 3.66,
+        "text": "lines that were terrible out of a"
+      },
+      {
+        "start": 820.94,
+        "duration": 3.959,
+        "text": "million and just copy them to another"
+      },
+      {
+        "start": 823.01,
+        "duration": 4.74,
+        "text": "file right and so that's sort of the"
+      },
+      {
+        "start": 824.899,
+        "duration": 4.05,
+        "text": "approach we took is you can set how what"
+      },
+      {
+        "start": 827.75,
+        "duration": 2.97,
+        "text": "is your threshold if you're gonna get"
+      },
+      {
+        "start": 828.949,
+        "duration": 3.63,
+        "text": "hundreds and hundreds of errors then we"
+      },
+      {
+        "start": 830.72,
+        "duration": 3.96,
+        "text": "kind of want everything to stop okay so"
+      },
+      {
+        "start": 832.579,
+        "duration": 3.661,
+        "text": "there is a point at which you're like"
+      },
+      {
+        "start": 834.68,
+        "duration": 4.62,
+        "text": "okay this is too much this file is"
+      },
+      {
+        "start": 836.24,
+        "duration": 5.789,
+        "text": "clearly not well suited for import"
+      },
+      {
+        "start": 839.3,
+        "duration": 5.399,
+        "text": "that's right this table so just bored"
+      },
+      {
+        "start": 842.029,
+        "duration": 5.731,
+        "text": "and there's actually a to that and there"
+      },
+      {
+        "start": 844.699,
+        "duration": 4.561,
+        "text": "is a if you're super safe person there's"
+      },
+      {
+        "start": 847.76,
+        "duration": 4.019,
+        "text": "a dry run where it'll go through the"
+      },
+      {
+        "start": 849.26,
+        "duration": 5.13,
+        "text": "file is okay of course yeah"
+      },
+      {
+        "start": 851.779,
+        "duration": 4.471,
+        "text": "and and that's perfect for you know that"
+      },
+      {
+        "start": 854.39,
+        "duration": 4.98,
+        "text": "there's that with some of the like"
+      },
+      {
+        "start": 856.25,
+        "duration": 4.68,
+        "text": "there's no rollback so you can't unto if"
+      },
+      {
+        "start": 859.37,
+        "duration": 4.469,
+        "text": "you really need to be very safe about it"
+      },
+      {
+        "start": 860.93,
+        "duration": 4.98,
+        "text": "right there's a safety mechanism the"
+      },
+      {
+        "start": 863.839,
+        "duration": 2.761,
+        "text": "support get data hygiene that's right"
+      },
+      {
+        "start": 865.91,
+        "duration": 3.84,
+        "text": "yeah"
+      },
+      {
+        "start": 866.6,
+        "duration": 5.729,
+        "text": "there's a so the mo in my mind is you"
+      },
+      {
+        "start": 869.75,
+        "duration": 4.68,
+        "text": "you you run this and if you get this bad"
+      },
+      {
+        "start": 872.329,
+        "duration": 3.69,
+        "text": "file the file is gonna have all the"
+      },
+      {
+        "start": 874.43,
+        "duration": 4.529,
+        "text": "lines as they were written in the"
+      },
+      {
+        "start": 876.019,
+        "duration": 5.01,
+        "text": "original one so that you can go and make"
+      },
+      {
+        "start": 878.959,
+        "duration": 4.171,
+        "text": "whatever changes I'd say the big common"
+      },
+      {
+        "start": 881.029,
+        "duration": 3.781,
+        "text": "ones are things like the date format was"
+      },
+      {
+        "start": 883.13,
+        "duration": 3.81,
+        "text": "different in these few records for"
+      },
+      {
+        "start": 884.81,
+        "duration": 5.55,
+        "text": "whatever reason another big one is if"
+      },
+      {
+        "start": 886.94,
+        "duration": 5.91,
+        "text": "you've got strings in your in your data"
+      },
+      {
+        "start": 890.36,
+        "duration": 4.05,
+        "text": "and you have and if you don't put"
+      },
+      {
+        "start": 892.85,
+        "duration": 3.03,
+        "text": "bullets and you have a delimiter and"
+      },
+      {
+        "start": 894.41,
+        "duration": 4.109,
+        "text": "then it's the number of fields is wrong"
+      },
+      {
+        "start": 895.88,
+        "duration": 4.769,
+        "text": "I've never done that yeah I hear that"
+      },
+      {
+        "start": 898.519,
+        "duration": 5.55,
+        "text": "other people gave me I do that that's"
+      },
+      {
+        "start": 900.649,
+        "duration": 5.37,
+        "text": "right so and then you can just like if"
+      },
+      {
+        "start": 904.069,
+        "duration": 4.291,
+        "text": "it's only a few then you just modify"
+      },
+      {
+        "start": 906.019,
+        "duration": 4.021,
+        "text": "those and then you could even run you"
+      },
+      {
+        "start": 908.36,
+        "duration": 3.3,
+        "text": "know the bulk loader again on this new"
+      },
+      {
+        "start": 910.04,
+        "duration": 2.67,
+        "text": "file okay with different arguments or"
+      },
+      {
+        "start": 911.66,
+        "duration": 3.21,
+        "text": "whatever"
+      },
+      {
+        "start": 912.71,
+        "duration": 3.75,
+        "text": "I've also seen you know as data goes in"
+      },
+      {
+        "start": 914.87,
+        "duration": 3.72,
+        "text": "it's coming from somewhere someone"
+      },
+      {
+        "start": 916.46,
+        "duration": 4.2,
+        "text": "changed how the data was produced they"
+      },
+      {
+        "start": 918.59,
+        "duration": 3.63,
+        "text": "change the printf and so now you're like"
+      },
+      {
+        "start": 920.66,
+        "duration": 3.21,
+        "text": "halfway through the file it just changes"
+      },
+      {
+        "start": 922.22,
+        "duration": 3.6,
+        "text": "and so you're like okay well I'll just"
+      },
+      {
+        "start": 923.87,
+        "duration": 3.75,
+        "text": "now I can run it a second time with a"
+      },
+      {
+        "start": 925.82,
+        "duration": 4.11,
+        "text": "different command try to keep it simple"
+      },
+      {
+        "start": 927.62,
+        "duration": 4.59,
+        "text": "yeah there's there's a whole lot of"
+      },
+      {
+        "start": 929.93,
+        "duration": 4.35,
+        "text": "error handling there's a lot of metrics"
+      },
+      {
+        "start": 932.21,
+        "duration": 4.17,
+        "text": "around Huzur how's my performance how"
+      },
+      {
+        "start": 934.28,
+        "duration": 3.69,
+        "text": "much writes per second and bytes per"
+      },
+      {
+        "start": 936.38,
+        "duration": 3.18,
+        "text": "second am I actually pushing that's kind"
+      },
+      {
+        "start": 937.97,
+        "duration": 3.69,
+        "text": "of the again the metric that you would"
+      },
+      {
+        "start": 939.56,
+        "duration": 3.66,
+        "text": "want for right but you can see the"
+      },
+      {
+        "start": 941.66,
+        "duration": 3.66,
+        "text": "progress then and see how things are"
+      },
+      {
+        "start": 943.22,
+        "duration": 4.14,
+        "text": "going and and see that things are"
+      },
+      {
+        "start": 945.32,
+        "duration": 3.96,
+        "text": "actually getting inserted a little bit"
+      },
+      {
+        "start": 947.36,
+        "duration": 5.73,
+        "text": "of visibility I I hate the tools where"
+      },
+      {
+        "start": 949.28,
+        "duration": 5.37,
+        "text": "you hit go and there's nothing and you"
+      },
+      {
+        "start": 953.09,
+        "duration": 4.7,
+        "text": "drop back at the end and you're like"
+      },
+      {
+        "start": 954.65,
+        "duration": 3.14,
+        "text": "yeah did anything happen"
+      },
+      {
+        "start": 957.88,
+        "duration": 4.53,
+        "text": "so this is trying to give that you know"
+      },
+      {
+        "start": 960.32,
+        "duration": 8.58,
+        "text": "visibility you can track zero results"
+      },
+      {
+        "start": 962.41,
+        "duration": 8.68,
+        "text": "29.7 second right so and then it's it's"
+      },
+      {
+        "start": 968.9,
+        "duration": 3.93,
+        "text": "it's crazy configurable and actually"
+      },
+      {
+        "start": 971.09,
+        "duration": 2.94,
+        "text": "that's that's good and I always worry a"
+      },
+      {
+        "start": 972.83,
+        "duration": 4.14,
+        "text": "little bit when we make things too"
+      },
+      {
+        "start": 974.03,
+        "duration": 4.74,
+        "text": "configurable there's a lot of docs on"
+      },
+      {
+        "start": 976.97,
+        "duration": 4.44,
+        "text": "how to get into all the details okay we"
+      },
+      {
+        "start": 978.77,
+        "duration": 5.52,
+        "text": "took like the top 20 and made sort of"
+      },
+      {
+        "start": 981.41,
+        "duration": 5.28,
+        "text": "shortcut or very nice so like the host"
+      },
+      {
+        "start": 984.29,
+        "duration": 5.64,
+        "text": "is just - eh right as opposed to the"
+      },
+      {
+        "start": 986.69,
+        "duration": 6.36,
+        "text": "bigger Longer name or whatever but it"
+      },
+      {
+        "start": 989.93,
+        "duration": 4.5,
+        "text": "does allow for that flexibility okay so"
+      },
+      {
+        "start": 993.05,
+        "duration": 3.3,
+        "text": "that's been sort of like to me those are"
+      },
+      {
+        "start": 994.43,
+        "duration": 3.63,
+        "text": "the big parts it's the ease of use and"
+      },
+      {
+        "start": 996.35,
+        "duration": 3.42,
+        "text": "then the speed is kind of the only way I"
+      },
+      {
+        "start": 998.06,
+        "duration": 5.37,
+        "text": "would be measuring great bulk loading"
+      },
+      {
+        "start": 999.77,
+        "duration": 4.74,
+        "text": "tool okay all right so as I as a can I"
+      },
+      {
+        "start": 1003.43,
+        "duration": 3.27,
+        "text": "refer to you as sort of like a proud"
+      },
+      {
+        "start": 1004.51,
+        "duration": 3.54,
+        "text": "parent of this project we know that we"
+      },
+      {
+        "start": 1006.7,
+        "duration": 3.3,
+        "text": "like to brag on our kids but then we"
+      },
+      {
+        "start": 1008.05,
+        "duration": 4.44,
+        "text": "also kind of know some of the growth"
+      },
+      {
+        "start": 1010.0,
+        "duration": 5.67,
+        "text": "areas let's say so like or what were the"
+      },
+      {
+        "start": 1012.49,
+        "duration": 4.35,
+        "text": "some of the hard parts of this effort"
+      },
+      {
+        "start": 1015.67,
+        "duration": 3.48,
+        "text": "and kind of seeing this come to fruition"
+      },
+      {
+        "start": 1016.84,
+        "duration": 3.96,
+        "text": "yeah I think that understanding like how"
+      },
+      {
+        "start": 1019.15,
+        "duration": 4.41,
+        "text": "to really turn the screws in the right"
+      },
+      {
+        "start": 1020.8,
+        "duration": 4.95,
+        "text": "way of the driver for the use cases so"
+      },
+      {
+        "start": 1023.56,
+        "duration": 4.68,
+        "text": "we did have some learnings yeah"
+      },
+      {
+        "start": 1025.75,
+        "duration": 3.54,
+        "text": "there were times where we compared"
+      },
+      {
+        "start": 1028.24,
+        "duration": 2.43,
+        "text": "against some of the other tools really"
+      },
+      {
+        "start": 1029.29,
+        "duration": 3.3,
+        "text": "we really should have done better but"
+      },
+      {
+        "start": 1030.67,
+        "duration": 3.57,
+        "text": "this use case a little weird this is a"
+      },
+      {
+        "start": 1032.59,
+        "duration": 3.27,
+        "text": "tuning problem or are we actually"
+      },
+      {
+        "start": 1034.24,
+        "duration": 2.88,
+        "text": "talking about it was in the developer"
+      },
+      {
+        "start": 1035.86,
+        "duration": 2.85,
+        "text": "level I think we've taken all those"
+      },
+      {
+        "start": 1037.12,
+        "duration": 3.12,
+        "text": "learnings and apply it so that was the"
+      },
+      {
+        "start": 1038.71,
+        "duration": 4.02,
+        "text": "challenge in the process of building it"
+      },
+      {
+        "start": 1040.24,
+        "duration": 4.55,
+        "text": "in terms of using it I think you know"
+      },
+      {
+        "start": 1042.73,
+        "duration": 3.859,
+        "text": "it's a new tool so understanding the"
+      },
+      {
+        "start": 1044.79,
+        "duration": 3.69,
+        "text": "the way in which the config is set up"
+      },
+      {
+        "start": 1046.589,
+        "duration": 4.111,
+        "text": "and how you want to like oh I need to"
+      },
+      {
+        "start": 1048.48,
+        "duration": 3.84,
+        "text": "change the delimiter that's going to be"
+      },
+      {
+        "start": 1050.7,
+        "duration": 2.91,
+        "text": "in this part of the configuration I"
+      },
+      {
+        "start": 1052.32,
+        "duration": 2.91,
+        "text": "think that's probably the hardest part"
+      },
+      {
+        "start": 1053.61,
+        "duration": 4.05,
+        "text": "there are some okay so like a user"
+      },
+      {
+        "start": 1055.23,
+        "duration": 3.99,
+        "text": "experience a little bit and it's"
+      },
+      {
+        "start": 1057.66,
+        "duration": 3.84,
+        "text": "something I guess I'm just sensitive to"
+      },
+      {
+        "start": 1059.22,
+        "duration": 4.62,
+        "text": "any new tool yeah on is it gonna be easy"
+      },
+      {
+        "start": 1061.5,
+        "duration": 4.26,
+        "text": "the feedback we've gotten is it's it's"
+      },
+      {
+        "start": 1063.84,
+        "duration": 4.23,
+        "text": "straightforward right I mean and and so"
+      },
+      {
+        "start": 1065.76,
+        "duration": 4.26,
+        "text": "it's it's mostly easy once you sort of"
+      },
+      {
+        "start": 1068.07,
+        "duration": 3.66,
+        "text": "go okay yeah this is how the the sets of"
+      },
+      {
+        "start": 1070.02,
+        "duration": 5.49,
+        "text": "components are set up or where to go"
+      },
+      {
+        "start": 1071.73,
+        "duration": 6.66,
+        "text": "right for help we also I think there's"
+      },
+      {
+        "start": 1075.51,
+        "duration": 5.34,
+        "text": "there's a lot of configurations around"
+      },
+      {
+        "start": 1078.39,
+        "duration": 4.59,
+        "text": "or flexibility around like is it a"
+      },
+      {
+        "start": 1080.85,
+        "duration": 3.75,
+        "text": "directory of input files or you do want"
+      },
+      {
+        "start": 1082.98,
+        "duration": 4.23,
+        "text": "all the input files in that directory or"
+      },
+      {
+        "start": 1084.6,
+        "duration": 4.68,
+        "text": "just like the dot CSV s and how do i"
+      },
+      {
+        "start": 1087.21,
+        "duration": 3.27,
+        "text": "articulate oh so like wild carding yeah"
+      },
+      {
+        "start": 1089.28,
+        "duration": 2.52,
+        "text": "you can actually do that you can take"
+      },
+      {
+        "start": 1090.48,
+        "duration": 2.67,
+        "text": "you can say there's a directory here and"
+      },
+      {
+        "start": 1091.8,
+        "duration": 4.02,
+        "text": "I just want all of it but I only want"
+      },
+      {
+        "start": 1093.15,
+        "duration": 3.78,
+        "text": "that CSV ones not the other things and"
+      },
+      {
+        "start": 1095.82,
+        "duration": 4.35,
+        "text": "sort of being able to progress through"
+      },
+      {
+        "start": 1096.93,
+        "duration": 5.01,
+        "text": "that you know I think that there's also"
+      },
+      {
+        "start": 1100.17,
+        "duration": 3.33,
+        "text": "this question of like do you want to you"
+      },
+      {
+        "start": 1101.94,
+        "duration": 3.06,
+        "text": "know people have asked in some of the"
+      },
+      {
+        "start": 1103.5,
+        "duration": 3.51,
+        "text": "early questions we got back was like"
+      },
+      {
+        "start": 1105.0,
+        "duration": 3.27,
+        "text": "well what if my date is in s3 and I"
+      },
+      {
+        "start": 1107.01,
+        "duration": 2.7,
+        "text": "think it's going back into that well"
+      },
+      {
+        "start": 1108.27,
+        "duration": 3.63,
+        "text": "then I probably wouldn't use this tool"
+      },
+      {
+        "start": 1109.71,
+        "duration": 5.13,
+        "text": "right right now come back to some of the"
+      },
+      {
+        "start": 1111.9,
+        "duration": 5.37,
+        "text": "other tools like XML file like I was oh"
+      },
+      {
+        "start": 1114.84,
+        "duration": 4.08,
+        "text": "yeah asking you recently about yeah so"
+      },
+      {
+        "start": 1117.27,
+        "duration": 3.3,
+        "text": "that's the other challenges if the data"
+      },
+      {
+        "start": 1118.92,
+        "duration": 3.42,
+        "text": "is not actually in the right format yeah"
+      },
+      {
+        "start": 1120.57,
+        "duration": 2.31,
+        "text": "that is the other question well what"
+      },
+      {
+        "start": 1122.34,
+        "duration": 2.79,
+        "text": "should I do"
+      },
+      {
+        "start": 1122.88,
+        "duration": 3.66,
+        "text": "and and my answer to that would be what"
+      },
+      {
+        "start": 1125.13,
+        "duration": 3.39,
+        "text": "do you like right like if you like"
+      },
+      {
+        "start": 1126.54,
+        "duration": 4.89,
+        "text": "python use python if you like you know"
+      },
+      {
+        "start": 1128.52,
+        "duration": 5.13,
+        "text": "yeah the graph loader tool that we have"
+      },
+      {
+        "start": 1131.43,
+        "duration": 3.81,
+        "text": "for DSC uses groovy and if you will"
+      },
+      {
+        "start": 1133.65,
+        "duration": 3.87,
+        "text": "really want groovy then you know write a"
+      },
+      {
+        "start": 1135.24,
+        "duration": 5.69,
+        "text": "groovy script this is all you know going"
+      },
+      {
+        "start": 1137.52,
+        "duration": 6.63,
+        "text": "back to the transform json yeah so we"
+      },
+      {
+        "start": 1140.93,
+        "duration": 5.76,
+        "text": "write exactly we'll leave that to be you"
+      },
+      {
+        "start": 1144.15,
+        "duration": 4.65,
+        "text": "know not part of the problem of the tool"
+      },
+      {
+        "start": 1146.69,
+        "duration": 3.82,
+        "text": "xml is one where i think we could think"
+      },
+      {
+        "start": 1148.8,
+        "duration": 3.18,
+        "text": "about if this is a common enough use"
+      },
+      {
+        "start": 1150.51,
+        "duration": 3.51,
+        "text": "case we'll just bring in it i you start"
+      },
+      {
+        "start": 1151.98,
+        "duration": 3.93,
+        "text": "hearing that request right frequently"
+      },
+      {
+        "start": 1154.02,
+        "duration": 6.87,
+        "text": "enough yeah if you ask it enough times"
+      },
+      {
+        "start": 1155.91,
+        "duration": 6.51,
+        "text": "then I will latitude but now I we're"
+      },
+      {
+        "start": 1160.89,
+        "duration": 4.77,
+        "text": "trying to make it like I said we made it"
+      },
+      {
+        "start": 1162.42,
+        "duration": 5.19,
+        "text": "to be an extensible tool we're not"
+      },
+      {
+        "start": 1165.66,
+        "duration": 4.11,
+        "text": "necessarily making it to be that the the"
+      },
+      {
+        "start": 1167.61,
+        "duration": 3.72,
+        "text": "world is able to add the extensions but"
+      },
+      {
+        "start": 1169.77,
+        "duration": 2.76,
+        "text": "we made it knowing we're gonna want to"
+      },
+      {
+        "start": 1171.33,
+        "duration": 3.21,
+        "text": "have other formats we're going to want"
+      },
+      {
+        "start": 1172.53,
+        "duration": 3.08,
+        "text": "to have you know other other options"
+      },
+      {
+        "start": 1174.54,
+        "duration": 3.259,
+        "text": "here under the hood"
+      },
+      {
+        "start": 1175.61,
+        "duration": 4.17,
+        "text": "that will want to be bringing in and so"
+      },
+      {
+        "start": 1177.799,
+        "duration": 5.461,
+        "text": "that's that we thought forward in that"
+      },
+      {
+        "start": 1179.78,
+        "duration": 5.37,
+        "text": "way it's a command-line tool there were"
+      },
+      {
+        "start": 1183.26,
+        "duration": 3.6,
+        "text": "thoughts of well what about as a GUI"
+      },
+      {
+        "start": 1185.15,
+        "duration": 4.14,
+        "text": "someday and I think that we still think"
+      },
+      {
+        "start": 1186.86,
+        "duration": 4.71,
+        "text": "as a GUI someday I'd be good but we"
+      },
+      {
+        "start": 1189.29,
+        "duration": 4.2,
+        "text": "built it with the command-line interface"
+      },
+      {
+        "start": 1191.57,
+        "duration": 3.72,
+        "text": "is kind of you can rip that off and put"
+      },
+      {
+        "start": 1193.49,
+        "duration": 3.15,
+        "text": "a GUI on and the engine stays those yeah"
+      },
+      {
+        "start": 1195.29,
+        "duration": 3.18,
+        "text": "you know we thought about those things"
+      },
+      {
+        "start": 1196.64,
+        "duration": 3.33,
+        "text": "we built it well have a few product"
+      },
+      {
+        "start": 1198.47,
+        "duration": 3.12,
+        "text": "ideas for you all right well you know"
+      },
+      {
+        "start": 1199.97,
+        "duration": 4.74,
+        "text": "we'll talk about those later offline"
+      },
+      {
+        "start": 1201.59,
+        "duration": 4.89,
+        "text": "okay so there there is an existing graph"
+      },
+      {
+        "start": 1204.71,
+        "duration": 3.209,
+        "text": "loader project that we have people are"
+      },
+      {
+        "start": 1206.48,
+        "duration": 3.66,
+        "text": "familiar with DAC graph our graph"
+      },
+      {
+        "start": 1207.919,
+        "duration": 3.901,
+        "text": "database so can you help kind of"
+      },
+      {
+        "start": 1210.14,
+        "duration": 3.75,
+        "text": "disambiguate there what's the"
+      },
+      {
+        "start": 1211.82,
+        "duration": 3.81,
+        "text": "relationship between TS bulk and this"
+      },
+      {
+        "start": 1213.89,
+        "duration": 4.409,
+        "text": "graph loader that we have yeah so I"
+      },
+      {
+        "start": 1215.63,
+        "duration": 5.19,
+        "text": "think the graph loader is great it's"
+      },
+      {
+        "start": 1218.299,
+        "duration": 5.611,
+        "text": "built for graph data to come in and it"
+      },
+      {
+        "start": 1220.82,
+        "duration": 5.609,
+        "text": "interacts with DAC graph very well it's"
+      },
+      {
+        "start": 1223.91,
+        "duration": 4.08,
+        "text": "sort of that the mo of some of the"
+      },
+      {
+        "start": 1226.429,
+        "duration": 3.921,
+        "text": "challenges that you have when you work"
+      },
+      {
+        "start": 1227.99,
+        "duration": 4.11,
+        "text": "with graph data involves a bit more"
+      },
+      {
+        "start": 1230.35,
+        "duration": 2.92,
+        "text": "transformations of how should I be"
+      },
+      {
+        "start": 1232.1,
+        "duration": 2.37,
+        "text": "interpreting this stuff"
+      },
+      {
+        "start": 1233.27,
+        "duration": 2.97,
+        "text": "yeah the graph loader actually"
+      },
+      {
+        "start": 1234.47,
+        "duration": 4.26,
+        "text": "incorporated a lot of these transforms"
+      },
+      {
+        "start": 1236.24,
+        "duration": 4.439,
+        "text": "in because the operation of loading data"
+      },
+      {
+        "start": 1238.73,
+        "duration": 4.71,
+        "text": "into graph really kind of needs that"
+      },
+      {
+        "start": 1240.679,
+        "duration": 5.161,
+        "text": "really close you could of course always"
+      },
+      {
+        "start": 1243.44,
+        "duration": 3.93,
+        "text": "have something upstream that did a you"
+      },
+      {
+        "start": 1245.84,
+        "duration": 3.39,
+        "text": "know whatever java program to convert"
+      },
+      {
+        "start": 1247.37,
+        "duration": 3.0,
+        "text": "the data to another format and then use"
+      },
+      {
+        "start": 1249.23,
+        "duration": 4.17,
+        "text": "the graph loader on that I mean I was"
+      },
+      {
+        "start": 1250.37,
+        "duration": 4.71,
+        "text": "always so part of the story um we we did"
+      },
+      {
+        "start": 1253.4,
+        "duration": 4.14,
+        "text": "not want to do that in terms of just"
+      },
+      {
+        "start": 1255.08,
+        "duration": 4.29,
+        "text": "loading tabular data it very mint"
+      },
+      {
+        "start": 1257.54,
+        "duration": 4.11,
+        "text": "naturally as like well CSV is a pretty"
+      },
+      {
+        "start": 1259.37,
+        "duration": 4.83,
+        "text": "tabular sort of structure and JSON so we"
+      },
+      {
+        "start": 1261.65,
+        "duration": 5.19,
+        "text": "targeted on that use case okay I will"
+      },
+      {
+        "start": 1264.2,
+        "duration": 4.71,
+        "text": "say that we're aware of these two tools"
+      },
+      {
+        "start": 1266.84,
+        "duration": 4.23,
+        "text": "right right and we don't want there to"
+      },
+      {
+        "start": 1268.91,
+        "duration": 3.66,
+        "text": "be too long in the long run but we"
+      },
+      {
+        "start": 1271.07,
+        "duration": 5.42,
+        "text": "really wanted to build the right tool"
+      },
+      {
+        "start": 1272.57,
+        "duration": 7.71,
+        "text": "you know for the the tabular data right"
+      },
+      {
+        "start": 1276.49,
+        "duration": 6.34,
+        "text": "the representation of a graph it seems"
+      },
+      {
+        "start": 1280.28,
+        "duration": 4.08,
+        "text": "different not entirely dissimilar but"
+      },
+      {
+        "start": 1282.83,
+        "duration": 3.06,
+        "text": "there could be enough differences that"
+      },
+      {
+        "start": 1284.36,
+        "duration": 3.84,
+        "text": "you want to get each one of those right"
+      },
+      {
+        "start": 1285.89,
+        "duration": 4.23,
+        "text": "before we start thinking about merging"
+      },
+      {
+        "start": 1288.2,
+        "duration": 4.68,
+        "text": "those concepts yeah and then the merge"
+      },
+      {
+        "start": 1290.12,
+        "duration": 6.26,
+        "text": "is absolutely right I mean regardless of"
+      },
+      {
+        "start": 1292.88,
+        "duration": 6.179,
+        "text": "whether or not we somehow are able to"
+      },
+      {
+        "start": 1296.38,
+        "duration": 4.51,
+        "text": "put it all under one umbrella or if we"
+      },
+      {
+        "start": 1299.059,
+        "duration": 2.971,
+        "text": "just have one interface to two tools we"
+      },
+      {
+        "start": 1300.89,
+        "duration": 4.08,
+        "text": "do kind of want to have these things"
+      },
+      {
+        "start": 1302.03,
+        "duration": 4.87,
+        "text": "merged together in one way we wanted to"
+      },
+      {
+        "start": 1304.97,
+        "duration": 3.82,
+        "text": "focus on des bulk on"
+      },
+      {
+        "start": 1306.9,
+        "duration": 4.32,
+        "text": "on tabular data because that's what you"
+      },
+      {
+        "start": 1308.79,
+        "duration": 4.32,
+        "text": "know the bulk of DSE and and Cassandra"
+      },
+      {
+        "start": 1311.22,
+        "duration": 3.9,
+        "text": "is right the use is really on there and"
+      },
+      {
+        "start": 1313.11,
+        "duration": 3.66,
+        "text": "let's target for that as opposed to"
+      },
+      {
+        "start": 1315.12,
+        "duration": 3.69,
+        "text": "targeting for graph and trying to like"
+      },
+      {
+        "start": 1316.77,
+        "duration": 3.33,
+        "text": "bolt on tabular we want to make sure"
+      },
+      {
+        "start": 1318.81,
+        "duration": 4.29,
+        "text": "that they're bright really getting the"
+      },
+      {
+        "start": 1320.1,
+        "duration": 5.91,
+        "text": "good love I think it's a goal for ours"
+      },
+      {
+        "start": 1323.1,
+        "duration": 5.28,
+        "text": "to to bring the pads of these two tools"
+      },
+      {
+        "start": 1326.01,
+        "duration": 3.99,
+        "text": "together so there's only one tool how"
+      },
+      {
+        "start": 1328.38,
+        "duration": 3.93,
+        "text": "that'll look and that's sort of bearing"
+      },
+      {
+        "start": 1330.0,
+        "duration": 3.48,
+        "text": "out those kind of things go forward do"
+      },
+      {
+        "start": 1332.31,
+        "duration": 2.7,
+        "text": "you have any other thoughts that you"
+      },
+      {
+        "start": 1333.48,
+        "duration": 3.9,
+        "text": "want to share as we're wrapping up about"
+      },
+      {
+        "start": 1335.01,
+        "duration": 4.38,
+        "text": "where bulk loading is going yes sir"
+      },
+      {
+        "start": 1337.38,
+        "duration": 4.41,
+        "text": "directions um so yeah so that's a good"
+      },
+      {
+        "start": 1339.39,
+        "duration": 5.49,
+        "text": "question I think the big part for us is"
+      },
+      {
+        "start": 1341.79,
+        "duration": 4.44,
+        "text": "we got to I'll brag not I mean so you"
+      },
+      {
+        "start": 1344.88,
+        "duration": 2.82,
+        "text": "caught my baby I think that's a little"
+      },
+      {
+        "start": 1346.23,
+        "duration": 3.27,
+        "text": "unfair that totally needs to be a shout"
+      },
+      {
+        "start": 1347.7,
+        "duration": 3.39,
+        "text": "out to the whole team that was working"
+      },
+      {
+        "start": 1349.5,
+        "duration": 3.54,
+        "text": "on this I get to be the one in front of"
+      },
+      {
+        "start": 1351.09,
+        "duration": 4.17,
+        "text": "the camera so yeah I'll claim all the"
+      },
+      {
+        "start": 1353.04,
+        "duration": 6.39,
+        "text": "credit but that's totally not fair that"
+      },
+      {
+        "start": 1355.26,
+        "duration": 5.94,
+        "text": "that team we built actually we had goals"
+      },
+      {
+        "start": 1359.43,
+        "duration": 5.04,
+        "text": "to really just deliver the delimited"
+      },
+      {
+        "start": 1361.2,
+        "duration": 5.34,
+        "text": "file and we're able to just go actually"
+      },
+      {
+        "start": 1364.47,
+        "duration": 3.45,
+        "text": "we did we did this pretty quickly and"
+      },
+      {
+        "start": 1366.54,
+        "duration": 3.36,
+        "text": "pretty well and yeah we're pretty happy"
+      },
+      {
+        "start": 1367.92,
+        "duration": 3.75,
+        "text": "with it and kind of excited about this"
+      },
+      {
+        "start": 1369.9,
+        "duration": 4.44,
+        "text": "project let's do the JSON stuff too and"
+      },
+      {
+        "start": 1371.67,
+        "duration": 4.26,
+        "text": "so we grabbed out I came in um I think"
+      },
+      {
+        "start": 1374.34,
+        "duration": 3.15,
+        "text": "we're at a good spot to really be"
+      },
+      {
+        "start": 1375.93,
+        "duration": 3.84,
+        "text": "getting feedback from everybody writes"
+      },
+      {
+        "start": 1377.49,
+        "duration": 4.53,
+        "text": "the new tool it's out there it does very"
+      },
+      {
+        "start": 1379.77,
+        "duration": 3.96,
+        "text": "basic things very well we know that we"
+      },
+      {
+        "start": 1382.02,
+        "duration": 2.79,
+        "text": "know it goes beyond that as well but now"
+      },
+      {
+        "start": 1383.73,
+        "duration": 3.6,
+        "text": "we really want to see well where do"
+      },
+      {
+        "start": 1384.81,
+        "duration": 4.74,
+        "text": "people need to drive it is it a you know"
+      },
+      {
+        "start": 1387.33,
+        "duration": 3.75,
+        "text": "maybe an advanced security piece that we"
+      },
+      {
+        "start": 1389.55,
+        "duration": 3.96,
+        "text": "had taken that or there's an opportunity"
+      },
+      {
+        "start": 1391.08,
+        "duration": 4.38,
+        "text": "there if it's input formats like XML"
+      },
+      {
+        "start": 1393.51,
+        "duration": 4.05,
+        "text": "where we yeah let's add that obviously"
+      },
+      {
+        "start": 1395.46,
+        "duration": 3.96,
+        "text": "more people run it they're gonna bump"
+      },
+      {
+        "start": 1397.56,
+        "duration": 4.08,
+        "text": "into some you know some issue that we"
+      },
+      {
+        "start": 1399.42,
+        "duration": 4.38,
+        "text": "didn't see in our testing because you"
+      },
+      {
+        "start": 1401.64,
+        "duration": 3.75,
+        "text": "can't test everything so we're sort of"
+      },
+      {
+        "start": 1403.8,
+        "duration": 4.41,
+        "text": "expecting as this gets used we'll see"
+      },
+      {
+        "start": 1405.39,
+        "duration": 3.96,
+        "text": "some some bumps that happens but right"
+      },
+      {
+        "start": 1408.21,
+        "duration": 3.09,
+        "text": "now we're kind of I think in receive"
+      },
+      {
+        "start": 1409.35,
+        "duration": 4.71,
+        "text": "mode where's this coming we have no"
+      },
+      {
+        "start": 1411.3,
+        "duration": 5.88,
+        "text": "obvious next steps that we we really"
+      },
+      {
+        "start": 1414.06,
+        "duration": 6.72,
+        "text": "want to be getting out there it's you"
+      },
+      {
+        "start": 1417.18,
+        "duration": 5.43,
+        "text": "know it's in in v1 is out with dc-6 it's"
+      },
+      {
+        "start": 1420.78,
+        "duration": 4.17,
+        "text": "actually included in DSC when you"
+      },
+      {
+        "start": 1422.61,
+        "duration": 3.99,
+        "text": "download it okay um it's right there in"
+      },
+      {
+        "start": 1424.95,
+        "duration": 6.86,
+        "text": "the bin directory but it's also a"
+      },
+      {
+        "start": 1426.6,
+        "duration": 5.21,
+        "text": "standalone tool runs on Windows and and"
+      },
+      {
+        "start": 1432.05,
+        "duration": 5.26,
+        "text": "was exciting so we kind of again you've"
+      },
+      {
+        "start": 1436.2,
+        "duration": 3.85,
+        "text": "got a lot of people actually windows"
+      },
+      {
+        "start": 1437.31,
+        "duration": 4.39,
+        "text": "developers working on stuff and writing"
+      },
+      {
+        "start": 1440.05,
+        "duration": 3.24,
+        "text": "you know applications to go against the"
+      },
+      {
+        "start": 1441.7,
+        "duration": 3.11,
+        "text": "database and they want to be able to"
+      },
+      {
+        "start": 1443.29,
+        "duration": 2.88,
+        "text": "load right from there and I'm not"
+      },
+      {
+        "start": 1444.81,
+        "duration": 3.94,
+        "text": "exactly"
+      },
+      {
+        "start": 1446.17,
+        "duration": 4.05,
+        "text": "so it's also downloadable as a"
+      },
+      {
+        "start": 1448.75,
+        "duration": 2.82,
+        "text": "standalone tool so you don't have to"
+      },
+      {
+        "start": 1450.22,
+        "duration": 2.67,
+        "text": "have DSC to pull it down but just this"
+      },
+      {
+        "start": 1451.57,
+        "duration": 3.39,
+        "text": "tool separately"
+      },
+      {
+        "start": 1452.89,
+        "duration": 4.14,
+        "text": "so I think really for us we're excited"
+      },
+      {
+        "start": 1454.96,
+        "duration": 4.53,
+        "text": "to hear you know people use it and kind"
+      },
+      {
+        "start": 1457.03,
+        "duration": 4.29,
+        "text": "of not just in a direction a lot of a"
+      },
+      {
+        "start": 1459.49,
+        "duration": 3.18,
+        "text": "lot of good good pieces it's funny"
+      },
+      {
+        "start": 1461.32,
+        "duration": 2.79,
+        "text": "because it is just going back to the"
+      },
+      {
+        "start": 1462.67,
+        "duration": 3.06,
+        "text": "beginning of this conversation it's just"
+      },
+      {
+        "start": 1464.11,
+        "duration": 2.91,
+        "text": "kind of a given like it'll just ditch"
+      },
+      {
+        "start": 1465.73,
+        "duration": 3.6,
+        "text": "should just do right it should just be"
+      },
+      {
+        "start": 1467.02,
+        "duration": 3.75,
+        "text": "there right ants to think about it and I"
+      },
+      {
+        "start": 1469.33,
+        "duration": 2.49,
+        "text": "think we we sort of are in the same"
+      },
+      {
+        "start": 1470.77,
+        "duration": 4.97,
+        "text": "place we don't want you to think about"
+      },
+      {
+        "start": 1471.82,
+        "duration": 7.04,
+        "text": "the pain either just use the tool and go"
+      },
+      {
+        "start": 1475.74,
+        "duration": 5.62,
+        "text": "yeah no I think it's a great boon to our"
+      },
+      {
+        "start": 1478.86,
+        "duration": 4.0,
+        "text": "developer and operations community and"
+      },
+      {
+        "start": 1481.36,
+        "duration": 3.24,
+        "text": "one of those areas that you know"
+      },
+      {
+        "start": 1482.86,
+        "duration": 3.57,
+        "text": "honestly you don't maybe think about"
+      },
+      {
+        "start": 1484.6,
+        "duration": 3.9,
+        "text": "it's not front of mine when you're"
+      },
+      {
+        "start": 1486.43,
+        "duration": 3.72,
+        "text": "thinking about distributed systems"
+      },
+      {
+        "start": 1488.5,
+        "duration": 3.75,
+        "text": "distributed databases and adopting them"
+      },
+      {
+        "start": 1490.15,
+        "duration": 3.72,
+        "text": "so we're absolutely glad to have it and"
+      },
+      {
+        "start": 1492.25,
+        "duration": 2.91,
+        "text": "we're glad to have you on so thank you"
+      },
+      {
+        "start": 1493.87,
+        "duration": 4.62,
+        "text": "thank you very much Brian terrific"
+      },
+      {
+        "start": 1495.16,
+        "duration": 4.74,
+        "text": "thanks alright until next time thank you"
+      },
+      {
+        "start": 1498.49,
+        "duration": 3.93,
+        "text": "for joining us again for the distributed"
+      },
+      {
+        "start": 1499.9,
+        "duration": 4.35,
+        "text": "data show we love your feedback so go to"
+      },
+      {
+        "start": 1502.42,
+        "duration": 3.24,
+        "text": "the distributed data show page on data"
+      },
+      {
+        "start": 1504.25,
+        "duration": 3.3,
+        "text": "stacks Academy and tell us what you"
+      },
+      {
+        "start": 1505.66,
+        "duration": 4.35,
+        "text": "think you can also find us on the data"
+      },
+      {
+        "start": 1507.55,
+        "duration": 4.59,
+        "text": "stacks Academy YouTube channel or find"
+      },
+      {
+        "start": 1510.01,
+        "duration": 4.56,
+        "text": "our podcast on iTunes Google Play or"
+      },
+      {
+        "start": 1512.14,
+        "duration": 4.35,
+        "text": "wherever you get great podcast while"
+      },
+      {
+        "start": 1514.57,
+        "duration": 4.81,
+        "text": "you're there make sure and subscribe so"
+      },
+      {
+        "start": 1516.49,
+        "duration": 5.999,
+        "text": "you don't miss a single episode"
+      },
+      {
+        "start": 1519.38,
+        "duration": 3.109,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T06:36:22.863219+00:00"
+}

@@ -1,0 +1,1238 @@
+{
+  "video_id": "BdBFSC_NlS8",
+  "title": "Distributed Data Show Episode 39: Cassandra on Kubernetes with Aaron Ploetz",
+  "description": "We talk with Aaron Ploetz of Target about how they implemented Cassandra on Kubernetes and celebrate Aaron passing Jonathan Ellis to the top of the Cassandra tag in Stackoverflow.\n\nHighlights!\n0:15 - David welcomes Cassandra MVP Aaron Ploetz to the show and celebrates Aaron passing Jonathan Ellis to the top of the Cassandra tag in Stack Overflow\n1:12 - Aaron explains how Target is moving toward on-demand deployments of Cassandra using Kubernetes, starting on Target’s private cloud running OpenStack\n2:42 - Aaron shares about testing this solution, including use of cassandra-stress. In one interesting case a cluster destroyed inadvertently was trivially rebuilt by Kubernetes pointing to the same backing store, with no perceived outage to the client.\n4:17 - These methods apply to deployment of other distributed data stores such as Redis\n5:30 - The performance test results observed by Aaron’s team for Cassandra on Kubernetes were competitive with non-Kubernetes Cassandra deployments in their external cloud provider\n6:25 - Most of the work in running Cassandra on Kubernetes consists of building the initial container images\n7:27 - Aaron talks about his work on the book Seven NoSQL Databases in a Week for Packt Publishing \n\nABOUT DATASTAX ENTERPRISE 5.1\nDataStax Enterprise 5.1, the database platform for cloud applications, includes Apache Cassandra 3.x with materialized views, tiered storage and advanced replication. Introduced in 5.1 is DataStax Enterprise Graph, the first graph database fast enough to power customer-facing applications, scale to massive datasets and integrate advanced tools to power deep analytical queries.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://academy.datastax.com/resources/whats-new-datastax-enterprise-50\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax \nLinkedin: http",
+  "published_at": "2018-03-20T15:00:00Z",
+  "thumbnail": "https://i.ytimg.com/vi/BdBFSC_NlS8/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "nosql_database",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "nosql",
+    "talk",
+    "performance",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=BdBFSC_NlS8",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems hello everybody and welcome to another episode of the distributed data show I'm David Gilardi a Technical Evangelist here data sacks and I'm here with Aaron Platts of target all right so so even though we're here to actually talk about how target uses kubernetes yep I heard you finally beat out Jonathan Ellis and stack over 4 points on the cassandra tag yeah tell us about that well it was on so it's kind of funny is that you know I'd been contributing on the Stack Overflow tag for a number of years now and that's actually kind of how I got you know how they realized I was on their radar and I became an MVP but Jonathan was always way ahead of everybody for years and I happened to see him at the summit a couple of years ago and I'm like I'll never catch up with the years like what do you keep working at it maybe you will and sure enough I got him back in May so alright so there you go that's Jonathan if you're watching this target uses cassandra and kubernetes this well actually it's it's fair it's a fairly new thing our datastore services our orchestration team is actually working on like building a platform that will kind of help us deploy things like kind of kind of on demand and kubernetes is is what we want to use for that essentially the the idea is is that you know we'll use like a we'll use like a single deployment process whether it's going you know like out to the cloud or you know to whatever platform but right now we're we're just starting with our internal cloud actually on OpenStack that's right right of cloud yep yep so it's still in development but time we actually did get our our first Cassandra cluster to deploy on it it must have been like two weeks ago I think you know it was a big stuff you know we're all really excited and and yeah I mean we've spent a lot of time the majority of the work I'm told is by our did it or uh you know platform guys Jordy you gave me the shirt by the way already love you what it's like a salutation on her team and it all started with with like somebody leaving a meeting and Jordy saying goodbye I love you you know like he's talking to his wife and then that just kind of went on to the next person who's like oh by the way Jordy loves you but so yeah now we've been saying that for a couple years so that's you many challenges in provisioning storage like what we actually have had some challenges with with persistent storage for it the majority of the work as I'm told by Jordi and Ryan and Micah by the way that wasn't working with the the kubernetes cloud driver yeah and to get it to actually work with OpenStack and do what we want out there so um you know essentially what it does is it spins up it uses like a like an openstack cinder block as our back-end persistence okay and it attaches that to the kubernetes pod and that's kind of how the the storage is storages interface and the nice thing about that too is that what can happen and actually fund this out while we were redoing some stress testing you know good old cassandra stress yeah I actually wrote a bunch of test cases for it anyway so we we were using cassandra stress and Myka wasn't aware that I was actually doing this at the time so he was he went ahead and killed one of the pods and I didn't even notice on the testing side what happened was is Cooper nettie because it's part of a replica set in kubernetes and kubernetes realized oh hey you're kind of short a pod there so well you're supposed to have one more let's build one for you and oh you were using this cinder block over here so let's reattach you and it never skipped a beat that's awesome ah that's cool you know when we got back when we started talking and we're like wow did that really just happen that's that's yeah I was I know it was pretty good that worked out that way nice so so you talked about you know using cassandra stress actually to do some your test so yep what other methods are using the test out the whole stack like what are you doing well um home let's see in addition to cassandra stress um you know I don't know I'm not allowed to talk about other databases okay so one thing I did is I actually used Redis as one of our first deployment images that we built okay um because Redis actually has an intrinsic latency test built into its CLI okay and you know with that that allows you to do is actually like you know run that and it'll it'll run operations like in memory CPU cycles etc and it'll give you back like what is what is the intrinsic latency on this particular instance that you're deploying to okay and that's what we wanted to do just as kind of a baseline to see how it's stacked up against like vanilla OpenStack or a bare metal or even like my laptop and just kind of see where we were okay and we got really positive tester max that so that's how we went ahead with you know okay well the next thing let me design three data models do a write load and a reload in cassandra stress and really put this thing through the ringer okay okay so how did the kubernetes Cassandra like platform handle all that like it sounds like it was pretty polished it was great yeah yeah you know I'm boy I told you about the pod being taken down and killed inadvertently of it you know high-availability that was great um in terms of performance it actually was like marginally close to our external cloud so it really did well um we did we did not expect that you know our initial kind of our kind of our thesis on it was hey let's go ahead and do this let's do some testing now let's just see how far off it is from our external cloud or off from vanilla OpenStack and just kind of see yeah what are we giving up when we do this and and really as far as like you know external cloud goes we're not missing much it's full so yeah yeah in some cases it even beat it depending on the thread-count so okay so it was really cool this can be kind of a totally loaded question but so like overall like you know for those of you I mean for anyone really who's worked with distributed databases who works with containerized systems and that kind of deal I mean I've done tons of work with AWS and such and these are great systems like there's so much you can do oh yeah there is a lot of setup a lot of configuration like there's all sorts of little check boxes you need to check off to make it happen oh how was that like in your opinion well yeah building the deployment pipeline is is a little tricky okay what we have to do whenever we want to deploy like a like a new type of data store or database is you know we have to build like a docker file okay no we have to define that you know like all the dependencies that we want and what happens is that builds us a static image which we can reference inside a spinnaker and then we use spinnaker to go ahead and call kubernetes deploy that image and say oh yeah I want five of them by the way yeah so that's the initial set up is yeah it's a little it's a little involved you get it going once you get it going it's so easy to yeah just go ahead and adjust that's all right yeah so I've heard you have a book coming out I know I know because I don't I don't have anything else going on in my life I coach my you know I you know I run a you know no sequel team which is you know on call we have like seven hundred Cassandra nodes and we have all these other things how many people supporting that team six you have six people supporting seven underneath and that's Jessica Sandra we also have  and the new for J and then Redis and so yeah we're a little busy anyway I also head coach my son's hockey team which is a traveling team and the all those kids are on the ice six there now sorry there they're not all my kids were the cassandra shirts at school i think it's yeah they get asked what cassandra is all the time it's kind of funny that's funny so so yeah i yeah i squeeze my booking and miles of free but it's called seven no sequel databases in a week and it's by Packt publishing so it's the same publishing company that um that Robbie Strickland used for Cassandra high-availability okay and they asked me to write the chapters on Redis neo4j and then well Cassandra it's actually coming out in February so really really soon so yeah yeah I'm super excited about that excellent well thank you again so much and plus for being on the distributive data show thanks for having me this has been awesome yeah absolutely we'll see everybody take care Geordi loves you thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data stacks Academy and tell us what you think you can also find us on the data stacks Academy YouTube channel or find our podcast on iTunes Google Play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.37,
+        "duration": 4.11,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.48,
+        "duration": 4.17,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 7.98,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 7.68,
+        "text": "large-scale distributed systems hello"
+      },
+      {
+        "start": 16.44,
+        "duration": 4.56,
+        "text": "everybody and welcome to another episode"
+      },
+      {
+        "start": 18.33,
+        "duration": 4.38,
+        "text": "of the distributed data show I'm David"
+      },
+      {
+        "start": 21.0,
+        "duration": 4.38,
+        "text": "Gilardi a Technical Evangelist here data"
+      },
+      {
+        "start": 22.71,
+        "duration": 6.36,
+        "text": "sacks and I'm here with Aaron Platts of"
+      },
+      {
+        "start": 25.38,
+        "duration": 5.34,
+        "text": "target all right so so even though we're"
+      },
+      {
+        "start": 29.07,
+        "duration": 3.63,
+        "text": "here to actually talk about how target"
+      },
+      {
+        "start": 30.72,
+        "duration": 4.83,
+        "text": "uses kubernetes yep I heard you finally"
+      },
+      {
+        "start": 32.7,
+        "duration": 5.67,
+        "text": "beat out Jonathan Ellis and stack over 4"
+      },
+      {
+        "start": 35.55,
+        "duration": 6.39,
+        "text": "points on the cassandra tag yeah tell us"
+      },
+      {
+        "start": 38.37,
+        "duration": 4.709,
+        "text": "about that well it was on so it's kind"
+      },
+      {
+        "start": 41.94,
+        "duration": 2.73,
+        "text": "of funny is that you know I'd been"
+      },
+      {
+        "start": 43.079,
+        "duration": 3.031,
+        "text": "contributing on the Stack Overflow tag"
+      },
+      {
+        "start": 44.67,
+        "duration": 3.15,
+        "text": "for a number of years now and that's"
+      },
+      {
+        "start": 46.11,
+        "duration": 3.269,
+        "text": "actually kind of how I got you know how"
+      },
+      {
+        "start": 47.82,
+        "duration": 5.73,
+        "text": "they realized I was on their radar and I"
+      },
+      {
+        "start": 49.379,
+        "duration": 6.241,
+        "text": "became an MVP but Jonathan was always"
+      },
+      {
+        "start": 53.55,
+        "duration": 3.39,
+        "text": "way ahead of everybody for years and I"
+      },
+      {
+        "start": 55.62,
+        "duration": 2.7,
+        "text": "happened to see him at the summit a"
+      },
+      {
+        "start": 56.94,
+        "duration": 2.73,
+        "text": "couple of years ago and I'm like I'll"
+      },
+      {
+        "start": 58.32,
+        "duration": 2.61,
+        "text": "never catch up with the years like what"
+      },
+      {
+        "start": 59.67,
+        "duration": 3.83,
+        "text": "do you keep working at it maybe you will"
+      },
+      {
+        "start": 60.93,
+        "duration": 6.299,
+        "text": "and sure enough I got him back in May so"
+      },
+      {
+        "start": 63.5,
+        "duration": 12.04,
+        "text": "alright so there you go that's Jonathan"
+      },
+      {
+        "start": 67.229,
+        "duration": 10.051,
+        "text": "if you're watching this target uses"
+      },
+      {
+        "start": 75.54,
+        "duration": 3.899,
+        "text": "cassandra and kubernetes this well"
+      },
+      {
+        "start": 77.28,
+        "duration": 5.339,
+        "text": "actually it's it's fair it's a fairly"
+      },
+      {
+        "start": 79.439,
+        "duration": 4.711,
+        "text": "new thing our datastore services our"
+      },
+      {
+        "start": 82.619,
+        "duration": 4.5,
+        "text": "orchestration team is actually working"
+      },
+      {
+        "start": 84.15,
+        "duration": 4.71,
+        "text": "on like building a platform that will"
+      },
+      {
+        "start": 87.119,
+        "duration": 4.051,
+        "text": "kind of help us deploy things like kind"
+      },
+      {
+        "start": 88.86,
+        "duration": 3.98,
+        "text": "of kind of on demand and kubernetes is"
+      },
+      {
+        "start": 91.17,
+        "duration": 4.71,
+        "text": "is what we want to use for that"
+      },
+      {
+        "start": 92.84,
+        "duration": 4.9,
+        "text": "essentially the the idea is is that you"
+      },
+      {
+        "start": 95.88,
+        "duration": 3.599,
+        "text": "know we'll use like a we'll use like a"
+      },
+      {
+        "start": 97.74,
+        "duration": 3.9,
+        "text": "single deployment process whether it's"
+      },
+      {
+        "start": 99.479,
+        "duration": 4.621,
+        "text": "going you know like out to the cloud or"
+      },
+      {
+        "start": 101.64,
+        "duration": 4.17,
+        "text": "you know to whatever platform but right"
+      },
+      {
+        "start": 104.1,
+        "duration": 4.699,
+        "text": "now we're we're just starting with our"
+      },
+      {
+        "start": 105.81,
+        "duration": 5.97,
+        "text": "internal cloud actually on OpenStack"
+      },
+      {
+        "start": 108.799,
+        "duration": 4.451,
+        "text": "that's right right of cloud yep yep so"
+      },
+      {
+        "start": 111.78,
+        "duration": 4.53,
+        "text": "it's still in development but time we"
+      },
+      {
+        "start": 113.25,
+        "duration": 4.799,
+        "text": "actually did get our our first Cassandra"
+      },
+      {
+        "start": 116.31,
+        "duration": 3.69,
+        "text": "cluster to deploy on it it must have"
+      },
+      {
+        "start": 118.049,
+        "duration": 3.331,
+        "text": "been like two weeks ago I think you know"
+      },
+      {
+        "start": 120.0,
+        "duration": 3.81,
+        "text": "it was a big stuff you know we're all"
+      },
+      {
+        "start": 121.38,
+        "duration": 5.449,
+        "text": "really excited and and yeah I mean we've"
+      },
+      {
+        "start": 123.81,
+        "duration": 3.019,
+        "text": "spent a lot of time"
+      },
+      {
+        "start": 126.83,
+        "duration": 5.37,
+        "text": "the majority of the work I'm told is by"
+      },
+      {
+        "start": 130.1,
+        "duration": 6.05,
+        "text": "our did it or uh you know platform guys"
+      },
+      {
+        "start": 132.2,
+        "duration": 8.28,
+        "text": "Jordy you gave me the shirt by the way"
+      },
+      {
+        "start": 136.15,
+        "duration": 6.4,
+        "text": "already love you what it's like a"
+      },
+      {
+        "start": 140.48,
+        "duration": 4.38,
+        "text": "salutation on her team and it all"
+      },
+      {
+        "start": 142.55,
+        "duration": 3.96,
+        "text": "started with with like somebody leaving"
+      },
+      {
+        "start": 144.86,
+        "duration": 2.97,
+        "text": "a meeting and Jordy saying goodbye I"
+      },
+      {
+        "start": 146.51,
+        "duration": 2.97,
+        "text": "love you you know like he's talking to"
+      },
+      {
+        "start": 147.83,
+        "duration": 3.15,
+        "text": "his wife and then that just kind of went"
+      },
+      {
+        "start": 149.48,
+        "duration": 4.38,
+        "text": "on to the next person who's like oh by"
+      },
+      {
+        "start": 150.98,
+        "duration": 4.05,
+        "text": "the way Jordy loves you but so yeah now"
+      },
+      {
+        "start": 153.86,
+        "duration": 8.31,
+        "text": "we've been saying that for a couple"
+      },
+      {
+        "start": 155.03,
+        "duration": 9.96,
+        "text": "years so that's you many challenges in"
+      },
+      {
+        "start": 162.17,
+        "duration": 4.59,
+        "text": "provisioning storage like what we"
+      },
+      {
+        "start": 164.99,
+        "duration": 4.56,
+        "text": "actually have had some challenges with"
+      },
+      {
+        "start": 166.76,
+        "duration": 4.5,
+        "text": "with persistent storage for it the"
+      },
+      {
+        "start": 169.55,
+        "duration": 6.56,
+        "text": "majority of the work as I'm told by"
+      },
+      {
+        "start": 171.26,
+        "duration": 7.23,
+        "text": "Jordi and Ryan and Micah by the way that"
+      },
+      {
+        "start": 176.11,
+        "duration": 4.03,
+        "text": "wasn't working with the the kubernetes"
+      },
+      {
+        "start": 178.49,
+        "duration": 3.72,
+        "text": "cloud driver yeah and to get it to"
+      },
+      {
+        "start": 180.14,
+        "duration": 4.74,
+        "text": "actually work with OpenStack and do what"
+      },
+      {
+        "start": 182.21,
+        "duration": 4.29,
+        "text": "we want out there so um you know"
+      },
+      {
+        "start": 184.88,
+        "duration": 3.78,
+        "text": "essentially what it does is it spins up"
+      },
+      {
+        "start": 186.5,
+        "duration": 4.62,
+        "text": "it uses like a like an openstack cinder"
+      },
+      {
+        "start": 188.66,
+        "duration": 5.43,
+        "text": "block as our back-end persistence okay"
+      },
+      {
+        "start": 191.12,
+        "duration": 4.92,
+        "text": "and it attaches that to the kubernetes"
+      },
+      {
+        "start": 194.09,
+        "duration": 4.35,
+        "text": "pod and that's kind of how the the"
+      },
+      {
+        "start": 196.04,
+        "duration": 4.47,
+        "text": "storage is storages interface and the"
+      },
+      {
+        "start": 198.44,
+        "duration": 3.6,
+        "text": "nice thing about that too is that what"
+      },
+      {
+        "start": 200.51,
+        "duration": 2.79,
+        "text": "can happen and actually fund this out"
+      },
+      {
+        "start": 202.04,
+        "duration": 2.55,
+        "text": "while we were redoing some stress"
+      },
+      {
+        "start": 203.3,
+        "duration": 6.87,
+        "text": "testing you know good old cassandra"
+      },
+      {
+        "start": 204.59,
+        "duration": 9.08,
+        "text": "stress yeah I actually wrote a bunch of"
+      },
+      {
+        "start": 210.17,
+        "duration": 7.37,
+        "text": "test cases for it anyway"
+      },
+      {
+        "start": 213.67,
+        "duration": 6.64,
+        "text": "so we we were using cassandra stress and"
+      },
+      {
+        "start": 217.54,
+        "duration": 4.6,
+        "text": "Myka wasn't aware that I was actually"
+      },
+      {
+        "start": 220.31,
+        "duration": 4.26,
+        "text": "doing this at the time so he was he went"
+      },
+      {
+        "start": 222.14,
+        "duration": 4.86,
+        "text": "ahead and killed one of the pods and I"
+      },
+      {
+        "start": 224.57,
+        "duration": 4.71,
+        "text": "didn't even notice on the testing side"
+      },
+      {
+        "start": 227.0,
+        "duration": 3.6,
+        "text": "what happened was is Cooper nettie"
+      },
+      {
+        "start": 229.28,
+        "duration": 3.209,
+        "text": "because it's part of a replica set in"
+      },
+      {
+        "start": 230.6,
+        "duration": 4.59,
+        "text": "kubernetes and kubernetes realized oh"
+      },
+      {
+        "start": 232.489,
+        "duration": 4.411,
+        "text": "hey you're kind of short a pod there so"
+      },
+      {
+        "start": 235.19,
+        "duration": 3.299,
+        "text": "well you're supposed to have one more"
+      },
+      {
+        "start": 236.9,
+        "duration": 3.089,
+        "text": "let's build one for you and oh you were"
+      },
+      {
+        "start": 238.489,
+        "duration": 4.201,
+        "text": "using this cinder block over here so"
+      },
+      {
+        "start": 239.989,
+        "duration": 4.141,
+        "text": "let's reattach you and it never skipped"
+      },
+      {
+        "start": 242.69,
+        "duration": 5.46,
+        "text": "a beat that's awesome"
+      },
+      {
+        "start": 244.13,
+        "duration": 5.49,
+        "text": "ah that's cool you know when we got back"
+      },
+      {
+        "start": 248.15,
+        "duration": 3.76,
+        "text": "when we started talking and we're like"
+      },
+      {
+        "start": 249.62,
+        "duration": 4.42,
+        "text": "wow did that really just happen"
+      },
+      {
+        "start": 251.91,
+        "duration": 3.21,
+        "text": "that's that's yeah I was I know it was"
+      },
+      {
+        "start": 254.04,
+        "duration": 4.65,
+        "text": "pretty good that worked out that way"
+      },
+      {
+        "start": 255.12,
+        "duration": 5.94,
+        "text": "nice so so you talked about you know"
+      },
+      {
+        "start": 258.69,
+        "duration": 4.08,
+        "text": "using cassandra stress actually to do"
+      },
+      {
+        "start": 261.06,
+        "duration": 3.18,
+        "text": "some your test so yep what other methods"
+      },
+      {
+        "start": 262.77,
+        "duration": 4.38,
+        "text": "are using the test out the whole stack"
+      },
+      {
+        "start": 264.24,
+        "duration": 4.2,
+        "text": "like what are you doing well um home"
+      },
+      {
+        "start": 267.15,
+        "duration": 3.6,
+        "text": "let's see in addition to cassandra"
+      },
+      {
+        "start": 268.44,
+        "duration": 3.89,
+        "text": "stress um you know I don't know I'm not"
+      },
+      {
+        "start": 270.75,
+        "duration": 12.36,
+        "text": "allowed to talk about other databases"
+      },
+      {
+        "start": 272.33,
+        "duration": 12.85,
+        "text": "okay so one thing I did is I actually"
+      },
+      {
+        "start": 283.11,
+        "duration": 4.95,
+        "text": "used Redis as one of our first"
+      },
+      {
+        "start": 285.18,
+        "duration": 4.95,
+        "text": "deployment images that we built okay"
+      },
+      {
+        "start": 288.06,
+        "duration": 4.5,
+        "text": "um because Redis actually has an"
+      },
+      {
+        "start": 290.13,
+        "duration": 4.71,
+        "text": "intrinsic latency test built into its"
+      },
+      {
+        "start": 292.56,
+        "duration": 3.6,
+        "text": "CLI okay and you know with that that"
+      },
+      {
+        "start": 294.84,
+        "duration": 2.85,
+        "text": "allows you to do is actually like you"
+      },
+      {
+        "start": 296.16,
+        "duration": 4.23,
+        "text": "know run that and it'll it'll run"
+      },
+      {
+        "start": 297.69,
+        "duration": 4.32,
+        "text": "operations like in memory CPU cycles etc"
+      },
+      {
+        "start": 300.39,
+        "duration": 4.23,
+        "text": "and it'll give you back like what is"
+      },
+      {
+        "start": 302.01,
+        "duration": 3.96,
+        "text": "what is the intrinsic latency on this"
+      },
+      {
+        "start": 304.62,
+        "duration": 3.3,
+        "text": "particular instance that you're"
+      },
+      {
+        "start": 305.97,
+        "duration": 4.32,
+        "text": "deploying to okay and that's what we"
+      },
+      {
+        "start": 307.92,
+        "duration": 4.02,
+        "text": "wanted to do just as kind of a baseline"
+      },
+      {
+        "start": 310.29,
+        "duration": 4.35,
+        "text": "to see how it's stacked up against like"
+      },
+      {
+        "start": 311.94,
+        "duration": 4.59,
+        "text": "vanilla OpenStack or a bare metal or"
+      },
+      {
+        "start": 314.64,
+        "duration": 3.78,
+        "text": "even like my laptop and just kind of see"
+      },
+      {
+        "start": 316.53,
+        "duration": 3.9,
+        "text": "where we were okay and we got really"
+      },
+      {
+        "start": 318.42,
+        "duration": 4.11,
+        "text": "positive tester max that so that's how"
+      },
+      {
+        "start": 320.43,
+        "duration": 3.81,
+        "text": "we went ahead with you know okay well"
+      },
+      {
+        "start": 322.53,
+        "duration": 4.17,
+        "text": "the next thing let me design three data"
+      },
+      {
+        "start": 324.24,
+        "duration": 4.29,
+        "text": "models do a write load and a reload in"
+      },
+      {
+        "start": 326.7,
+        "duration": 3.72,
+        "text": "cassandra stress and really put this"
+      },
+      {
+        "start": 328.53,
+        "duration": 5.13,
+        "text": "thing through the ringer okay okay so"
+      },
+      {
+        "start": 330.42,
+        "duration": 5.97,
+        "text": "how did the kubernetes Cassandra like"
+      },
+      {
+        "start": 333.66,
+        "duration": 3.78,
+        "text": "platform handle all that like it sounds"
+      },
+      {
+        "start": 336.39,
+        "duration": 2.61,
+        "text": "like it was pretty polished it was great"
+      },
+      {
+        "start": 337.44,
+        "duration": 3.15,
+        "text": "yeah yeah you know I'm boy I told you"
+      },
+      {
+        "start": 339.0,
+        "duration": 3.21,
+        "text": "about the pod being taken down and"
+      },
+      {
+        "start": 340.59,
+        "duration": 3.9,
+        "text": "killed inadvertently of it you know"
+      },
+      {
+        "start": 342.21,
+        "duration": 4.65,
+        "text": "high-availability that was great um in"
+      },
+      {
+        "start": 344.49,
+        "duration": 6.21,
+        "text": "terms of performance"
+      },
+      {
+        "start": 346.86,
+        "duration": 7.29,
+        "text": "it actually was like marginally close to"
+      },
+      {
+        "start": 350.7,
+        "duration": 5.52,
+        "text": "our external cloud so it really did well"
+      },
+      {
+        "start": 354.15,
+        "duration": 4.23,
+        "text": "um we did we did not expect that you"
+      },
+      {
+        "start": 356.22,
+        "duration": 4.41,
+        "text": "know our initial kind of our kind of our"
+      },
+      {
+        "start": 358.38,
+        "duration": 3.96,
+        "text": "thesis on it was hey let's go ahead and"
+      },
+      {
+        "start": 360.63,
+        "duration": 3.84,
+        "text": "do this let's do some testing now let's"
+      },
+      {
+        "start": 362.34,
+        "duration": 4.14,
+        "text": "just see how far off it is from our"
+      },
+      {
+        "start": 364.47,
+        "duration": 4.41,
+        "text": "external cloud or off from vanilla"
+      },
+      {
+        "start": 366.48,
+        "duration": 4.11,
+        "text": "OpenStack and just kind of see yeah what"
+      },
+      {
+        "start": 368.88,
+        "duration": 3.99,
+        "text": "are we giving up when we do this and and"
+      },
+      {
+        "start": 370.59,
+        "duration": 3.99,
+        "text": "really as far as like you know external"
+      },
+      {
+        "start": 372.87,
+        "duration": 4.38,
+        "text": "cloud goes we're not missing much it's"
+      },
+      {
+        "start": 374.58,
+        "duration": 3.549,
+        "text": "full so yeah yeah in some cases it even"
+      },
+      {
+        "start": 377.25,
+        "duration": 3.309,
+        "text": "beat it depending on the"
+      },
+      {
+        "start": 378.129,
+        "duration": 3.72,
+        "text": "thread-count so okay so it was really"
+      },
+      {
+        "start": 380.559,
+        "duration": 5.13,
+        "text": "cool this can be kind of a totally"
+      },
+      {
+        "start": 381.849,
+        "duration": 5.07,
+        "text": "loaded question but so like overall like"
+      },
+      {
+        "start": 385.689,
+        "duration": 2.641,
+        "text": "you know for those of you I mean for"
+      },
+      {
+        "start": 386.919,
+        "duration": 3.18,
+        "text": "anyone really who's worked with"
+      },
+      {
+        "start": 388.33,
+        "duration": 3.269,
+        "text": "distributed databases who works with"
+      },
+      {
+        "start": 390.099,
+        "duration": 3.3,
+        "text": "containerized systems and that kind of"
+      },
+      {
+        "start": 391.599,
+        "duration": 5.011,
+        "text": "deal I mean I've done tons of work with"
+      },
+      {
+        "start": 393.399,
+        "duration": 4.5,
+        "text": "AWS and such and these are great systems"
+      },
+      {
+        "start": 396.61,
+        "duration": 4.169,
+        "text": "like there's so much you can do oh yeah"
+      },
+      {
+        "start": 397.899,
+        "duration": 4.86,
+        "text": "there is a lot of setup a lot of"
+      },
+      {
+        "start": 400.779,
+        "duration": 3.45,
+        "text": "configuration like there's all sorts of"
+      },
+      {
+        "start": 402.759,
+        "duration": 4.26,
+        "text": "little check boxes you need to check off"
+      },
+      {
+        "start": 404.229,
+        "duration": 5.7,
+        "text": "to make it happen oh how was that like"
+      },
+      {
+        "start": 407.019,
+        "duration": 4.74,
+        "text": "in your opinion well yeah building the"
+      },
+      {
+        "start": 409.929,
+        "duration": 4.26,
+        "text": "deployment pipeline is is a little"
+      },
+      {
+        "start": 411.759,
+        "duration": 4.5,
+        "text": "tricky okay what we have to do whenever"
+      },
+      {
+        "start": 414.189,
+        "duration": 4.98,
+        "text": "we want to deploy like a like a new type"
+      },
+      {
+        "start": 416.259,
+        "duration": 4.92,
+        "text": "of data store or database is you know we"
+      },
+      {
+        "start": 419.169,
+        "duration": 3.33,
+        "text": "have to build like a docker file okay no"
+      },
+      {
+        "start": 421.179,
+        "duration": 3.96,
+        "text": "we have to define that you know like all"
+      },
+      {
+        "start": 422.499,
+        "duration": 5.13,
+        "text": "the dependencies that we want and what"
+      },
+      {
+        "start": 425.139,
+        "duration": 4.08,
+        "text": "happens is that builds us a static image"
+      },
+      {
+        "start": 427.629,
+        "duration": 3.09,
+        "text": "which we can reference inside a"
+      },
+      {
+        "start": 429.219,
+        "duration": 3.06,
+        "text": "spinnaker and then we use spinnaker to"
+      },
+      {
+        "start": 430.719,
+        "duration": 3.66,
+        "text": "go ahead and call kubernetes deploy that"
+      },
+      {
+        "start": 432.279,
+        "duration": 5.46,
+        "text": "image and say oh yeah I want five of"
+      },
+      {
+        "start": 434.379,
+        "duration": 5.16,
+        "text": "them by the way yeah so that's the"
+      },
+      {
+        "start": 437.739,
+        "duration": 3.54,
+        "text": "initial set up is yeah it's a little"
+      },
+      {
+        "start": 439.539,
+        "duration": 3.3,
+        "text": "it's a little involved you get it going"
+      },
+      {
+        "start": 441.279,
+        "duration": 4.47,
+        "text": "once you get it going it's so easy to"
+      },
+      {
+        "start": 442.839,
+        "duration": 6.6,
+        "text": "yeah just go ahead and adjust that's all"
+      },
+      {
+        "start": 445.749,
+        "duration": 10.17,
+        "text": "right yeah so I've heard you have a book"
+      },
+      {
+        "start": 449.439,
+        "duration": 7.77,
+        "text": "coming out I know I know because I don't"
+      },
+      {
+        "start": 455.919,
+        "duration": 4.83,
+        "text": "I don't have anything else going on in"
+      },
+      {
+        "start": 457.209,
+        "duration": 5.82,
+        "text": "my life I coach my you know I you know I"
+      },
+      {
+        "start": 460.749,
+        "duration": 5.16,
+        "text": "run a you know no sequel"
+      },
+      {
+        "start": 463.029,
+        "duration": 4.41,
+        "text": "team which is you know on call we have"
+      },
+      {
+        "start": 465.909,
+        "duration": 2.82,
+        "text": "like seven hundred Cassandra nodes and"
+      },
+      {
+        "start": 467.439,
+        "duration": 3.57,
+        "text": "we have all these other things how many"
+      },
+      {
+        "start": 468.729,
+        "duration": 3.6,
+        "text": "people supporting that team six you have"
+      },
+      {
+        "start": 471.009,
+        "duration": 2.88,
+        "text": "six people supporting seven underneath"
+      },
+      {
+        "start": 472.329,
+        "duration": 3.87,
+        "text": "and that's Jessica Sandra we also have"
+      },
+      {
+        "start": 473.889,
+        "duration": 5.19,
+        "text": " and the new for J and then Redis"
+      },
+      {
+        "start": 476.199,
+        "duration": 5.88,
+        "text": "and so yeah we're a little busy anyway I"
+      },
+      {
+        "start": 479.079,
+        "duration": 4.38,
+        "text": "also head coach my son's hockey team"
+      },
+      {
+        "start": 482.079,
+        "duration": 4.17,
+        "text": "which is a traveling team and the all"
+      },
+      {
+        "start": 483.459,
+        "duration": 4.41,
+        "text": "those kids are on the ice six there now"
+      },
+      {
+        "start": 486.249,
+        "duration": 3.15,
+        "text": "sorry there they're not all my kids were"
+      },
+      {
+        "start": 487.869,
+        "duration": 3.45,
+        "text": "the cassandra shirts at school i think"
+      },
+      {
+        "start": 489.399,
+        "duration": 3.39,
+        "text": "it's yeah they get asked what cassandra"
+      },
+      {
+        "start": 491.319,
+        "duration": 3.78,
+        "text": "is all the time it's kind of funny"
+      },
+      {
+        "start": 492.789,
+        "duration": 5.35,
+        "text": "that's funny so so yeah i yeah i squeeze"
+      },
+      {
+        "start": 495.099,
+        "duration": 6.22,
+        "text": "my booking and miles of free"
+      },
+      {
+        "start": 498.139,
+        "duration": 5.34,
+        "text": "but it's called seven no sequel"
+      },
+      {
+        "start": 501.319,
+        "duration": 3.451,
+        "text": "databases in a week and it's by Packt"
+      },
+      {
+        "start": 503.479,
+        "duration": 3.09,
+        "text": "publishing so it's the same publishing"
+      },
+      {
+        "start": 504.77,
+        "duration": 4.049,
+        "text": "company that um that Robbie Strickland"
+      },
+      {
+        "start": 506.569,
+        "duration": 4.081,
+        "text": "used for Cassandra high-availability"
+      },
+      {
+        "start": 508.819,
+        "duration": 3.691,
+        "text": "okay and they asked me to write the"
+      },
+      {
+        "start": 510.65,
+        "duration": 5.879,
+        "text": "chapters on Redis neo4j and then well"
+      },
+      {
+        "start": 512.51,
+        "duration": 6.509,
+        "text": "Cassandra it's actually coming out in"
+      },
+      {
+        "start": 516.529,
+        "duration": 3.901,
+        "text": "February so really really soon so yeah"
+      },
+      {
+        "start": 519.019,
+        "duration": 3.301,
+        "text": "yeah I'm super excited about that"
+      },
+      {
+        "start": 520.43,
+        "duration": 3.899,
+        "text": "excellent well thank you again so much"
+      },
+      {
+        "start": 522.32,
+        "duration": 3.42,
+        "text": "and plus for being on the distributive"
+      },
+      {
+        "start": 524.329,
+        "duration": 3.901,
+        "text": "data show thanks for having me this has"
+      },
+      {
+        "start": 525.74,
+        "duration": 3.69,
+        "text": "been awesome yeah absolutely we'll see"
+      },
+      {
+        "start": 528.23,
+        "duration": 4.469,
+        "text": "everybody take care"
+      },
+      {
+        "start": 529.43,
+        "duration": 4.92,
+        "text": "Geordi loves you thank you for joining"
+      },
+      {
+        "start": 532.699,
+        "duration": 3.721,
+        "text": "us again for the distributed data show"
+      },
+      {
+        "start": 534.35,
+        "duration": 3.72,
+        "text": "we love your feedback so go to the"
+      },
+      {
+        "start": 536.42,
+        "duration": 3.06,
+        "text": "distributed data show page on data"
+      },
+      {
+        "start": 538.07,
+        "duration": 3.3,
+        "text": "stacks Academy and tell us what you"
+      },
+      {
+        "start": 539.48,
+        "duration": 4.32,
+        "text": "think you can also find us on the data"
+      },
+      {
+        "start": 541.37,
+        "duration": 4.589,
+        "text": "stacks Academy YouTube channel or find"
+      },
+      {
+        "start": 543.8,
+        "duration": 4.56,
+        "text": "our podcast on iTunes Google Play or"
+      },
+      {
+        "start": 545.959,
+        "duration": 4.351,
+        "text": "wherever you get great podcast while"
+      },
+      {
+        "start": 548.36,
+        "duration": 4.84,
+        "text": "you're there make sure and subscribe so"
+      },
+      {
+        "start": 550.31,
+        "duration": 5.999,
+        "text": "you don't miss a single episode"
+      },
+      {
+        "start": 553.2,
+        "duration": 3.109,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T06:45:27.441417+00:00"
+}

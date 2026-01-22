@@ -1,0 +1,1523 @@
+{
+  "video_id": "pjps3hIMByo",
+  "title": "DS330.16 Traversing Graph Data Preliminaries | DataStax Enterprise 6 Graph",
+  "description": "#DataStaxAcademy #DS330\nDS330.16 Traversing Graph Data Preliminaries\nWe are going to show you how we can traverse graph data in DataStax Enterprise Graph. We will begin with some important preliminaries.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-16T01:22:31Z",
+  "thumbnail": "https://i.ytimg.com/vi/pjps3hIMByo/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "tutorial",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=pjps3hIMByo",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] hi i am artem chobatko let's talk about how we can traverse graph data in datastax enterprise graph we begin with some important preliminaries in datastax enterprise graph graph traversals are expressed in gremlin which is a standard graph traversal language defined in apache tinker pop we cover gremlin extensively in this course traversals happen in one of two schema modes production and development those could have serious implications on traversal execution we do need to talk about default read and write consistency levels as well as how to change them finally we want to understand the difference between oil tp also called transactional traversals and olap or analytical traversals so that we can choose an appropriate traversal engine to execute our traversal sometimes it's easy to classify a traversal as transactional or analytical and in other cases the boundary can be somewhat fuzzy gremlin is our graph traversal language again it is part of the open source apache tinker pop project it is very expressive in fact turing complete and easy to use functional language with bindings in many programming languages that includes groovy java python scala and many others groovy is kind of a native binding for gremlin and that is what we will be using in our examples the differences between groovy and java versions are quite minimal so almost all of our examples are going to look the same when expressed in gremlin groovy or gremlin java here is an example of a gremlin traversal to look up a movie and get its title and release here properties back as you can see in our test data this happens to be the movie gremlin from 1984. you might have learned about the production and development schema modes when we discuss graph schemas turns out that these modes not only affect schemas but also traversals production is a default mode for all graphs as specified in dsc yaml it is a recommended mode that ensures that you will not be able to execute potentially expensive traversals production mode requires an explicit graph schema and property graph indexes for each traversal you want to execute this enables important performance optimizations and eliminates expensive graph scans now for development and educational purposes it may be okay to use the development schema mode this mod is good for playing around when you're trying to get to know the product when you first sketching out how your graph may look like when your schema changes frequently there is a period of a very rapid schema evolution as you trying to understand your data in and improve its quality this is where you want to be agile and be able to try some traversals without worrying about indexes or even an explicit schema development mode allows graph scans and can even generate a graph schema for you on the fly as data is being inserted just do not expect that things will be super efficient in such a scenario the development mode allows graph scans and even can generate a graph schema for you on the fly while data is being inserted just do not expect that things will be super efficient in such a scenario this example shows how to change a schema mode from production to development for an individual graph it is pretty easy to do just do not forget to switch back when you go to production graph scans are disabled by default in production mode but there might be cases when you want them you may intentionally want to scan a small subset of data or you may occasionally need to compute some aggregates so in this case we are retrieving names of all genres which is equivalent to scanning all genre vertices and getting their name properties as you can see this results in an error in production mode that that is not what we want it tells us that we need to use an index but we really want to scan and no index can help us to scan we know that in our graph there are only 18 genres and scanning them is not a big deal by setting the graph dot scan allow option we can execute our traversal and list all 18 genres of course caution is advised here enabling scans also enables you to write traversals that will perform poorly you may naturally think that traversals are like database queries they find and retrieve data from a graph however there are traversals that also find and mutate data in a graph since we know that all graph data is internally stored and retrieved from cassandra we need to be aware of read and write consistency levels that we use for our traversals supported consistency levels are the same as in cassandra there are one local one quorum local quorum each quorum all and a few others the default read and write consistency levels are 1 and quarum respectively and the code shown here changes both of them to local 1 which will result in higher availability but also higher chance to retrieve stale data of course consistency levels should meet the needs of your particular application since gremlin is a very expressive language traversals can be used for both online transaction processing and analytical processing it is useful to distinguish oltp and lab traversals because data stacks in their price graph has different engines that are specifically designed to efficiently execute those types of traversals in many cases it is very straightforward to see that a traversal is transactional or analytical but not always traversal performance depends on the complexity of both traversal and data and drawing a clear line is sometimes hard and requires experimentation to start with i do want to give you some guidelines to help you conclude that a traversal is oltp or olap oltp traversals return results quickly because they target one or few things in a large graph they use vertex ids or indexes to access those fusings and further may access a small subgraph by traversing relatively short paths in contrast a lab traversals may take time to execute and usually touch many things in a graph reverse large sub graphs and longer paths as well as rely on scan access patterns when not sure you can always profile a traversal to see what it takes to execute it in this oltp traversal example we are profiling a traversal that retrieves all movie vertices with title alice in wonderland from the profile we can see that it happens to be two movies with the same title they are retrieved using a materialized view based vertex index and the whole traversal is executed in under 2 milliseconds that's fast you may even be interested to take a closer look at the cql query used to retrieve data from cassandra as well as applied execution options such as consistency level this is clearly an oltp traversal this traversal finds all users in the graph groups them by age and counts users in each group from the profile we can see that the traversal touches 1100 elements user vertices in this case and and then reduces the result to a single map with skis and values being user edges and counts this reversal scans a substantial subset of vertices in our graph and executes in roughly 150 milliseconds while it does not seem like too slow we are playing with a really small graph here because of the scan this traversal response time will not scale well with larger graphs clearly this is an example of an olap traversal that may analyze a lot of data the previous two examples used kremlin console to display traversal profiles you can also visualize traversal profiles in data stack studio you get this nice view with time for each stage displayed as a bar you can further click on a bar or stage name to display other relevant information it is really good idea to execute oltp traversals using the oltp engine and a lot of traversals using the lap engine the otp engine is very efficient for transactional processing and the lab engine can deal with very computationally and memory expensive traversals because it uses spark under the hood of course to use the lab engine you have to enable spark on your graph nodes in a cluster examples here show how to use an oltp traversal source g for graph killer video and an lab traversal source a for graphql video in both cases the traversal source ls has the same name g so that the traversal syntax does not change when we switch between engines this works in gremlin console in data stack studio things are even easier each gremlin cell has a drop down execution menu to choose one engine or the other and we are done with traversing graph data preliminaries and let the fun begin in this exercise you will profile some traversals that return identical results but their response times are very different we need to learn how to write efficient reversals",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 7.01,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.52,
+        "duration": 3.84,
+        "text": "hi"
+      },
+      {
+        "start": 8.48,
+        "duration": 5.119,
+        "text": "i am artem chobatko let's talk about how"
+      },
+      {
+        "start": 11.36,
+        "duration": 3.76,
+        "text": "we can traverse graph data in datastax"
+      },
+      {
+        "start": 13.599,
+        "duration": 2.961,
+        "text": "enterprise graph"
+      },
+      {
+        "start": 15.12,
+        "duration": 4.159,
+        "text": "we begin with some important"
+      },
+      {
+        "start": 16.56,
+        "duration": 3.44,
+        "text": "preliminaries in datastax enterprise"
+      },
+      {
+        "start": 19.279,
+        "duration": 2.641,
+        "text": "graph"
+      },
+      {
+        "start": 20.0,
+        "duration": 4.08,
+        "text": "graph traversals are expressed in"
+      },
+      {
+        "start": 21.92,
+        "duration": 3.599,
+        "text": "gremlin which is a standard graph"
+      },
+      {
+        "start": 24.08,
+        "duration": 4.72,
+        "text": "traversal language defined"
+      },
+      {
+        "start": 25.519,
+        "duration": 5.361,
+        "text": "in apache tinker pop we cover gremlin"
+      },
+      {
+        "start": 28.8,
+        "duration": 4.72,
+        "text": "extensively in this course"
+      },
+      {
+        "start": 30.88,
+        "duration": 3.6,
+        "text": "traversals happen in one of two schema"
+      },
+      {
+        "start": 33.52,
+        "duration": 3.68,
+        "text": "modes"
+      },
+      {
+        "start": 34.48,
+        "duration": 4.56,
+        "text": "production and development those could"
+      },
+      {
+        "start": 37.2,
+        "duration": 5.199,
+        "text": "have serious implications"
+      },
+      {
+        "start": 39.04,
+        "duration": 4.48,
+        "text": "on traversal execution we do need to"
+      },
+      {
+        "start": 42.399,
+        "duration": 3.281,
+        "text": "talk about default"
+      },
+      {
+        "start": 43.52,
+        "duration": 5.039,
+        "text": "read and write consistency levels as"
+      },
+      {
+        "start": 45.68,
+        "duration": 5.44,
+        "text": "well as how to change them"
+      },
+      {
+        "start": 48.559,
+        "duration": 4.64,
+        "text": "finally we want to understand the"
+      },
+      {
+        "start": 51.12,
+        "duration": 5.04,
+        "text": "difference between oil tp"
+      },
+      {
+        "start": 53.199,
+        "duration": 5.761,
+        "text": "also called transactional traversals and"
+      },
+      {
+        "start": 56.16,
+        "duration": 5.12,
+        "text": "olap or analytical traversals"
+      },
+      {
+        "start": 58.96,
+        "duration": 3.04,
+        "text": "so that we can choose an appropriate"
+      },
+      {
+        "start": 61.28,
+        "duration": 4.159,
+        "text": "traversal"
+      },
+      {
+        "start": 62.0,
+        "duration": 6.0,
+        "text": "engine to execute our traversal"
+      },
+      {
+        "start": 65.439,
+        "duration": 5.601,
+        "text": "sometimes it's easy to classify a"
+      },
+      {
+        "start": 68.0,
+        "duration": 5.84,
+        "text": "traversal as transactional or analytical"
+      },
+      {
+        "start": 71.04,
+        "duration": 3.439,
+        "text": "and in other cases the boundary can be"
+      },
+      {
+        "start": 73.84,
+        "duration": 3.52,
+        "text": "somewhat"
+      },
+      {
+        "start": 74.479,
+        "duration": 3.68,
+        "text": "fuzzy gremlin is our graph traversal"
+      },
+      {
+        "start": 77.36,
+        "duration": 3.28,
+        "text": "language"
+      },
+      {
+        "start": 78.159,
+        "duration": 4.32,
+        "text": "again it is part of the open source"
+      },
+      {
+        "start": 80.64,
+        "duration": 4.4,
+        "text": "apache tinker pop project"
+      },
+      {
+        "start": 82.479,
+        "duration": 3.68,
+        "text": "it is very expressive in fact turing"
+      },
+      {
+        "start": 85.04,
+        "duration": 4.24,
+        "text": "complete"
+      },
+      {
+        "start": 86.159,
+        "duration": 5.521,
+        "text": "and easy to use functional language"
+      },
+      {
+        "start": 89.28,
+        "duration": 4.159,
+        "text": "with bindings in many programming"
+      },
+      {
+        "start": 91.68,
+        "duration": 4.88,
+        "text": "languages"
+      },
+      {
+        "start": 93.439,
+        "duration": 6.241,
+        "text": "that includes groovy java"
+      },
+      {
+        "start": 96.56,
+        "duration": 4.96,
+        "text": "python scala and many others"
+      },
+      {
+        "start": 99.68,
+        "duration": 4.0,
+        "text": "groovy is kind of a native binding for"
+      },
+      {
+        "start": 101.52,
+        "duration": 4.32,
+        "text": "gremlin and that is what we will be"
+      },
+      {
+        "start": 103.68,
+        "duration": 4.56,
+        "text": "using in our examples"
+      },
+      {
+        "start": 105.84,
+        "duration": 4.48,
+        "text": "the differences between groovy and java"
+      },
+      {
+        "start": 108.24,
+        "duration": 4.32,
+        "text": "versions are quite minimal"
+      },
+      {
+        "start": 110.32,
+        "duration": 3.68,
+        "text": "so almost all of our examples are going"
+      },
+      {
+        "start": 112.56,
+        "duration": 3.519,
+        "text": "to look the same when"
+      },
+      {
+        "start": 114.0,
+        "duration": 3.84,
+        "text": "expressed in gremlin groovy or gremlin"
+      },
+      {
+        "start": 116.079,
+        "duration": 3.201,
+        "text": "java"
+      },
+      {
+        "start": 117.84,
+        "duration": 4.16,
+        "text": "here is an example of a gremlin"
+      },
+      {
+        "start": 119.28,
+        "duration": 3.6,
+        "text": "traversal to look up a movie and get its"
+      },
+      {
+        "start": 122.0,
+        "duration": 4.0,
+        "text": "title"
+      },
+      {
+        "start": 122.88,
+        "duration": 4.879,
+        "text": "and release here properties back as you"
+      },
+      {
+        "start": 126.0,
+        "duration": 4.16,
+        "text": "can see in our test data"
+      },
+      {
+        "start": 127.759,
+        "duration": 5.84,
+        "text": "this happens to be the movie gremlin"
+      },
+      {
+        "start": 130.16,
+        "duration": 5.36,
+        "text": "from 1984."
+      },
+      {
+        "start": 133.599,
+        "duration": 4.481,
+        "text": "you might have learned about the"
+      },
+      {
+        "start": 135.52,
+        "duration": 5.6,
+        "text": "production and development schema modes"
+      },
+      {
+        "start": 138.08,
+        "duration": 5.6,
+        "text": "when we discuss graph schemas turns out"
+      },
+      {
+        "start": 141.12,
+        "duration": 5.68,
+        "text": "that these modes not only affect schemas"
+      },
+      {
+        "start": 143.68,
+        "duration": 5.36,
+        "text": "but also traversals production is a"
+      },
+      {
+        "start": 146.8,
+        "duration": 3.04,
+        "text": "default mode for all graphs as specified"
+      },
+      {
+        "start": 149.04,
+        "duration": 4.32,
+        "text": "in dsc"
+      },
+      {
+        "start": 149.84,
+        "duration": 6.479,
+        "text": "yaml it is a recommended mode that"
+      },
+      {
+        "start": 153.36,
+        "duration": 3.599,
+        "text": "ensures that you will not be able to"
+      },
+      {
+        "start": 156.319,
+        "duration": 3.121,
+        "text": "execute"
+      },
+      {
+        "start": 156.959,
+        "duration": 4.56,
+        "text": "potentially expensive traversals"
+      },
+      {
+        "start": 159.44,
+        "duration": 3.36,
+        "text": "production mode requires an explicit"
+      },
+      {
+        "start": 161.519,
+        "duration": 3.921,
+        "text": "graph schema"
+      },
+      {
+        "start": 162.8,
+        "duration": 3.84,
+        "text": "and property graph indexes for each"
+      },
+      {
+        "start": 165.44,
+        "duration": 4.48,
+        "text": "traversal"
+      },
+      {
+        "start": 166.64,
+        "duration": 5.44,
+        "text": "you want to execute this enables"
+      },
+      {
+        "start": 169.92,
+        "duration": 6.72,
+        "text": "important performance optimizations"
+      },
+      {
+        "start": 172.08,
+        "duration": 4.56,
+        "text": "and eliminates expensive graph scans"
+      },
+      {
+        "start": 177.2,
+        "duration": 4.399,
+        "text": "now for development and educational"
+      },
+      {
+        "start": 180.239,
+        "duration": 3.441,
+        "text": "purposes"
+      },
+      {
+        "start": 181.599,
+        "duration": 3.521,
+        "text": "it may be okay to use the development"
+      },
+      {
+        "start": 183.68,
+        "duration": 4.639,
+        "text": "schema mode"
+      },
+      {
+        "start": 185.12,
+        "duration": 4.96,
+        "text": "this mod is good for playing around"
+      },
+      {
+        "start": 188.319,
+        "duration": 3.521,
+        "text": "when you're trying to get to know the"
+      },
+      {
+        "start": 190.08,
+        "duration": 4.48,
+        "text": "product when you"
+      },
+      {
+        "start": 191.84,
+        "duration": 3.44,
+        "text": "first sketching out how your graph may"
+      },
+      {
+        "start": 194.56,
+        "duration": 3.599,
+        "text": "look like"
+      },
+      {
+        "start": 195.28,
+        "duration": 4.16,
+        "text": "when your schema changes frequently"
+      },
+      {
+        "start": 198.159,
+        "duration": 3.761,
+        "text": "there is a period"
+      },
+      {
+        "start": 199.44,
+        "duration": 4.32,
+        "text": "of a very rapid schema evolution as you"
+      },
+      {
+        "start": 201.92,
+        "duration": 6.0,
+        "text": "trying to understand"
+      },
+      {
+        "start": 203.76,
+        "duration": 6.96,
+        "text": "your data in and improve its quality"
+      },
+      {
+        "start": 207.92,
+        "duration": 3.84,
+        "text": "this is where you want to be agile and"
+      },
+      {
+        "start": 210.72,
+        "duration": 2.72,
+        "text": "be able to"
+      },
+      {
+        "start": 211.76,
+        "duration": 3.28,
+        "text": "try some traversals without worrying"
+      },
+      {
+        "start": 213.44,
+        "duration": 4.56,
+        "text": "about indexes or even"
+      },
+      {
+        "start": 215.04,
+        "duration": 4.559,
+        "text": "an explicit schema development mode"
+      },
+      {
+        "start": 218.0,
+        "duration": 4.48,
+        "text": "allows graph scans"
+      },
+      {
+        "start": 219.599,
+        "duration": 3.28,
+        "text": "and can even generate a graph schema for"
+      },
+      {
+        "start": 222.48,
+        "duration": 4.479,
+        "text": "you"
+      },
+      {
+        "start": 222.879,
+        "duration": 6.08,
+        "text": "on the fly as data is being inserted"
+      },
+      {
+        "start": 226.959,
+        "duration": 3.36,
+        "text": "just do not expect that things will be"
+      },
+      {
+        "start": 228.959,
+        "duration": 4.081,
+        "text": "super efficient"
+      },
+      {
+        "start": 230.319,
+        "duration": 3.361,
+        "text": "in such a scenario the development mode"
+      },
+      {
+        "start": 233.04,
+        "duration": 2.88,
+        "text": "allows"
+      },
+      {
+        "start": 233.68,
+        "duration": 3.52,
+        "text": "graph scans and even can generate a"
+      },
+      {
+        "start": 235.92,
+        "duration": 4.879,
+        "text": "graph schema for you"
+      },
+      {
+        "start": 237.2,
+        "duration": 5.679,
+        "text": "on the fly while data is being inserted"
+      },
+      {
+        "start": 240.799,
+        "duration": 3.041,
+        "text": "just do not expect that things will be"
+      },
+      {
+        "start": 242.879,
+        "duration": 4.72,
+        "text": "super efficient"
+      },
+      {
+        "start": 243.84,
+        "duration": 6.24,
+        "text": "in such a scenario this example"
+      },
+      {
+        "start": 247.599,
+        "duration": 4.0,
+        "text": "shows how to change a schema mode from"
+      },
+      {
+        "start": 250.08,
+        "duration": 4.799,
+        "text": "production to development"
+      },
+      {
+        "start": 251.599,
+        "duration": 4.561,
+        "text": "for an individual graph it is pretty"
+      },
+      {
+        "start": 254.879,
+        "duration": 3.6,
+        "text": "easy to do"
+      },
+      {
+        "start": 256.16,
+        "duration": 3.12,
+        "text": "just do not forget to switch back when"
+      },
+      {
+        "start": 258.479,
+        "duration": 4.0,
+        "text": "you go"
+      },
+      {
+        "start": 259.28,
+        "duration": 5.44,
+        "text": "to production graph scans"
+      },
+      {
+        "start": 262.479,
+        "duration": 3.841,
+        "text": "are disabled by default in production"
+      },
+      {
+        "start": 264.72,
+        "duration": 3.759,
+        "text": "mode but there might be"
+      },
+      {
+        "start": 266.32,
+        "duration": 4.24,
+        "text": "cases when you want them you may"
+      },
+      {
+        "start": 268.479,
+        "duration": 3.44,
+        "text": "intentionally want to scan a small"
+      },
+      {
+        "start": 270.56,
+        "duration": 4.48,
+        "text": "subset of data"
+      },
+      {
+        "start": 271.919,
+        "duration": 6.56,
+        "text": "or you may occasionally need to compute"
+      },
+      {
+        "start": 275.04,
+        "duration": 4.32,
+        "text": "some aggregates so in this case we are"
+      },
+      {
+        "start": 278.479,
+        "duration": 4.321,
+        "text": "retrieving"
+      },
+      {
+        "start": 279.36,
+        "duration": 4.399,
+        "text": "names of all genres which is equivalent"
+      },
+      {
+        "start": 282.8,
+        "duration": 3.04,
+        "text": "to scanning"
+      },
+      {
+        "start": 283.759,
+        "duration": 4.0,
+        "text": "all genre vertices and getting their"
+      },
+      {
+        "start": 285.84,
+        "duration": 4.96,
+        "text": "name properties"
+      },
+      {
+        "start": 287.759,
+        "duration": 4.561,
+        "text": "as you can see this results in an error"
+      },
+      {
+        "start": 290.8,
+        "duration": 4.56,
+        "text": "in production mode"
+      },
+      {
+        "start": 292.32,
+        "duration": 4.8,
+        "text": "that that is not what we want it tells"
+      },
+      {
+        "start": 295.36,
+        "duration": 5.36,
+        "text": "us that we need to use an"
+      },
+      {
+        "start": 297.12,
+        "duration": 6.639,
+        "text": "index but we really want to scan and no"
+      },
+      {
+        "start": 300.72,
+        "duration": 6.16,
+        "text": "index can help us to scan"
+      },
+      {
+        "start": 303.759,
+        "duration": 4.0,
+        "text": "we know that in our graph there are only"
+      },
+      {
+        "start": 306.88,
+        "duration": 3.759,
+        "text": "18"
+      },
+      {
+        "start": 307.759,
+        "duration": 4.0,
+        "text": "genres and scanning them is not a big"
+      },
+      {
+        "start": 310.639,
+        "duration": 4.321,
+        "text": "deal"
+      },
+      {
+        "start": 311.759,
+        "duration": 6.16,
+        "text": "by setting the graph dot scan"
+      },
+      {
+        "start": 314.96,
+        "duration": 3.76,
+        "text": "allow option we can execute our"
+      },
+      {
+        "start": 317.919,
+        "duration": 4.72,
+        "text": "traversal"
+      },
+      {
+        "start": 318.72,
+        "duration": 6.88,
+        "text": "and list all 18 genres of course"
+      },
+      {
+        "start": 322.639,
+        "duration": 5.201,
+        "text": "caution is advised here enabling scans"
+      },
+      {
+        "start": 325.6,
+        "duration": 3.28,
+        "text": "also enables you to write traversals"
+      },
+      {
+        "start": 327.84,
+        "duration": 3.199,
+        "text": "that will perform"
+      },
+      {
+        "start": 328.88,
+        "duration": 4.48,
+        "text": "poorly you may naturally think that"
+      },
+      {
+        "start": 331.039,
+        "duration": 5.121,
+        "text": "traversals are like database queries"
+      },
+      {
+        "start": 333.36,
+        "duration": 3.92,
+        "text": "they find and retrieve data from a graph"
+      },
+      {
+        "start": 336.16,
+        "duration": 3.599,
+        "text": "however"
+      },
+      {
+        "start": 337.28,
+        "duration": 3.6,
+        "text": "there are traversals that also find and"
+      },
+      {
+        "start": 339.759,
+        "duration": 3.841,
+        "text": "mutate"
+      },
+      {
+        "start": 340.88,
+        "duration": 4.72,
+        "text": "data in a graph since we know that all"
+      },
+      {
+        "start": 343.6,
+        "duration": 3.439,
+        "text": "graph data is internally stored and"
+      },
+      {
+        "start": 345.6,
+        "duration": 3.68,
+        "text": "retrieved from cassandra"
+      },
+      {
+        "start": 347.039,
+        "duration": 3.921,
+        "text": "we need to be aware of read and write"
+      },
+      {
+        "start": 349.28,
+        "duration": 4.8,
+        "text": "consistency levels"
+      },
+      {
+        "start": 350.96,
+        "duration": 5.519,
+        "text": "that we use for our traversals"
+      },
+      {
+        "start": 354.08,
+        "duration": 3.04,
+        "text": "supported consistency levels are the"
+      },
+      {
+        "start": 356.479,
+        "duration": 4.401,
+        "text": "same as"
+      },
+      {
+        "start": 357.12,
+        "duration": 6.88,
+        "text": "in cassandra there are one local one"
+      },
+      {
+        "start": 360.88,
+        "duration": 6.48,
+        "text": "quorum local quorum each quorum all"
+      },
+      {
+        "start": 364.0,
+        "duration": 5.44,
+        "text": "and a few others the default read and"
+      },
+      {
+        "start": 367.36,
+        "duration": 4.0,
+        "text": "write consistency levels are 1 and"
+      },
+      {
+        "start": 369.44,
+        "duration": 4.96,
+        "text": "quarum respectively"
+      },
+      {
+        "start": 371.36,
+        "duration": 4.72,
+        "text": "and the code shown here changes both of"
+      },
+      {
+        "start": 374.4,
+        "duration": 4.16,
+        "text": "them to local 1"
+      },
+      {
+        "start": 376.08,
+        "duration": 3.36,
+        "text": "which will result in higher availability"
+      },
+      {
+        "start": 378.56,
+        "duration": 4.24,
+        "text": "but also"
+      },
+      {
+        "start": 379.44,
+        "duration": 6.4,
+        "text": "higher chance to retrieve stale data"
+      },
+      {
+        "start": 382.8,
+        "duration": 4.0,
+        "text": "of course consistency levels should meet"
+      },
+      {
+        "start": 385.84,
+        "duration": 4.32,
+        "text": "the needs of"
+      },
+      {
+        "start": 386.8,
+        "duration": 5.44,
+        "text": "your particular application"
+      },
+      {
+        "start": 390.16,
+        "duration": 3.84,
+        "text": "since gremlin is a very expressive"
+      },
+      {
+        "start": 392.24,
+        "duration": 3.84,
+        "text": "language traversals can be"
+      },
+      {
+        "start": 394.0,
+        "duration": 3.199,
+        "text": "used for both online transaction"
+      },
+      {
+        "start": 396.08,
+        "duration": 3.839,
+        "text": "processing and"
+      },
+      {
+        "start": 397.199,
+        "duration": 3.44,
+        "text": "analytical processing it is useful to"
+      },
+      {
+        "start": 399.919,
+        "duration": 3.761,
+        "text": "distinguish"
+      },
+      {
+        "start": 400.639,
+        "duration": 4.881,
+        "text": "oltp and lab traversals because data"
+      },
+      {
+        "start": 403.68,
+        "duration": 4.239,
+        "text": "stacks in their price graph"
+      },
+      {
+        "start": 405.52,
+        "duration": 4.399,
+        "text": "has different engines that are"
+      },
+      {
+        "start": 407.919,
+        "duration": 5.361,
+        "text": "specifically designed to efficiently"
+      },
+      {
+        "start": 409.919,
+        "duration": 6.481,
+        "text": "execute those types of traversals"
+      },
+      {
+        "start": 413.28,
+        "duration": 5.6,
+        "text": "in many cases it is very straightforward"
+      },
+      {
+        "start": 416.4,
+        "duration": 3.76,
+        "text": "to see that a traversal is transactional"
+      },
+      {
+        "start": 418.88,
+        "duration": 4.24,
+        "text": "or analytical"
+      },
+      {
+        "start": 420.16,
+        "duration": 4.8,
+        "text": "but not always traversal performance"
+      },
+      {
+        "start": 423.12,
+        "duration": 4.88,
+        "text": "depends on the complexity"
+      },
+      {
+        "start": 424.96,
+        "duration": 4.639,
+        "text": "of both traversal and data and drawing a"
+      },
+      {
+        "start": 428.0,
+        "duration": 3.919,
+        "text": "clear line"
+      },
+      {
+        "start": 429.599,
+        "duration": 4.241,
+        "text": "is sometimes hard and requires"
+      },
+      {
+        "start": 431.919,
+        "duration": 4.0,
+        "text": "experimentation"
+      },
+      {
+        "start": 433.84,
+        "duration": 4.24,
+        "text": "to start with i do want to give you some"
+      },
+      {
+        "start": 435.919,
+        "duration": 4.0,
+        "text": "guidelines to help you conclude that a"
+      },
+      {
+        "start": 438.08,
+        "duration": 5.519,
+        "text": "traversal is oltp"
+      },
+      {
+        "start": 439.919,
+        "duration": 6.881,
+        "text": "or olap oltp traversals return"
+      },
+      {
+        "start": 443.599,
+        "duration": 6.16,
+        "text": "results quickly because they target one"
+      },
+      {
+        "start": 446.8,
+        "duration": 5.119,
+        "text": "or few things in a large graph they use"
+      },
+      {
+        "start": 449.759,
+        "duration": 5.761,
+        "text": "vertex ids or indexes to"
+      },
+      {
+        "start": 451.919,
+        "duration": 6.161,
+        "text": "access those fusings and further may"
+      },
+      {
+        "start": 455.52,
+        "duration": 3.28,
+        "text": "access a small subgraph by traversing"
+      },
+      {
+        "start": 458.08,
+        "duration": 4.08,
+        "text": "relatively"
+      },
+      {
+        "start": 458.8,
+        "duration": 6.16,
+        "text": "short paths in contrast"
+      },
+      {
+        "start": 462.16,
+        "duration": 3.52,
+        "text": "a lab traversals may take time to"
+      },
+      {
+        "start": 464.96,
+        "duration": 3.919,
+        "text": "execute"
+      },
+      {
+        "start": 465.68,
+        "duration": 5.6,
+        "text": "and usually touch many things in a graph"
+      },
+      {
+        "start": 468.879,
+        "duration": 4.72,
+        "text": "reverse large sub graphs and longer"
+      },
+      {
+        "start": 471.28,
+        "duration": 5.199,
+        "text": "paths as well as rely on scan"
+      },
+      {
+        "start": 473.599,
+        "duration": 2.88,
+        "text": "access patterns"
+      },
+      {
+        "start": 476.96,
+        "duration": 3.84,
+        "text": "when not sure you can always profile a"
+      },
+      {
+        "start": 480.08,
+        "duration": 3.519,
+        "text": "traversal"
+      },
+      {
+        "start": 480.8,
+        "duration": 5.2,
+        "text": "to see what it takes to execute it in"
+      },
+      {
+        "start": 483.599,
+        "duration": 4.641,
+        "text": "this oltp traversal example"
+      },
+      {
+        "start": 486.0,
+        "duration": 4.639,
+        "text": "we are profiling a traversal that"
+      },
+      {
+        "start": 488.24,
+        "duration": 5.04,
+        "text": "retrieves all movie vertices with"
+      },
+      {
+        "start": 490.639,
+        "duration": 3.521,
+        "text": "title alice in wonderland from the"
+      },
+      {
+        "start": 493.28,
+        "duration": 2.88,
+        "text": "profile"
+      },
+      {
+        "start": 494.16,
+        "duration": 3.28,
+        "text": "we can see that it happens to be two"
+      },
+      {
+        "start": 496.16,
+        "duration": 4.319,
+        "text": "movies with the same"
+      },
+      {
+        "start": 497.44,
+        "duration": 4.879,
+        "text": "title they are retrieved using a"
+      },
+      {
+        "start": 500.479,
+        "duration": 4.321,
+        "text": "materialized view based vertex"
+      },
+      {
+        "start": 502.319,
+        "duration": 4.88,
+        "text": "index and the whole traversal is"
+      },
+      {
+        "start": 504.8,
+        "duration": 4.799,
+        "text": "executed in under 2 milliseconds"
+      },
+      {
+        "start": 507.199,
+        "duration": 5.601,
+        "text": "that's fast you may even be interested"
+      },
+      {
+        "start": 509.599,
+        "duration": 5.601,
+        "text": "to take a closer look at the cql query"
+      },
+      {
+        "start": 512.8,
+        "duration": 3.599,
+        "text": "used to retrieve data from cassandra as"
+      },
+      {
+        "start": 515.2,
+        "duration": 3.839,
+        "text": "well as applied"
+      },
+      {
+        "start": 516.399,
+        "duration": 3.601,
+        "text": "execution options such as consistency"
+      },
+      {
+        "start": 519.039,
+        "duration": 6.161,
+        "text": "level"
+      },
+      {
+        "start": 520.0,
+        "duration": 5.2,
+        "text": "this is clearly an oltp traversal"
+      },
+      {
+        "start": 525.36,
+        "duration": 3.599,
+        "text": "this traversal finds all users in the"
+      },
+      {
+        "start": 528.399,
+        "duration": 3.841,
+        "text": "graph"
+      },
+      {
+        "start": 528.959,
+        "duration": 3.88,
+        "text": "groups them by age and counts users in"
+      },
+      {
+        "start": 532.24,
+        "duration": 3.84,
+        "text": "each"
+      },
+      {
+        "start": 532.839,
+        "duration": 3.641,
+        "text": "group from the profile we can see that"
+      },
+      {
+        "start": 536.08,
+        "duration": 3.84,
+        "text": "the"
+      },
+      {
+        "start": 536.48,
+        "duration": 6.16,
+        "text": "traversal touches 1100 elements"
+      },
+      {
+        "start": 539.92,
+        "duration": 3.919,
+        "text": "user vertices in this case and and then"
+      },
+      {
+        "start": 542.64,
+        "duration": 3.6,
+        "text": "reduces"
+      },
+      {
+        "start": 543.839,
+        "duration": 5.361,
+        "text": "the result to a single map with skis and"
+      },
+      {
+        "start": 546.24,
+        "duration": 5.52,
+        "text": "values being user edges and counts"
+      },
+      {
+        "start": 549.2,
+        "duration": 3.6,
+        "text": "this reversal scans a substantial subset"
+      },
+      {
+        "start": 551.76,
+        "duration": 4.88,
+        "text": "of vertices"
+      },
+      {
+        "start": 552.8,
+        "duration": 5.2,
+        "text": "in our graph and executes in roughly 150"
+      },
+      {
+        "start": 556.64,
+        "duration": 4.16,
+        "text": "milliseconds"
+      },
+      {
+        "start": 558.0,
+        "duration": 4.8,
+        "text": "while it does not seem like too slow we"
+      },
+      {
+        "start": 560.8,
+        "duration": 2.64,
+        "text": "are playing with a really small graph"
+      },
+      {
+        "start": 562.8,
+        "duration": 3.12,
+        "text": "here"
+      },
+      {
+        "start": 563.44,
+        "duration": 4.8,
+        "text": "because of the scan this traversal"
+      },
+      {
+        "start": 565.92,
+        "duration": 3.599,
+        "text": "response time will not scale well with"
+      },
+      {
+        "start": 568.24,
+        "duration": 3.84,
+        "text": "larger graphs"
+      },
+      {
+        "start": 569.519,
+        "duration": 3.681,
+        "text": "clearly this is an example of an olap"
+      },
+      {
+        "start": 572.08,
+        "duration": 5.199,
+        "text": "traversal"
+      },
+      {
+        "start": 573.2,
+        "duration": 6.16,
+        "text": "that may analyze a lot of data"
+      },
+      {
+        "start": 577.279,
+        "duration": 4.641,
+        "text": "the previous two examples used kremlin"
+      },
+      {
+        "start": 579.36,
+        "duration": 4.24,
+        "text": "console to display traversal profiles"
+      },
+      {
+        "start": 581.92,
+        "duration": 4.16,
+        "text": "you can also visualize traversal"
+      },
+      {
+        "start": 583.6,
+        "duration": 4.64,
+        "text": "profiles in data stack studio"
+      },
+      {
+        "start": 586.08,
+        "duration": 3.759,
+        "text": "you get this nice view with time for"
+      },
+      {
+        "start": 588.24,
+        "duration": 5.44,
+        "text": "each stage displayed"
+      },
+      {
+        "start": 589.839,
+        "duration": 6.801,
+        "text": "as a bar you can further click on a bar"
+      },
+      {
+        "start": 593.68,
+        "duration": 5.44,
+        "text": "or stage name to display other relevant"
+      },
+      {
+        "start": 596.64,
+        "duration": 5.6,
+        "text": "information"
+      },
+      {
+        "start": 599.12,
+        "duration": 4.08,
+        "text": "it is really good idea to execute oltp"
+      },
+      {
+        "start": 602.24,
+        "duration": 3.52,
+        "text": "traversals"
+      },
+      {
+        "start": 603.2,
+        "duration": 3.68,
+        "text": "using the oltp engine and a lot of"
+      },
+      {
+        "start": 605.76,
+        "duration": 4.48,
+        "text": "traversals using"
+      },
+      {
+        "start": 606.88,
+        "duration": 5.6,
+        "text": "the lap engine the otp engine is very"
+      },
+      {
+        "start": 610.24,
+        "duration": 4.719,
+        "text": "efficient for transactional processing"
+      },
+      {
+        "start": 612.48,
+        "duration": 4.479,
+        "text": "and the lab engine can deal with very"
+      },
+      {
+        "start": 614.959,
+        "duration": 4.721,
+        "text": "computationally and memory"
+      },
+      {
+        "start": 616.959,
+        "duration": 4.481,
+        "text": "expensive traversals because it uses"
+      },
+      {
+        "start": 619.68,
+        "duration": 3.599,
+        "text": "spark under the hood"
+      },
+      {
+        "start": 621.44,
+        "duration": 4.079,
+        "text": "of course to use the lab engine you have"
+      },
+      {
+        "start": 623.279,
+        "duration": 3.841,
+        "text": "to enable spark on your graph nodes in a"
+      },
+      {
+        "start": 625.519,
+        "duration": 4.801,
+        "text": "cluster"
+      },
+      {
+        "start": 627.12,
+        "duration": 6.959,
+        "text": "examples here show how to use an"
+      },
+      {
+        "start": 630.32,
+        "duration": 4.56,
+        "text": "oltp traversal source g for graph killer"
+      },
+      {
+        "start": 634.079,
+        "duration": 3.361,
+        "text": "video"
+      },
+      {
+        "start": 634.88,
+        "duration": 3.76,
+        "text": "and an lab traversal source a for"
+      },
+      {
+        "start": 637.44,
+        "duration": 3.36,
+        "text": "graphql video"
+      },
+      {
+        "start": 638.64,
+        "duration": 3.759,
+        "text": "in both cases the traversal source ls"
+      },
+      {
+        "start": 640.8,
+        "duration": 4.64,
+        "text": "has the same name g"
+      },
+      {
+        "start": 642.399,
+        "duration": 5.68,
+        "text": "so that the traversal syntax does not"
+      },
+      {
+        "start": 645.44,
+        "duration": 4.079,
+        "text": "change when we switch between engines"
+      },
+      {
+        "start": 648.079,
+        "duration": 5.041,
+        "text": "this works in gremlin"
+      },
+      {
+        "start": 649.519,
+        "duration": 7.201,
+        "text": "console in data stack studio things are"
+      },
+      {
+        "start": 653.12,
+        "duration": 5.04,
+        "text": "even easier each gremlin cell has a drop"
+      },
+      {
+        "start": 656.72,
+        "duration": 5.52,
+        "text": "down execution menu"
+      },
+      {
+        "start": 658.16,
+        "duration": 4.08,
+        "text": "to choose one engine or the other"
+      },
+      {
+        "start": 662.399,
+        "duration": 3.44,
+        "text": "and we are done with traversing graph"
+      },
+      {
+        "start": 664.32,
+        "duration": 4.48,
+        "text": "data preliminaries"
+      },
+      {
+        "start": 665.839,
+        "duration": 5.201,
+        "text": "and let the fun begin in this exercise"
+      },
+      {
+        "start": 668.8,
+        "duration": 4.56,
+        "text": "you will profile some traversals"
+      },
+      {
+        "start": 671.04,
+        "duration": 4.239,
+        "text": "that return identical results but their"
+      },
+      {
+        "start": 673.36,
+        "duration": 4.32,
+        "text": "response times are very"
+      },
+      {
+        "start": 675.279,
+        "duration": 7.761,
+        "text": "different we need to learn how to write"
+      },
+      {
+        "start": 677.68,
+        "duration": 5.36,
+        "text": "efficient reversals"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T22:43:33.698979+00:00"
+}

@@ -1,0 +1,2556 @@
+{
+  "video_id": "ms8OSeJLCTo",
+  "title": "DS310.25 Geo-Spatial Search | DataStax Enterprise 6 Search",
+  "description": "#DataStaxAcademy #DS310\nDS310.25 Geo-Spatial Search\nIn this video, we will be talking about geo-spatial search, one of the coolest features in DSE Search.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-15T20:54:02Z",
+  "thumbnail": "https://i.ytimg.com/vi/ms8OSeJLCTo/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "search",
+    "tutorial",
+    "apache_cassandra",
+    "talk",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=ms8OSeJLCTo",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] hello this is joche in this video we will be talking about geospatial search one of the coolest features in dlc search while the focus of this video is about geospatial search let's back up a moment and clarify a broader concept which is spatial search which lacks the geo part spatial search is a way to evaluate and compare the spatial geometry between two or more geometrical shapes which can be anything from a point to a line triangles rectangles and even more complex polygons with the smallest unit being the point everything else is therefore described as a series of points as well with this capability dc search is able to do things like filter results for geometrical shapes that exist on within or outside another geometrical shape we can sort or boost scores based on the distance between two points or shapes or by comparing the relative area between two shapes spatial search can also generate a 2d grid of facet counts that can be used for heat map generation or point plotting spatial search itself does not need to rely on any specific context and only relies on the geometry to do its comparison on the other hand geospatial search typically focuses on a geographical or locational context and tends to work in just two dimensions before we can do any geospatial searching you'll probably want to know what geospatial data looks like first usually the data is something that represents an object's location as defined by a coordinate system this can be either absolute where the points of an object are fixed somewhere in coordinate space or they can be relative where the data about the points of an object are an offset of other points although we have described objects so far as geometric shapes they typically represent something meaningful such as a particular address or the location of vehicles points of interest or even your own current location there are several standards used for representing geospatial data but the one used in datasets enterprise is the well-known text markup language or wkt this is a format that allows points and other geometrical shapes to be defined within a two-dimensional sine cartesian coordinate system you can think of that as those x-y-coordinate planes from your old map classes but they can also represent our own world which uses latitude and longitude coordinates datastax enterprise has three data types that are used specifically for storing wkt object data which are the point type the line string type and the polygon type let's go over these one by one the point type is an object that represents a point in space and is described using a coordinate pair which is its location on the x-axis and on the y-axis depending on the coordinate space used to describe the point the values for the coordinate pair can be described as an integer or as a decimal and usc allows for both to be stored when working with the point type within cql you work with the point type as a string which starts off with the word point and then contains the coordinate pair enclosed in parens as shown in the example here note that with lat long coordinates the best practice is to actually describe the point with the longitude first as that is what describes the x-coordinate and then with the latitude which would be the y-coordinate an example of geospatial data with a point would be places of interest such as the location of our own data sex headquarters shown on the map here the next data type is a line string type which is a line object that is made up of two or more points the object will start with the word line string and then contain all of the point coordinates for the line and close in parenthesis and separate them by commas as seen in this example search will automatically calculate the line as a vector using the points provided so you do not need to use a large number of points to describe the line it doesn't matter if the points are provided starting from one end of the line or the other end however it does require the points to be provided in a specific order so that the line doesn't intersect itself an example where a line string might be used would be described something such as a boundary a road rivers or something else the last geospatial data type in datasex enterprise is the polygon type and this is what is used to describe all other shapes such as triangles squares or other complex shapes the polygon type data would start with the word polygon and then contains the point coordinates for an outer bound which represents the outer bound of the polygon and also in an optional inner bound for example if you are trying to describe a polygon with a hole in it the inner bound is used to find the points that make up the whole to organize all of this there is a set of parenthesis that encloses all the polygon coordinates within that there is a second set of parenthesis that hold the outer band coordinates and another set of parenthesis that hold the inner bound coordinates if you don't have inner bounds the outer bound coordinates should just be enclosed in two sets of parenthesis all the bounds for the polygon should be closed which means that the polygon is defined with the start and the end being the same point don't worry if you forget the last point though because dsc can automatically add that for you so long as the polygon contains a minimum of four points best practice would also indicate that the points where the outer bound should be written in a counterclockwise direction and an inner bounds in a clockwise direction though dlc does not enforce this that's a lot of requirements to try to visualize what a polygon looks like so let's take a look at an example here is a polygon that has out of bounds defined that would make up a rectangle as seen on the map here note that the coordinates just appear to be enclosed by two set of parentheses so there is no inner bound defined for this polygon this example here shows a polygon with an inner bound inside the first set there are two additional set of parentheses separated by a comma with the first being the outer bound and the second being the inner bound this would look like the shape on the map here with a rectangular hole somewhere in the middle let's also take a quick look at an example of a cql table with these geospatial data types and some insert operations that will be adding some geospatial data we have a new table here called geospatial in the killer video key space which contains a point column a line string column and a polygon column using their respective data types note the single quotes that includes the name of the data type as that is needed to properly invoke these data types in the three insert statements at the bottom we are adding a row with the geospatial data in a wkt format that we've seen earlier since they are treated as text they'll also need to be enclosed in single quotes which is cql's way of denoting a string once there is geospatial data available in the database then we can actually do some geospatial searching of course there is some configuration that we need to do on the search end before we can start particularly with the search index schema unfortunately even up to datastax enterprise 6 dse is not able to automatically generate a schema for tables with geospatial data types and so they need to be done manually when creating a search index on a table with geospatial columns make sure to use the create search index option with lenient equals to true which will allow dse to avoid trying to automatically map the geospatial columns as that would lead to an error since we do not need to do the mapping automatically you'll want to know what peel types are available to use for the search index schema solar actually has several different field types to use for spatial search and geospatial search some being older and even deprecated the one that we are really interested in though is the spatial recursive prefix tree field type or rpt since that explicitly supports data formatted as well known text and is what we should use for the point type and line string type if you are already somewhat familiar with geospatial search and solar you might notice that other popular field types such as lat long point spatial field type is not on the list here this is because these field types actually exist in newer versions of solar that did not make it into the current integration with datastax enterprise 6. now since we know the field type to use we can add that to the search index schema as shown in the example on the top note the class is spatial recursive prefix tree field type and the field type will also need several other unique attributes to find this error percent geo and distant units this error percent defines the precision of shapes other than points and determines how much disk space that shape uses and how long it takes to index more precise shapes with a smaller value for this area percent will use more disk space and take longer to index larger values will make queries faster but may not be as accurate the attribute geo indicates that the coordinate data is lat long when true or not long when set to pulse the distance units attribute determines what unit to use for distance measurements and can be in degrees kilometers or miles with the rpt field type defined the other two examples here show declaring a field in the search index schema for the point column and the line string column in our killervideo.geospatial table after a search index reload and rebuild you'll be ready to run geospatial searches with those two columns now if you've really been paying attention you might have noticed that we haven't said anything about the polygon column that's because there's just a little bit more extra work that needs to be done to enable support brick polygons enter the jts topology suite library a java library used for creating and manipulating vector geometry which we'll need to be able to index and search on polygon data this is a jar file that will need to be downloaded and installed in the solar library directory which exists somewhere in your dlc installation for package installs that would be user slash shared slash dse solar slash lib and for a tarball installation the relative path would be resources solar slash lib note that for dlc6 version 1.13 of the jts jar is required after installation you should also restart datasex enterprise so that the jar can be included in the class path finally there is a spatial contacts factory parameter for the rpt field type that we are using in the search index schema which should be added and set to the value org.locationtext.spatial4j.context.jts.jts spatialcontacts factory it may sound like a bunch of extra work in order to use polygons but it's also fully compatible with our point type and line string type so we really only need to do this once here's an example of the alter search index schema command that will add the rpt field type this time including the spatial context factory parameter afterwards the same field type can be used for any of the three geospatial data types as seen in the field declarations below finally we can get to the queries typically you'll find that geospatial queries are best used as a filter query in most cases geospatial is used to support some main search by filtering out results that are not in a specific location or bounded by a distance there are three predicates or functions that you can use for comparing two shapes intersects is within and contains intersex can calculate if any part of a shape intersects or touches another shape is within determines if a shape is completely within another shape and contains is also similar but in reverse it determines if the second shape is completely within the first shape aside from your saved geospatial data you might also need to arbitrarily define shapes to use for queries this can be done with wkt and can be used to define rectangles circles and other complex shapes note that the radius used in some of these shapes is specifically lat long degrees and cannot be changed to use other distant units here are some basic examples using the predicates that we've described the first example uses is within to find all rows or documents whose value in the point column is within a line that we described here starting from the point 10 30 to 20 40. the second example here shows a query that searches for anything but filters to include only the rows or documents whose line string value intersects a certain point with the coordinates 10 30. the last example is another query that filter out rows on the polygon column so that only those that contains or overlaps the point 1030 would be included in the results you might realize that these are not lat long coordinates that we are using but again this is just a basic example now let's take a look at some applications of geospatial queries with specific functions we might want to be able to perform in an application the first here is finding all the objects within a polygon this is a commonly used one which can filter out all the objects that are not within the polygon which could represent a neighborhood or city or an estate or so forth other applications the polygon might represent include cellular coverage as well one other application would be to have a polygon with min and max x and y coordinates which can be used to show all points of interest on the visible section of a map described by the min and max x and y if the map zooms in or out the min and max coordinates change and the search will run again to repopulate the points of interest on the map in a query example here let's say that an application has the ability to search for movie theaters and can find movie theaters within a certain area let's say in a city like new york the query for that would be to do a search on theaters but then include a filter query that checks that the lat long coordinate for the theaters is within a polygon which would be the geospatial boundary for the city of new york another common search is to find all objects within a certain distance of a particular point which might be your current location for example this would be used for those type of functions that find coffee shops or gas stations near you this is done by using the point location to create a circle where the radius is some maximum distance you want to search a search is then done to find all objects within that circle in the example here we are now looking for movie theaters within a 10 kilometer radius of our current location a point representing the current location is used along with the distance value to create a circle the filter query then uses is within to search for all objects within the circle note that the value for the radius is in lat long degrees and can be fairly complicated to convert to and from for miles and kilometers we won't get into that here but do a search on great circle distance if you are interested in the technical challenges another way to perform that function to find all objects within a certain distance is by using the solar geofilter function this can be much easier to do as it doesn't require much calculations it uses three parameters s field which is the field name that contains the geospatial data you are comparing point which represents the center of the area you are searching and d which is the distance or how far away from the center you are searching in with the point parameter the point coordinates are either in lat long order making sure you have a comma in between or as long lat using a space the unit for the d distance is based on the distance units parameter set for the field type as an aside you might want to keep in mind that there is also a b box function as well that uses a rectangle instead of a circle for the boundary of assertion this means that objects may be included that are technically outside of the set distance this is used though because it is computationally faster and it means that results can be returned sooner",
+    "segments": [
+      {
+        "start": 2.13,
+        "duration": 3.39,
+        "text": "[Music]"
+      },
+      {
+        "start": 3.919,
+        "duration": 3.121,
+        "text": "hello this is joche"
+      },
+      {
+        "start": 5.52,
+        "duration": 3.44,
+        "text": "in this video we will be talking about"
+      },
+      {
+        "start": 7.04,
+        "duration": 3.599,
+        "text": "geospatial search one of the coolest"
+      },
+      {
+        "start": 8.96,
+        "duration": 3.2,
+        "text": "features in dlc search"
+      },
+      {
+        "start": 10.639,
+        "duration": 3.761,
+        "text": "while the focus of this video is about"
+      },
+      {
+        "start": 12.16,
+        "duration": 4.0,
+        "text": "geospatial search let's back up a moment"
+      },
+      {
+        "start": 14.4,
+        "duration": 2.719,
+        "text": "and clarify a broader concept which is"
+      },
+      {
+        "start": 16.16,
+        "duration": 3.6,
+        "text": "spatial search"
+      },
+      {
+        "start": 17.119,
+        "duration": 4.401,
+        "text": "which lacks the geo part spatial search"
+      },
+      {
+        "start": 19.76,
+        "duration": 2.96,
+        "text": "is a way to evaluate and compare the"
+      },
+      {
+        "start": 21.52,
+        "duration": 3.44,
+        "text": "spatial geometry"
+      },
+      {
+        "start": 22.72,
+        "duration": 4.08,
+        "text": "between two or more geometrical shapes"
+      },
+      {
+        "start": 24.96,
+        "duration": 5.04,
+        "text": "which can be anything from a point"
+      },
+      {
+        "start": 26.8,
+        "duration": 5.759,
+        "text": "to a line triangles rectangles and even"
+      },
+      {
+        "start": 30.0,
+        "duration": 3.92,
+        "text": "more complex polygons with the smallest"
+      },
+      {
+        "start": 32.559,
+        "duration": 3.041,
+        "text": "unit being the point"
+      },
+      {
+        "start": 33.92,
+        "duration": 3.6,
+        "text": "everything else is therefore described"
+      },
+      {
+        "start": 35.6,
+        "duration": 4.16,
+        "text": "as a series of points as well"
+      },
+      {
+        "start": 37.52,
+        "duration": 3.84,
+        "text": "with this capability dc search is able"
+      },
+      {
+        "start": 39.76,
+        "duration": 3.44,
+        "text": "to do things like filter results for"
+      },
+      {
+        "start": 41.36,
+        "duration": 4.24,
+        "text": "geometrical shapes that exist on"
+      },
+      {
+        "start": 43.2,
+        "duration": 4.72,
+        "text": "within or outside another geometrical"
+      },
+      {
+        "start": 45.6,
+        "duration": 4.16,
+        "text": "shape we can sort or boost scores based"
+      },
+      {
+        "start": 47.92,
+        "duration": 2.479,
+        "text": "on the distance between two points or"
+      },
+      {
+        "start": 49.76,
+        "duration": 2.4,
+        "text": "shapes"
+      },
+      {
+        "start": 50.399,
+        "duration": 3.84,
+        "text": "or by comparing the relative area"
+      },
+      {
+        "start": 52.16,
+        "duration": 4.48,
+        "text": "between two shapes spatial search can"
+      },
+      {
+        "start": 54.239,
+        "duration": 4.401,
+        "text": "also generate a 2d grid of facet counts"
+      },
+      {
+        "start": 56.64,
+        "duration": 3.28,
+        "text": "that can be used for heat map generation"
+      },
+      {
+        "start": 58.64,
+        "duration": 2.88,
+        "text": "or point plotting"
+      },
+      {
+        "start": 59.92,
+        "duration": 3.36,
+        "text": "spatial search itself does not need to"
+      },
+      {
+        "start": 61.52,
+        "duration": 3.599,
+        "text": "rely on any specific context"
+      },
+      {
+        "start": 63.28,
+        "duration": 4.0,
+        "text": "and only relies on the geometry to do"
+      },
+      {
+        "start": 65.119,
+        "duration": 4.561,
+        "text": "its comparison on the other hand"
+      },
+      {
+        "start": 67.28,
+        "duration": 4.72,
+        "text": "geospatial search typically focuses on a"
+      },
+      {
+        "start": 69.68,
+        "duration": 4.56,
+        "text": "geographical or locational context"
+      },
+      {
+        "start": 72.0,
+        "duration": 3.759,
+        "text": "and tends to work in just two dimensions"
+      },
+      {
+        "start": 74.24,
+        "duration": 2.239,
+        "text": "before we can do any geospatial"
+      },
+      {
+        "start": 75.759,
+        "duration": 2.0,
+        "text": "searching"
+      },
+      {
+        "start": 76.479,
+        "duration": 3.361,
+        "text": "you'll probably want to know what"
+      },
+      {
+        "start": 77.759,
+        "duration": 3.36,
+        "text": "geospatial data looks like first"
+      },
+      {
+        "start": 79.84,
+        "duration": 3.04,
+        "text": "usually the data is something that"
+      },
+      {
+        "start": 81.119,
+        "duration": 4.161,
+        "text": "represents an object's location"
+      },
+      {
+        "start": 82.88,
+        "duration": 3.279,
+        "text": "as defined by a coordinate system this"
+      },
+      {
+        "start": 85.28,
+        "duration": 2.72,
+        "text": "can be either"
+      },
+      {
+        "start": 86.159,
+        "duration": 3.92,
+        "text": "absolute where the points of an object"
+      },
+      {
+        "start": 88.0,
+        "duration": 4.0,
+        "text": "are fixed somewhere in coordinate space"
+      },
+      {
+        "start": 90.079,
+        "duration": 3.441,
+        "text": "or they can be relative where the data"
+      },
+      {
+        "start": 92.0,
+        "duration": 4.0,
+        "text": "about the points of an object"
+      },
+      {
+        "start": 93.52,
+        "duration": 4.16,
+        "text": "are an offset of other points although"
+      },
+      {
+        "start": 96.0,
+        "duration": 2.96,
+        "text": "we have described objects so far as"
+      },
+      {
+        "start": 97.68,
+        "duration": 2.64,
+        "text": "geometric shapes"
+      },
+      {
+        "start": 98.96,
+        "duration": 3.76,
+        "text": "they typically represent something"
+      },
+      {
+        "start": 100.32,
+        "duration": 4.4,
+        "text": "meaningful such as a particular address"
+      },
+      {
+        "start": 102.72,
+        "duration": 3.759,
+        "text": "or the location of vehicles points of"
+      },
+      {
+        "start": 104.72,
+        "duration": 2.64,
+        "text": "interest or even your own current"
+      },
+      {
+        "start": 106.479,
+        "duration": 2.32,
+        "text": "location"
+      },
+      {
+        "start": 107.36,
+        "duration": 3.119,
+        "text": "there are several standards used for"
+      },
+      {
+        "start": 108.799,
+        "duration": 3.841,
+        "text": "representing geospatial data"
+      },
+      {
+        "start": 110.479,
+        "duration": 4.32,
+        "text": "but the one used in datasets enterprise"
+      },
+      {
+        "start": 112.64,
+        "duration": 4.799,
+        "text": "is the well-known text markup language"
+      },
+      {
+        "start": 114.799,
+        "duration": 4.481,
+        "text": "or wkt this is a format that allows"
+      },
+      {
+        "start": 117.439,
+        "duration": 2.64,
+        "text": "points and other geometrical shapes to"
+      },
+      {
+        "start": 119.28,
+        "duration": 2.96,
+        "text": "be defined"
+      },
+      {
+        "start": 120.079,
+        "duration": 3.281,
+        "text": "within a two-dimensional sine cartesian"
+      },
+      {
+        "start": 122.24,
+        "duration": 2.4,
+        "text": "coordinate system"
+      },
+      {
+        "start": 123.36,
+        "duration": 3.2,
+        "text": "you can think of that as those"
+      },
+      {
+        "start": 124.64,
+        "duration": 2.72,
+        "text": "x-y-coordinate planes from your old map"
+      },
+      {
+        "start": 126.56,
+        "duration": 2.479,
+        "text": "classes"
+      },
+      {
+        "start": 127.36,
+        "duration": 3.84,
+        "text": "but they can also represent our own"
+      },
+      {
+        "start": 129.039,
+        "duration": 3.041,
+        "text": "world which uses latitude and longitude"
+      },
+      {
+        "start": 131.2,
+        "duration": 3.039,
+        "text": "coordinates"
+      },
+      {
+        "start": 132.08,
+        "duration": 3.68,
+        "text": "datastax enterprise has three data types"
+      },
+      {
+        "start": 134.239,
+        "duration": 2.321,
+        "text": "that are used specifically for storing"
+      },
+      {
+        "start": 135.76,
+        "duration": 3.44,
+        "text": "wkt"
+      },
+      {
+        "start": 136.56,
+        "duration": 3.84,
+        "text": "object data which are the point type the"
+      },
+      {
+        "start": 139.2,
+        "duration": 3.52,
+        "text": "line string type"
+      },
+      {
+        "start": 140.4,
+        "duration": 3.28,
+        "text": "and the polygon type let's go over these"
+      },
+      {
+        "start": 142.72,
+        "duration": 2.32,
+        "text": "one by one"
+      },
+      {
+        "start": 143.68,
+        "duration": 3.279,
+        "text": "the point type is an object that"
+      },
+      {
+        "start": 145.04,
+        "duration": 3.76,
+        "text": "represents a point in space and is"
+      },
+      {
+        "start": 146.959,
+        "duration": 4.161,
+        "text": "described using a coordinate pair"
+      },
+      {
+        "start": 148.8,
+        "duration": 3.6,
+        "text": "which is its location on the x-axis and"
+      },
+      {
+        "start": 151.12,
+        "duration": 2.88,
+        "text": "on the y-axis"
+      },
+      {
+        "start": 152.4,
+        "duration": 3.6,
+        "text": "depending on the coordinate space used"
+      },
+      {
+        "start": 154.0,
+        "duration": 3.599,
+        "text": "to describe the point the values for the"
+      },
+      {
+        "start": 156.0,
+        "duration": 2.08,
+        "text": "coordinate pair can be described as an"
+      },
+      {
+        "start": 157.599,
+        "duration": 3.28,
+        "text": "integer"
+      },
+      {
+        "start": 158.08,
+        "duration": 3.92,
+        "text": "or as a decimal and usc allows for both"
+      },
+      {
+        "start": 160.879,
+        "duration": 2.64,
+        "text": "to be stored"
+      },
+      {
+        "start": 162.0,
+        "duration": 3.68,
+        "text": "when working with the point type within"
+      },
+      {
+        "start": 163.519,
+        "duration": 2.881,
+        "text": "cql you work with the point type as a"
+      },
+      {
+        "start": 165.68,
+        "duration": 2.8,
+        "text": "string"
+      },
+      {
+        "start": 166.4,
+        "duration": 3.6,
+        "text": "which starts off with the word point and"
+      },
+      {
+        "start": 168.48,
+        "duration": 3.68,
+        "text": "then contains the coordinate pair"
+      },
+      {
+        "start": 170.0,
+        "duration": 3.2,
+        "text": "enclosed in parens as shown in the"
+      },
+      {
+        "start": 172.16,
+        "duration": 2.799,
+        "text": "example here"
+      },
+      {
+        "start": 173.2,
+        "duration": 3.36,
+        "text": "note that with lat long coordinates the"
+      },
+      {
+        "start": 174.959,
+        "duration": 3.521,
+        "text": "best practice is to actually describe"
+      },
+      {
+        "start": 176.56,
+        "duration": 3.12,
+        "text": "the point with the longitude first"
+      },
+      {
+        "start": 178.48,
+        "duration": 3.52,
+        "text": "as that is what describes the"
+      },
+      {
+        "start": 179.68,
+        "duration": 4.24,
+        "text": "x-coordinate and then with the latitude"
+      },
+      {
+        "start": 182.0,
+        "duration": 3.84,
+        "text": "which would be the y-coordinate an"
+      },
+      {
+        "start": 183.92,
+        "duration": 3.36,
+        "text": "example of geospatial data with a point"
+      },
+      {
+        "start": 185.84,
+        "duration": 3.28,
+        "text": "would be places of interest"
+      },
+      {
+        "start": 187.28,
+        "duration": 3.92,
+        "text": "such as the location of our own data sex"
+      },
+      {
+        "start": 189.12,
+        "duration": 4.24,
+        "text": "headquarters shown on the map here"
+      },
+      {
+        "start": 191.2,
+        "duration": 3.84,
+        "text": "the next data type is a line string type"
+      },
+      {
+        "start": 193.36,
+        "duration": 2.959,
+        "text": "which is a line object that is made up"
+      },
+      {
+        "start": 195.04,
+        "duration": 2.88,
+        "text": "of two or more points"
+      },
+      {
+        "start": 196.319,
+        "duration": 3.121,
+        "text": "the object will start with the word line"
+      },
+      {
+        "start": 197.92,
+        "duration": 2.88,
+        "text": "string and then contain"
+      },
+      {
+        "start": 199.44,
+        "duration": 3.519,
+        "text": "all of the point coordinates for the"
+      },
+      {
+        "start": 200.8,
+        "duration": 4.32,
+        "text": "line and close in parenthesis"
+      },
+      {
+        "start": 202.959,
+        "duration": 3.041,
+        "text": "and separate them by commas as seen in"
+      },
+      {
+        "start": 205.12,
+        "duration": 2.32,
+        "text": "this example"
+      },
+      {
+        "start": 206.0,
+        "duration": 3.28,
+        "text": "search will automatically calculate the"
+      },
+      {
+        "start": 207.44,
+        "duration": 2.64,
+        "text": "line as a vector using the points"
+      },
+      {
+        "start": 209.28,
+        "duration": 2.4,
+        "text": "provided"
+      },
+      {
+        "start": 210.08,
+        "duration": 3.6,
+        "text": "so you do not need to use a large number"
+      },
+      {
+        "start": 211.68,
+        "duration": 3.279,
+        "text": "of points to describe the line"
+      },
+      {
+        "start": 213.68,
+        "duration": 3.04,
+        "text": "it doesn't matter if the points are"
+      },
+      {
+        "start": 214.959,
+        "duration": 3.121,
+        "text": "provided starting from one end of the"
+      },
+      {
+        "start": 216.72,
+        "duration": 3.439,
+        "text": "line or the other end"
+      },
+      {
+        "start": 218.08,
+        "duration": 3.84,
+        "text": "however it does require the points to be"
+      },
+      {
+        "start": 220.159,
+        "duration": 3.201,
+        "text": "provided in a specific order"
+      },
+      {
+        "start": 221.92,
+        "duration": 3.679,
+        "text": "so that the line doesn't intersect"
+      },
+      {
+        "start": 223.36,
+        "duration": 2.64,
+        "text": "itself an example where a line string"
+      },
+      {
+        "start": 225.599,
+        "duration": 1.92,
+        "text": "might be"
+      },
+      {
+        "start": 226.0,
+        "duration": 3.2,
+        "text": "used would be described something such"
+      },
+      {
+        "start": 227.519,
+        "duration": 4.08,
+        "text": "as a boundary a road"
+      },
+      {
+        "start": 229.2,
+        "duration": 4.08,
+        "text": "rivers or something else the last"
+      },
+      {
+        "start": 231.599,
+        "duration": 2.321,
+        "text": "geospatial data type in datasex"
+      },
+      {
+        "start": 233.28,
+        "duration": 2.959,
+        "text": "enterprise"
+      },
+      {
+        "start": 233.92,
+        "duration": 4.239,
+        "text": "is the polygon type and this is what is"
+      },
+      {
+        "start": 236.239,
+        "duration": 4.08,
+        "text": "used to describe all other shapes"
+      },
+      {
+        "start": 238.159,
+        "duration": 3.36,
+        "text": "such as triangles squares or other"
+      },
+      {
+        "start": 240.319,
+        "duration": 2.801,
+        "text": "complex shapes"
+      },
+      {
+        "start": 241.519,
+        "duration": 3.681,
+        "text": "the polygon type data would start with"
+      },
+      {
+        "start": 243.12,
+        "duration": 4.0,
+        "text": "the word polygon and then contains the"
+      },
+      {
+        "start": 245.2,
+        "duration": 3.44,
+        "text": "point coordinates for an outer bound"
+      },
+      {
+        "start": 247.12,
+        "duration": 3.92,
+        "text": "which represents the outer bound of the"
+      },
+      {
+        "start": 248.64,
+        "duration": 3.04,
+        "text": "polygon and also in an optional inner"
+      },
+      {
+        "start": 251.04,
+        "duration": 2.08,
+        "text": "bound"
+      },
+      {
+        "start": 251.68,
+        "duration": 3.279,
+        "text": "for example if you are trying to"
+      },
+      {
+        "start": 253.12,
+        "duration": 3.519,
+        "text": "describe a polygon with a hole in it"
+      },
+      {
+        "start": 254.959,
+        "duration": 3.201,
+        "text": "the inner bound is used to find the"
+      },
+      {
+        "start": 256.639,
+        "duration": 3.521,
+        "text": "points that make up the whole"
+      },
+      {
+        "start": 258.16,
+        "duration": 3.759,
+        "text": "to organize all of this there is a set"
+      },
+      {
+        "start": 260.16,
+        "duration": 2.96,
+        "text": "of parenthesis that encloses all the"
+      },
+      {
+        "start": 261.919,
+        "duration": 2.881,
+        "text": "polygon coordinates"
+      },
+      {
+        "start": 263.12,
+        "duration": 3.359,
+        "text": "within that there is a second set of"
+      },
+      {
+        "start": 264.8,
+        "duration": 2.56,
+        "text": "parenthesis that hold the outer band"
+      },
+      {
+        "start": 266.479,
+        "duration": 2.881,
+        "text": "coordinates"
+      },
+      {
+        "start": 267.36,
+        "duration": 3.52,
+        "text": "and another set of parenthesis that hold"
+      },
+      {
+        "start": 269.36,
+        "duration": 3.52,
+        "text": "the inner bound coordinates"
+      },
+      {
+        "start": 270.88,
+        "duration": 3.44,
+        "text": "if you don't have inner bounds the outer"
+      },
+      {
+        "start": 272.88,
+        "duration": 3.52,
+        "text": "bound coordinates should just be"
+      },
+      {
+        "start": 274.32,
+        "duration": 3.84,
+        "text": "enclosed in two sets of parenthesis"
+      },
+      {
+        "start": 276.4,
+        "duration": 3.6,
+        "text": "all the bounds for the polygon should be"
+      },
+      {
+        "start": 278.16,
+        "duration": 3.84,
+        "text": "closed which means that the polygon is"
+      },
+      {
+        "start": 280.0,
+        "duration": 3.12,
+        "text": "defined with the start and the end being"
+      },
+      {
+        "start": 282.0,
+        "duration": 2.56,
+        "text": "the same point"
+      },
+      {
+        "start": 283.12,
+        "duration": 3.44,
+        "text": "don't worry if you forget the last point"
+      },
+      {
+        "start": 284.56,
+        "duration": 2.8,
+        "text": "though because dsc can automatically add"
+      },
+      {
+        "start": 286.56,
+        "duration": 2.56,
+        "text": "that for you"
+      },
+      {
+        "start": 287.36,
+        "duration": 3.279,
+        "text": "so long as the polygon contains a"
+      },
+      {
+        "start": 289.12,
+        "duration": 3.04,
+        "text": "minimum of four points"
+      },
+      {
+        "start": 290.639,
+        "duration": 3.041,
+        "text": "best practice would also indicate that"
+      },
+      {
+        "start": 292.16,
+        "duration": 3.039,
+        "text": "the points where the outer bound should"
+      },
+      {
+        "start": 293.68,
+        "duration": 2.32,
+        "text": "be written in a counterclockwise"
+      },
+      {
+        "start": 295.199,
+        "duration": 2.161,
+        "text": "direction"
+      },
+      {
+        "start": 296.0,
+        "duration": 3.44,
+        "text": "and an inner bounds in a clockwise"
+      },
+      {
+        "start": 297.36,
+        "duration": 2.72,
+        "text": "direction though dlc does not enforce"
+      },
+      {
+        "start": 299.44,
+        "duration": 2.0,
+        "text": "this"
+      },
+      {
+        "start": 300.08,
+        "duration": 3.119,
+        "text": "that's a lot of requirements to try to"
+      },
+      {
+        "start": 301.44,
+        "duration": 3.759,
+        "text": "visualize what a polygon looks like"
+      },
+      {
+        "start": 303.199,
+        "duration": 3.44,
+        "text": "so let's take a look at an example here"
+      },
+      {
+        "start": 305.199,
+        "duration": 3.28,
+        "text": "is a polygon that has out of bounds"
+      },
+      {
+        "start": 306.639,
+        "duration": 3.921,
+        "text": "defined that would make up a rectangle"
+      },
+      {
+        "start": 308.479,
+        "duration": 3.681,
+        "text": "as seen on the map here note that the"
+      },
+      {
+        "start": 310.56,
+        "duration": 3.199,
+        "text": "coordinates just appear to be enclosed"
+      },
+      {
+        "start": 312.16,
+        "duration": 3.36,
+        "text": "by two set of parentheses"
+      },
+      {
+        "start": 313.759,
+        "duration": 4.16,
+        "text": "so there is no inner bound defined for"
+      },
+      {
+        "start": 315.52,
+        "duration": 4.16,
+        "text": "this polygon this example here shows a"
+      },
+      {
+        "start": 317.919,
+        "duration": 3.441,
+        "text": "polygon with an inner bound"
+      },
+      {
+        "start": 319.68,
+        "duration": 3.2,
+        "text": "inside the first set there are two"
+      },
+      {
+        "start": 321.36,
+        "duration": 3.6,
+        "text": "additional set of parentheses"
+      },
+      {
+        "start": 322.88,
+        "duration": 3.52,
+        "text": "separated by a comma with the first"
+      },
+      {
+        "start": 324.96,
+        "duration": 2.64,
+        "text": "being the outer bound and the second"
+      },
+      {
+        "start": 326.4,
+        "duration": 2.32,
+        "text": "being the inner bound"
+      },
+      {
+        "start": 327.6,
+        "duration": 3.039,
+        "text": "this would look like the shape on the"
+      },
+      {
+        "start": 328.72,
+        "duration": 3.039,
+        "text": "map here with a rectangular hole"
+      },
+      {
+        "start": 330.639,
+        "duration": 2.56,
+        "text": "somewhere in the middle"
+      },
+      {
+        "start": 331.759,
+        "duration": 3.201,
+        "text": "let's also take a quick look at an"
+      },
+      {
+        "start": 333.199,
+        "duration": 3.361,
+        "text": "example of a cql table with these"
+      },
+      {
+        "start": 334.96,
+        "duration": 3.6,
+        "text": "geospatial data types"
+      },
+      {
+        "start": 336.56,
+        "duration": 3.52,
+        "text": "and some insert operations that will be"
+      },
+      {
+        "start": 338.56,
+        "duration": 2.8,
+        "text": "adding some geospatial data"
+      },
+      {
+        "start": 340.08,
+        "duration": 3.92,
+        "text": "we have a new table here called"
+      },
+      {
+        "start": 341.36,
+        "duration": 4.559,
+        "text": "geospatial in the killer video key space"
+      },
+      {
+        "start": 344.0,
+        "duration": 4.16,
+        "text": "which contains a point column a line"
+      },
+      {
+        "start": 345.919,
+        "duration": 4.241,
+        "text": "string column and a polygon column"
+      },
+      {
+        "start": 348.16,
+        "duration": 3.68,
+        "text": "using their respective data types note"
+      },
+      {
+        "start": 350.16,
+        "duration": 2.64,
+        "text": "the single quotes that includes the name"
+      },
+      {
+        "start": 351.84,
+        "duration": 2.72,
+        "text": "of the data type"
+      },
+      {
+        "start": 352.8,
+        "duration": 3.6,
+        "text": "as that is needed to properly invoke"
+      },
+      {
+        "start": 354.56,
+        "duration": 2.96,
+        "text": "these data types in the three insert"
+      },
+      {
+        "start": 356.4,
+        "duration": 2.96,
+        "text": "statements at the bottom"
+      },
+      {
+        "start": 357.52,
+        "duration": 3.119,
+        "text": "we are adding a row with the geospatial"
+      },
+      {
+        "start": 359.36,
+        "duration": 3.2,
+        "text": "data in a wkt"
+      },
+      {
+        "start": 360.639,
+        "duration": 3.521,
+        "text": "format that we've seen earlier since"
+      },
+      {
+        "start": 362.56,
+        "duration": 3.199,
+        "text": "they are treated as text they'll also"
+      },
+      {
+        "start": 364.16,
+        "duration": 4.0,
+        "text": "need to be enclosed in single quotes"
+      },
+      {
+        "start": 365.759,
+        "duration": 4.16,
+        "text": "which is cql's way of denoting a string"
+      },
+      {
+        "start": 368.16,
+        "duration": 2.72,
+        "text": "once there is geospatial data available"
+      },
+      {
+        "start": 369.919,
+        "duration": 2.56,
+        "text": "in the database"
+      },
+      {
+        "start": 370.88,
+        "duration": 3.2,
+        "text": "then we can actually do some geospatial"
+      },
+      {
+        "start": 372.479,
+        "duration": 3.121,
+        "text": "searching of course there is some"
+      },
+      {
+        "start": 374.08,
+        "duration": 3.6,
+        "text": "configuration that we need to do"
+      },
+      {
+        "start": 375.6,
+        "duration": 3.36,
+        "text": "on the search end before we can start"
+      },
+      {
+        "start": 377.68,
+        "duration": 1.92,
+        "text": "particularly with the search index"
+      },
+      {
+        "start": 378.96,
+        "duration": 2.64,
+        "text": "schema"
+      },
+      {
+        "start": 379.6,
+        "duration": 3.039,
+        "text": "unfortunately even up to datastax"
+      },
+      {
+        "start": 381.6,
+        "duration": 2.8,
+        "text": "enterprise 6"
+      },
+      {
+        "start": 382.639,
+        "duration": 3.361,
+        "text": "dse is not able to automatically"
+      },
+      {
+        "start": 384.4,
+        "duration": 3.12,
+        "text": "generate a schema for tables with"
+      },
+      {
+        "start": 386.0,
+        "duration": 3.44,
+        "text": "geospatial data types"
+      },
+      {
+        "start": 387.52,
+        "duration": 3.6,
+        "text": "and so they need to be done manually"
+      },
+      {
+        "start": 389.44,
+        "duration": 3.28,
+        "text": "when creating a search index on a table"
+      },
+      {
+        "start": 391.12,
+        "duration": 3.68,
+        "text": "with geospatial columns"
+      },
+      {
+        "start": 392.72,
+        "duration": 4.56,
+        "text": "make sure to use the create search index"
+      },
+      {
+        "start": 394.8,
+        "duration": 4.56,
+        "text": "option with lenient equals to true"
+      },
+      {
+        "start": 397.28,
+        "duration": 4.08,
+        "text": "which will allow dse to avoid trying to"
+      },
+      {
+        "start": 399.36,
+        "duration": 4.08,
+        "text": "automatically map the geospatial columns"
+      },
+      {
+        "start": 401.36,
+        "duration": 3.2,
+        "text": "as that would lead to an error since we"
+      },
+      {
+        "start": 403.44,
+        "duration": 2.0,
+        "text": "do not need to do the mapping"
+      },
+      {
+        "start": 404.56,
+        "duration": 2.4,
+        "text": "automatically"
+      },
+      {
+        "start": 405.44,
+        "duration": 3.12,
+        "text": "you'll want to know what peel types are"
+      },
+      {
+        "start": 406.96,
+        "duration": 2.639,
+        "text": "available to use for the search index"
+      },
+      {
+        "start": 408.56,
+        "duration": 2.639,
+        "text": "schema"
+      },
+      {
+        "start": 409.599,
+        "duration": 3.44,
+        "text": "solar actually has several different"
+      },
+      {
+        "start": 411.199,
+        "duration": 4.4,
+        "text": "field types to use for spatial search"
+      },
+      {
+        "start": 413.039,
+        "duration": 3.761,
+        "text": "and geospatial search some being older"
+      },
+      {
+        "start": 415.599,
+        "duration": 2.801,
+        "text": "and even deprecated"
+      },
+      {
+        "start": 416.8,
+        "duration": 3.839,
+        "text": "the one that we are really interested in"
+      },
+      {
+        "start": 418.4,
+        "duration": 3.28,
+        "text": "though is the spatial recursive prefix"
+      },
+      {
+        "start": 420.639,
+        "duration": 3.521,
+        "text": "tree field type"
+      },
+      {
+        "start": 421.68,
+        "duration": 4.4,
+        "text": "or rpt since that explicitly supports"
+      },
+      {
+        "start": 424.16,
+        "duration": 3.68,
+        "text": "data formatted as well known text"
+      },
+      {
+        "start": 426.08,
+        "duration": 3.36,
+        "text": "and is what we should use for the point"
+      },
+      {
+        "start": 427.84,
+        "duration": 2.96,
+        "text": "type and line string type"
+      },
+      {
+        "start": 429.44,
+        "duration": 3.039,
+        "text": "if you are already somewhat familiar"
+      },
+      {
+        "start": 430.8,
+        "duration": 3.2,
+        "text": "with geospatial search and solar"
+      },
+      {
+        "start": 432.479,
+        "duration": 3.361,
+        "text": "you might notice that other popular"
+      },
+      {
+        "start": 434.0,
+        "duration": 3.039,
+        "text": "field types such as lat long point"
+      },
+      {
+        "start": 435.84,
+        "duration": 3.28,
+        "text": "spatial field type"
+      },
+      {
+        "start": 437.039,
+        "duration": 3.681,
+        "text": "is not on the list here this is because"
+      },
+      {
+        "start": 439.12,
+        "duration": 3.04,
+        "text": "these field types actually exist in"
+      },
+      {
+        "start": 440.72,
+        "duration": 2.879,
+        "text": "newer versions of solar"
+      },
+      {
+        "start": 442.16,
+        "duration": 3.84,
+        "text": "that did not make it into the current"
+      },
+      {
+        "start": 443.599,
+        "duration": 4.241,
+        "text": "integration with datastax enterprise 6."
+      },
+      {
+        "start": 446.0,
+        "duration": 3.12,
+        "text": "now since we know the field type to use"
+      },
+      {
+        "start": 447.84,
+        "duration": 2.16,
+        "text": "we can add that to the search index"
+      },
+      {
+        "start": 449.12,
+        "duration": 3.04,
+        "text": "schema as shown"
+      },
+      {
+        "start": 450.0,
+        "duration": 4.24,
+        "text": "in the example on the top note the class"
+      },
+      {
+        "start": 452.16,
+        "duration": 2.72,
+        "text": "is spatial recursive prefix tree field"
+      },
+      {
+        "start": 454.24,
+        "duration": 2.0,
+        "text": "type"
+      },
+      {
+        "start": 454.88,
+        "duration": 3.68,
+        "text": "and the field type will also need"
+      },
+      {
+        "start": 456.24,
+        "duration": 5.76,
+        "text": "several other unique attributes to find"
+      },
+      {
+        "start": 458.56,
+        "duration": 5.359,
+        "text": "this error percent geo and distant units"
+      },
+      {
+        "start": 462.0,
+        "duration": 3.44,
+        "text": "this error percent defines the precision"
+      },
+      {
+        "start": 463.919,
+        "duration": 3.201,
+        "text": "of shapes other than points"
+      },
+      {
+        "start": 465.44,
+        "duration": 3.599,
+        "text": "and determines how much disk space that"
+      },
+      {
+        "start": 467.12,
+        "duration": 2.639,
+        "text": "shape uses and how long it takes to"
+      },
+      {
+        "start": 469.039,
+        "duration": 2.72,
+        "text": "index"
+      },
+      {
+        "start": 469.759,
+        "duration": 3.28,
+        "text": "more precise shapes with a smaller value"
+      },
+      {
+        "start": 471.759,
+        "duration": 2.961,
+        "text": "for this area percent"
+      },
+      {
+        "start": 473.039,
+        "duration": 3.84,
+        "text": "will use more disk space and take longer"
+      },
+      {
+        "start": 474.72,
+        "duration": 2.879,
+        "text": "to index larger values will make queries"
+      },
+      {
+        "start": 476.879,
+        "duration": 2.961,
+        "text": "faster"
+      },
+      {
+        "start": 477.599,
+        "duration": 4.32,
+        "text": "but may not be as accurate the attribute"
+      },
+      {
+        "start": 479.84,
+        "duration": 3.6,
+        "text": "geo indicates that the coordinate data"
+      },
+      {
+        "start": 481.919,
+        "duration": 3.921,
+        "text": "is lat long when true"
+      },
+      {
+        "start": 483.44,
+        "duration": 4.24,
+        "text": "or not long when set to pulse the"
+      },
+      {
+        "start": 485.84,
+        "duration": 4.0,
+        "text": "distance units attribute determines what"
+      },
+      {
+        "start": 487.68,
+        "duration": 4.239,
+        "text": "unit to use for distance measurements"
+      },
+      {
+        "start": 489.84,
+        "duration": 4.799,
+        "text": "and can be in degrees kilometers or"
+      },
+      {
+        "start": 491.919,
+        "duration": 4.241,
+        "text": "miles with the rpt field type defined"
+      },
+      {
+        "start": 494.639,
+        "duration": 3.041,
+        "text": "the other two examples here show"
+      },
+      {
+        "start": 496.16,
+        "duration": 2.08,
+        "text": "declaring a field in the search index"
+      },
+      {
+        "start": 497.68,
+        "duration": 2.32,
+        "text": "schema"
+      },
+      {
+        "start": 498.24,
+        "duration": 3.92,
+        "text": "for the point column and the line string"
+      },
+      {
+        "start": 500.0,
+        "duration": 2.8,
+        "text": "column in our killervideo.geospatial"
+      },
+      {
+        "start": 502.16,
+        "duration": 2.719,
+        "text": "table"
+      },
+      {
+        "start": 502.8,
+        "duration": 3.44,
+        "text": "after a search index reload and rebuild"
+      },
+      {
+        "start": 504.879,
+        "duration": 2.961,
+        "text": "you'll be ready to run geospatial"
+      },
+      {
+        "start": 506.24,
+        "duration": 2.88,
+        "text": "searches with those two columns"
+      },
+      {
+        "start": 507.84,
+        "duration": 2.88,
+        "text": "now if you've really been paying"
+      },
+      {
+        "start": 509.12,
+        "duration": 3.12,
+        "text": "attention you might have noticed that we"
+      },
+      {
+        "start": 510.72,
+        "duration": 2.16,
+        "text": "haven't said anything about the polygon"
+      },
+      {
+        "start": 512.24,
+        "duration": 2.32,
+        "text": "column"
+      },
+      {
+        "start": 512.88,
+        "duration": 3.519,
+        "text": "that's because there's just a little bit"
+      },
+      {
+        "start": 514.56,
+        "duration": 3.76,
+        "text": "more extra work that needs to be done to"
+      },
+      {
+        "start": 516.399,
+        "duration": 4.961,
+        "text": "enable support brick polygons"
+      },
+      {
+        "start": 518.32,
+        "duration": 4.639,
+        "text": "enter the jts topology suite library a"
+      },
+      {
+        "start": 521.36,
+        "duration": 3.44,
+        "text": "java library used for creating and"
+      },
+      {
+        "start": 522.959,
+        "duration": 3.681,
+        "text": "manipulating vector geometry"
+      },
+      {
+        "start": 524.8,
+        "duration": 3.28,
+        "text": "which we'll need to be able to index and"
+      },
+      {
+        "start": 526.64,
+        "duration": 2.96,
+        "text": "search on polygon data"
+      },
+      {
+        "start": 528.08,
+        "duration": 3.52,
+        "text": "this is a jar file that will need to be"
+      },
+      {
+        "start": 529.6,
+        "duration": 3.28,
+        "text": "downloaded and installed in the solar"
+      },
+      {
+        "start": 531.6,
+        "duration": 2.72,
+        "text": "library directory"
+      },
+      {
+        "start": 532.88,
+        "duration": 3.519,
+        "text": "which exists somewhere in your dlc"
+      },
+      {
+        "start": 534.32,
+        "duration": 4.959,
+        "text": "installation for package installs"
+      },
+      {
+        "start": 536.399,
+        "duration": 3.761,
+        "text": "that would be user slash shared slash"
+      },
+      {
+        "start": 539.279,
+        "duration": 3.281,
+        "text": "dse"
+      },
+      {
+        "start": 540.16,
+        "duration": 3.119,
+        "text": "solar slash lib and for a tarball"
+      },
+      {
+        "start": 542.56,
+        "duration": 3.04,
+        "text": "installation"
+      },
+      {
+        "start": 543.279,
+        "duration": 3.601,
+        "text": "the relative path would be resources"
+      },
+      {
+        "start": 545.6,
+        "duration": 4.64,
+        "text": "solar slash lib"
+      },
+      {
+        "start": 546.88,
+        "duration": 5.04,
+        "text": "note that for dlc6 version 1.13 of the"
+      },
+      {
+        "start": 550.24,
+        "duration": 3.2,
+        "text": "jts jar is required"
+      },
+      {
+        "start": 551.92,
+        "duration": 3.52,
+        "text": "after installation you should also"
+      },
+      {
+        "start": 553.44,
+        "duration": 2.64,
+        "text": "restart datasex enterprise so that the"
+      },
+      {
+        "start": 555.44,
+        "duration": 2.959,
+        "text": "jar can be"
+      },
+      {
+        "start": 556.08,
+        "duration": 4.48,
+        "text": "included in the class path finally there"
+      },
+      {
+        "start": 558.399,
+        "duration": 3.681,
+        "text": "is a spatial contacts factory parameter"
+      },
+      {
+        "start": 560.56,
+        "duration": 3.04,
+        "text": "for the rpt field type"
+      },
+      {
+        "start": 562.08,
+        "duration": 3.28,
+        "text": "that we are using in the search index"
+      },
+      {
+        "start": 563.6,
+        "duration": 4.16,
+        "text": "schema which should be added and set to"
+      },
+      {
+        "start": 565.36,
+        "duration": 2.4,
+        "text": "the value"
+      },
+      {
+        "start": 570.12,
+        "duration": 2.68,
+        "text": "org.locationtext.spatial4j.context.jts.jts"
+      },
+      {
+        "start": 571.2,
+        "duration": 3.12,
+        "text": "spatialcontacts factory"
+      },
+      {
+        "start": 572.8,
+        "duration": 3.52,
+        "text": "it may sound like a bunch of extra work"
+      },
+      {
+        "start": 574.32,
+        "duration": 3.76,
+        "text": "in order to use polygons but it's also"
+      },
+      {
+        "start": 576.32,
+        "duration": 2.88,
+        "text": "fully compatible with our point type and"
+      },
+      {
+        "start": 578.08,
+        "duration": 3.199,
+        "text": "line string type"
+      },
+      {
+        "start": 579.2,
+        "duration": 3.92,
+        "text": "so we really only need to do this once"
+      },
+      {
+        "start": 581.279,
+        "duration": 3.201,
+        "text": "here's an example of the alter search"
+      },
+      {
+        "start": 583.12,
+        "duration": 3.44,
+        "text": "index schema command"
+      },
+      {
+        "start": 584.48,
+        "duration": 3.6,
+        "text": "that will add the rpt field type this"
+      },
+      {
+        "start": 586.56,
+        "duration": 2.8,
+        "text": "time including the spatial context"
+      },
+      {
+        "start": 588.08,
+        "duration": 2.96,
+        "text": "factory parameter"
+      },
+      {
+        "start": 589.36,
+        "duration": 3.36,
+        "text": "afterwards the same field type can be"
+      },
+      {
+        "start": 591.04,
+        "duration": 2.479,
+        "text": "used for any of the three geospatial"
+      },
+      {
+        "start": 592.72,
+        "duration": 2.96,
+        "text": "data types"
+      },
+      {
+        "start": 593.519,
+        "duration": 4.081,
+        "text": "as seen in the field declarations below"
+      },
+      {
+        "start": 595.68,
+        "duration": 3.68,
+        "text": "finally we can get to the queries"
+      },
+      {
+        "start": 597.6,
+        "duration": 3.76,
+        "text": "typically you'll find that geospatial"
+      },
+      {
+        "start": 599.36,
+        "duration": 3.919,
+        "text": "queries are best used as a filter query"
+      },
+      {
+        "start": 601.36,
+        "duration": 3.52,
+        "text": "in most cases geospatial is used to"
+      },
+      {
+        "start": 603.279,
+        "duration": 3.281,
+        "text": "support some main search"
+      },
+      {
+        "start": 604.88,
+        "duration": 3.68,
+        "text": "by filtering out results that are not in"
+      },
+      {
+        "start": 606.56,
+        "duration": 2.88,
+        "text": "a specific location or bounded by a"
+      },
+      {
+        "start": 608.56,
+        "duration": 2.959,
+        "text": "distance"
+      },
+      {
+        "start": 609.44,
+        "duration": 3.6,
+        "text": "there are three predicates or functions"
+      },
+      {
+        "start": 611.519,
+        "duration": 2.401,
+        "text": "that you can use for comparing two"
+      },
+      {
+        "start": 613.04,
+        "duration": 4.0,
+        "text": "shapes"
+      },
+      {
+        "start": 613.92,
+        "duration": 5.2,
+        "text": "intersects is within and contains"
+      },
+      {
+        "start": 617.04,
+        "duration": 3.039,
+        "text": "intersex can calculate if any part of a"
+      },
+      {
+        "start": 619.12,
+        "duration": 3.279,
+        "text": "shape intersects"
+      },
+      {
+        "start": 620.079,
+        "duration": 4.0,
+        "text": "or touches another shape is within"
+      },
+      {
+        "start": 622.399,
+        "duration": 2.961,
+        "text": "determines if a shape is completely"
+      },
+      {
+        "start": 624.079,
+        "duration": 3.681,
+        "text": "within another shape"
+      },
+      {
+        "start": 625.36,
+        "duration": 3.2,
+        "text": "and contains is also similar but in"
+      },
+      {
+        "start": 627.76,
+        "duration": 2.8,
+        "text": "reverse"
+      },
+      {
+        "start": 628.56,
+        "duration": 3.68,
+        "text": "it determines if the second shape is"
+      },
+      {
+        "start": 630.56,
+        "duration": 3.68,
+        "text": "completely within the first shape"
+      },
+      {
+        "start": 632.24,
+        "duration": 3.52,
+        "text": "aside from your saved geospatial data"
+      },
+      {
+        "start": 634.24,
+        "duration": 3.839,
+        "text": "you might also need to arbitrarily"
+      },
+      {
+        "start": 635.76,
+        "duration": 4.56,
+        "text": "define shapes to use for queries"
+      },
+      {
+        "start": 638.079,
+        "duration": 3.681,
+        "text": "this can be done with wkt and can be"
+      },
+      {
+        "start": 640.32,
+        "duration": 3.84,
+        "text": "used to define rectangles"
+      },
+      {
+        "start": 641.76,
+        "duration": 4.0,
+        "text": "circles and other complex shapes note"
+      },
+      {
+        "start": 644.16,
+        "duration": 2.0,
+        "text": "that the radius used in some of these"
+      },
+      {
+        "start": 645.76,
+        "duration": 2.56,
+        "text": "shapes"
+      },
+      {
+        "start": 646.16,
+        "duration": 3.84,
+        "text": "is specifically lat long degrees and"
+      },
+      {
+        "start": 648.32,
+        "duration": 2.56,
+        "text": "cannot be changed to use other distant"
+      },
+      {
+        "start": 650.0,
+        "duration": 2.64,
+        "text": "units"
+      },
+      {
+        "start": 650.88,
+        "duration": 3.68,
+        "text": "here are some basic examples using the"
+      },
+      {
+        "start": 652.64,
+        "duration": 4.8,
+        "text": "predicates that we've described"
+      },
+      {
+        "start": 654.56,
+        "duration": 5.04,
+        "text": "the first example uses is within to find"
+      },
+      {
+        "start": 657.44,
+        "duration": 3.04,
+        "text": "all rows or documents whose value in the"
+      },
+      {
+        "start": 659.6,
+        "duration": 2.96,
+        "text": "point column"
+      },
+      {
+        "start": 660.48,
+        "duration": 4.08,
+        "text": "is within a line that we described here"
+      },
+      {
+        "start": 662.56,
+        "duration": 4.8,
+        "text": "starting from the point 10 30"
+      },
+      {
+        "start": 664.56,
+        "duration": 4.48,
+        "text": "to 20 40. the second example here shows"
+      },
+      {
+        "start": 667.36,
+        "duration": 3.599,
+        "text": "a query that searches for anything"
+      },
+      {
+        "start": 669.04,
+        "duration": 3.76,
+        "text": "but filters to include only the rows or"
+      },
+      {
+        "start": 670.959,
+        "duration": 3.521,
+        "text": "documents whose line string value"
+      },
+      {
+        "start": 672.8,
+        "duration": 3.2,
+        "text": "intersects a certain point with the"
+      },
+      {
+        "start": 674.48,
+        "duration": 3.44,
+        "text": "coordinates 10 30."
+      },
+      {
+        "start": 676.0,
+        "duration": 4.079,
+        "text": "the last example is another query that"
+      },
+      {
+        "start": 677.92,
+        "duration": 3.84,
+        "text": "filter out rows on the polygon column"
+      },
+      {
+        "start": 680.079,
+        "duration": 3.601,
+        "text": "so that only those that contains or"
+      },
+      {
+        "start": 681.76,
+        "duration": 3.92,
+        "text": "overlaps the point 1030"
+      },
+      {
+        "start": 683.68,
+        "duration": 3.36,
+        "text": "would be included in the results you"
+      },
+      {
+        "start": 685.68,
+        "duration": 2.8,
+        "text": "might realize that these are not lat"
+      },
+      {
+        "start": 687.04,
+        "duration": 3.68,
+        "text": "long coordinates that we are using"
+      },
+      {
+        "start": 688.48,
+        "duration": 3.52,
+        "text": "but again this is just a basic example"
+      },
+      {
+        "start": 690.72,
+        "duration": 3.359,
+        "text": "now let's take a look at some"
+      },
+      {
+        "start": 692.0,
+        "duration": 3.839,
+        "text": "applications of geospatial queries"
+      },
+      {
+        "start": 694.079,
+        "duration": 3.841,
+        "text": "with specific functions we might want to"
+      },
+      {
+        "start": 695.839,
+        "duration": 3.601,
+        "text": "be able to perform in an application"
+      },
+      {
+        "start": 697.92,
+        "duration": 3.28,
+        "text": "the first here is finding all the"
+      },
+      {
+        "start": 699.44,
+        "duration": 3.6,
+        "text": "objects within a polygon"
+      },
+      {
+        "start": 701.2,
+        "duration": 3.52,
+        "text": "this is a commonly used one which can"
+      },
+      {
+        "start": 703.04,
+        "duration": 2.96,
+        "text": "filter out all the objects that are not"
+      },
+      {
+        "start": 704.72,
+        "duration": 3.04,
+        "text": "within the polygon"
+      },
+      {
+        "start": 706.0,
+        "duration": 4.24,
+        "text": "which could represent a neighborhood or"
+      },
+      {
+        "start": 707.76,
+        "duration": 4.0,
+        "text": "city or an estate or so forth"
+      },
+      {
+        "start": 710.24,
+        "duration": 3.36,
+        "text": "other applications the polygon might"
+      },
+      {
+        "start": 711.76,
+        "duration": 2.24,
+        "text": "represent include cellular coverage as"
+      },
+      {
+        "start": 713.6,
+        "duration": 2.239,
+        "text": "well"
+      },
+      {
+        "start": 714.0,
+        "duration": 3.68,
+        "text": "one other application would be to have a"
+      },
+      {
+        "start": 715.839,
+        "duration": 2.56,
+        "text": "polygon with min and max x and y"
+      },
+      {
+        "start": 717.68,
+        "duration": 2.56,
+        "text": "coordinates"
+      },
+      {
+        "start": 718.399,
+        "duration": 3.761,
+        "text": "which can be used to show all points of"
+      },
+      {
+        "start": 720.24,
+        "duration": 3.44,
+        "text": "interest on the visible section of a map"
+      },
+      {
+        "start": 722.16,
+        "duration": 4.32,
+        "text": "described by the min and max"
+      },
+      {
+        "start": 723.68,
+        "duration": 4.48,
+        "text": "x and y if the map zooms in or out the"
+      },
+      {
+        "start": 726.48,
+        "duration": 3.039,
+        "text": "min and max coordinates change"
+      },
+      {
+        "start": 728.16,
+        "duration": 3.04,
+        "text": "and the search will run again to"
+      },
+      {
+        "start": 729.519,
+        "duration": 2.241,
+        "text": "repopulate the points of interest on the"
+      },
+      {
+        "start": 731.2,
+        "duration": 2.639,
+        "text": "map"
+      },
+      {
+        "start": 731.76,
+        "duration": 3.759,
+        "text": "in a query example here let's say that"
+      },
+      {
+        "start": 733.839,
+        "duration": 2.881,
+        "text": "an application has the ability to search"
+      },
+      {
+        "start": 735.519,
+        "duration": 2.721,
+        "text": "for movie theaters"
+      },
+      {
+        "start": 736.72,
+        "duration": 3.52,
+        "text": "and can find movie theaters within a"
+      },
+      {
+        "start": 738.24,
+        "duration": 2.96,
+        "text": "certain area let's say in a city like"
+      },
+      {
+        "start": 740.24,
+        "duration": 2.64,
+        "text": "new york"
+      },
+      {
+        "start": 741.2,
+        "duration": 3.04,
+        "text": "the query for that would be to do a"
+      },
+      {
+        "start": 742.88,
+        "duration": 3.12,
+        "text": "search on theaters"
+      },
+      {
+        "start": 744.24,
+        "duration": 3.279,
+        "text": "but then include a filter query that"
+      },
+      {
+        "start": 746.0,
+        "duration": 2.32,
+        "text": "checks that the lat long coordinate for"
+      },
+      {
+        "start": 747.519,
+        "duration": 3.041,
+        "text": "the theaters"
+      },
+      {
+        "start": 748.32,
+        "duration": 4.079,
+        "text": "is within a polygon which would be the"
+      },
+      {
+        "start": 750.56,
+        "duration": 2.48,
+        "text": "geospatial boundary for the city of new"
+      },
+      {
+        "start": 752.399,
+        "duration": 2.401,
+        "text": "york"
+      },
+      {
+        "start": 753.04,
+        "duration": 3.52,
+        "text": "another common search is to find all"
+      },
+      {
+        "start": 754.8,
+        "duration": 2.8,
+        "text": "objects within a certain distance of a"
+      },
+      {
+        "start": 756.56,
+        "duration": 2.8,
+        "text": "particular point"
+      },
+      {
+        "start": 757.6,
+        "duration": 3.52,
+        "text": "which might be your current location for"
+      },
+      {
+        "start": 759.36,
+        "duration": 3.68,
+        "text": "example this would be used for those"
+      },
+      {
+        "start": 761.12,
+        "duration": 3.6,
+        "text": "type of functions that find coffee shops"
+      },
+      {
+        "start": 763.04,
+        "duration": 3.68,
+        "text": "or gas stations near you"
+      },
+      {
+        "start": 764.72,
+        "duration": 3.28,
+        "text": "this is done by using the point location"
+      },
+      {
+        "start": 766.72,
+        "duration": 2.799,
+        "text": "to create a circle"
+      },
+      {
+        "start": 768.0,
+        "duration": 3.36,
+        "text": "where the radius is some maximum"
+      },
+      {
+        "start": 769.519,
+        "duration": 3.521,
+        "text": "distance you want to search a search is"
+      },
+      {
+        "start": 771.36,
+        "duration": 2.56,
+        "text": "then done to find all objects within"
+      },
+      {
+        "start": 773.04,
+        "duration": 2.64,
+        "text": "that circle"
+      },
+      {
+        "start": 773.92,
+        "duration": 4.08,
+        "text": "in the example here we are now looking"
+      },
+      {
+        "start": 775.68,
+        "duration": 4.48,
+        "text": "for movie theaters within a 10 kilometer"
+      },
+      {
+        "start": 778.0,
+        "duration": 3.519,
+        "text": "radius of our current location a point"
+      },
+      {
+        "start": 780.16,
+        "duration": 1.919,
+        "text": "representing the current location is"
+      },
+      {
+        "start": 781.519,
+        "duration": 2.401,
+        "text": "used"
+      },
+      {
+        "start": 782.079,
+        "duration": 4.32,
+        "text": "along with the distance value to create"
+      },
+      {
+        "start": 783.92,
+        "duration": 4.56,
+        "text": "a circle the filter query then uses"
+      },
+      {
+        "start": 786.399,
+        "duration": 3.12,
+        "text": "is within to search for all objects"
+      },
+      {
+        "start": 788.48,
+        "duration": 2.799,
+        "text": "within the circle"
+      },
+      {
+        "start": 789.519,
+        "duration": 3.041,
+        "text": "note that the value for the radius is in"
+      },
+      {
+        "start": 791.279,
+        "duration": 3.12,
+        "text": "lat long degrees"
+      },
+      {
+        "start": 792.56,
+        "duration": 4.24,
+        "text": "and can be fairly complicated to convert"
+      },
+      {
+        "start": 794.399,
+        "duration": 4.24,
+        "text": "to and from for miles and kilometers"
+      },
+      {
+        "start": 796.8,
+        "duration": 3.52,
+        "text": "we won't get into that here but do a"
+      },
+      {
+        "start": 798.639,
+        "duration": 3.041,
+        "text": "search on great circle distance"
+      },
+      {
+        "start": 800.32,
+        "duration": 3.44,
+        "text": "if you are interested in the technical"
+      },
+      {
+        "start": 801.68,
+        "duration": 3.839,
+        "text": "challenges another way to perform that"
+      },
+      {
+        "start": 803.76,
+        "duration": 2.8,
+        "text": "function to find all objects within a"
+      },
+      {
+        "start": 805.519,
+        "duration": 3.681,
+        "text": "certain distance"
+      },
+      {
+        "start": 806.56,
+        "duration": 4.24,
+        "text": "is by using the solar geofilter function"
+      },
+      {
+        "start": 809.2,
+        "duration": 3.6,
+        "text": "this can be much easier to do"
+      },
+      {
+        "start": 810.8,
+        "duration": 3.599,
+        "text": "as it doesn't require much calculations"
+      },
+      {
+        "start": 812.8,
+        "duration": 3.36,
+        "text": "it uses three parameters"
+      },
+      {
+        "start": 814.399,
+        "duration": 3.361,
+        "text": "s field which is the field name that"
+      },
+      {
+        "start": 816.16,
+        "duration": 2.72,
+        "text": "contains the geospatial data you are"
+      },
+      {
+        "start": 817.76,
+        "duration": 3.199,
+        "text": "comparing"
+      },
+      {
+        "start": 818.88,
+        "duration": 3.44,
+        "text": "point which represents the center of the"
+      },
+      {
+        "start": 820.959,
+        "duration": 3.921,
+        "text": "area you are searching"
+      },
+      {
+        "start": 822.32,
+        "duration": 3.92,
+        "text": "and d which is the distance or how far"
+      },
+      {
+        "start": 824.88,
+        "duration": 1.68,
+        "text": "away from the center you are searching"
+      },
+      {
+        "start": 826.24,
+        "duration": 2.0,
+        "text": "in"
+      },
+      {
+        "start": 826.56,
+        "duration": 4.079,
+        "text": "with the point parameter the point"
+      },
+      {
+        "start": 828.24,
+        "duration": 4.399,
+        "text": "coordinates are either in lat long order"
+      },
+      {
+        "start": 830.639,
+        "duration": 3.2,
+        "text": "making sure you have a comma in between"
+      },
+      {
+        "start": 832.639,
+        "duration": 3.361,
+        "text": "or as long lat"
+      },
+      {
+        "start": 833.839,
+        "duration": 4.24,
+        "text": "using a space the unit for the d"
+      },
+      {
+        "start": 836.0,
+        "duration": 2.88,
+        "text": "distance is based on the distance units"
+      },
+      {
+        "start": 838.079,
+        "duration": 3.281,
+        "text": "parameter"
+      },
+      {
+        "start": 838.88,
+        "duration": 3.12,
+        "text": "set for the field type as an aside you"
+      },
+      {
+        "start": 841.36,
+        "duration": 2.32,
+        "text": "might want to keep"
+      },
+      {
+        "start": 842.0,
+        "duration": 4.0,
+        "text": "in mind that there is also a b box"
+      },
+      {
+        "start": 843.68,
+        "duration": 3.36,
+        "text": "function as well that uses a rectangle"
+      },
+      {
+        "start": 846.0,
+        "duration": 3.279,
+        "text": "instead of a circle"
+      },
+      {
+        "start": 847.04,
+        "duration": 3.84,
+        "text": "for the boundary of assertion this means"
+      },
+      {
+        "start": 849.279,
+        "duration": 2.24,
+        "text": "that objects may be included that are"
+      },
+      {
+        "start": 850.88,
+        "duration": 2.88,
+        "text": "technically"
+      },
+      {
+        "start": 851.519,
+        "duration": 3.841,
+        "text": "outside of the set distance this is used"
+      },
+      {
+        "start": 853.76,
+        "duration": 2.319,
+        "text": "though because it is computationally"
+      },
+      {
+        "start": 855.36,
+        "duration": 2.08,
+        "text": "faster"
+      },
+      {
+        "start": 856.079,
+        "duration": 8.161,
+        "text": "and it means that results can be"
+      },
+      {
+        "start": 857.44,
+        "duration": 6.8,
+        "text": "returned sooner"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:08:46.700427+00:00"
+}

@@ -1,0 +1,2175 @@
+{
+  "video_id": "QXnjwOTdOWE",
+  "title": "Migrating an OSS Cassandra cluster to DataStax Mission Control | DataStax",
+  "description": "Want to know how to bring an existing, self-managed Apache Cassandra® cluster into Mission Control? Watch and learn, as Aaron Ploetz shows you how! First we create the new nodes in Mission Control, adjust the keyspace replication, and then rebuild the data into the new data center. Next, we decommission our old data center, and create the user accounts required by Misson Control. Finally, we make some adjustments to Reaper so that we can successfully run future repairs.\n\n02:00 to 05:00 shows the new nodes being built\n05:20 to 07:00 shows the adjustment of the replication factors\n08:56 to 11:30 shows the replication of data into the new data center\n14:20 to 17:00 shows the original nodes being decommissioned\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs... \nTwitter:   / datastaxdevs  \nTwitch:   / datastaxdevs  \n\nABOUT DATASTAX\n➡️DataStax is the company that helps Developers and Companies successfully create a bold new world through GenAI. We offer a One-stop Generative AI Stack with everything needed for a faster, easier, path to production for relevant and responsive GenAI apps. \n➡️DataStax delivers a RAG-first developer experience, with first-class integrations into leading AI ecosystem partners, so we work out with developers’ existing stacks of choice. \n➡️With DataStax, anyone can quickly build smart, high-growth AI applications at unlimited scale, on any cloud. Hundreds of the world’s leading enterprises, including Audi, Bud Financial, Capital One, SkyPoint Cloud, and many more rely on DataStax.\n\n✅ Sign up to try DataStax Astra DB https://dtsx.io/3W4My1H\n\nAbout DataStax Developer:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2024-09-21T00:35:52Z",
+  "thumbnail": "https://i.ytimg.com/vi/QXnjwOTdOWE/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "tutorial",
+    "astra",
+    "datastax",
+    "apache_cassandra",
+    "cassandra",
+    "workshop"
+  ],
+  "url": "https://www.youtube.com/watch?v=QXnjwOTdOWE",
+  "transcript": {
+    "available": true,
+    "language": "English",
+    "language_code": "en",
+    "is_generated": false,
+    "text": "Hello, everyone, I'm Aaron from DataStax. Today I'm going to take you through migrating an open source Cassandra \ncluster into mission control. All right, let's go. So as you can see here, we have a simple three node Cassandra cluster. It's out built on individual vms out on GCP. So Google's Compute Platform. I've done a little node tool \nstatus here so that, you know, we can all see the nodes that are in there. If I do a node tool describe \ncluster, you'll see that the name of our cluster is \ncaress of steel and our one data center is lakeside \npark and it has three nodes. And we're running on Cassandra 4.1.6. So yeah, that's, that shows all three nodes. You can see our key spaces \nalong with their replication strategies and factors that \nhave been built in here. If we get into CQL shell, you can see that I have the ecommerce key space \nthat we've talked about before. So I can do a select star \nfrom featured product groups. Bam, we get data back. Select star from product. Hey, we get data back. So there's definitely data out here. Just so that we have something to prove, you know, that, hey, our data did in fact make it over once we get our new cluster built. All right, well, I will sign \ninto mission control here. I'm going to build a brand new cluster now to migrate our cluster over. We are going to want to make sure that we use the exact same cluster name. So caress of steel right there. We also want to match up our version of Cassandra, which is going to be Cassandra 4.1.6. We don't need to override the image. The name of our new data center is going to be fountain of lamneth Yep, that's okay. For rack, we'll go r10 we'll say three nodes per We'll build our nodes at 8gb using the standard storage class. And we'll just go 20 gigs. That should be plenty. I will create a superuser password. Alright. I don't need to mess around with the backup and restore configs for the heap. Since we have eight gigs of RAM, I'm going to use a 4G heap. And now I'm going to specify my external data center of lakeside. Just like that. Now I need the internal seed, the routable ip of one of the nodes in my current cluster, and I'm going to use this 10 128, 0.60. That is the one I'm going to specify there. All right. Oh, I also want to make sure that I disable internode encryption because my current cluster does not have that. So we'll disable that and \nwe'll say create and we'll go here where we can watch our cluster come up. All right, two of our nodes have IP addresses and they all have a status of starting. So things are starting to move along. Oh, there's a third IP address. Outstanding. Okay, our first node is up and running. And if I switch over to my command line here, I should be able to see that new node by doing a node tool status. Hey, here we go. data center lakeside park. You can see we have our three original nodes and you can see we also have a data center of fountain of lamneth with \nour new node up and running. Oh, and all three nodes are up and running. So now we can flip back to one of our original nodes and we can \nrerun our node tool status and we should see all six nodes up and running. There we are. lakeside park data center \nfountain of lamnet data center. Perfect. Ok, so we have our new nodes up. Now let's go ahead and rerun our node tool. Describe cluster. Alright, the important part here is that you can see that the system traces system distributed and system authentic key spaces have been updated to have three replicas in each data center. You can also see that their replication strategy was upgraded from the simple strategy to the network topology strategy \nwhich of course is required for multi data center deployments. Now you'll notice though that our ecommerce key space, the one we care about, the one our application cares about, still is only defined for the lakeside park data center. So we are going to need to modify that to include three replicas for the \nfountain of lamneth data center. So let's do that quick. I can do a use ecommerce and \nI can describe key space. All right, let's go all the way to the top here. Now you can see our key space \ndefinition is right here. Ecommerce with replication of class network topology strategy. That's good. But only Lakeside park with three replicas. So let's copy that and say alter ecommerce with replication equals class \nnetwork topology strategy. Lakeside park three. And we're also going to say fountain of lamneth and then close that with a semicolon. Okay, so now you've adjusted \nthe replication, which of course as you know is good for all future writes to make sure that they get to both data centers in the ecommerce key space. However, the existing data \nis still in our original data center of lakeside park and \nwe need to transfer that over so we're going to remember that for a second while we quick do some other things. Alright, since I'm running \nin Google Cloud, I'm going to go ahead and search for one of my nodes here, one of my new caress of steel nodes. There we go. So this is node crescent \nsteel, fountain of lamneth, r10sts2 and I'm going to expose this node and we're going to need 9042 and type load balancer and I will expose. Okay, now if I scroll down you can see that I do have a load balancer here, \nclick into it and that is my new ip or that is my external ip on this cluster. All right, so I've gone ahead and connected up to our new nodes using that load balancer IP and because we haven't done a rebuild or any type of repair yet on the system auth key space I had to use the Cassandra, Cassandra user. So for now that's the only \nuser that's been replicated. So that's, that's kind of what I'm, what I'm stuck with for now. So if I do a use ecommerce and I say select star from featured product \ngroups, you see I get nothing. Okay, so no data has moved over yet. So that's what we need to change. In order to move my data over. I need to do a node tool rebuild on each node and I'm going to accomplish \nthat by running a task in kubernetes that I'm going to \nbuild in just a second here. So let's have a look at my rebuild fol YAML file. To do this I'm going to specify an API version here, just our k8ssandra v1 alpha. I'm going to specify a specific kind called Cassandra task for the metadata. I'm just going to call it \nrebuild fountain of lamneth. I'm specifying my namespace of \nAaron's proj and it has like an identifier slug on the end here for the spec. For the job I'm specifying a data center fountain of lamneth, but I need to prepend that with the caress of steel cluster name down here. I'm specifying my namespace one more time. The specific job is going to \nbe called rebuild fountain of kamneth and it's going \nto execute the command or the Cassandra task of rebuild \nwhich is the equivalent of doing a node tool rebuild and that's going to use Lakeside park as its source data center. All right, so with all that there I'm going to run a kubectl apply f and then I'm going to say rebuild and namespace. Always want to make sure you specify that. And my namespace is Aaron's plus the slug. Alright, so our Cassandra task has been created. Now to view that, I'm going to do a kubectl describe Cassandra task rebuild fountain of lamneth namespace arronsproj. There we go. So you can see that this Cassandra task was indeed created. It has a timestamp here and you can see it actually ran already and was completed. So complete, complete. Okay, we should be good. Given that now that that rebuild has run, I should be able to CQL shell into one of those nodes as something \nother than the Cassandra user. And you can see my aaron \nuser does indeed work now. So that means that rebuild was successful. Let's have a look at the ecommerce key space. So if I do a select star from product again. Oh, we have products all right. Featured product groups. Hey, outstanding. How about the price? We have prices. Excellent. So our data is moved over. The next thing we need to do is worry about getting rid of our old Cassandra nodes. So the way we can do that starts by adjusting the replication factor in the key space. So again I'll do a describe on key space. We'll scroll up here and get \nour key space replication definition and I can say \nalter key space ecommerce. Now we want to keep the class of network topology strategy. We want to keep the definition \nfor fountain of lamneth but we're going to get rid of the definition for Lakeside park and then put a semicolon on the end. Perfect. Now there are a few other key spaces that we need to do this with as well. First of all, mission control uses Reaper in order to run repairs. So what we're going to do is also adjust the replication factor for the Reaper DB key space and we have to do the system key spaces as well, specifically three \nsystem distributed and then system traces and then system auth. Oh, okay. So it won't let us do system auth. This is actually a built in safety feature that prevents you from locking yourself out of one of your data centers. So really we'll just need to keep that in mind when we go about decommissioning \nour old data center. All right, so I'm going to ssh out to one of my nodes and I can do, let's see here, make sure I'm in the correct directory. Just have a look at the status. Yep. Three and three. So I am actually on this node right here. So let's go ahead and do a \nbin node tool decommission. Ah, and we run into another \nsafety feature around the system auth key space that \nwon't let us decommission a node if we're going to drop below a certain number of replicas in the system auth key space. This is directly related to the warning that we just saw when you tried to reduce the replication factor or \neliminate the replication factor for the lakeside park data center. So in order to get past that, we just need to do a force. This might take a little bit of time. All right, the decommission is complete. Now, if I run a node tool status, you can see that the lakeside park data center is down to two nodes in the data center. So the next thing I need to do, because Cassandra is running here using the pid file at startup, I can go ahead and do a kill at Cassandra Pid. And then just to make sure that's not there, you can do a psef grep, Cassandra. Yep. Okay, so I've taken one of the original nodes out of the cluster. Now I'm just going to repeat that process for the two remaining nodes in the \nlakeside park data center. Okay, I've just finished the \ndecommissioning of the last node, and you can see my lakeside park data center was down to a single node. So now I should be able to run node tool status on this old node and it should still be able to gossip with the cluster and tell me that we just. Yep, we just have the fountain of lamneth data center and that's it. So last step here is to kill Cassandra running on this server. Make sure that's dead. Okay, so now if we have a look at mission control here, you can see our crescent \nsteel cluster is active. Everything looks good, but we have a couple of alerts over here. And if I have a look at the alerts, you can see that we have replicas that are unavailable in our \ndeployment unhealthy pods. And this is directly related to the caress of steel fountain \nlamneth reaper service. And if you go and have a look at the repairs tab here, you'll see \nthat, well, we haven't run any repairs yet, but if I try to run a repair, the key space dropdown is empty. And again, this is because the Reaper service can't run right now. So why is that, you might ask? Well, there are a few users \nthat are automatically created when you create a new \ncluster with mission control. However, if that cluster \nalready exists, those users do not get created specifically \nit's our cluster superuser user for Medusa and a user for Reaper. So we need to recreate those three users before our cluster will work appropriately. Okay, so the first thing I'm going to do here is a kube control get secret and we'll say caress of steel reaper. And I'm going to use my namespace and then I want this output as YAML. Okay, so the good news is that mission control has generated the username \nand password of the ceressive steel reaper user as well as the users, for Medusa and \nthe, and the superuser itself. They've just been encoded in base 64. So to actually see what those are, we can just really simply do an echo and I'm going to copy the username here and paste that. Then I'm going to pipe that \nto base 64 D for decode. Bam. And you can see that is indeed the caress of steel reaper user. And then I can just do the \nsame thing for the password and it usually helps if I \ndon't have a space in there. All right. And there's the password. And now I can do the same \nthing for the medusa user. And again I can just say echo password, pipe it to base 64 D and we have our password. Just like that. Now we can go back into Cql shell so we can do a use system authentic. Describe the key space. Ah right. We actually need to shorten this up a little bit because we still have replicas going to the non existent lakeside park data center. So let's take care of that first. So we'll do an alter p space system auth and just have that replicating \nto fountain of lamneth. All right. Now we can go ahead and create our users for reaper and medusa. Select star from roles. There we go. You can see the Cassandra user is still there and Myuser is also still there. Alright, so let's go create role. They say caress of steel reaper. And with this needs to be a superuser. Superuser equals true and login equals true and password equals paste that in. Oh right. Because of the dashes, the caress of steel Reaper username is also going to need single quotes. There we go. Okay, so now let's do the same thing for the medusa user. All right. And with superuser true and the login true and password equals. And I'll copy in my medusa password. All right. All right. There you go. Now you can see I have all of the roles present. So we have our caress of steel reaper. I have my own carressive steel Medusa, the Cassandra user and the caress \nof steel superuser role. All right, those are all there. Well that's odd. So somehow it looks like my replication settings on the Reaperdb key space were reset to go ahead and deploy or ensure that there are replicas available in both data centers. In order for this to work, we are going to want to make sure that it's just replicating to the fountain of lamneth data center. So let's do that. There we go. Just specifying Reaper DB key \nspace with three replicas to the fountain of lamneth data center and then none to the Lakeside park data center there. All right, so now if I head \ninto caress of steel and actually this should be okay \nnow because we did fix that. All right, so we have our \nthree running nodes here. Let's see here. So now if we head into repairs and we say run repair, well we still only have, yeah, we still don't have any key spaces listed. So what we need to do is to actually restart the Kubernetes \npods for Cassandra reaper that are running inside of our cluster. Here we go. I feel the best way to \nactually restart the pods out here is by using the reaper \ndeployment and then I can go ahead and scale it and say edit replicas. And I'm going to change \nthat replica one to replica zero and hit scale to scale it down to zero. And you can see that pod then is terminating. So if I refresh here. Excellent. No more pods. Now I can go back to actions, scale, edit replicas, scale it back to one. And now it ought to pull in the new version. Alright, you can see I'm having a look at the pods here and my caress of steel fountain of lamneth reaper pod is initializing. So hopefully that comes up. Okay, let's have a look again here. Okay, it's running. Look at that. Oh, it's running, but zero of one already. All right, I want to give it another second here. Okay, there we go. Our pod is indeed running and we have one of one in the replica set ready. So now if we go back to mission control, just have a look at our alerts here. Unhealthy pod. Oh, that was 43 minutes ago. Ah, but the other one is cleared so that's good, that's good. Now if I click run repair. Bingo. We have our key spaces listed. Outstanding. So I can select the ecommerce key space. I'll keep the defaults and I'll say run. And now our repair is indeed running on our ecommerce key space. So hey, we've gone ahead and migrated our cluster over from an old data center running on just regular instance Vmsheen. We've brought it into mission control inside of our Kubernetes project, which is what mission control uses for deployment of nodes. We've gone ahead and we've moved the data over, we've decommissioned the old \nnodes, and we've gone ahead and created the users that \nmission control needs to make sure that our cluster runs smoothly. All right, that should do it. For more information on \nDataStax Mission Control, just head on out to \ndatastax.com/products-mission-control. There you can find all the information you need, including downloads and documentation. Thank you and have a great day.",
+    "segments": [
+      {
+        "start": 0.2,
+        "duration": 1.84,
+        "text": "Hello, everyone, I'm Aaron from DataStax."
+      },
+      {
+        "start": 2.92,
+        "duration": 3.2,
+        "text": "Today I'm going to take you through migrating"
+      },
+      {
+        "start": 6.12,
+        "duration": 4.2,
+        "text": "an open source Cassandra \ncluster into mission control."
+      },
+      {
+        "start": 10.32,
+        "duration": 1.92,
+        "text": "All right, let's go."
+      },
+      {
+        "start": 12.24,
+        "duration": 2.0,
+        "text": "So as you can see here, we"
+      },
+      {
+        "start": 14.24,
+        "duration": 4.76,
+        "text": "have a simple three node Cassandra cluster."
+      },
+      {
+        "start": 20.12,
+        "duration": 4.12,
+        "text": "It's out built on individual vms out on GCP."
+      },
+      {
+        "start": 24.24,
+        "duration": 3.8,
+        "text": "So Google's Compute Platform."
+      },
+      {
+        "start": 28.04,
+        "duration": 3.92,
+        "text": "I've done a little node tool \nstatus here so that, you"
+      },
+      {
+        "start": 31.96,
+        "duration": 2.6,
+        "text": "know, we can all see the nodes that are in there."
+      },
+      {
+        "start": 34.56,
+        "duration": 8.6,
+        "text": "If I do a node tool describe \ncluster, you'll see that"
+      },
+      {
+        "start": 43.16,
+        "duration": 4.28,
+        "text": "the name of our cluster is \ncaress of steel and our one"
+      },
+      {
+        "start": 47.44,
+        "duration": 4.0,
+        "text": "data center is lakeside \npark and it has three nodes."
+      },
+      {
+        "start": 51.44,
+        "duration": 4.72,
+        "text": "And we're running on Cassandra 4.1.6."
+      },
+      {
+        "start": 56.16,
+        "duration": 3.84,
+        "text": "So yeah, that's, that shows all three nodes."
+      },
+      {
+        "start": 60.0,
+        "duration": 4.76,
+        "text": "You can see our key spaces \nalong with their replication"
+      },
+      {
+        "start": 64.76,
+        "duration": 4.52,
+        "text": "strategies and factors that \nhave been built in here."
+      },
+      {
+        "start": 69.28,
+        "duration": 4.36,
+        "text": "If we get into CQL shell, you can see that I"
+      },
+      {
+        "start": 73.64,
+        "duration": 5.24,
+        "text": "have the ecommerce key space \nthat we've talked about before."
+      },
+      {
+        "start": 78.88,
+        "duration": 4.4,
+        "text": "So I can do a select star \nfrom featured product groups."
+      },
+      {
+        "start": 83.28,
+        "duration": 2.08,
+        "text": "Bam, we get data back."
+      },
+      {
+        "start": 85.36,
+        "duration": 2.76,
+        "text": "Select star from product."
+      },
+      {
+        "start": 88.12,
+        "duration": 1.12,
+        "text": "Hey, we get data back."
+      },
+      {
+        "start": 89.24,
+        "duration": 2.88,
+        "text": "So there's definitely data out here."
+      },
+      {
+        "start": 92.12,
+        "duration": 1.6,
+        "text": "Just so that we have something to prove, you"
+      },
+      {
+        "start": 93.72,
+        "duration": 1.72,
+        "text": "know, that, hey, our data did in fact make"
+      },
+      {
+        "start": 95.44,
+        "duration": 3.48,
+        "text": "it over once we get our new cluster built."
+      },
+      {
+        "start": 98.92,
+        "duration": 7.64,
+        "text": "All right, well, I will sign \ninto mission control here."
+      },
+      {
+        "start": 106.56,
+        "duration": 1.56,
+        "text": "I'm going to build a brand new"
+      },
+      {
+        "start": 108.12,
+        "duration": 3.32,
+        "text": "cluster now to migrate our cluster over."
+      },
+      {
+        "start": 111.44,
+        "duration": 1.68,
+        "text": "We are going to want to make sure"
+      },
+      {
+        "start": 113.12,
+        "duration": 3.64,
+        "text": "that we use the exact same cluster name."
+      },
+      {
+        "start": 116.76,
+        "duration": 2.96,
+        "text": "So caress of steel right there."
+      },
+      {
+        "start": 120.6,
+        "duration": 2.16,
+        "text": "We also want to match up our version of"
+      },
+      {
+        "start": 122.76,
+        "duration": 4.64,
+        "text": "Cassandra, which is going to be Cassandra 4.1.6."
+      },
+      {
+        "start": 127.4,
+        "duration": 2.72,
+        "text": "We don't need to override the image."
+      },
+      {
+        "start": 130.12,
+        "duration": 2.2,
+        "text": "The name of our new data center"
+      },
+      {
+        "start": 132.32,
+        "duration": 3.28,
+        "text": "is going to be fountain of lamneth"
+      },
+      {
+        "start": 136.32,
+        "duration": 2.52,
+        "text": "Yep, that's okay."
+      },
+      {
+        "start": 138.84,
+        "duration": 5.84,
+        "text": "For rack, we'll go r10"
+      },
+      {
+        "start": 144.68,
+        "duration": 4.44,
+        "text": "we'll say three nodes per"
+      },
+      {
+        "start": 149.12,
+        "duration": 4.4,
+        "text": "We'll build our nodes at 8gb"
+      },
+      {
+        "start": 153.52,
+        "duration": 2.52,
+        "text": "using the standard storage class."
+      },
+      {
+        "start": 156.04,
+        "duration": 2.0,
+        "text": "And we'll just go 20 gigs."
+      },
+      {
+        "start": 158.04,
+        "duration": 2.88,
+        "text": "That should be plenty."
+      },
+      {
+        "start": 160.92,
+        "duration": 6.52,
+        "text": "I will create a superuser password."
+      },
+      {
+        "start": 167.44,
+        "duration": 1.56,
+        "text": "Alright."
+      },
+      {
+        "start": 169.56,
+        "duration": 1.48,
+        "text": "I don't need to mess around with the"
+      },
+      {
+        "start": 171.04,
+        "duration": 3.52,
+        "text": "backup and restore configs for the heap."
+      },
+      {
+        "start": 174.56,
+        "duration": 1.88,
+        "text": "Since we have eight gigs of RAM,"
+      },
+      {
+        "start": 176.44,
+        "duration": 3.68,
+        "text": "I'm going to use a 4G heap."
+      },
+      {
+        "start": 180.12,
+        "duration": 1.92,
+        "text": "And now I'm going to specify"
+      },
+      {
+        "start": 182.04,
+        "duration": 3.24,
+        "text": "my external data center of lakeside."
+      },
+      {
+        "start": 187.12,
+        "duration": 2.6,
+        "text": "Just like that."
+      },
+      {
+        "start": 189.72,
+        "duration": 4.48,
+        "text": "Now I need the internal seed, the routable ip"
+      },
+      {
+        "start": 194.84,
+        "duration": 3.0,
+        "text": "of one of the nodes in my current cluster,"
+      },
+      {
+        "start": 197.84,
+        "duration": 4.84,
+        "text": "and I'm going to use this 10 128, 0.60."
+      },
+      {
+        "start": 202.68,
+        "duration": 3.8,
+        "text": "That is the one I'm going to specify there."
+      },
+      {
+        "start": 206.48,
+        "duration": 2.04,
+        "text": "All right."
+      },
+      {
+        "start": 208.52,
+        "duration": 1.72,
+        "text": "Oh, I also want to make sure"
+      },
+      {
+        "start": 210.24,
+        "duration": 2.52,
+        "text": "that I disable internode encryption because my"
+      },
+      {
+        "start": 212.76,
+        "duration": 3.0,
+        "text": "current cluster does not have that."
+      },
+      {
+        "start": 215.76,
+        "duration": 8.12,
+        "text": "So we'll disable that and \nwe'll say create and we'll"
+      },
+      {
+        "start": 223.88,
+        "duration": 9.28,
+        "text": "go here where we can watch our cluster come up."
+      },
+      {
+        "start": 233.16,
+        "duration": 4.28,
+        "text": "All right, two of our nodes have IP addresses"
+      },
+      {
+        "start": 237.44,
+        "duration": 3.04,
+        "text": "and they all have a status of starting."
+      },
+      {
+        "start": 240.48,
+        "duration": 1.96,
+        "text": "So things are starting to move along."
+      },
+      {
+        "start": 242.44,
+        "duration": 1.84,
+        "text": "Oh, there's a third IP address."
+      },
+      {
+        "start": 244.28,
+        "duration": 5.08,
+        "text": "Outstanding."
+      },
+      {
+        "start": 249.36,
+        "duration": 2.6,
+        "text": "Okay, our first node is up and running."
+      },
+      {
+        "start": 251.96,
+        "duration": 2.16,
+        "text": "And if I switch over to my command line"
+      },
+      {
+        "start": 254.12,
+        "duration": 3.8,
+        "text": "here, I should be able to see that new"
+      },
+      {
+        "start": 257.92,
+        "duration": 5.08,
+        "text": "node by doing a node tool status."
+      },
+      {
+        "start": 263.0,
+        "duration": 1.56,
+        "text": "Hey, here we go."
+      },
+      {
+        "start": 265.32,
+        "duration": 1.36,
+        "text": "data center lakeside park."
+      },
+      {
+        "start": 266.68,
+        "duration": 2.56,
+        "text": "You can see we have our three original nodes and"
+      },
+      {
+        "start": 269.24,
+        "duration": 2.76,
+        "text": "you can see we also have a data center of"
+      },
+      {
+        "start": 272.0,
+        "duration": 10.32,
+        "text": "fountain of lamneth with \nour new node up and running."
+      },
+      {
+        "start": 282.32,
+        "duration": 3.4,
+        "text": "Oh, and all three nodes are up and running."
+      },
+      {
+        "start": 285.72,
+        "duration": 2.76,
+        "text": "So now we can flip back to one of our"
+      },
+      {
+        "start": 288.48,
+        "duration": 3.28,
+        "text": "original nodes and we can \nrerun our node tool status"
+      },
+      {
+        "start": 291.76,
+        "duration": 3.44,
+        "text": "and we should see all six nodes up and running."
+      },
+      {
+        "start": 295.2,
+        "duration": 0.96,
+        "text": "There we are."
+      },
+      {
+        "start": 296.16,
+        "duration": 5.88,
+        "text": "lakeside park data center \nfountain of lamnet data center."
+      },
+      {
+        "start": 302.04,
+        "duration": 0.68,
+        "text": "Perfect."
+      },
+      {
+        "start": 302.72,
+        "duration": 2.12,
+        "text": "Ok, so we have our new nodes up."
+      },
+      {
+        "start": 304.84,
+        "duration": 3.72,
+        "text": "Now let's go ahead and rerun our node tool."
+      },
+      {
+        "start": 308.56,
+        "duration": 3.92,
+        "text": "Describe cluster."
+      },
+      {
+        "start": 312.48,
+        "duration": 2.68,
+        "text": "Alright, the important part here is that you"
+      },
+      {
+        "start": 315.16,
+        "duration": 4.52,
+        "text": "can see that the system traces system distributed"
+      },
+      {
+        "start": 319.68,
+        "duration": 4.24,
+        "text": "and system authentic key spaces have been updated"
+      },
+      {
+        "start": 323.92,
+        "duration": 3.92,
+        "text": "to have three replicas in each data center."
+      },
+      {
+        "start": 327.84,
+        "duration": 3.44,
+        "text": "You can also see that their replication strategy"
+      },
+      {
+        "start": 331.28,
+        "duration": 3.68,
+        "text": "was upgraded from the simple strategy to the"
+      },
+      {
+        "start": 334.96,
+        "duration": 3.88,
+        "text": "network topology strategy \nwhich of course is required"
+      },
+      {
+        "start": 338.84,
+        "duration": 3.04,
+        "text": "for multi data center deployments."
+      },
+      {
+        "start": 341.88,
+        "duration": 2.5,
+        "text": "Now you'll notice though that our ecommerce key"
+      },
+      {
+        "start": 344.38,
+        "duration": 1.7,
+        "text": "space, the one we care about, the one"
+      },
+      {
+        "start": 346.08,
+        "duration": 4.28,
+        "text": "our application cares about, still is only defined"
+      },
+      {
+        "start": 350.36,
+        "duration": 2.16,
+        "text": "for the lakeside park data center."
+      },
+      {
+        "start": 352.52,
+        "duration": 2.52,
+        "text": "So we are going to need to modify that to"
+      },
+      {
+        "start": 355.04,
+        "duration": 3.84,
+        "text": "include three replicas for the \nfountain of lamneth data center."
+      },
+      {
+        "start": 358.88,
+        "duration": 1.8,
+        "text": "So let's do that quick."
+      },
+      {
+        "start": 360.68,
+        "duration": 7.48,
+        "text": "I can do a use ecommerce and \nI can describe key space."
+      },
+      {
+        "start": 368.16,
+        "duration": 6.4,
+        "text": "All right, let's go all the way to the top here."
+      },
+      {
+        "start": 374.56,
+        "duration": 3.449,
+        "text": "Now you can see our key space \ndefinition is right here."
+      },
+      {
+        "start": 378.009,
+        "duration": 2.551,
+        "text": "Ecommerce with replication of"
+      },
+      {
+        "start": 380.56,
+        "duration": 3.32,
+        "text": "class network topology strategy. That's good."
+      },
+      {
+        "start": 383.88,
+        "duration": 3.2,
+        "text": "But only Lakeside park with three replicas."
+      },
+      {
+        "start": 387.08,
+        "duration": 5.68,
+        "text": "So let's copy that and say alter ecommerce"
+      },
+      {
+        "start": 392.76,
+        "duration": 4.44,
+        "text": "with replication equals class \nnetwork topology strategy."
+      },
+      {
+        "start": 397.2,
+        "duration": 1.88,
+        "text": "Lakeside park three."
+      },
+      {
+        "start": 399.08,
+        "duration": 4.4,
+        "text": "And we're also going to say fountain of"
+      },
+      {
+        "start": 406.2,
+        "duration": 10.04,
+        "text": "lamneth and then close that with a semicolon."
+      },
+      {
+        "start": 416.24,
+        "duration": 4.4,
+        "text": "Okay, so now you've adjusted \nthe replication, which of"
+      },
+      {
+        "start": 420.64,
+        "duration": 2.52,
+        "text": "course as you know is good for all future"
+      },
+      {
+        "start": 423.16,
+        "duration": 1.48,
+        "text": "writes to make sure that they get to both"
+      },
+      {
+        "start": 424.64,
+        "duration": 2.64,
+        "text": "data centers in the ecommerce key space."
+      },
+      {
+        "start": 427.28,
+        "duration": 3.44,
+        "text": "However, the existing data \nis still in our original data"
+      },
+      {
+        "start": 430.72,
+        "duration": 2.8,
+        "text": "center of lakeside park and \nwe need to transfer that"
+      },
+      {
+        "start": 433.52,
+        "duration": 2.8,
+        "text": "over so we're going to remember that for a second"
+      },
+      {
+        "start": 436.32,
+        "duration": 2.84,
+        "text": "while we quick do some other things."
+      },
+      {
+        "start": 439.16,
+        "duration": 2.88,
+        "text": "Alright, since I'm running \nin Google Cloud, I'm going"
+      },
+      {
+        "start": 442.04,
+        "duration": 3.52,
+        "text": "to go ahead and search for one of my"
+      },
+      {
+        "start": 445.56,
+        "duration": 3.52,
+        "text": "nodes here, one of my new caress of steel nodes."
+      },
+      {
+        "start": 449.08,
+        "duration": 0.44,
+        "text": "There we go."
+      },
+      {
+        "start": 453.56,
+        "duration": 3.2,
+        "text": "So this is node crescent \nsteel, fountain of lamneth,"
+      },
+      {
+        "start": 456.76,
+        "duration": 7.4,
+        "text": "r10sts2 and I'm going to expose"
+      },
+      {
+        "start": 464.16,
+        "duration": 9.12,
+        "text": "this node and we're going to need 9042 and"
+      },
+      {
+        "start": 473.28,
+        "duration": 5.0,
+        "text": "type load balancer and I will expose."
+      },
+      {
+        "start": 478.28,
+        "duration": 3.76,
+        "text": "Okay, now if I scroll down you can see that I do"
+      },
+      {
+        "start": 482.04,
+        "duration": 6.28,
+        "text": "have a load balancer here, \nclick into it and that is my"
+      },
+      {
+        "start": 488.32,
+        "duration": 5.12,
+        "text": "new ip or that is my external ip on this cluster."
+      },
+      {
+        "start": 493.44,
+        "duration": 3.12,
+        "text": "All right, so I've gone ahead and connected up"
+      },
+      {
+        "start": 496.56,
+        "duration": 5.44,
+        "text": "to our new nodes using that load balancer IP"
+      },
+      {
+        "start": 502.0,
+        "duration": 3.44,
+        "text": "and because we haven't done a rebuild or any"
+      },
+      {
+        "start": 505.44,
+        "duration": 2.32,
+        "text": "type of repair yet on the system auth key"
+      },
+      {
+        "start": 507.76,
+        "duration": 3.64,
+        "text": "space I had to use the Cassandra, Cassandra user."
+      },
+      {
+        "start": 511.4,
+        "duration": 2.52,
+        "text": "So for now that's the only \nuser that's been replicated."
+      },
+      {
+        "start": 513.92,
+        "duration": 1.24,
+        "text": "So that's, that's kind of what I'm,"
+      },
+      {
+        "start": 515.16,
+        "duration": 1.76,
+        "text": "what I'm stuck with for now."
+      },
+      {
+        "start": 516.92,
+        "duration": 6.64,
+        "text": "So if I do a use ecommerce and I say select"
+      },
+      {
+        "start": 523.56,
+        "duration": 8.72,
+        "text": "star from featured product \ngroups, you see I get nothing."
+      },
+      {
+        "start": 532.28,
+        "duration": 1.84,
+        "text": "Okay, so no data has moved over yet."
+      },
+      {
+        "start": 534.12,
+        "duration": 2.32,
+        "text": "So that's what we need to change."
+      },
+      {
+        "start": 536.44,
+        "duration": 1.72,
+        "text": "In order to move my data over."
+      },
+      {
+        "start": 538.16,
+        "duration": 3.32,
+        "text": "I need to do a node tool rebuild on each node"
+      },
+      {
+        "start": 541.48,
+        "duration": 3.44,
+        "text": "and I'm going to accomplish \nthat by running a task in"
+      },
+      {
+        "start": 544.92,
+        "duration": 3.32,
+        "text": "kubernetes that I'm going to \nbuild in just a second here."
+      },
+      {
+        "start": 548.24,
+        "duration": 6.2,
+        "text": "So let's have a look at my rebuild fol YAML file."
+      },
+      {
+        "start": 554.44,
+        "duration": 4.08,
+        "text": "To do this I'm going to specify an API"
+      },
+      {
+        "start": 558.52,
+        "duration": 3.52,
+        "text": "version here, just our k8ssandra v1 alpha."
+      },
+      {
+        "start": 562.04,
+        "duration": 3.28,
+        "text": "I'm going to specify a specific kind"
+      },
+      {
+        "start": 565.32,
+        "duration": 3.84,
+        "text": "called Cassandra task for the metadata."
+      },
+      {
+        "start": 569.16,
+        "duration": 3.96,
+        "text": "I'm just going to call it \nrebuild fountain of lamneth."
+      },
+      {
+        "start": 573.12,
+        "duration": 4.64,
+        "text": "I'm specifying my namespace of \nAaron's proj and it has like"
+      },
+      {
+        "start": 577.76,
+        "duration": 3.56,
+        "text": "an identifier slug on the end here for the spec."
+      },
+      {
+        "start": 581.32,
+        "duration": 3.36,
+        "text": "For the job I'm specifying a data center fountain"
+      },
+      {
+        "start": 584.68,
+        "duration": 3.24,
+        "text": "of lamneth, but I need to prepend that with"
+      },
+      {
+        "start": 587.92,
+        "duration": 4.12,
+        "text": "the caress of steel cluster name down here."
+      },
+      {
+        "start": 592.04,
+        "duration": 3.88,
+        "text": "I'm specifying my namespace one more time."
+      },
+      {
+        "start": 595.92,
+        "duration": 4.16,
+        "text": "The specific job is going to \nbe called rebuild fountain"
+      },
+      {
+        "start": 600.08,
+        "duration": 4.0,
+        "text": "of kamneth and it's going \nto execute the command or"
+      },
+      {
+        "start": 604.08,
+        "duration": 3.44,
+        "text": "the Cassandra task of rebuild \nwhich is the equivalent of"
+      },
+      {
+        "start": 607.52,
+        "duration": 2.76,
+        "text": "doing a node tool rebuild and that's going to use"
+      },
+      {
+        "start": 610.28,
+        "duration": 4.6,
+        "text": "Lakeside park as its source data center."
+      },
+      {
+        "start": 614.88,
+        "duration": 3.2,
+        "text": "All right, so with all that there I'm"
+      },
+      {
+        "start": 618.08,
+        "duration": 8.4,
+        "text": "going to run a kubectl apply f and"
+      },
+      {
+        "start": 626.48,
+        "duration": 6.76,
+        "text": "then I'm going to say rebuild and namespace."
+      },
+      {
+        "start": 633.24,
+        "duration": 2.32,
+        "text": "Always want to make sure you specify that."
+      },
+      {
+        "start": 635.56,
+        "duration": 9.28,
+        "text": "And my namespace is Aaron's plus the slug."
+      },
+      {
+        "start": 644.84,
+        "duration": 5.44,
+        "text": "Alright, so our Cassandra task has been created."
+      },
+      {
+        "start": 650.28,
+        "duration": 1.44,
+        "text": "Now to view that, I'm going to"
+      },
+      {
+        "start": 651.72,
+        "duration": 10.16,
+        "text": "do a kubectl describe Cassandra task rebuild"
+      },
+      {
+        "start": 661.88,
+        "duration": 11.16,
+        "text": "fountain of lamneth namespace arronsproj."
+      },
+      {
+        "start": 673.04,
+        "duration": 1.2,
+        "text": "There we go."
+      },
+      {
+        "start": 674.24,
+        "duration": 3.4,
+        "text": "So you can see that this"
+      },
+      {
+        "start": 677.64,
+        "duration": 3.8,
+        "text": "Cassandra task was indeed created."
+      },
+      {
+        "start": 681.44,
+        "duration": 2.76,
+        "text": "It has a timestamp here and you can"
+      },
+      {
+        "start": 684.2,
+        "duration": 4.48,
+        "text": "see it actually ran already and was completed."
+      },
+      {
+        "start": 688.68,
+        "duration": 4.56,
+        "text": "So complete, complete."
+      },
+      {
+        "start": 693.24,
+        "duration": 2.72,
+        "text": "Okay, we should be good."
+      },
+      {
+        "start": 695.96,
+        "duration": 3.92,
+        "text": "Given that now that that rebuild has run, I"
+      },
+      {
+        "start": 699.88,
+        "duration": 2.24,
+        "text": "should be able to CQL shell into one of"
+      },
+      {
+        "start": 702.12,
+        "duration": 3.0,
+        "text": "those nodes as something \nother than the Cassandra user."
+      },
+      {
+        "start": 705.12,
+        "duration": 3.92,
+        "text": "And you can see my aaron \nuser does indeed work now."
+      },
+      {
+        "start": 709.04,
+        "duration": 2.92,
+        "text": "So that means that rebuild was successful."
+      },
+      {
+        "start": 711.96,
+        "duration": 2.32,
+        "text": "Let's have a look at the ecommerce key space."
+      },
+      {
+        "start": 714.28,
+        "duration": 3.24,
+        "text": "So if I do a select star from product again."
+      },
+      {
+        "start": 717.52,
+        "duration": 1.72,
+        "text": "Oh, we have products all right."
+      },
+      {
+        "start": 721.32,
+        "duration": 1.4,
+        "text": "Featured product groups."
+      },
+      {
+        "start": 722.72,
+        "duration": 2.84,
+        "text": "Hey, outstanding."
+      },
+      {
+        "start": 725.56,
+        "duration": 2.6,
+        "text": "How about the price?"
+      },
+      {
+        "start": 728.16,
+        "duration": 2.36,
+        "text": "We have prices. Excellent."
+      },
+      {
+        "start": 730.52,
+        "duration": 2.44,
+        "text": "So our data is moved over."
+      },
+      {
+        "start": 732.96,
+        "duration": 2.76,
+        "text": "The next thing we need to do is worry"
+      },
+      {
+        "start": 735.72,
+        "duration": 4.0,
+        "text": "about getting rid of our old Cassandra nodes."
+      },
+      {
+        "start": 739.72,
+        "duration": 3.32,
+        "text": "So the way we can do that starts by"
+      },
+      {
+        "start": 743.04,
+        "duration": 3.4,
+        "text": "adjusting the replication factor in the key space."
+      },
+      {
+        "start": 746.44,
+        "duration": 8.28,
+        "text": "So again I'll do a describe on key space."
+      },
+      {
+        "start": 754.72,
+        "duration": 6.96,
+        "text": "We'll scroll up here and get \nour key space replication"
+      },
+      {
+        "start": 761.68,
+        "duration": 9.2,
+        "text": "definition and I can say \nalter key space ecommerce."
+      },
+      {
+        "start": 770.88,
+        "duration": 1.08,
+        "text": "Now we want to keep the"
+      },
+      {
+        "start": 771.96,
+        "duration": 2.36,
+        "text": "class of network topology strategy."
+      },
+      {
+        "start": 774.32,
+        "duration": 3.12,
+        "text": "We want to keep the definition \nfor fountain of lamneth"
+      },
+      {
+        "start": 777.44,
+        "duration": 2.36,
+        "text": "but we're going to get rid of the definition for"
+      },
+      {
+        "start": 779.8,
+        "duration": 6.36,
+        "text": "Lakeside park and then put a semicolon on the end."
+      },
+      {
+        "start": 786.16,
+        "duration": 1.28,
+        "text": "Perfect."
+      },
+      {
+        "start": 787.44,
+        "duration": 1.72,
+        "text": "Now there are a few other key spaces that"
+      },
+      {
+        "start": 789.16,
+        "duration": 2.84,
+        "text": "we need to do this with as well."
+      },
+      {
+        "start": 792.0,
+        "duration": 4.64,
+        "text": "First of all, mission control uses"
+      },
+      {
+        "start": 796.64,
+        "duration": 3.88,
+        "text": "Reaper in order to run repairs."
+      },
+      {
+        "start": 800.52,
+        "duration": 4.84,
+        "text": "So what we're going to do is also adjust"
+      },
+      {
+        "start": 805.36,
+        "duration": 7.48,
+        "text": "the replication factor for the Reaper DB key space"
+      },
+      {
+        "start": 812.84,
+        "duration": 2.92,
+        "text": "and we have to do the system key spaces"
+      },
+      {
+        "start": 815.76,
+        "duration": 13.92,
+        "text": "as well, specifically three \nsystem distributed and then system"
+      },
+      {
+        "start": 829.68,
+        "duration": 9.2,
+        "text": "traces and then system auth."
+      },
+      {
+        "start": 838.88,
+        "duration": 1.56,
+        "text": "Oh, okay."
+      },
+      {
+        "start": 840.44,
+        "duration": 3.0,
+        "text": "So it won't let us do system auth."
+      },
+      {
+        "start": 843.44,
+        "duration": 2.04,
+        "text": "This is actually a built in safety"
+      },
+      {
+        "start": 845.48,
+        "duration": 3.28,
+        "text": "feature that prevents you from locking yourself"
+      },
+      {
+        "start": 848.76,
+        "duration": 3.12,
+        "text": "out of one of your data centers."
+      },
+      {
+        "start": 851.88,
+        "duration": 2.48,
+        "text": "So really we'll just need to keep that in mind"
+      },
+      {
+        "start": 854.36,
+        "duration": 4.52,
+        "text": "when we go about decommissioning \nour old data center."
+      },
+      {
+        "start": 858.88,
+        "duration": 2.24,
+        "text": "All right, so I'm going to ssh out to"
+      },
+      {
+        "start": 861.12,
+        "duration": 3.16,
+        "text": "one of my nodes and I can do, let's"
+      },
+      {
+        "start": 864.28,
+        "duration": 4.76,
+        "text": "see here, make sure I'm in the correct directory."
+      },
+      {
+        "start": 870.0,
+        "duration": 2.28,
+        "text": "Just have a look at the status. Yep."
+      },
+      {
+        "start": 872.28,
+        "duration": 2.2,
+        "text": "Three and three."
+      },
+      {
+        "start": 874.48,
+        "duration": 6.68,
+        "text": "So I am actually on this node right here."
+      },
+      {
+        "start": 881.16,
+        "duration": 8.0,
+        "text": "So let's go ahead and do a \nbin node tool decommission."
+      },
+      {
+        "start": 889.16,
+        "duration": 4.0,
+        "text": "Ah, and we run into another \nsafety feature around the"
+      },
+      {
+        "start": 893.16,
+        "duration": 3.6,
+        "text": "system auth key space that \nwon't let us decommission a"
+      },
+      {
+        "start": 896.76,
+        "duration": 2.52,
+        "text": "node if we're going to drop below a certain number"
+      },
+      {
+        "start": 899.28,
+        "duration": 2.68,
+        "text": "of replicas in the system auth key space."
+      },
+      {
+        "start": 901.96,
+        "duration": 1.8,
+        "text": "This is directly related to the warning that"
+      },
+      {
+        "start": 903.76,
+        "duration": 2.12,
+        "text": "we just saw when you tried to reduce"
+      },
+      {
+        "start": 905.88,
+        "duration": 3.56,
+        "text": "the replication factor or \neliminate the replication factor"
+      },
+      {
+        "start": 909.44,
+        "duration": 2.48,
+        "text": "for the lakeside park data center."
+      },
+      {
+        "start": 911.92,
+        "duration": 1.52,
+        "text": "So in order to get past that,"
+      },
+      {
+        "start": 913.44,
+        "duration": 7.72,
+        "text": "we just need to do a force."
+      },
+      {
+        "start": 921.16,
+        "duration": 6.32,
+        "text": "This might take a little bit of time."
+      },
+      {
+        "start": 927.48,
+        "duration": 2.36,
+        "text": "All right, the decommission is complete."
+      },
+      {
+        "start": 929.84,
+        "duration": 5.04,
+        "text": "Now, if I run a node tool status, you"
+      },
+      {
+        "start": 934.88,
+        "duration": 2.96,
+        "text": "can see that the lakeside park data center is"
+      },
+      {
+        "start": 937.84,
+        "duration": 5.2,
+        "text": "down to two nodes in the data center."
+      },
+      {
+        "start": 943.04,
+        "duration": 4.48,
+        "text": "So the next thing I need to do, because Cassandra"
+      },
+      {
+        "start": 947.52,
+        "duration": 4.0,
+        "text": "is running here using the pid file at startup, I"
+      },
+      {
+        "start": 951.52,
+        "duration": 7.4,
+        "text": "can go ahead and do a kill at Cassandra Pid."
+      },
+      {
+        "start": 959.52,
+        "duration": 1.44,
+        "text": "And then just to make sure that's not there,"
+      },
+      {
+        "start": 960.96,
+        "duration": 5.72,
+        "text": "you can do a psef grep, Cassandra. Yep."
+      },
+      {
+        "start": 966.68,
+        "duration": 1.2,
+        "text": "Okay, so I've taken one of the"
+      },
+      {
+        "start": 967.88,
+        "duration": 3.12,
+        "text": "original nodes out of the cluster."
+      },
+      {
+        "start": 971.0,
+        "duration": 3.28,
+        "text": "Now I'm just going to repeat that process for the"
+      },
+      {
+        "start": 974.28,
+        "duration": 7.48,
+        "text": "two remaining nodes in the \nlakeside park data center."
+      },
+      {
+        "start": 981.76,
+        "duration": 2.92,
+        "text": "Okay, I've just finished the \ndecommissioning of the last"
+      },
+      {
+        "start": 984.68,
+        "duration": 3.56,
+        "text": "node, and you can see my lakeside park data"
+      },
+      {
+        "start": 988.24,
+        "duration": 2.76,
+        "text": "center was down to a single node."
+      },
+      {
+        "start": 991.0,
+        "duration": 3.32,
+        "text": "So now I should be able to run node tool status"
+      },
+      {
+        "start": 994.32,
+        "duration": 2.68,
+        "text": "on this old node and it should still be able to"
+      },
+      {
+        "start": 997.0,
+        "duration": 3.4,
+        "text": "gossip with the cluster and tell me that we just."
+      },
+      {
+        "start": 1000.4,
+        "duration": 1.76,
+        "text": "Yep, we just have the fountain of"
+      },
+      {
+        "start": 1002.16,
+        "duration": 2.52,
+        "text": "lamneth data center and that's it."
+      },
+      {
+        "start": 1004.68,
+        "duration": 2.04,
+        "text": "So last step here is to"
+      },
+      {
+        "start": 1006.72,
+        "duration": 12.28,
+        "text": "kill Cassandra running on this server."
+      },
+      {
+        "start": 1019.0,
+        "duration": 1.36,
+        "text": "Make sure that's dead."
+      },
+      {
+        "start": 1020.36,
+        "duration": 4.64,
+        "text": "Okay, so now if we have a look at mission control"
+      },
+      {
+        "start": 1025.0,
+        "duration": 4.84,
+        "text": "here, you can see our crescent \nsteel cluster is active."
+      },
+      {
+        "start": 1029.84,
+        "duration": 2.92,
+        "text": "Everything looks good, but we have"
+      },
+      {
+        "start": 1032.76,
+        "duration": 2.0,
+        "text": "a couple of alerts over here."
+      },
+      {
+        "start": 1034.76,
+        "duration": 1.12,
+        "text": "And if I have a look at the"
+      },
+      {
+        "start": 1035.88,
+        "duration": 2.48,
+        "text": "alerts, you can see that we have replicas"
+      },
+      {
+        "start": 1038.36,
+        "duration": 4.96,
+        "text": "that are unavailable in our \ndeployment unhealthy pods."
+      },
+      {
+        "start": 1043.32,
+        "duration": 3.6,
+        "text": "And this is directly related"
+      },
+      {
+        "start": 1046.92,
+        "duration": 6.08,
+        "text": "to the caress of steel fountain \nlamneth reaper service."
+      },
+      {
+        "start": 1053.56,
+        "duration": 2.36,
+        "text": "And if you go and have a look at the"
+      },
+      {
+        "start": 1055.92,
+        "duration": 2.56,
+        "text": "repairs tab here, you'll see \nthat, well, we haven't run"
+      },
+      {
+        "start": 1058.48,
+        "duration": 2.4,
+        "text": "any repairs yet, but if I try to run a"
+      },
+      {
+        "start": 1060.88,
+        "duration": 5.04,
+        "text": "repair, the key space dropdown is empty."
+      },
+      {
+        "start": 1065.92,
+        "duration": 1.84,
+        "text": "And again, this is because the"
+      },
+      {
+        "start": 1067.76,
+        "duration": 3.12,
+        "text": "Reaper service can't run right now."
+      },
+      {
+        "start": 1070.88,
+        "duration": 1.48,
+        "text": "So why is that, you might ask?"
+      },
+      {
+        "start": 1072.36,
+        "duration": 4.24,
+        "text": "Well, there are a few users \nthat are automatically created"
+      },
+      {
+        "start": 1076.6,
+        "duration": 4.08,
+        "text": "when you create a new \ncluster with mission control."
+      },
+      {
+        "start": 1080.68,
+        "duration": 3.8,
+        "text": "However, if that cluster \nalready exists, those users do"
+      },
+      {
+        "start": 1084.48,
+        "duration": 5.84,
+        "text": "not get created specifically \nit's our cluster superuser user"
+      },
+      {
+        "start": 1090.32,
+        "duration": 4.12,
+        "text": "for Medusa and a user for Reaper."
+      },
+      {
+        "start": 1094.44,
+        "duration": 2.24,
+        "text": "So we need to recreate those three"
+      },
+      {
+        "start": 1096.68,
+        "duration": 4.72,
+        "text": "users before our cluster will work appropriately."
+      },
+      {
+        "start": 1101.4,
+        "duration": 1.96,
+        "text": "Okay, so the first thing I'm going to"
+      },
+      {
+        "start": 1103.36,
+        "duration": 5.88,
+        "text": "do here is a kube control get secret"
+      },
+      {
+        "start": 1109.24,
+        "duration": 6.16,
+        "text": "and we'll say caress of steel reaper."
+      },
+      {
+        "start": 1115.4,
+        "duration": 2.44,
+        "text": "And I'm going to use my namespace and"
+      },
+      {
+        "start": 1117.84,
+        "duration": 4.52,
+        "text": "then I want this output as YAML."
+      },
+      {
+        "start": 1122.36,
+        "duration": 4.88,
+        "text": "Okay, so the good news is that mission control"
+      },
+      {
+        "start": 1127.24,
+        "duration": 4.72,
+        "text": "has generated the username \nand password of the ceressive"
+      },
+      {
+        "start": 1131.96,
+        "duration": 2.16,
+        "text": "steel reaper user as well as"
+      },
+      {
+        "start": 1134.12,
+        "duration": 4.24,
+        "text": "the users, for Medusa and \nthe, and the superuser itself."
+      },
+      {
+        "start": 1138.36,
+        "duration": 3.48,
+        "text": "They've just been encoded in base 64."
+      },
+      {
+        "start": 1141.84,
+        "duration": 3.4,
+        "text": "So to actually see what those are, we can"
+      },
+      {
+        "start": 1145.24,
+        "duration": 4.44,
+        "text": "just really simply do an echo and I'm going"
+      },
+      {
+        "start": 1149.68,
+        "duration": 4.32,
+        "text": "to copy the username here and paste that."
+      },
+      {
+        "start": 1154.0,
+        "duration": 5.76,
+        "text": "Then I'm going to pipe that \nto base 64 D for decode."
+      },
+      {
+        "start": 1159.76,
+        "duration": 0.32,
+        "text": "Bam."
+      },
+      {
+        "start": 1160.08,
+        "duration": 1.44,
+        "text": "And you can see that is indeed"
+      },
+      {
+        "start": 1161.52,
+        "duration": 3.64,
+        "text": "the caress of steel reaper user."
+      },
+      {
+        "start": 1165.16,
+        "duration": 3.56,
+        "text": "And then I can just do the \nsame thing for the password"
+      },
+      {
+        "start": 1176.6,
+        "duration": 2.92,
+        "text": "and it usually helps if I \ndon't have a space in there."
+      },
+      {
+        "start": 1179.52,
+        "duration": 0.48,
+        "text": "All right."
+      },
+      {
+        "start": 1180.0,
+        "duration": 3.04,
+        "text": "And there's the password."
+      },
+      {
+        "start": 1183.04,
+        "duration": 15.6,
+        "text": "And now I can do the same \nthing for the medusa user."
+      },
+      {
+        "start": 1200.0,
+        "duration": 3.52,
+        "text": "And again I can just say echo password, pipe it"
+      },
+      {
+        "start": 1203.52,
+        "duration": 6.16,
+        "text": "to base 64 D and we have our password."
+      },
+      {
+        "start": 1209.68,
+        "duration": 1.48,
+        "text": "Just like that."
+      },
+      {
+        "start": 1211.16,
+        "duration": 2.44,
+        "text": "Now we can go back into Cql shell"
+      },
+      {
+        "start": 1213.6,
+        "duration": 8.76,
+        "text": "so we can do a use system authentic."
+      },
+      {
+        "start": 1222.36,
+        "duration": 5.04,
+        "text": "Describe the key space."
+      },
+      {
+        "start": 1227.4,
+        "duration": 1.24,
+        "text": "Ah right."
+      },
+      {
+        "start": 1229.2,
+        "duration": 1.92,
+        "text": "We actually need to shorten this up a"
+      },
+      {
+        "start": 1231.12,
+        "duration": 2.36,
+        "text": "little bit because we still have replicas going"
+      },
+      {
+        "start": 1233.48,
+        "duration": 2.52,
+        "text": "to the non existent lakeside park data center."
+      },
+      {
+        "start": 1236.0,
+        "duration": 1.84,
+        "text": "So let's take care of that first."
+      },
+      {
+        "start": 1237.84,
+        "duration": 6.72,
+        "text": "So we'll do an alter p space system auth"
+      },
+      {
+        "start": 1244.56,
+        "duration": 5.76,
+        "text": "and just have that replicating \nto fountain of lamneth."
+      },
+      {
+        "start": 1250.32,
+        "duration": 1.24,
+        "text": "All right."
+      },
+      {
+        "start": 1251.56,
+        "duration": 2.28,
+        "text": "Now we can go ahead and create"
+      },
+      {
+        "start": 1253.84,
+        "duration": 4.76,
+        "text": "our users for reaper and medusa."
+      },
+      {
+        "start": 1263.08,
+        "duration": 1.72,
+        "text": "Select star from roles. There we go."
+      },
+      {
+        "start": 1264.8,
+        "duration": 2.36,
+        "text": "You can see the Cassandra user is still"
+      },
+      {
+        "start": 1267.16,
+        "duration": 4.0,
+        "text": "there and Myuser is also still there."
+      },
+      {
+        "start": 1271.16,
+        "duration": 3.76,
+        "text": "Alright, so let's go create role."
+      },
+      {
+        "start": 1274.92,
+        "duration": 3.68,
+        "text": "They say caress of steel reaper."
+      },
+      {
+        "start": 1278.6,
+        "duration": 1.92,
+        "text": "And with this needs to be a superuser."
+      },
+      {
+        "start": 1280.52,
+        "duration": 6.24,
+        "text": "Superuser equals true and login equals true"
+      },
+      {
+        "start": 1286.76,
+        "duration": 9.16,
+        "text": "and password equals paste that in."
+      },
+      {
+        "start": 1295.92,
+        "duration": 1.08,
+        "text": "Oh right."
+      },
+      {
+        "start": 1297.0,
+        "duration": 2.88,
+        "text": "Because of the dashes, the caress of steel Reaper"
+      },
+      {
+        "start": 1299.88,
+        "duration": 4.32,
+        "text": "username is also going to need single quotes."
+      },
+      {
+        "start": 1304.2,
+        "duration": 1.44,
+        "text": "There we go."
+      },
+      {
+        "start": 1305.64,
+        "duration": 0.88,
+        "text": "Okay, so now let's do the"
+      },
+      {
+        "start": 1306.52,
+        "duration": 8.32,
+        "text": "same thing for the medusa user."
+      },
+      {
+        "start": 1314.84,
+        "duration": 0.76,
+        "text": "All right."
+      },
+      {
+        "start": 1315.6,
+        "duration": 5.76,
+        "text": "And with superuser true and the"
+      },
+      {
+        "start": 1321.36,
+        "duration": 6.0,
+        "text": "login true and password equals."
+      },
+      {
+        "start": 1327.36,
+        "duration": 7.2,
+        "text": "And I'll copy in my medusa password."
+      },
+      {
+        "start": 1334.56,
+        "duration": 1.52,
+        "text": "All right."
+      },
+      {
+        "start": 1336.08,
+        "duration": 1.16,
+        "text": "All right."
+      },
+      {
+        "start": 1337.24,
+        "duration": 1.4,
+        "text": "There you go."
+      },
+      {
+        "start": 1338.64,
+        "duration": 4.68,
+        "text": "Now you can see I have all of the roles present."
+      },
+      {
+        "start": 1343.32,
+        "duration": 2.68,
+        "text": "So we have our caress of steel reaper."
+      },
+      {
+        "start": 1346.0,
+        "duration": 2.8,
+        "text": "I have my own carressive steel Medusa, the"
+      },
+      {
+        "start": 1348.8,
+        "duration": 4.0,
+        "text": "Cassandra user and the caress \nof steel superuser role."
+      },
+      {
+        "start": 1352.8,
+        "duration": 4.92,
+        "text": "All right, those are all there."
+      },
+      {
+        "start": 1357.72,
+        "duration": 1.36,
+        "text": "Well that's odd."
+      },
+      {
+        "start": 1359.08,
+        "duration": 3.72,
+        "text": "So somehow it looks like my replication settings"
+      },
+      {
+        "start": 1362.8,
+        "duration": 4.16,
+        "text": "on the Reaperdb key space were reset to"
+      },
+      {
+        "start": 1366.96,
+        "duration": 2.6,
+        "text": "go ahead and deploy or ensure that there"
+      },
+      {
+        "start": 1369.56,
+        "duration": 3.64,
+        "text": "are replicas available in both data centers."
+      },
+      {
+        "start": 1373.2,
+        "duration": 1.76,
+        "text": "In order for this to work, we are going"
+      },
+      {
+        "start": 1374.96,
+        "duration": 2.92,
+        "text": "to want to make sure that it's just replicating"
+      },
+      {
+        "start": 1377.88,
+        "duration": 2.28,
+        "text": "to the fountain of lamneth data center."
+      },
+      {
+        "start": 1380.16,
+        "duration": 8.36,
+        "text": "So let's do that."
+      },
+      {
+        "start": 1388.52,
+        "duration": 0.64,
+        "text": "There we go."
+      },
+      {
+        "start": 1389.16,
+        "duration": 4.04,
+        "text": "Just specifying Reaper DB key \nspace with three replicas to"
+      },
+      {
+        "start": 1393.2,
+        "duration": 2.64,
+        "text": "the fountain of lamneth data center and then none"
+      },
+      {
+        "start": 1395.84,
+        "duration": 5.04,
+        "text": "to the Lakeside park data center there."
+      },
+      {
+        "start": 1400.88,
+        "duration": 5.36,
+        "text": "All right, so now if I head \ninto caress of steel and"
+      },
+      {
+        "start": 1406.24,
+        "duration": 4.4,
+        "text": "actually this should be okay \nnow because we did fix that."
+      },
+      {
+        "start": 1410.64,
+        "duration": 3.44,
+        "text": "All right, so we have our \nthree running nodes here."
+      },
+      {
+        "start": 1414.08,
+        "duration": 0.56,
+        "text": "Let's see here."
+      },
+      {
+        "start": 1414.64,
+        "duration": 1.92,
+        "text": "So now if we head into repairs and we"
+      },
+      {
+        "start": 1416.56,
+        "duration": 3.0,
+        "text": "say run repair, well we still only have, yeah,"
+      },
+      {
+        "start": 1419.56,
+        "duration": 2.84,
+        "text": "we still don't have any key spaces listed."
+      },
+      {
+        "start": 1422.4,
+        "duration": 1.8,
+        "text": "So what we need to do is to"
+      },
+      {
+        "start": 1424.2,
+        "duration": 5.64,
+        "text": "actually restart the Kubernetes \npods for Cassandra reaper"
+      },
+      {
+        "start": 1429.84,
+        "duration": 5.04,
+        "text": "that are running inside of our cluster."
+      },
+      {
+        "start": 1434.88,
+        "duration": 2.44,
+        "text": "Here we go."
+      },
+      {
+        "start": 1437.32,
+        "duration": 4.8,
+        "text": "I feel the best way to \nactually restart the pods out"
+      },
+      {
+        "start": 1442.12,
+        "duration": 5.92,
+        "text": "here is by using the reaper \ndeployment and then I can"
+      },
+      {
+        "start": 1448.04,
+        "duration": 3.2,
+        "text": "go ahead and scale it and say edit replicas."
+      },
+      {
+        "start": 1451.24,
+        "duration": 3.24,
+        "text": "And I'm going to change \nthat replica one to replica"
+      },
+      {
+        "start": 1454.48,
+        "duration": 5.68,
+        "text": "zero and hit scale to scale it down to zero."
+      },
+      {
+        "start": 1460.16,
+        "duration": 4.72,
+        "text": "And you can see that pod then is terminating."
+      },
+      {
+        "start": 1464.88,
+        "duration": 2.36,
+        "text": "So if I refresh here. Excellent."
+      },
+      {
+        "start": 1467.24,
+        "duration": 1.4,
+        "text": "No more pods."
+      },
+      {
+        "start": 1468.64,
+        "duration": 2.76,
+        "text": "Now I can go back to actions, scale,"
+      },
+      {
+        "start": 1471.4,
+        "duration": 3.52,
+        "text": "edit replicas, scale it back to one."
+      },
+      {
+        "start": 1474.92,
+        "duration": 3.52,
+        "text": "And now it ought to pull in the new version."
+      },
+      {
+        "start": 1478.44,
+        "duration": 1.56,
+        "text": "Alright, you can see I'm having a look"
+      },
+      {
+        "start": 1480.0,
+        "duration": 3.2,
+        "text": "at the pods here and my caress of steel"
+      },
+      {
+        "start": 1483.2,
+        "duration": 4.2,
+        "text": "fountain of lamneth reaper pod is initializing."
+      },
+      {
+        "start": 1487.4,
+        "duration": 1.4,
+        "text": "So hopefully that comes up."
+      },
+      {
+        "start": 1488.8,
+        "duration": 6.36,
+        "text": "Okay, let's have a look again here."
+      },
+      {
+        "start": 1495.16,
+        "duration": 1.88,
+        "text": "Okay, it's running."
+      },
+      {
+        "start": 1497.04,
+        "duration": 1.28,
+        "text": "Look at that."
+      },
+      {
+        "start": 1499.6,
+        "duration": 3.36,
+        "text": "Oh, it's running, but zero of one already."
+      },
+      {
+        "start": 1502.96,
+        "duration": 4.08,
+        "text": "All right, I want to give it another second here."
+      },
+      {
+        "start": 1507.04,
+        "duration": 1.8,
+        "text": "Okay, there we go."
+      },
+      {
+        "start": 1508.84,
+        "duration": 2.64,
+        "text": "Our pod is indeed running and we have"
+      },
+      {
+        "start": 1511.48,
+        "duration": 4.44,
+        "text": "one of one in the replica set ready."
+      },
+      {
+        "start": 1515.92,
+        "duration": 8.28,
+        "text": "So now if we go back to mission control,"
+      },
+      {
+        "start": 1524.2,
+        "duration": 3.24,
+        "text": "just have a look at our alerts here."
+      },
+      {
+        "start": 1527.44,
+        "duration": 1.04,
+        "text": "Unhealthy pod."
+      },
+      {
+        "start": 1528.48,
+        "duration": 1.4,
+        "text": "Oh, that was 43 minutes ago."
+      },
+      {
+        "start": 1529.88,
+        "duration": 0.84,
+        "text": "Ah, but the other one is"
+      },
+      {
+        "start": 1530.72,
+        "duration": 2.8,
+        "text": "cleared so that's good, that's good."
+      },
+      {
+        "start": 1533.52,
+        "duration": 2.28,
+        "text": "Now if I click run repair. Bingo."
+      },
+      {
+        "start": 1535.8,
+        "duration": 1.8,
+        "text": "We have our key spaces listed."
+      },
+      {
+        "start": 1537.6,
+        "duration": 1.24,
+        "text": "Outstanding."
+      },
+      {
+        "start": 1538.84,
+        "duration": 2.76,
+        "text": "So I can select the ecommerce key space."
+      },
+      {
+        "start": 1541.6,
+        "duration": 6.76,
+        "text": "I'll keep the defaults and I'll say run."
+      },
+      {
+        "start": 1548.36,
+        "duration": 2.32,
+        "text": "And now our repair is indeed"
+      },
+      {
+        "start": 1550.68,
+        "duration": 3.04,
+        "text": "running on our ecommerce key space."
+      },
+      {
+        "start": 1553.72,
+        "duration": 4.12,
+        "text": "So hey, we've gone ahead and migrated"
+      },
+      {
+        "start": 1557.84,
+        "duration": 2.8,
+        "text": "our cluster over from an old data"
+      },
+      {
+        "start": 1560.64,
+        "duration": 5.48,
+        "text": "center running on just regular instance Vmsheen."
+      },
+      {
+        "start": 1566.12,
+        "duration": 2.32,
+        "text": "We've brought it into mission control inside"
+      },
+      {
+        "start": 1568.44,
+        "duration": 2.72,
+        "text": "of our Kubernetes project, which is what"
+      },
+      {
+        "start": 1571.16,
+        "duration": 4.76,
+        "text": "mission control uses for deployment of nodes."
+      },
+      {
+        "start": 1575.92,
+        "duration": 2.12,
+        "text": "We've gone ahead and we've moved the data over,"
+      },
+      {
+        "start": 1578.04,
+        "duration": 3.92,
+        "text": "we've decommissioned the old \nnodes, and we've gone ahead"
+      },
+      {
+        "start": 1581.96,
+        "duration": 3.28,
+        "text": "and created the users that \nmission control needs to"
+      },
+      {
+        "start": 1585.24,
+        "duration": 2.56,
+        "text": "make sure that our cluster runs smoothly."
+      },
+      {
+        "start": 1587.8,
+        "duration": 2.04,
+        "text": "All right, that should do it."
+      },
+      {
+        "start": 1589.84,
+        "duration": 4.0,
+        "text": "For more information on \nDataStax Mission Control, just"
+      },
+      {
+        "start": 1593.84,
+        "duration": 4.76,
+        "text": "head on out to \ndatastax.com/products-mission-control."
+      },
+      {
+        "start": 1599.12,
+        "duration": 1.76,
+        "text": "There you can find all the information"
+      },
+      {
+        "start": 1600.88,
+        "duration": 3.68,
+        "text": "you need, including downloads and documentation."
+      },
+      {
+        "start": 1604.56,
+        "duration": 7.48,
+        "text": "Thank you and have a great day."
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-11T21:38:29.154679+00:00"
+}

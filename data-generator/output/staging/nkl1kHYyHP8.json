@@ -1,0 +1,1485 @@
+{
+  "video_id": "nkl1kHYyHP8",
+  "title": "DS220.06 Partitioning & Storage Structure | Data Modeling with Apache Cassandra",
+  "description": "#DataStaxAcademy #DS220\nDS220.06 Partitioning & Storage Structure\nWe will be talking about partitioning and storage structure in this unit, both very important topics for Apache Cassandra data modeling.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-14T09:18:53Z",
+  "thumbnail": "https://i.ytimg.com/vi/nkl1kHYyHP8/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "data_modeling",
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "talk",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=nkl1kHYyHP8",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] let's talk about partitioning and storage structure partitions are really important topic for cassandra data model not only do they give you some indication of where your data is in your data model they also give you an indication of where your data is in the cluster so we're going to go through some of these topics in depth so the partitions partition keys composite partition keys these are all really like the same topic but really somewhat different and we need to get into each one of these so you can be successful building a cassandra data model this is one of those things that you really just need to know because if you don't get it right you're gonna have to fix it eventually so let's do it right the first time let's go back a little bit to your days of relational data modeling this should look familiar this is a relational query so if you're coming from a relational database these queries like title equals added data is less than those are totally cool you can do that you can query on any column inside a relational data model however if you look at the output if you run this in a cassandra database well look what happens it starts throwing errors why is that now this is one of the things that really upsets people when they first start using cassandra is i created a table i can't just query anything i want what gives well there's a reason for this and once i explain i think you'll see the power in it as well it is different it does look the same but the power is in the difference let's start with a really simple table this is from our killer video example it's storing the videos and has a very simple structure so we can walk through it so this should look familiar if you come from a relational database where you have this create table here's the name of the table some columns with some types and a primary key designation now if we were to look at that table graphically you can see that below you see everything's normally just arranged in rows columns it should look familiar to you so this table we're going to break down and look into the different parts the big difference here is in the storage and what that table does to the storage engine now i know this seems like it's really getting into the weeds but it does make sense and this is important for you to understand just at a concept level of why the data is being stored like this and how it affects your data model down the road the big deal here and again this is the thing you need to understand you're building data models to query the data so when you build that data model you're expecting it to come off the disk really fast if you look at the structure on this graphic you can see all the different parts there are partitions which is each one of the rows in this graphic the partition key is that one two or three and inside each partition we're going to have rows and columns the columns are stored locally as what's called cells on the disk and this is a grouping think about this as a way to logically group data together so it can be physically grouped together on disk so when we go to access that we could find it quickly the representation of that data stored in the storage engine is translated into a cql table this is what we see when we use it programmatically when we select data from the table we see it in rows and columns just like we expect just like we can use in our application determining the partition key is a pretty critical step however knowing where to find it is also a big deal if you look at this diagram we have primary key designation of id there's just one item in the primary key the partition key is always the first value in the primary key every other value is what's considered the clustering column and those are covered in a different module so we're just going to focus on that partition key and that partition key is that very first item like i said and that's how we get some really interesting information about where the data is in the cluster take a look at this diagram now if you were just to leave the where clause out say select star from video where is that data and that's really the critical part of a cassandra data model because it could be anywhere if you have a massive cluster a thousand node cluster where's that data well the partition key says here is where i'm going to store the data if you go back to how data is stored in a cassandra cluster you'll recall that that primary key partition key so that partition key itself is hashed and then used for placement these are concepts like the snitch and how data is placed inside of your cluster so that concept from there this is where it really takes root if you want to find your data you need to provide a partition key because that will put it on a specific node if you're not using a partition key inside of your where clause then you're opening up the door for a huge full cluster scan which is a really really inefficient way to find data and it's definitely not the right data model so how do you do it without incurring all that cost i'm glad you asked take a look at this here we're selecting from videos where we provide a partition key id equals two that id equals two says all right based on the fact that i'm using a consistent hashing algorithm i can find my data somewhere in my cluster and it'll always be there that consistent part so that id equals two that two is hashed that hash number leads to a certain node because if you remember each node stores a range of data well when i say id equals two it goes to node two that's where the data is stored and it's replicas of course but now i don't have to go look at the entire cluster to find my data i can go to one node this is where the speed and efficiency of a really good data model comes out when you start using a partition key properly along with clustering columns which you're going to learn about those two things together will make your data model fast you're going to get really fast access on read let's look at the ways you can construct a primary key using a partition key the first is the simple simple is just that it's one key so if you look at this diagram you'll see that the primary key in this case is a uuid going back to our types uid is a really good choice for a primary key because it is guaranteed to be unique but that simple primary key means that you just have one value nothing else there's no clustering columns anything else so in the case of the video table that we're using as an example id is the only thing in the primary key composite partition keys are whenever you need to combine two values together to make one single partition key it could be a little dicey concept if you're not paying attention to one thing if you look at the way that the primary key is written here there's name and year but they're contained inside of a parentheses or bracket and that means we're combining these two things together now if you recall when i said primary key the very first value is a partition key if you put the parentheses around it then that is contained as one value so those two things name and year if you look at the diagram insurgent 2015 those two things are considered the partition key so those two columns are combined together and used for placement in the cluster it can be very very good for speed and efficiency when you know that those two things are always going to be glued together again more options you can include more than one value it doesn't have to be two it could be three or four many values just know that all those values you add in your partition key you're gonna have to use those every time you use a where clause so if you add three items you're gonna have to provide three items so think ahead before you put those in the partition key so let's wrap it up i know we have a lot of terminology flying around here but you're keeping up good job primary key partition key those are different so i don't want to sound like this is a cliche but these are the keys literally and the primary key partition key understanding the differences are really important a primary key is this big thing a partition key is included inside of the primary key so that partition key from a cassandra data model that's placement where in the cluster is my data and then primary key that says everything inside of this primary key designation all of those columns that i included in here make this record unique so primary key for uniqueness partition key for placement that's what you need to know can they be the same thing sure but not always and there are a lot of different options this is why you're taking this course that you want to understand all the options for your data model for your use case but you are learning the most important parts of a data model you master these you will be a master at cassandra data modeling now let's try an exercise about what you just learned doing some basic cql and learning about primary keys",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 5.32,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.279,
+        "duration": 3.201,
+        "text": "let's talk about partitioning and"
+      },
+      {
+        "start": 8.96,
+        "duration": 3.599,
+        "text": "storage structure"
+      },
+      {
+        "start": 10.48,
+        "duration": 3.92,
+        "text": "partitions are really important topic"
+      },
+      {
+        "start": 12.559,
+        "duration": 3.12,
+        "text": "for cassandra data model"
+      },
+      {
+        "start": 14.4,
+        "duration": 2.879,
+        "text": "not only do they give you some"
+      },
+      {
+        "start": 15.679,
+        "duration": 2.481,
+        "text": "indication of where your data is in your"
+      },
+      {
+        "start": 17.279,
+        "duration": 2.241,
+        "text": "data model"
+      },
+      {
+        "start": 18.16,
+        "duration": 3.6,
+        "text": "they also give you an indication of"
+      },
+      {
+        "start": 19.52,
+        "duration": 3.519,
+        "text": "where your data is in the cluster"
+      },
+      {
+        "start": 21.76,
+        "duration": 3.759,
+        "text": "so we're going to go through some of"
+      },
+      {
+        "start": 23.039,
+        "duration": 3.681,
+        "text": "these topics in depth so the partitions"
+      },
+      {
+        "start": 25.519,
+        "duration": 3.6,
+        "text": "partition keys"
+      },
+      {
+        "start": 26.72,
+        "duration": 3.36,
+        "text": "composite partition keys these are all"
+      },
+      {
+        "start": 29.119,
+        "duration": 3.6,
+        "text": "really"
+      },
+      {
+        "start": 30.08,
+        "duration": 3.999,
+        "text": "like the same topic but really somewhat"
+      },
+      {
+        "start": 32.719,
+        "duration": 3.121,
+        "text": "different and we need to get into each"
+      },
+      {
+        "start": 34.079,
+        "duration": 3.441,
+        "text": "one of these so you can be successful"
+      },
+      {
+        "start": 35.84,
+        "duration": 2.96,
+        "text": "building a cassandra data model"
+      },
+      {
+        "start": 37.52,
+        "duration": 3.12,
+        "text": "this is one of those things that you"
+      },
+      {
+        "start": 38.8,
+        "duration": 2.8,
+        "text": "really just need to know because if you"
+      },
+      {
+        "start": 40.64,
+        "duration": 2.64,
+        "text": "don't get it right"
+      },
+      {
+        "start": 41.6,
+        "duration": 4.4,
+        "text": "you're gonna have to fix it eventually"
+      },
+      {
+        "start": 43.28,
+        "duration": 4.32,
+        "text": "so let's do it right the first time"
+      },
+      {
+        "start": 46.0,
+        "duration": 3.44,
+        "text": "let's go back a little bit to your days"
+      },
+      {
+        "start": 47.6,
+        "duration": 3.76,
+        "text": "of relational data modeling"
+      },
+      {
+        "start": 49.44,
+        "duration": 3.599,
+        "text": "this should look familiar this is a"
+      },
+      {
+        "start": 51.36,
+        "duration": 2.96,
+        "text": "relational query"
+      },
+      {
+        "start": 53.039,
+        "duration": 3.36,
+        "text": "so if you're coming from a relational"
+      },
+      {
+        "start": 54.32,
+        "duration": 4.64,
+        "text": "database these queries like"
+      },
+      {
+        "start": 56.399,
+        "duration": 3.921,
+        "text": "title equals added data is less than"
+      },
+      {
+        "start": 58.96,
+        "duration": 3.36,
+        "text": "those are totally cool"
+      },
+      {
+        "start": 60.32,
+        "duration": 4.479,
+        "text": "you can do that you can query on any"
+      },
+      {
+        "start": 62.32,
+        "duration": 4.0,
+        "text": "column inside a relational data model"
+      },
+      {
+        "start": 64.799,
+        "duration": 3.121,
+        "text": "however if you look at the output if you"
+      },
+      {
+        "start": 66.32,
+        "duration": 3.28,
+        "text": "run this in a cassandra database"
+      },
+      {
+        "start": 67.92,
+        "duration": 3.199,
+        "text": "well look what happens it starts"
+      },
+      {
+        "start": 69.6,
+        "duration": 3.199,
+        "text": "throwing errors"
+      },
+      {
+        "start": 71.119,
+        "duration": 3.68,
+        "text": "why is that now this is one of the"
+      },
+      {
+        "start": 72.799,
+        "duration": 3.521,
+        "text": "things that really upsets people when"
+      },
+      {
+        "start": 74.799,
+        "duration": 4.32,
+        "text": "they first start using cassandra"
+      },
+      {
+        "start": 76.32,
+        "duration": 3.76,
+        "text": "is i created a table i can't just query"
+      },
+      {
+        "start": 79.119,
+        "duration": 3.281,
+        "text": "anything i want"
+      },
+      {
+        "start": 80.08,
+        "duration": 3.92,
+        "text": "what gives well there's a reason for"
+      },
+      {
+        "start": 82.4,
+        "duration": 3.12,
+        "text": "this and once i explain"
+      },
+      {
+        "start": 84.0,
+        "duration": 3.6,
+        "text": "i think you'll see the power in it as"
+      },
+      {
+        "start": 85.52,
+        "duration": 2.88,
+        "text": "well it is different it does look the"
+      },
+      {
+        "start": 87.6,
+        "duration": 4.08,
+        "text": "same"
+      },
+      {
+        "start": 88.4,
+        "duration": 4.32,
+        "text": "but the power is in the difference let's"
+      },
+      {
+        "start": 91.68,
+        "duration": 3.119,
+        "text": "start with a really"
+      },
+      {
+        "start": 92.72,
+        "duration": 3.039,
+        "text": "simple table this is from our killer"
+      },
+      {
+        "start": 94.799,
+        "duration": 4.081,
+        "text": "video example"
+      },
+      {
+        "start": 95.759,
+        "duration": 4.961,
+        "text": "it's storing the videos and has a very"
+      },
+      {
+        "start": 98.88,
+        "duration": 3.519,
+        "text": "simple structure so we can walk through"
+      },
+      {
+        "start": 100.72,
+        "duration": 3.12,
+        "text": "it so this should look familiar if you"
+      },
+      {
+        "start": 102.399,
+        "duration": 2.801,
+        "text": "come from a relational database where"
+      },
+      {
+        "start": 103.84,
+        "duration": 3.52,
+        "text": "you have this create table"
+      },
+      {
+        "start": 105.2,
+        "duration": 3.76,
+        "text": "here's the name of the table some"
+      },
+      {
+        "start": 107.36,
+        "duration": 4.24,
+        "text": "columns with some types"
+      },
+      {
+        "start": 108.96,
+        "duration": 4.08,
+        "text": "and a primary key designation now if we"
+      },
+      {
+        "start": 111.6,
+        "duration": 2.72,
+        "text": "were to look at that table graphically"
+      },
+      {
+        "start": 113.04,
+        "duration": 2.8,
+        "text": "you can see that below"
+      },
+      {
+        "start": 114.32,
+        "duration": 3.92,
+        "text": "you see everything's normally just"
+      },
+      {
+        "start": 115.84,
+        "duration": 3.84,
+        "text": "arranged in rows columns it should look"
+      },
+      {
+        "start": 118.24,
+        "duration": 3.6,
+        "text": "familiar to you"
+      },
+      {
+        "start": 119.68,
+        "duration": 4.96,
+        "text": "so this table we're going to break down"
+      },
+      {
+        "start": 121.84,
+        "duration": 4.16,
+        "text": "and look into the different parts"
+      },
+      {
+        "start": 124.64,
+        "duration": 3.44,
+        "text": "the big difference here is in the"
+      },
+      {
+        "start": 126.0,
+        "duration": 4.319,
+        "text": "storage and what that table does"
+      },
+      {
+        "start": 128.08,
+        "duration": 3.68,
+        "text": "to the storage engine now i know this"
+      },
+      {
+        "start": 130.319,
+        "duration": 2.481,
+        "text": "seems like it's really getting into the"
+      },
+      {
+        "start": 131.76,
+        "duration": 2.88,
+        "text": "weeds but"
+      },
+      {
+        "start": 132.8,
+        "duration": 3.439,
+        "text": "it does make sense and this is important"
+      },
+      {
+        "start": 134.64,
+        "duration": 3.92,
+        "text": "for you to understand"
+      },
+      {
+        "start": 136.239,
+        "duration": 3.521,
+        "text": "just at a concept level of why the data"
+      },
+      {
+        "start": 138.56,
+        "duration": 3.36,
+        "text": "is being stored like this"
+      },
+      {
+        "start": 139.76,
+        "duration": 3.119,
+        "text": "and how it affects your data model down"
+      },
+      {
+        "start": 141.92,
+        "duration": 3.039,
+        "text": "the road"
+      },
+      {
+        "start": 142.879,
+        "duration": 3.521,
+        "text": "the big deal here and again this is the"
+      },
+      {
+        "start": 144.959,
+        "duration": 3.681,
+        "text": "thing you need to understand"
+      },
+      {
+        "start": 146.4,
+        "duration": 4.72,
+        "text": "you're building data models to query the"
+      },
+      {
+        "start": 148.64,
+        "duration": 4.4,
+        "text": "data so when you build that data model"
+      },
+      {
+        "start": 151.12,
+        "duration": 3.199,
+        "text": "you're expecting it to come off the disk"
+      },
+      {
+        "start": 153.04,
+        "duration": 2.4,
+        "text": "really fast"
+      },
+      {
+        "start": 154.319,
+        "duration": 2.401,
+        "text": "if you look at the structure on this"
+      },
+      {
+        "start": 155.44,
+        "duration": 3.2,
+        "text": "graphic you can see all the different"
+      },
+      {
+        "start": 156.72,
+        "duration": 3.599,
+        "text": "parts there are partitions which is each"
+      },
+      {
+        "start": 158.64,
+        "duration": 4.239,
+        "text": "one of the rows in this graphic"
+      },
+      {
+        "start": 160.319,
+        "duration": 3.121,
+        "text": "the partition key is that one two or"
+      },
+      {
+        "start": 162.879,
+        "duration": 2.801,
+        "text": "three"
+      },
+      {
+        "start": 163.44,
+        "duration": 4.079,
+        "text": "and inside each partition we're going to"
+      },
+      {
+        "start": 165.68,
+        "duration": 3.68,
+        "text": "have rows and columns"
+      },
+      {
+        "start": 167.519,
+        "duration": 3.601,
+        "text": "the columns are stored locally as what's"
+      },
+      {
+        "start": 169.36,
+        "duration": 3.92,
+        "text": "called cells on the disk"
+      },
+      {
+        "start": 171.12,
+        "duration": 3.92,
+        "text": "and this is a grouping think about this"
+      },
+      {
+        "start": 173.28,
+        "duration": 2.48,
+        "text": "as a way to logically group data"
+      },
+      {
+        "start": 175.04,
+        "duration": 2.64,
+        "text": "together"
+      },
+      {
+        "start": 175.76,
+        "duration": 3.04,
+        "text": "so it can be physically grouped together"
+      },
+      {
+        "start": 177.68,
+        "duration": 3.6,
+        "text": "on disk"
+      },
+      {
+        "start": 178.8,
+        "duration": 4.079,
+        "text": "so when we go to access that we could"
+      },
+      {
+        "start": 181.28,
+        "duration": 3.76,
+        "text": "find it quickly"
+      },
+      {
+        "start": 182.879,
+        "duration": 3.44,
+        "text": "the representation of that data stored"
+      },
+      {
+        "start": 185.04,
+        "duration": 3.919,
+        "text": "in the storage engine"
+      },
+      {
+        "start": 186.319,
+        "duration": 3.761,
+        "text": "is translated into a cql table this is"
+      },
+      {
+        "start": 188.959,
+        "duration": 3.041,
+        "text": "what we see when we use it"
+      },
+      {
+        "start": 190.08,
+        "duration": 3.12,
+        "text": "programmatically when we select data"
+      },
+      {
+        "start": 192.0,
+        "duration": 3.36,
+        "text": "from the table"
+      },
+      {
+        "start": 193.2,
+        "duration": 3.2,
+        "text": "we see it in rows and columns just like"
+      },
+      {
+        "start": 195.36,
+        "duration": 3.519,
+        "text": "we expect"
+      },
+      {
+        "start": 196.4,
+        "duration": 4.0,
+        "text": "just like we can use in our application"
+      },
+      {
+        "start": 198.879,
+        "duration": 3.201,
+        "text": "determining the partition key is a"
+      },
+      {
+        "start": 200.4,
+        "duration": 4.0,
+        "text": "pretty critical step"
+      },
+      {
+        "start": 202.08,
+        "duration": 4.079,
+        "text": "however knowing where to find it is also"
+      },
+      {
+        "start": 204.4,
+        "duration": 2.399,
+        "text": "a big deal if you look at this diagram"
+      },
+      {
+        "start": 206.159,
+        "duration": 3.201,
+        "text": "we have"
+      },
+      {
+        "start": 206.799,
+        "duration": 3.36,
+        "text": "primary key designation of id there's"
+      },
+      {
+        "start": 209.36,
+        "duration": 3.28,
+        "text": "just one"
+      },
+      {
+        "start": 210.159,
+        "duration": 4.64,
+        "text": "item in the primary key the partition"
+      },
+      {
+        "start": 212.64,
+        "duration": 2.959,
+        "text": "key is always the first value in the"
+      },
+      {
+        "start": 214.799,
+        "duration": 2.72,
+        "text": "primary key"
+      },
+      {
+        "start": 215.599,
+        "duration": 3.121,
+        "text": "every other value is what's considered"
+      },
+      {
+        "start": 217.519,
+        "duration": 2.8,
+        "text": "the clustering column"
+      },
+      {
+        "start": 218.72,
+        "duration": 3.519,
+        "text": "and those are covered in a different"
+      },
+      {
+        "start": 220.319,
+        "duration": 4.081,
+        "text": "module so we're just going to focus"
+      },
+      {
+        "start": 222.239,
+        "duration": 3.761,
+        "text": "on that partition key and that partition"
+      },
+      {
+        "start": 224.4,
+        "duration": 3.6,
+        "text": "key is that very first item like i"
+      },
+      {
+        "start": 226.0,
+        "duration": 3.599,
+        "text": "said and that's how we get some really"
+      },
+      {
+        "start": 228.0,
+        "duration": 4.08,
+        "text": "interesting information about where the"
+      },
+      {
+        "start": 229.599,
+        "duration": 4.081,
+        "text": "data is in the cluster"
+      },
+      {
+        "start": 232.08,
+        "duration": 3.2,
+        "text": "take a look at this diagram now if you"
+      },
+      {
+        "start": 233.68,
+        "duration": 5.36,
+        "text": "were just to leave the where clause"
+      },
+      {
+        "start": 235.28,
+        "duration": 5.679,
+        "text": "out say select star from video"
+      },
+      {
+        "start": 239.04,
+        "duration": 3.839,
+        "text": "where is that data and that's really the"
+      },
+      {
+        "start": 240.959,
+        "duration": 4.081,
+        "text": "critical part of a cassandra data model"
+      },
+      {
+        "start": 242.879,
+        "duration": 4.08,
+        "text": "because it could be anywhere if you have"
+      },
+      {
+        "start": 245.04,
+        "duration": 2.8,
+        "text": "a massive cluster a thousand node"
+      },
+      {
+        "start": 246.959,
+        "duration": 3.2,
+        "text": "cluster"
+      },
+      {
+        "start": 247.84,
+        "duration": 3.039,
+        "text": "where's that data well the partition key"
+      },
+      {
+        "start": 250.159,
+        "duration": 2.16,
+        "text": "says"
+      },
+      {
+        "start": 250.879,
+        "duration": 3.201,
+        "text": "here is where i'm going to store the"
+      },
+      {
+        "start": 252.319,
+        "duration": 4.16,
+        "text": "data if you go back to how"
+      },
+      {
+        "start": 254.08,
+        "duration": 3.439,
+        "text": "data is stored in a cassandra cluster"
+      },
+      {
+        "start": 256.479,
+        "duration": 3.521,
+        "text": "you'll recall"
+      },
+      {
+        "start": 257.519,
+        "duration": 4.4,
+        "text": "that that primary key partition key so"
+      },
+      {
+        "start": 260.0,
+        "duration": 5.04,
+        "text": "that partition key itself"
+      },
+      {
+        "start": 261.919,
+        "duration": 5.361,
+        "text": "is hashed and then used for placement"
+      },
+      {
+        "start": 265.04,
+        "duration": 3.92,
+        "text": "these are concepts like the snitch and"
+      },
+      {
+        "start": 267.28,
+        "duration": 2.639,
+        "text": "how data is placed inside of your"
+      },
+      {
+        "start": 268.96,
+        "duration": 2.959,
+        "text": "cluster"
+      },
+      {
+        "start": 269.919,
+        "duration": 3.28,
+        "text": "so that concept from there this is where"
+      },
+      {
+        "start": 271.919,
+        "duration": 3.041,
+        "text": "it really takes root"
+      },
+      {
+        "start": 273.199,
+        "duration": 3.521,
+        "text": "if you want to find your data you need"
+      },
+      {
+        "start": 274.96,
+        "duration": 3.44,
+        "text": "to provide a partition key"
+      },
+      {
+        "start": 276.72,
+        "duration": 4.16,
+        "text": "because that will put it on a specific"
+      },
+      {
+        "start": 278.4,
+        "duration": 4.799,
+        "text": "node if you're not using a partition key"
+      },
+      {
+        "start": 280.88,
+        "duration": 3.599,
+        "text": "inside of your where clause then you're"
+      },
+      {
+        "start": 283.199,
+        "duration": 4.72,
+        "text": "opening up the door for a"
+      },
+      {
+        "start": 284.479,
+        "duration": 5.601,
+        "text": "huge full cluster scan which is a really"
+      },
+      {
+        "start": 287.919,
+        "duration": 5.201,
+        "text": "really inefficient way to find data and"
+      },
+      {
+        "start": 290.08,
+        "duration": 5.04,
+        "text": "it's definitely not the right data model"
+      },
+      {
+        "start": 293.12,
+        "duration": 4.4,
+        "text": "so how do you do it without incurring"
+      },
+      {
+        "start": 295.12,
+        "duration": 4.56,
+        "text": "all that cost i'm glad you asked"
+      },
+      {
+        "start": 297.52,
+        "duration": 4.399,
+        "text": "take a look at this here we're selecting"
+      },
+      {
+        "start": 299.68,
+        "duration": 2.72,
+        "text": "from videos where we provide a partition"
+      },
+      {
+        "start": 301.919,
+        "duration": 4.161,
+        "text": "key"
+      },
+      {
+        "start": 302.4,
+        "duration": 4.239,
+        "text": "id equals two that id equals two says"
+      },
+      {
+        "start": 306.08,
+        "duration": 2.0,
+        "text": "all right"
+      },
+      {
+        "start": 306.639,
+        "duration": 3.521,
+        "text": "based on the fact that i'm using a"
+      },
+      {
+        "start": 308.08,
+        "duration": 3.92,
+        "text": "consistent hashing algorithm"
+      },
+      {
+        "start": 310.16,
+        "duration": 3.92,
+        "text": "i can find my data somewhere in my"
+      },
+      {
+        "start": 312.0,
+        "duration": 4.639,
+        "text": "cluster and it'll always be there"
+      },
+      {
+        "start": 314.08,
+        "duration": 3.28,
+        "text": "that consistent part so that id equals"
+      },
+      {
+        "start": 316.639,
+        "duration": 2.961,
+        "text": "two"
+      },
+      {
+        "start": 317.36,
+        "duration": 3.679,
+        "text": "that two is hashed that hash number"
+      },
+      {
+        "start": 319.6,
+        "duration": 3.439,
+        "text": "leads to a certain node"
+      },
+      {
+        "start": 321.039,
+        "duration": 3.361,
+        "text": "because if you remember each node stores"
+      },
+      {
+        "start": 323.039,
+        "duration": 3.6,
+        "text": "a range of data"
+      },
+      {
+        "start": 324.4,
+        "duration": 3.04,
+        "text": "well when i say id equals two it goes to"
+      },
+      {
+        "start": 326.639,
+        "duration": 2.801,
+        "text": "node two"
+      },
+      {
+        "start": 327.44,
+        "duration": 3.52,
+        "text": "that's where the data is stored and it's"
+      },
+      {
+        "start": 329.44,
+        "duration": 3.599,
+        "text": "replicas of course"
+      },
+      {
+        "start": 330.96,
+        "duration": 3.44,
+        "text": "but now i don't have to go look at the"
+      },
+      {
+        "start": 333.039,
+        "duration": 4.401,
+        "text": "entire cluster to find"
+      },
+      {
+        "start": 334.4,
+        "duration": 4.799,
+        "text": "my data i can go to one node this is"
+      },
+      {
+        "start": 337.44,
+        "duration": 2.96,
+        "text": "where the speed and efficiency of a"
+      },
+      {
+        "start": 339.199,
+        "duration": 3.201,
+        "text": "really good data model"
+      },
+      {
+        "start": 340.4,
+        "duration": 3.76,
+        "text": "comes out when you start using a"
+      },
+      {
+        "start": 342.4,
+        "duration": 3.12,
+        "text": "partition key properly"
+      },
+      {
+        "start": 344.16,
+        "duration": 2.96,
+        "text": "along with clustering columns which"
+      },
+      {
+        "start": 345.52,
+        "duration": 2.56,
+        "text": "you're going to learn about those two"
+      },
+      {
+        "start": 347.12,
+        "duration": 3.12,
+        "text": "things together"
+      },
+      {
+        "start": 348.08,
+        "duration": 4.24,
+        "text": "will make your data model fast you're"
+      },
+      {
+        "start": 350.24,
+        "duration": 3.92,
+        "text": "going to get really fast access"
+      },
+      {
+        "start": 352.32,
+        "duration": 3.439,
+        "text": "on read let's look at the ways you can"
+      },
+      {
+        "start": 354.16,
+        "duration": 4.24,
+        "text": "construct a primary key"
+      },
+      {
+        "start": 355.759,
+        "duration": 3.601,
+        "text": "using a partition key the first is the"
+      },
+      {
+        "start": 358.4,
+        "duration": 4.0,
+        "text": "simple"
+      },
+      {
+        "start": 359.36,
+        "duration": 4.48,
+        "text": "simple is just that it's one key"
+      },
+      {
+        "start": 362.4,
+        "duration": 3.2,
+        "text": "so if you look at this diagram you'll"
+      },
+      {
+        "start": 363.84,
+        "duration": 5.28,
+        "text": "see that the primary key in this case"
+      },
+      {
+        "start": 365.6,
+        "duration": 5.12,
+        "text": "is a uuid going back to our types uid is"
+      },
+      {
+        "start": 369.12,
+        "duration": 3.84,
+        "text": "a really good choice"
+      },
+      {
+        "start": 370.72,
+        "duration": 3.84,
+        "text": "for a primary key because it is"
+      },
+      {
+        "start": 372.96,
+        "duration": 4.079,
+        "text": "guaranteed to be unique"
+      },
+      {
+        "start": 374.56,
+        "duration": 4.16,
+        "text": "but that simple primary key means that"
+      },
+      {
+        "start": 377.039,
+        "duration": 3.28,
+        "text": "you just have one value"
+      },
+      {
+        "start": 378.72,
+        "duration": 3.039,
+        "text": "nothing else there's no clustering"
+      },
+      {
+        "start": 380.319,
+        "duration": 3.361,
+        "text": "columns anything else"
+      },
+      {
+        "start": 381.759,
+        "duration": 4.0,
+        "text": "so in the case of the video table that"
+      },
+      {
+        "start": 383.68,
+        "duration": 5.12,
+        "text": "we're using as an example"
+      },
+      {
+        "start": 385.759,
+        "duration": 5.28,
+        "text": "id is the only thing in the primary key"
+      },
+      {
+        "start": 388.8,
+        "duration": 3.2,
+        "text": "composite partition keys are whenever"
+      },
+      {
+        "start": 391.039,
+        "duration": 3.201,
+        "text": "you need to combine"
+      },
+      {
+        "start": 392.0,
+        "duration": 4.24,
+        "text": "two values together to make one single"
+      },
+      {
+        "start": 394.24,
+        "duration": 3.44,
+        "text": "partition key it could be a little dicey"
+      },
+      {
+        "start": 396.24,
+        "duration": 2.64,
+        "text": "concept if you're not paying attention"
+      },
+      {
+        "start": 397.68,
+        "duration": 2.639,
+        "text": "to one thing"
+      },
+      {
+        "start": 398.88,
+        "duration": 3.439,
+        "text": "if you look at the way that the primary"
+      },
+      {
+        "start": 400.319,
+        "duration": 2.561,
+        "text": "key is written here there's name and"
+      },
+      {
+        "start": 402.319,
+        "duration": 2.0,
+        "text": "year"
+      },
+      {
+        "start": 402.88,
+        "duration": 3.039,
+        "text": "but they're contained inside of a"
+      },
+      {
+        "start": 404.319,
+        "duration": 4.081,
+        "text": "parentheses or bracket"
+      },
+      {
+        "start": 405.919,
+        "duration": 3.361,
+        "text": "and that means we're combining these two"
+      },
+      {
+        "start": 408.4,
+        "duration": 2.56,
+        "text": "things together"
+      },
+      {
+        "start": 409.28,
+        "duration": 3.52,
+        "text": "now if you recall when i said primary"
+      },
+      {
+        "start": 410.96,
+        "duration": 4.079,
+        "text": "key the very first value"
+      },
+      {
+        "start": 412.8,
+        "duration": 3.839,
+        "text": "is a partition key if you put the"
+      },
+      {
+        "start": 415.039,
+        "duration": 4.0,
+        "text": "parentheses around it"
+      },
+      {
+        "start": 416.639,
+        "duration": 4.4,
+        "text": "then that is contained as one value so"
+      },
+      {
+        "start": 419.039,
+        "duration": 4.16,
+        "text": "those two things name and year"
+      },
+      {
+        "start": 421.039,
+        "duration": 3.521,
+        "text": "if you look at the diagram insurgent"
+      },
+      {
+        "start": 423.199,
+        "duration": 2.72,
+        "text": "2015"
+      },
+      {
+        "start": 424.56,
+        "duration": 3.68,
+        "text": "those two things are considered the"
+      },
+      {
+        "start": 425.919,
+        "duration": 3.201,
+        "text": "partition key so those two columns are"
+      },
+      {
+        "start": 428.24,
+        "duration": 3.2,
+        "text": "combined together"
+      },
+      {
+        "start": 429.12,
+        "duration": 4.72,
+        "text": "and used for placement in the cluster it"
+      },
+      {
+        "start": 431.44,
+        "duration": 4.159,
+        "text": "can be very very good for speed"
+      },
+      {
+        "start": 433.84,
+        "duration": 3.199,
+        "text": "and efficiency when you know that those"
+      },
+      {
+        "start": 435.599,
+        "duration": 2.32,
+        "text": "two things are always going to be glued"
+      },
+      {
+        "start": 437.039,
+        "duration": 3.681,
+        "text": "together"
+      },
+      {
+        "start": 437.919,
+        "duration": 4.241,
+        "text": "again more options you can include more"
+      },
+      {
+        "start": 440.72,
+        "duration": 3.199,
+        "text": "than one value it doesn't have to be two"
+      },
+      {
+        "start": 442.16,
+        "duration": 4.479,
+        "text": "it could be three or four"
+      },
+      {
+        "start": 443.919,
+        "duration": 4.72,
+        "text": "many values just know that all those"
+      },
+      {
+        "start": 446.639,
+        "duration": 3.201,
+        "text": "values you add in your partition key"
+      },
+      {
+        "start": 448.639,
+        "duration": 2.96,
+        "text": "you're gonna have to use those every"
+      },
+      {
+        "start": 449.84,
+        "duration": 2.4,
+        "text": "time you use a where clause so if you"
+      },
+      {
+        "start": 451.599,
+        "duration": 2.561,
+        "text": "add three"
+      },
+      {
+        "start": 452.24,
+        "duration": 3.76,
+        "text": "items you're gonna have to provide three"
+      },
+      {
+        "start": 454.16,
+        "duration": 3.36,
+        "text": "items so think ahead"
+      },
+      {
+        "start": 456.0,
+        "duration": 3.44,
+        "text": "before you put those in the partition"
+      },
+      {
+        "start": 457.52,
+        "duration": 3.44,
+        "text": "key so let's wrap it up"
+      },
+      {
+        "start": 459.44,
+        "duration": 3.039,
+        "text": "i know we have a lot of terminology"
+      },
+      {
+        "start": 460.96,
+        "duration": 2.48,
+        "text": "flying around here but you're keeping up"
+      },
+      {
+        "start": 462.479,
+        "duration": 3.761,
+        "text": "good job"
+      },
+      {
+        "start": 463.44,
+        "duration": 3.439,
+        "text": "primary key partition key those are"
+      },
+      {
+        "start": 466.24,
+        "duration": 1.92,
+        "text": "different"
+      },
+      {
+        "start": 466.879,
+        "duration": 3.521,
+        "text": "so i don't want to sound like this is a"
+      },
+      {
+        "start": 468.16,
+        "duration": 5.039,
+        "text": "cliche but these are the keys"
+      },
+      {
+        "start": 470.4,
+        "duration": 4.4,
+        "text": "literally and the primary key partition"
+      },
+      {
+        "start": 473.199,
+        "duration": 2.72,
+        "text": "key understanding the differences are"
+      },
+      {
+        "start": 474.8,
+        "duration": 3.6,
+        "text": "really important"
+      },
+      {
+        "start": 475.919,
+        "duration": 4.161,
+        "text": "a primary key is this big thing a"
+      },
+      {
+        "start": 478.4,
+        "duration": 3.359,
+        "text": "partition key is included"
+      },
+      {
+        "start": 480.08,
+        "duration": 3.44,
+        "text": "inside of the primary key so that"
+      },
+      {
+        "start": 481.759,
+        "duration": 2.801,
+        "text": "partition key from a cassandra data"
+      },
+      {
+        "start": 483.52,
+        "duration": 3.519,
+        "text": "model"
+      },
+      {
+        "start": 484.56,
+        "duration": 3.28,
+        "text": "that's placement where in the cluster is"
+      },
+      {
+        "start": 487.039,
+        "duration": 3.44,
+        "text": "my data"
+      },
+      {
+        "start": 487.84,
+        "duration": 4.32,
+        "text": "and then primary key that says"
+      },
+      {
+        "start": 490.479,
+        "duration": 3.44,
+        "text": "everything inside of this primary key"
+      },
+      {
+        "start": 492.16,
+        "duration": 2.96,
+        "text": "designation all of those columns that i"
+      },
+      {
+        "start": 493.919,
+        "duration": 4.241,
+        "text": "included in here"
+      },
+      {
+        "start": 495.12,
+        "duration": 3.919,
+        "text": "make this record unique so primary key"
+      },
+      {
+        "start": 498.16,
+        "duration": 3.039,
+        "text": "for uniqueness"
+      },
+      {
+        "start": 499.039,
+        "duration": 3.761,
+        "text": "partition key for placement that's what"
+      },
+      {
+        "start": 501.199,
+        "duration": 4.321,
+        "text": "you need to know"
+      },
+      {
+        "start": 502.8,
+        "duration": 3.28,
+        "text": "can they be the same thing sure but not"
+      },
+      {
+        "start": 505.52,
+        "duration": 2.32,
+        "text": "always"
+      },
+      {
+        "start": 506.08,
+        "duration": 3.2,
+        "text": "and there are a lot of different options"
+      },
+      {
+        "start": 507.84,
+        "duration": 2.799,
+        "text": "this is why you're taking this course"
+      },
+      {
+        "start": 509.28,
+        "duration": 2.08,
+        "text": "that you want to understand all the"
+      },
+      {
+        "start": 510.639,
+        "duration": 3.361,
+        "text": "options"
+      },
+      {
+        "start": 511.36,
+        "duration": 4.32,
+        "text": "for your data model for your use case"
+      },
+      {
+        "start": 514.0,
+        "duration": 2.88,
+        "text": "but you are learning the most important"
+      },
+      {
+        "start": 515.68,
+        "duration": 3.76,
+        "text": "parts of a data model"
+      },
+      {
+        "start": 516.88,
+        "duration": 4.079,
+        "text": "you master these you will be a master at"
+      },
+      {
+        "start": 519.44,
+        "duration": 3.519,
+        "text": "cassandra data modeling"
+      },
+      {
+        "start": 520.959,
+        "duration": 4.32,
+        "text": "now let's try an exercise about what you"
+      },
+      {
+        "start": 522.959,
+        "duration": 8.88,
+        "text": "just learned doing some basic cql"
+      },
+      {
+        "start": 525.279,
+        "duration": 6.56,
+        "text": "and learning about primary keys"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:58:09.877095+00:00"
+}

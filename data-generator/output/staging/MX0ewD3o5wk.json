@@ -1,0 +1,1047 @@
+{
+  "video_id": "MX0ewD3o5wk",
+  "title": "Cassandra Forward - ACID transactions on Cassandra",
+  "description": "One of the most exciting developments in the world of Cassandra\ndevelopment. ACID transactions that work the way Cassandra works, with\nscale, distribution, and fault tolerance. Hear how this change is leapfrogging\nother transactional systems and will set the standard for years to come.\nAaron Ploetz | DataStax\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs?sub_confirmation=1 \nTwitter: https://twitter.com/datastaxdevs\nTwitch: https://www.twitch.tv/datastaxdevs\n\nAbout DataStax:\nDataStax is the company behind the massively scalable, highly available, cloud-native NoSQL data platform built on Apache Cassandra™. DataStax gives developers and enterprises the freedom to run data in any cloud, Kubernetes, hybrid or bare metal at global scale with zero downtime and zero lock-in. More than 450 of the world’s leading enterprises including Capital One, Cisco, Comcast, Delta Airlines, Macy’s, McDonald’s, Safeway, Sony, and Walmart use DataStax to build transformational data architectures for real-world outcomes. For more, visit DataStax.com and @DataStax.\n\nAbout DataStax Developer:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2023-03-14T19:00:13Z",
+  "thumbnail": "https://i.ytimg.com/vi/MX0ewD3o5wk/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "scalable",
+    "workshop",
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "nosql",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=MX0ewD3o5wk",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "hello everyone I'm Aaron pletz and I'd like to talk to you about acid transactions in Apache Cassandra so just what are acid transactions I mean after all this is something that if you've used Cassandra for a while I mean we've been doing pretty good without them so really why would you want them well acid transactions our database operations which adhere to the characteristics of atomicity consistency isolation and durability essentially what that all means is that you have several operations that can be treated as a single unit of work and can be rolled back in case of a compartmentalized failure and no matter what whether that that transaction succeeds or fails there will not be inconsistent data left over essentially that's what it means so let's look at this from a little bit of an example so how about how about a game transaction so let's assume that we're playing um you know one of our favorite board games and we go ahead and we roll our Dice and our marker ends up on a property that we want to buy so I'm going to go ahead and say yes I'll take Augustine Drive for 350 and I'll go ahead and and put my money out and what will happen is that if you've played this game before you know that the um the realtor or the the property person um will then find this property for you and essentially exchange it for your money but what happens if you know during that exchange maybe our property gets lost somewhere along the way so we hand the money over but maybe the property gets knocked off the table or in Cassandra terms maybe we lose a cloud region or we lose enough nodes that we can no longer get Quorum um so so yeah so there are some things that uh that need to be looked at here so in this particular situation how would acid help with that well so let's let's look at what we want to do we have three update statements here so let's say that our player's name is Avery he's the one who wants to buy that property so the first thing we're going to do is we're going to decrement Avery's cash by 350. we're going to increase the bank's cash by 350. and we're going to set Avery as the owner of the Augustine Drive property so all of these things kind of need to happen as a unit or not at all so the first thing we're going to do is you know syntactically speaking we'll say that we want to begin the transaction of course we're going to want to get a current state of the player Avery and specifically of his cash because we want to make sure that he actually has 350 in cash before we decide to take it from him because you know in most games they don't let you have negative values of cash um and if that condition is met then we go ahead and we run our update operations and then finally assuming that everything works out okay we commit the transaction and it happens it's written it's durable boom done so how does Apache Cassandra get there well it gets there through something called a chord as a part of Cassandra enhancement process number 15 for general purpose transactions it introduces the Accord timestamp consensus protocol which offers strict serializable isolation usually one round trip and it can operate over multiple keys essentially this is the cep that's going to put acid in Cassandra so Accord is a leaderless timestamp protocol and it works because we have this thing on every node that's called a reorder buffer which is essentially a structure that helps us guarantee that one round-trip consensus and it does so over something we call the fast path and with these fast path electorates we can actually actually have fault tolerance kind of like we do normally in Cassandra and there's also a slow path but we'll we'll touch on that a little bit later too and usually we can get this done in one round trip so the the nice thing about Accord is that it's leaderless you know it scales much like Cassandra does and it's failure modes tend to closely mirror Cassandra's failure modes as well so it makes a great fit for uh for what we're trying to do so let's assume that we have a cluster with a replication factor of three and it's an end node cluster you know maybe there are six nodes maybe there's 12 maybe there's 120. um regardless but um essentially what we're going to do is we're going to have um one node function as a coordinator just like in in almost every other Cassandra transaction or Cassandra operation I should say so one node will be the coordinator then there will also be additional nodes which will be part of the electorate the nodes that will actually like you know vote and decide whether or not this transaction is legit and can be completed so here's a little bit about how the fast path looks so let's say that we have our coordinator and we have our our replicas that that make up our electorate once the coordinator gets the transaction it is going to propose a time stamp that this transaction could run at it is going to send that time stamp out to the replicas and the replicas will check if they agree that this timestamp can be accepted in an ideal situation we get accepts from a quorum of our voting replicas that they accept that time stamp it gets back return to the coordinator and the coordinator goes ahead and executes the operations within the timestamp however maybe there's there's a conflict um in there with with one or more operations happening on on some of these voting replicas and you don't get that Quorum that comes back with an accept in this case the replicas will return a new time stamp along with the list of uh transactions that um that are conflicting and the idea here is then it'll go through the slow path of kind of figuring things out is where we're talking about making multiple trips to go ahead and make sure that this transaction makes it into Cassandra so if we didn't have a chord how would we do this well I mean there are ways um you know those of us who have used Cassandra for a long time we have stories about trying to do this and other complex operations in code um so really bringing a chord bringing acid transactions into Cassandra really helps with that developer experience because the developer experience we want with Cassandra is when devs are writing their application and their applications on Cassandra we want to make sure that we're giving them a feature Rich database to work with because what that's going to mean is that they're going to be able to write simple code to work with it and simple code makes devs happy and that's that's just the uh the way it works so essentially by putting Cassandra on acid we are drastically improving the developer experience as well as opening Cassandra up to a whole world of amazing use cases thank you very much and enjoy the rest of Cassandra Fork",
+    "segments": [
+      {
+        "start": 4.56,
+        "duration": 4.98,
+        "text": "hello everyone I'm Aaron pletz and I'd"
+      },
+      {
+        "start": 8.099,
+        "duration": 5.16,
+        "text": "like to talk to you about acid"
+      },
+      {
+        "start": 9.54,
+        "duration": 7.8,
+        "text": "transactions in Apache Cassandra"
+      },
+      {
+        "start": 13.259,
+        "duration": 5.761,
+        "text": "so just what are acid transactions I"
+      },
+      {
+        "start": 17.34,
+        "duration": 3.9,
+        "text": "mean after all this is something that if"
+      },
+      {
+        "start": 19.02,
+        "duration": 3.66,
+        "text": "you've used Cassandra for a while I mean"
+      },
+      {
+        "start": 21.24,
+        "duration": 5.699,
+        "text": "we've been doing pretty good without"
+      },
+      {
+        "start": 22.68,
+        "duration": 5.4,
+        "text": "them so really why would you want them"
+      },
+      {
+        "start": 26.939,
+        "duration": 3.541,
+        "text": "well"
+      },
+      {
+        "start": 28.08,
+        "duration": 4.979,
+        "text": "acid transactions our database"
+      },
+      {
+        "start": 30.48,
+        "duration": 5.28,
+        "text": "operations which adhere to the"
+      },
+      {
+        "start": 33.059,
+        "duration": 4.441,
+        "text": "characteristics of atomicity"
+      },
+      {
+        "start": 35.76,
+        "duration": 3.6,
+        "text": "consistency"
+      },
+      {
+        "start": 37.5,
+        "duration": 4.2,
+        "text": "isolation"
+      },
+      {
+        "start": 39.36,
+        "duration": 5.039,
+        "text": "and durability"
+      },
+      {
+        "start": 41.7,
+        "duration": 5.519,
+        "text": "essentially what that all means is that"
+      },
+      {
+        "start": 44.399,
+        "duration": 5.881,
+        "text": "you have several operations that can be"
+      },
+      {
+        "start": 47.219,
+        "duration": 4.82,
+        "text": "treated as a single unit of work and can"
+      },
+      {
+        "start": 50.28,
+        "duration": 5.22,
+        "text": "be rolled back in case of a"
+      },
+      {
+        "start": 52.039,
+        "duration": 5.441,
+        "text": "compartmentalized failure and no matter"
+      },
+      {
+        "start": 55.5,
+        "duration": 5.579,
+        "text": "what whether that that transaction"
+      },
+      {
+        "start": 57.48,
+        "duration": 6.66,
+        "text": "succeeds or fails there will not be"
+      },
+      {
+        "start": 61.079,
+        "duration": 5.701,
+        "text": "inconsistent data left over essentially"
+      },
+      {
+        "start": 64.14,
+        "duration": 4.979,
+        "text": "that's what it means"
+      },
+      {
+        "start": 66.78,
+        "duration": 4.68,
+        "text": "so let's look at this from a little bit"
+      },
+      {
+        "start": 69.119,
+        "duration": 4.621,
+        "text": "of an example so how about how about a"
+      },
+      {
+        "start": 71.46,
+        "duration": 3.96,
+        "text": "game transaction so let's assume that"
+      },
+      {
+        "start": 73.74,
+        "duration": 4.739,
+        "text": "we're playing um you know one of our"
+      },
+      {
+        "start": 75.42,
+        "duration": 7.26,
+        "text": "favorite board games and we go ahead and"
+      },
+      {
+        "start": 78.479,
+        "duration": 7.201,
+        "text": "we roll our Dice and our marker ends up"
+      },
+      {
+        "start": 82.68,
+        "duration": 6.299,
+        "text": "on a property that we want to buy"
+      },
+      {
+        "start": 85.68,
+        "duration": 7.979,
+        "text": "so I'm going to go ahead and say yes"
+      },
+      {
+        "start": 88.979,
+        "duration": 7.32,
+        "text": "I'll take Augustine Drive for 350 and"
+      },
+      {
+        "start": 93.659,
+        "duration": 4.981,
+        "text": "I'll go ahead and and put my money out"
+      },
+      {
+        "start": 96.299,
+        "duration": 3.96,
+        "text": "and what will happen is that if you've"
+      },
+      {
+        "start": 98.64,
+        "duration": 4.26,
+        "text": "played this game before you know that"
+      },
+      {
+        "start": 100.259,
+        "duration": 3.72,
+        "text": "the um the realtor or the the property"
+      },
+      {
+        "start": 102.9,
+        "duration": 3.179,
+        "text": "person"
+      },
+      {
+        "start": 103.979,
+        "duration": 4.5,
+        "text": "um will then find this property for you"
+      },
+      {
+        "start": 106.079,
+        "duration": 3.241,
+        "text": "and essentially exchange it for your"
+      },
+      {
+        "start": 108.479,
+        "duration": 3.541,
+        "text": "money"
+      },
+      {
+        "start": 109.32,
+        "duration": 4.86,
+        "text": "but what happens if you know during that"
+      },
+      {
+        "start": 112.02,
+        "duration": 4.5,
+        "text": "exchange maybe our property gets lost"
+      },
+      {
+        "start": 114.18,
+        "duration": 4.86,
+        "text": "somewhere along the way so we hand the"
+      },
+      {
+        "start": 116.52,
+        "duration": 4.86,
+        "text": "money over but maybe the property gets"
+      },
+      {
+        "start": 119.04,
+        "duration": 5.88,
+        "text": "knocked off the table or in Cassandra"
+      },
+      {
+        "start": 121.38,
+        "duration": 5.46,
+        "text": "terms maybe we lose a cloud region or we"
+      },
+      {
+        "start": 124.92,
+        "duration": 3.66,
+        "text": "lose enough nodes that we can no longer"
+      },
+      {
+        "start": 126.84,
+        "duration": 3.479,
+        "text": "get Quorum"
+      },
+      {
+        "start": 128.58,
+        "duration": 4.86,
+        "text": "um so so yeah so there are some things"
+      },
+      {
+        "start": 130.319,
+        "duration": 4.441,
+        "text": "that uh that need to be looked at here"
+      },
+      {
+        "start": 133.44,
+        "duration": 2.46,
+        "text": "so in this particular"
+      },
+      {
+        "start": 134.76,
+        "duration": 4.02,
+        "text": "situation"
+      },
+      {
+        "start": 135.9,
+        "duration": 5.04,
+        "text": "how would acid help with that"
+      },
+      {
+        "start": 138.78,
+        "duration": 3.42,
+        "text": "well so let's let's look at what we want"
+      },
+      {
+        "start": 140.94,
+        "duration": 3.84,
+        "text": "to do"
+      },
+      {
+        "start": 142.2,
+        "duration": 4.32,
+        "text": "we have three update statements here so"
+      },
+      {
+        "start": 144.78,
+        "duration": 4.08,
+        "text": "let's say that our player's name is"
+      },
+      {
+        "start": 146.52,
+        "duration": 3.359,
+        "text": "Avery he's the one who wants to buy that"
+      },
+      {
+        "start": 148.86,
+        "duration": 2.94,
+        "text": "property"
+      },
+      {
+        "start": 149.879,
+        "duration": 4.44,
+        "text": "so the first thing we're going to do is"
+      },
+      {
+        "start": 151.8,
+        "duration": 3.9,
+        "text": "we're going to decrement Avery's cash by"
+      },
+      {
+        "start": 154.319,
+        "duration": 4.321,
+        "text": "350."
+      },
+      {
+        "start": 155.7,
+        "duration": 5.16,
+        "text": "we're going to increase the bank's cash"
+      },
+      {
+        "start": 158.64,
+        "duration": 5.58,
+        "text": "by 350."
+      },
+      {
+        "start": 160.86,
+        "duration": 6.659,
+        "text": "and we're going to set Avery as the"
+      },
+      {
+        "start": 164.22,
+        "duration": 5.22,
+        "text": "owner of the Augustine Drive property"
+      },
+      {
+        "start": 167.519,
+        "duration": 6.141,
+        "text": "so all of these things kind of need to"
+      },
+      {
+        "start": 169.44,
+        "duration": 4.22,
+        "text": "happen as a unit or not at all"
+      },
+      {
+        "start": 173.819,
+        "duration": 3.841,
+        "text": "so the first thing we're going to do is"
+      },
+      {
+        "start": 175.739,
+        "duration": 3.78,
+        "text": "you know syntactically speaking we'll"
+      },
+      {
+        "start": 177.66,
+        "duration": 4.02,
+        "text": "say that we want to begin the"
+      },
+      {
+        "start": 179.519,
+        "duration": 3.841,
+        "text": "transaction"
+      },
+      {
+        "start": 181.68,
+        "duration": 4.62,
+        "text": "of course we're going to want to get a"
+      },
+      {
+        "start": 183.36,
+        "duration": 6.3,
+        "text": "current state of the player Avery and"
+      },
+      {
+        "start": 186.3,
+        "duration": 7.079,
+        "text": "specifically of his cash because we want"
+      },
+      {
+        "start": 189.66,
+        "duration": 6.06,
+        "text": "to make sure that he actually has 350 in"
+      },
+      {
+        "start": 193.379,
+        "duration": 4.801,
+        "text": "cash before we decide to take it from"
+      },
+      {
+        "start": 195.72,
+        "duration": 4.68,
+        "text": "him because you know in most games they"
+      },
+      {
+        "start": 198.18,
+        "duration": 3.6,
+        "text": "don't let you have negative values of"
+      },
+      {
+        "start": 200.4,
+        "duration": 4.919,
+        "text": "cash"
+      },
+      {
+        "start": 201.78,
+        "duration": 4.98,
+        "text": "um and if that condition is met then we"
+      },
+      {
+        "start": 205.319,
+        "duration": 2.7,
+        "text": "go ahead and we run our update"
+      },
+      {
+        "start": 206.76,
+        "duration": 2.94,
+        "text": "operations"
+      },
+      {
+        "start": 208.019,
+        "duration": 4.021,
+        "text": "and then finally assuming that"
+      },
+      {
+        "start": 209.7,
+        "duration": 4.56,
+        "text": "everything works out okay we commit the"
+      },
+      {
+        "start": 212.04,
+        "duration": 5.4,
+        "text": "transaction and it happens it's written"
+      },
+      {
+        "start": 214.26,
+        "duration": 4.32,
+        "text": "it's durable boom done"
+      },
+      {
+        "start": 217.44,
+        "duration": 3.659,
+        "text": "so"
+      },
+      {
+        "start": 218.58,
+        "duration": 4.439,
+        "text": "how does Apache Cassandra get there well"
+      },
+      {
+        "start": 221.099,
+        "duration": 3.961,
+        "text": "it gets there through something called a"
+      },
+      {
+        "start": 223.019,
+        "duration": 4.8,
+        "text": "chord"
+      },
+      {
+        "start": 225.06,
+        "duration": 5.28,
+        "text": "as a part of Cassandra enhancement"
+      },
+      {
+        "start": 227.819,
+        "duration": 3.84,
+        "text": "process number 15 for general purpose"
+      },
+      {
+        "start": 230.34,
+        "duration": 4.259,
+        "text": "transactions"
+      },
+      {
+        "start": 231.659,
+        "duration": 6.181,
+        "text": "it introduces the Accord timestamp"
+      },
+      {
+        "start": 234.599,
+        "duration": 5.181,
+        "text": "consensus protocol which offers strict"
+      },
+      {
+        "start": 237.84,
+        "duration": 5.459,
+        "text": "serializable isolation"
+      },
+      {
+        "start": 239.78,
+        "duration": 7.42,
+        "text": "usually one round trip and it can"
+      },
+      {
+        "start": 243.299,
+        "duration": 7.621,
+        "text": "operate over multiple keys"
+      },
+      {
+        "start": 247.2,
+        "duration": 7.2,
+        "text": "essentially this is the cep that's going"
+      },
+      {
+        "start": 250.92,
+        "duration": 6.719,
+        "text": "to put acid in Cassandra"
+      },
+      {
+        "start": 254.4,
+        "duration": 6.899,
+        "text": "so Accord is a leaderless timestamp"
+      },
+      {
+        "start": 257.639,
+        "duration": 5.821,
+        "text": "protocol and it works because we have"
+      },
+      {
+        "start": 261.299,
+        "duration": 4.381,
+        "text": "this thing on every node that's called a"
+      },
+      {
+        "start": 263.46,
+        "duration": 4.019,
+        "text": "reorder buffer which is essentially a"
+      },
+      {
+        "start": 265.68,
+        "duration": 3.9,
+        "text": "structure that helps us guarantee that"
+      },
+      {
+        "start": 267.479,
+        "duration": 4.44,
+        "text": "one round-trip consensus"
+      },
+      {
+        "start": 269.58,
+        "duration": 5.94,
+        "text": "and it does so over something we call"
+      },
+      {
+        "start": 271.919,
+        "duration": 5.521,
+        "text": "the fast path and with these fast path"
+      },
+      {
+        "start": 275.52,
+        "duration": 4.08,
+        "text": "electorates we can actually actually"
+      },
+      {
+        "start": 277.44,
+        "duration": 4.38,
+        "text": "have fault tolerance kind of like we do"
+      },
+      {
+        "start": 279.6,
+        "duration": 4.26,
+        "text": "normally in Cassandra"
+      },
+      {
+        "start": 281.82,
+        "duration": 3.36,
+        "text": "and there's also a slow path but we'll"
+      },
+      {
+        "start": 283.86,
+        "duration": 4.92,
+        "text": "we'll touch on that a little bit later"
+      },
+      {
+        "start": 285.18,
+        "duration": 5.4,
+        "text": "too and usually we can get this done in"
+      },
+      {
+        "start": 288.78,
+        "duration": 4.02,
+        "text": "one round trip"
+      },
+      {
+        "start": 290.58,
+        "duration": 5.339,
+        "text": "so the the nice thing about Accord is"
+      },
+      {
+        "start": 292.8,
+        "duration": 5.04,
+        "text": "that it's leaderless you know it scales"
+      },
+      {
+        "start": 295.919,
+        "duration": 4.441,
+        "text": "much like Cassandra does and it's"
+      },
+      {
+        "start": 297.84,
+        "duration": 4.38,
+        "text": "failure modes tend to closely mirror"
+      },
+      {
+        "start": 300.36,
+        "duration": 3.72,
+        "text": "Cassandra's failure modes as well so it"
+      },
+      {
+        "start": 302.22,
+        "duration": 4.4,
+        "text": "makes a great fit for uh for what we're"
+      },
+      {
+        "start": 304.08,
+        "duration": 2.54,
+        "text": "trying to do"
+      },
+      {
+        "start": 306.66,
+        "duration": 4.5,
+        "text": "so let's assume that we have a cluster"
+      },
+      {
+        "start": 308.82,
+        "duration": 4.02,
+        "text": "with a replication factor of three and"
+      },
+      {
+        "start": 311.16,
+        "duration": 3.42,
+        "text": "it's an end node cluster you know maybe"
+      },
+      {
+        "start": 312.84,
+        "duration": 4.26,
+        "text": "there are six nodes maybe there's 12"
+      },
+      {
+        "start": 314.58,
+        "duration": 4.74,
+        "text": "maybe there's 120."
+      },
+      {
+        "start": 317.1,
+        "duration": 6.48,
+        "text": "um regardless but um essentially what"
+      },
+      {
+        "start": 319.32,
+        "duration": 5.939,
+        "text": "we're going to do is we're going to have"
+      },
+      {
+        "start": 323.58,
+        "duration": 3.899,
+        "text": "um one node function as a coordinator"
+      },
+      {
+        "start": 325.259,
+        "duration": 4.261,
+        "text": "just like in in almost every other"
+      },
+      {
+        "start": 327.479,
+        "duration": 4.921,
+        "text": "Cassandra transaction or Cassandra"
+      },
+      {
+        "start": 329.52,
+        "duration": 4.86,
+        "text": "operation I should say so one node will"
+      },
+      {
+        "start": 332.4,
+        "duration": 4.68,
+        "text": "be the coordinator"
+      },
+      {
+        "start": 334.38,
+        "duration": 5.34,
+        "text": "then there will also be additional nodes"
+      },
+      {
+        "start": 337.08,
+        "duration": 4.559,
+        "text": "which will be part of the electorate the"
+      },
+      {
+        "start": 339.72,
+        "duration": 4.5,
+        "text": "nodes that will actually like you know"
+      },
+      {
+        "start": 341.639,
+        "duration": 4.741,
+        "text": "vote and decide whether or not this"
+      },
+      {
+        "start": 344.22,
+        "duration": 4.64,
+        "text": "transaction is legit and can be"
+      },
+      {
+        "start": 346.38,
+        "duration": 2.48,
+        "text": "completed"
+      },
+      {
+        "start": 349.02,
+        "duration": 3.54,
+        "text": "so here's a little bit about how the"
+      },
+      {
+        "start": 350.699,
+        "duration": 4.081,
+        "text": "fast path looks so let's say that we"
+      },
+      {
+        "start": 352.56,
+        "duration": 3.96,
+        "text": "have our coordinator and we have our our"
+      },
+      {
+        "start": 354.78,
+        "duration": 3.359,
+        "text": "replicas that that make up our"
+      },
+      {
+        "start": 356.52,
+        "duration": 4.08,
+        "text": "electorate"
+      },
+      {
+        "start": 358.139,
+        "duration": 5.28,
+        "text": "once the coordinator gets the"
+      },
+      {
+        "start": 360.6,
+        "duration": 5.099,
+        "text": "transaction it is going to propose a"
+      },
+      {
+        "start": 363.419,
+        "duration": 3.301,
+        "text": "time stamp that this transaction could"
+      },
+      {
+        "start": 365.699,
+        "duration": 4.021,
+        "text": "run at"
+      },
+      {
+        "start": 366.72,
+        "duration": 6.18,
+        "text": "it is going to send that time stamp out"
+      },
+      {
+        "start": 369.72,
+        "duration": 5.88,
+        "text": "to the replicas and the replicas will"
+      },
+      {
+        "start": 372.9,
+        "duration": 5.16,
+        "text": "check if they agree that this timestamp"
+      },
+      {
+        "start": 375.6,
+        "duration": 5.7,
+        "text": "can be accepted"
+      },
+      {
+        "start": 378.06,
+        "duration": 6.32,
+        "text": "in an ideal situation we get accepts"
+      },
+      {
+        "start": 381.3,
+        "duration": 6.179,
+        "text": "from a quorum of our voting replicas"
+      },
+      {
+        "start": 384.38,
+        "duration": 5.2,
+        "text": "that they accept that time stamp it gets"
+      },
+      {
+        "start": 387.479,
+        "duration": 4.56,
+        "text": "back return to the coordinator and the"
+      },
+      {
+        "start": 389.58,
+        "duration": 5.839,
+        "text": "coordinator goes ahead and executes the"
+      },
+      {
+        "start": 392.039,
+        "duration": 3.38,
+        "text": "operations within the timestamp"
+      },
+      {
+        "start": 395.759,
+        "duration": 4.981,
+        "text": "however maybe there's there's a conflict"
+      },
+      {
+        "start": 399.419,
+        "duration": 3.421,
+        "text": "um in there with with one or more"
+      },
+      {
+        "start": 400.74,
+        "duration": 4.92,
+        "text": "operations happening on on some of these"
+      },
+      {
+        "start": 402.84,
+        "duration": 6.24,
+        "text": "voting replicas and you don't get that"
+      },
+      {
+        "start": 405.66,
+        "duration": 6.3,
+        "text": "Quorum that comes back with an accept in"
+      },
+      {
+        "start": 409.08,
+        "duration": 6.42,
+        "text": "this case the replicas will return a new"
+      },
+      {
+        "start": 411.96,
+        "duration": 5.4,
+        "text": "time stamp along with the list of uh"
+      },
+      {
+        "start": 415.5,
+        "duration": 2.94,
+        "text": "transactions that um that are"
+      },
+      {
+        "start": 417.36,
+        "duration": 3.48,
+        "text": "conflicting"
+      },
+      {
+        "start": 418.44,
+        "duration": 4.14,
+        "text": "and the idea here is then it'll go"
+      },
+      {
+        "start": 420.84,
+        "duration": 3.6,
+        "text": "through the slow path of kind of"
+      },
+      {
+        "start": 422.58,
+        "duration": 4.2,
+        "text": "figuring things out is where we're"
+      },
+      {
+        "start": 424.44,
+        "duration": 3.96,
+        "text": "talking about making multiple trips to"
+      },
+      {
+        "start": 426.78,
+        "duration": 5.84,
+        "text": "go ahead and make sure that this"
+      },
+      {
+        "start": 428.4,
+        "duration": 4.22,
+        "text": "transaction makes it into Cassandra"
+      },
+      {
+        "start": 433.02,
+        "duration": 5.94,
+        "text": "so if we didn't have a chord how would"
+      },
+      {
+        "start": 435.6,
+        "duration": 5.7,
+        "text": "we do this well I mean there are ways"
+      },
+      {
+        "start": 438.96,
+        "duration": 5.1,
+        "text": "um you know those of us who have used"
+      },
+      {
+        "start": 441.3,
+        "duration": 4.679,
+        "text": "Cassandra for a long time we have"
+      },
+      {
+        "start": 444.06,
+        "duration": 5.16,
+        "text": "stories about trying to do this and"
+      },
+      {
+        "start": 445.979,
+        "duration": 7.081,
+        "text": "other complex operations in code"
+      },
+      {
+        "start": 449.22,
+        "duration": 7.08,
+        "text": "um so really bringing a chord bringing"
+      },
+      {
+        "start": 453.06,
+        "duration": 4.859,
+        "text": "acid transactions into Cassandra really"
+      },
+      {
+        "start": 456.3,
+        "duration": 4.2,
+        "text": "helps with that developer experience"
+      },
+      {
+        "start": 457.919,
+        "duration": 5.461,
+        "text": "because the developer experience we want"
+      },
+      {
+        "start": 460.5,
+        "duration": 4.5,
+        "text": "with Cassandra is when devs are writing"
+      },
+      {
+        "start": 463.38,
+        "duration": 3.84,
+        "text": "their application and their applications"
+      },
+      {
+        "start": 465.0,
+        "duration": 3.9,
+        "text": "on Cassandra we want to make sure that"
+      },
+      {
+        "start": 467.22,
+        "duration": 3.96,
+        "text": "we're giving them a feature Rich"
+      },
+      {
+        "start": 468.9,
+        "duration": 3.66,
+        "text": "database to work with because what"
+      },
+      {
+        "start": 471.18,
+        "duration": 4.56,
+        "text": "that's going to mean is that they're"
+      },
+      {
+        "start": 472.56,
+        "duration": 5.94,
+        "text": "going to be able to write simple code to"
+      },
+      {
+        "start": 475.74,
+        "duration": 5.1,
+        "text": "work with it and simple code"
+      },
+      {
+        "start": 478.5,
+        "duration": 4.86,
+        "text": "makes devs happy and that's that's just"
+      },
+      {
+        "start": 480.84,
+        "duration": 5.46,
+        "text": "the uh the way it works"
+      },
+      {
+        "start": 483.36,
+        "duration": 6.839,
+        "text": "so essentially by putting Cassandra on"
+      },
+      {
+        "start": 486.3,
+        "duration": 6.0,
+        "text": "acid we are drastically improving the"
+      },
+      {
+        "start": 490.199,
+        "duration": 5.041,
+        "text": "developer experience as well as opening"
+      },
+      {
+        "start": 492.3,
+        "duration": 5.28,
+        "text": "Cassandra up to a whole world of amazing"
+      },
+      {
+        "start": 495.24,
+        "duration": 4.62,
+        "text": "use cases"
+      },
+      {
+        "start": 497.58,
+        "duration": 5.299,
+        "text": "thank you very much and enjoy the rest"
+      },
+      {
+        "start": 499.86,
+        "duration": 3.019,
+        "text": "of Cassandra Fork"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T18:02:51.510225+00:00"
+}

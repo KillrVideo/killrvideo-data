@@ -1,0 +1,1248 @@
+{
+  "video_id": "-UzePwzAXOA",
+  "title": "Solving IoT Data Management Challenges",
+  "description": "We're talking about the challenges of modern data management - and in particular around IoT data. IoT data has some unique challenges.  Challenges like the velocity and volume of the data and how we can make sense of that data in real-time to provide insights and actions for our customers.  \n\nWe will also take a look at Apache Cassandra and DataStax Enterprise uniquely solve these challenges.",
+  "published_at": "2019-10-15T20:06:45Z",
+  "thumbnail": "https://i.ytimg.com/vi/-UzePwzAXOA/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "talk",
+    "cassandra",
+    "datastax",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=-UzePwzAXOA",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] hi today we're going to talk about IOT and the data challenges that come with storing the types of data which IOT creates everywhere we look today we see devices machines that create billions of data points every day devices like smartphones and smart appliances or machines like autonomous cars and wind turbines are creating data faster than the world has ever seen before and each of these points needs to be stored somewhere somewhere that both users and operators can access in a relatively small amount of time two main challenges that come with storing this amount of data are one how do we process and store this ever-growing amount of data and two how to store this data efficiently so that we can make it easy to retrieve and perform analytics we can think of an IOT system as being divided into three main areas one devices - IOT hub and three business insights we need a way to manage our devices this includes device registration device state management and data collection in cassandra these can be simple tables to keep track of the device its properties and its state what about complex devices that are made up of tens or hundreds of other devices how do we understand the relationships between these devices this is where DC graph can help DAC graph is designed to handle the relationships between complex and constantly changing data perfectly suited to make sense of connections in real time to deliver instantly actionable insight and superior experiences processing high velocity data is never easy especially if we want to create alerts and notifications against assigned thresholds and limits DSC analytics incorporates spark streaming which allows you to consume live data streams from sources including akka and Kafka this data can then be analyzed by spark applications checking those thresholds and limits creating alerts and notification if needed and then storing the data in the database this can be done in the central IOT hub or it can be done at remote gateways so that the raw data stays at the remote areas in this case the central hub will be sent summary data to conserve bandwidth and data processing if needed the central hub can always inspect the data at the field gateways or edge devices the main role the central hub is to store the data efficiently for both collection and retrieval this is an arduous task and most databases were not designed to be able to handle the scale and speed of the data in IOT systems as you may already know Cassandra and data stacks were designed to handle large amounts of data across many commodity servers providing high availability and predictable scalability with no single point of failure so no matter how fast and big the data becomes the database will always be able to scale to accommodate the load Cassandra stores data in a columnar structure and this is perfect for time series type data which IOT devices produce an example of a time series efficient table would be the following okay so in this example we're gonna create a table called device data as you can see it has an ID column of text a time as timestamp a value is an int but here's the key part is the primary key notice we have the ID is our partition key and time is a clustering column key thing here is with clustering order by time descending right so if you think about time series data this actually works really well because the data will be pre-ordered into the essentially latest piece of data at the top and here is a concrete example of then how to insert data into the table that we just created in Cassandra we try to keep the partition size down to a max of a 100 megabytes of data or a hundred thousand rows in this case the partition is the device itself so we will keep all of the values associated with this device on the same partition this design is obviously dependent on the data and the rows and as a quick guideline to achieve this if we suspect the data will get larger than these limits we change the data model to incorporate a bucket into the partition key this bucket can be something simple like a day or a month for example if we were getting one value for each sensor every minute we would expect to have every sensor to have 1440 values each day after 70 days this volume will exceed the guideline for the partition size if we want to keep less than 70 days worth of data we can simply delete it when it's no longer needed if we want to keep this data for longer let's say five years we can introduce a bucket of year month to the partition key to ensure a maximum of 31 days belongs to one partition so the change data model might look something like this so here's an example of our modified data model adding in the new bucket so here you can see we have again our idea of text but take a look at what happened to our primary key notice now we have both ID and year month creating a composite partition key and time is still our clustering column and here are some concrete examples of some insert statements for our new data model now notice the difference in our select statement were here we're not only selecting from ID but we're also selecting from ID and year month because that forms our composite partition key collecting data can be very different than retrieving it when collecting data we are usually collecting millions of points from thousands or millions of devices when querying we are usually requesting the data for one device over a certain period of time this allows us to perform some optimizations on long term storage if needed so for example older data can be stored in a warm compressed State with extremely fast retrieval times while recent data can be held the way it's collected in the hot store for example we collect one value per minute for our sensors when analyzing these values the minimum granularity we look at is one day in most cases then it would be advisable to move all the data points for a day into a single compressed field like a single column value or cell after the data is collected in any format like bytes Jason or Java see realizable this allows data from a specific day to be retrieved by reading just one field which can be extremely performant in the query while also reducing the historical data footprint now here's an example of a table using this technique notice again we have our ID column our year month but now the key difference is the measurements column that we've added that will either store data from our bytes JSON object or Java serializable in the measurements field and again we have some concrete insert statements here that give you some examples of how it might look inserting data into this table retrieving the daily data to store it in a compressed fashion also gives us a chance to sample values compute statistics or aggregate data in a way that may be useful at a higher level these calculate aggregates may include the number of values per day the Summa values and maybe the average per day per week or per month for example purging data is always an important part of any database and Cassandra and data sacks have some tools to help here first is the time to live feature which tells the database to delete the data after a certain amount of time we can also use the power Sparx distributed engine to concurrently process the delete jobs this can be done as part of a batch job that offloads the data to cold storage and removes the data from the hot or warm layer the data tearing aspect is also very important from a cost of ownership point of view we want data to be moved through hot to cold storage as the data becomes less valuable to the system an example would be to use Cassandra as a hot real time layer to process analyze and collect the data the warm layer would store a compressed version along with statistics and summary data again in Cassandra as the data ages it would be compressed further and stored in files or compress structures and cheap storage such as Hadoop or a data warehouse the insights produced from a system are only as good as the data that is available so ensuring that data is relevant and easily available is essential technologies like machine learning and AI are becoming more mainstream and the keying rate into both of these is data spark SQL allows us to get data from all of the different storages at once allowing us to easily combine new and old data this is typical of a modern lambda architecture another point to consider is the use of AI machine learning as a service more vendors are offering services where customers use these platforms and simply bring their data to the service typical examples are image classification and object detection getting your big data sets close to these platforms can be key and taking Vantage of them but what if we are decided on a cloud vendor that doesn't have the services that you require or maybe they offer the service but you know now that another vendor hasn't more efficient algorithm for your use case the need to have flexibility and data sets will be key in taking advantage of this platform",
+    "segments": [
+      {
+        "start": 2.26,
+        "duration": 3.07,
+        "text": "[Music]"
+      },
+      {
+        "start": 6.14,
+        "duration": 5.11,
+        "text": "hi today we're going to talk about IOT"
+      },
+      {
+        "start": 9.54,
+        "duration": 3.9,
+        "text": "and the data challenges that come with"
+      },
+      {
+        "start": 11.25,
+        "duration": 5.039,
+        "text": "storing the types of data which IOT"
+      },
+      {
+        "start": 13.44,
+        "duration": 5.009,
+        "text": "creates everywhere we look today we see"
+      },
+      {
+        "start": 16.289,
+        "duration": 4.291,
+        "text": "devices machines that create billions of"
+      },
+      {
+        "start": 18.449,
+        "duration": 4.5,
+        "text": "data points every day devices like"
+      },
+      {
+        "start": 20.58,
+        "duration": 4.68,
+        "text": "smartphones and smart appliances or"
+      },
+      {
+        "start": 22.949,
+        "duration": 4.59,
+        "text": "machines like autonomous cars and wind"
+      },
+      {
+        "start": 25.26,
+        "duration": 4.71,
+        "text": "turbines are creating data faster than"
+      },
+      {
+        "start": 27.539,
+        "duration": 4.051,
+        "text": "the world has ever seen before and each"
+      },
+      {
+        "start": 29.97,
+        "duration": 3.69,
+        "text": "of these points needs to be stored"
+      },
+      {
+        "start": 31.59,
+        "duration": 4.379,
+        "text": "somewhere somewhere that both users and"
+      },
+      {
+        "start": 33.66,
+        "duration": 5.55,
+        "text": "operators can access in a relatively"
+      },
+      {
+        "start": 35.969,
+        "duration": 4.921,
+        "text": "small amount of time two main challenges"
+      },
+      {
+        "start": 39.21,
+        "duration": 5.009,
+        "text": "that come with storing this amount of"
+      },
+      {
+        "start": 40.89,
+        "duration": 5.61,
+        "text": "data are one how do we process and store"
+      },
+      {
+        "start": 44.219,
+        "duration": 4.921,
+        "text": "this ever-growing amount of data and two"
+      },
+      {
+        "start": 46.5,
+        "duration": 4.68,
+        "text": "how to store this data efficiently so"
+      },
+      {
+        "start": 49.14,
+        "duration": 4.649,
+        "text": "that we can make it easy to retrieve and"
+      },
+      {
+        "start": 51.18,
+        "duration": 4.89,
+        "text": "perform analytics we can think of an IOT"
+      },
+      {
+        "start": 53.789,
+        "duration": 7.11,
+        "text": "system as being divided into three main"
+      },
+      {
+        "start": 56.07,
+        "duration": 7.53,
+        "text": "areas one devices - IOT hub and three"
+      },
+      {
+        "start": 60.899,
+        "duration": 5.101,
+        "text": "business insights we need a way to"
+      },
+      {
+        "start": 63.6,
+        "duration": 4.769,
+        "text": "manage our devices this includes device"
+      },
+      {
+        "start": 66.0,
+        "duration": 5.25,
+        "text": "registration device state management and"
+      },
+      {
+        "start": 68.369,
+        "duration": 4.591,
+        "text": "data collection in cassandra these can"
+      },
+      {
+        "start": 71.25,
+        "duration": 4.65,
+        "text": "be simple tables to keep track of the"
+      },
+      {
+        "start": 72.96,
+        "duration": 4.5,
+        "text": "device its properties and its state what"
+      },
+      {
+        "start": 75.9,
+        "duration": 4.2,
+        "text": "about complex devices that are made up"
+      },
+      {
+        "start": 77.46,
+        "duration": 4.17,
+        "text": "of tens or hundreds of other devices how"
+      },
+      {
+        "start": 80.1,
+        "duration": 4.35,
+        "text": "do we understand the relationships"
+      },
+      {
+        "start": 81.63,
+        "duration": 5.82,
+        "text": "between these devices this is where DC"
+      },
+      {
+        "start": 84.45,
+        "duration": 5.7,
+        "text": "graph can help DAC graph is designed to"
+      },
+      {
+        "start": 87.45,
+        "duration": 5.16,
+        "text": "handle the relationships between complex"
+      },
+      {
+        "start": 90.15,
+        "duration": 4.17,
+        "text": "and constantly changing data perfectly"
+      },
+      {
+        "start": 92.61,
+        "duration": 3.45,
+        "text": "suited to make sense of connections in"
+      },
+      {
+        "start": 94.32,
+        "duration": 3.299,
+        "text": "real time to deliver instantly"
+      },
+      {
+        "start": 96.06,
+        "duration": 4.59,
+        "text": "actionable insight and superior"
+      },
+      {
+        "start": 97.619,
+        "duration": 5.491,
+        "text": "experiences processing high velocity"
+      },
+      {
+        "start": 100.65,
+        "duration": 3.62,
+        "text": "data is never easy especially if we want"
+      },
+      {
+        "start": 103.11,
+        "duration": 3.689,
+        "text": "to create alerts and notifications"
+      },
+      {
+        "start": 104.27,
+        "duration": 5.11,
+        "text": "against assigned thresholds and limits"
+      },
+      {
+        "start": 106.799,
+        "duration": 4.261,
+        "text": "DSC analytics incorporates spark"
+      },
+      {
+        "start": 109.38,
+        "duration": 3.69,
+        "text": "streaming which allows you to consume"
+      },
+      {
+        "start": 111.06,
+        "duration": 4.559,
+        "text": "live data streams from sources including"
+      },
+      {
+        "start": 113.07,
+        "duration": 5.04,
+        "text": "akka and Kafka this data can then be"
+      },
+      {
+        "start": 115.619,
+        "duration": 4.14,
+        "text": "analyzed by spark applications checking"
+      },
+      {
+        "start": 118.11,
+        "duration": 3.66,
+        "text": "those thresholds and limits creating"
+      },
+      {
+        "start": 119.759,
+        "duration": 3.801,
+        "text": "alerts and notification if needed and"
+      },
+      {
+        "start": 121.77,
+        "duration": 4.44,
+        "text": "then storing the data in the database"
+      },
+      {
+        "start": 123.56,
+        "duration": 4.929,
+        "text": "this can be done in the central IOT hub"
+      },
+      {
+        "start": 126.21,
+        "duration": 4.68,
+        "text": "or it can be done at remote gateways so"
+      },
+      {
+        "start": 128.489,
+        "duration": 5.431,
+        "text": "that the raw data stays at the remote"
+      },
+      {
+        "start": 130.89,
+        "duration": 4.65,
+        "text": "areas in this case the central hub will"
+      },
+      {
+        "start": 133.92,
+        "duration": 4.2,
+        "text": "be sent summary data to conserve"
+      },
+      {
+        "start": 135.54,
+        "duration": 4.529,
+        "text": "bandwidth and data processing if needed"
+      },
+      {
+        "start": 138.12,
+        "duration": 3.6,
+        "text": "the central hub can always inspect the"
+      },
+      {
+        "start": 140.069,
+        "duration": 4.441,
+        "text": "data at the field gateways or edge"
+      },
+      {
+        "start": 141.72,
+        "duration": 5.19,
+        "text": "devices the main role the central hub is"
+      },
+      {
+        "start": 144.51,
+        "duration": 4.47,
+        "text": "to store the data efficiently for both"
+      },
+      {
+        "start": 146.91,
+        "duration": 4.47,
+        "text": "collection and retrieval this is an"
+      },
+      {
+        "start": 148.98,
+        "duration": 4.53,
+        "text": "arduous task and most databases were not"
+      },
+      {
+        "start": 151.38,
+        "duration": 4.74,
+        "text": "designed to be able to handle the scale"
+      },
+      {
+        "start": 153.51,
+        "duration": 4.86,
+        "text": "and speed of the data in IOT systems as"
+      },
+      {
+        "start": 156.12,
+        "duration": 4.02,
+        "text": "you may already know Cassandra and data"
+      },
+      {
+        "start": 158.37,
+        "duration": 3.99,
+        "text": "stacks were designed to handle large"
+      },
+      {
+        "start": 160.14,
+        "duration": 2.61,
+        "text": "amounts of data across many commodity"
+      },
+      {
+        "start": 162.36,
+        "duration": 2.33,
+        "text": "servers"
+      },
+      {
+        "start": 162.75,
+        "duration": 4.59,
+        "text": "providing high availability and"
+      },
+      {
+        "start": 164.69,
+        "duration": 4.9,
+        "text": "predictable scalability with no single"
+      },
+      {
+        "start": 167.34,
+        "duration": 4.649,
+        "text": "point of failure so no matter how fast"
+      },
+      {
+        "start": 169.59,
+        "duration": 4.229,
+        "text": "and big the data becomes the database"
+      },
+      {
+        "start": 171.989,
+        "duration": 3.381,
+        "text": "will always be able to scale to"
+      },
+      {
+        "start": 173.819,
+        "duration": 3.961,
+        "text": "accommodate the load"
+      },
+      {
+        "start": 175.37,
+        "duration": 4.27,
+        "text": "Cassandra stores data in a columnar"
+      },
+      {
+        "start": 177.78,
+        "duration": 3.87,
+        "text": "structure and this is perfect for time"
+      },
+      {
+        "start": 179.64,
+        "duration": 4.47,
+        "text": "series type data which IOT devices"
+      },
+      {
+        "start": 181.65,
+        "duration": 4.19,
+        "text": "produce an example of a time series"
+      },
+      {
+        "start": 184.11,
+        "duration": 4.08,
+        "text": "efficient table would be the following"
+      },
+      {
+        "start": 185.84,
+        "duration": 5.02,
+        "text": "okay so in this example we're gonna"
+      },
+      {
+        "start": 188.19,
+        "duration": 5.91,
+        "text": "create a table called device data as you"
+      },
+      {
+        "start": 190.86,
+        "duration": 6.42,
+        "text": "can see it has an ID column of text a"
+      },
+      {
+        "start": 194.1,
+        "duration": 5.34,
+        "text": "time as timestamp a value is an int but"
+      },
+      {
+        "start": 197.28,
+        "duration": 4.65,
+        "text": "here's the key part is the primary key"
+      },
+      {
+        "start": 199.44,
+        "duration": 4.98,
+        "text": "notice we have the ID is our partition"
+      },
+      {
+        "start": 201.93,
+        "duration": 4.5,
+        "text": "key and time is a clustering column key"
+      },
+      {
+        "start": 204.42,
+        "duration": 4.2,
+        "text": "thing here is with clustering order by"
+      },
+      {
+        "start": 206.43,
+        "duration": 3.809,
+        "text": "time descending right so if you think"
+      },
+      {
+        "start": 208.62,
+        "duration": 3.989,
+        "text": "about time series data this actually"
+      },
+      {
+        "start": 210.239,
+        "duration": 4.62,
+        "text": "works really well because the data will"
+      },
+      {
+        "start": 212.609,
+        "duration": 6.511,
+        "text": "be pre-ordered into the essentially"
+      },
+      {
+        "start": 214.859,
+        "duration": 6.571,
+        "text": "latest piece of data at the top and here"
+      },
+      {
+        "start": 219.12,
+        "duration": 4.77,
+        "text": "is a concrete example of then how to"
+      },
+      {
+        "start": 221.43,
+        "duration": 5.25,
+        "text": "insert data into the table that we just"
+      },
+      {
+        "start": 223.89,
+        "duration": 4.92,
+        "text": "created in Cassandra we try to keep the"
+      },
+      {
+        "start": 226.68,
+        "duration": 4.05,
+        "text": "partition size down to a max of a 100"
+      },
+      {
+        "start": 228.81,
+        "duration": 4.5,
+        "text": "megabytes of data or a hundred thousand"
+      },
+      {
+        "start": 230.73,
+        "duration": 3.42,
+        "text": "rows in this case the partition is the"
+      },
+      {
+        "start": 233.31,
+        "duration": 2.64,
+        "text": "device itself"
+      },
+      {
+        "start": 234.15,
+        "duration": 3.63,
+        "text": "so we will keep all of the values"
+      },
+      {
+        "start": 235.95,
+        "duration": 4.2,
+        "text": "associated with this device on the same"
+      },
+      {
+        "start": 237.78,
+        "duration": 4.17,
+        "text": "partition this design is obviously"
+      },
+      {
+        "start": 240.15,
+        "duration": 4.08,
+        "text": "dependent on the data and the rows and"
+      },
+      {
+        "start": 241.95,
+        "duration": 4.259,
+        "text": "as a quick guideline to achieve this if"
+      },
+      {
+        "start": 244.23,
+        "duration": 4.08,
+        "text": "we suspect the data will get larger than"
+      },
+      {
+        "start": 246.209,
+        "duration": 3.9,
+        "text": "these limits we change the data model to"
+      },
+      {
+        "start": 248.31,
+        "duration": 3.989,
+        "text": "incorporate a bucket into the partition"
+      },
+      {
+        "start": 250.109,
+        "duration": 5.16,
+        "text": "key this bucket can be something simple"
+      },
+      {
+        "start": 252.299,
+        "duration": 4.711,
+        "text": "like a day or a month for example if we"
+      },
+      {
+        "start": 255.269,
+        "duration": 3.69,
+        "text": "were getting one value for each sensor"
+      },
+      {
+        "start": 257.01,
+        "duration": 5.13,
+        "text": "every minute we would expect to have"
+      },
+      {
+        "start": 258.959,
+        "duration": 5.881,
+        "text": "every sensor to have 1440 values each"
+      },
+      {
+        "start": 262.14,
+        "duration": 4.38,
+        "text": "day after 70 days this volume will"
+      },
+      {
+        "start": 264.84,
+        "duration": 2.46,
+        "text": "exceed the guideline for the partition"
+      },
+      {
+        "start": 266.52,
+        "duration": 2.519,
+        "text": "size"
+      },
+      {
+        "start": 267.3,
+        "duration": 3.72,
+        "text": "if we want to keep less than 70 days"
+      },
+      {
+        "start": 269.039,
+        "duration": 3.901,
+        "text": "worth of data we can simply delete it"
+      },
+      {
+        "start": 271.02,
+        "duration": 4.019,
+        "text": "when it's no longer needed if we want to"
+      },
+      {
+        "start": 272.94,
+        "duration": 4.56,
+        "text": "keep this data for longer let's say five"
+      },
+      {
+        "start": 275.039,
+        "duration": 4.741,
+        "text": "years we can introduce a bucket of year"
+      },
+      {
+        "start": 277.5,
+        "duration": 4.889,
+        "text": "month to the partition key to ensure a"
+      },
+      {
+        "start": 279.78,
+        "duration": 5.58,
+        "text": "maximum of 31 days belongs to one"
+      },
+      {
+        "start": 282.389,
+        "duration": 5.25,
+        "text": "partition so the change data model might"
+      },
+      {
+        "start": 285.36,
+        "duration": 4.44,
+        "text": "look something like this so here's an"
+      },
+      {
+        "start": 287.639,
+        "duration": 4.65,
+        "text": "example of our modified data model"
+      },
+      {
+        "start": 289.8,
+        "duration": 4.739,
+        "text": "adding in the new bucket so here you can"
+      },
+      {
+        "start": 292.289,
+        "duration": 3.331,
+        "text": "see we have again our idea of text but"
+      },
+      {
+        "start": 294.539,
+        "duration": 4.171,
+        "text": "take a look at what happened to our"
+      },
+      {
+        "start": 295.62,
+        "duration": 5.88,
+        "text": "primary key notice now we have both ID"
+      },
+      {
+        "start": 298.71,
+        "duration": 5.25,
+        "text": "and year month creating a composite"
+      },
+      {
+        "start": 301.5,
+        "duration": 4.74,
+        "text": "partition key and time is still our"
+      },
+      {
+        "start": 303.96,
+        "duration": 4.169,
+        "text": "clustering column and here are some"
+      },
+      {
+        "start": 306.24,
+        "duration": 5.16,
+        "text": "concrete examples of some insert"
+      },
+      {
+        "start": 308.129,
+        "duration": 4.53,
+        "text": "statements for our new data model now"
+      },
+      {
+        "start": 311.4,
+        "duration": 3.06,
+        "text": "notice the difference in our select"
+      },
+      {
+        "start": 312.659,
+        "duration": 3.51,
+        "text": "statement were here we're not only"
+      },
+      {
+        "start": 314.46,
+        "duration": 4.259,
+        "text": "selecting from ID but we're also"
+      },
+      {
+        "start": 316.169,
+        "duration": 4.821,
+        "text": "selecting from ID and year month because"
+      },
+      {
+        "start": 318.719,
+        "duration": 4.5,
+        "text": "that forms our composite partition key"
+      },
+      {
+        "start": 320.99,
+        "duration": 4.45,
+        "text": "collecting data can be very different"
+      },
+      {
+        "start": 323.219,
+        "duration": 4.35,
+        "text": "than retrieving it when collecting data"
+      },
+      {
+        "start": 325.44,
+        "duration": 4.08,
+        "text": "we are usually collecting millions of"
+      },
+      {
+        "start": 327.569,
+        "duration": 4.261,
+        "text": "points from thousands or millions of"
+      },
+      {
+        "start": 329.52,
+        "duration": 4.259,
+        "text": "devices when querying we are usually"
+      },
+      {
+        "start": 331.83,
+        "duration": 4.739,
+        "text": "requesting the data for one device over"
+      },
+      {
+        "start": 333.779,
+        "duration": 4.831,
+        "text": "a certain period of time this allows us"
+      },
+      {
+        "start": 336.569,
+        "duration": 4.561,
+        "text": "to perform some optimizations on long"
+      },
+      {
+        "start": 338.61,
+        "duration": 4.589,
+        "text": "term storage if needed so for example"
+      },
+      {
+        "start": 341.13,
+        "duration": 4.23,
+        "text": "older data can be stored in a warm"
+      },
+      {
+        "start": 343.199,
+        "duration": 4.171,
+        "text": "compressed State with extremely fast"
+      },
+      {
+        "start": 345.36,
+        "duration": 3.419,
+        "text": "retrieval times while recent data can be"
+      },
+      {
+        "start": 347.37,
+        "duration": 4.049,
+        "text": "held the way it's collected in the hot"
+      },
+      {
+        "start": 348.779,
+        "duration": 4.23,
+        "text": "store for example we collect one value"
+      },
+      {
+        "start": 351.419,
+        "duration": 3.511,
+        "text": "per minute for our sensors when"
+      },
+      {
+        "start": 353.009,
+        "duration": 4.081,
+        "text": "analyzing these values the minimum"
+      },
+      {
+        "start": 354.93,
+        "duration": 4.68,
+        "text": "granularity we look at is one day in"
+      },
+      {
+        "start": 357.09,
+        "duration": 4.59,
+        "text": "most cases then it would be advisable to"
+      },
+      {
+        "start": 359.61,
+        "duration": 4.26,
+        "text": "move all the data points for a day into"
+      },
+      {
+        "start": 361.68,
+        "duration": 4.47,
+        "text": "a single compressed field like a single"
+      },
+      {
+        "start": 363.87,
+        "duration": 4.53,
+        "text": "column value or cell after the data is"
+      },
+      {
+        "start": 366.15,
+        "duration": 4.59,
+        "text": "collected in any format like bytes Jason"
+      },
+      {
+        "start": 368.4,
+        "duration": 4.56,
+        "text": "or Java see realizable this allows data"
+      },
+      {
+        "start": 370.74,
+        "duration": 4.2,
+        "text": "from a specific day to be retrieved by"
+      },
+      {
+        "start": 372.96,
+        "duration": 3.72,
+        "text": "reading just one field which can be"
+      },
+      {
+        "start": 374.94,
+        "duration": 3.33,
+        "text": "extremely performant in the query while"
+      },
+      {
+        "start": 376.68,
+        "duration": 3.449,
+        "text": "also reducing the historical data"
+      },
+      {
+        "start": 378.27,
+        "duration": 4.139,
+        "text": "footprint now here's an example of a"
+      },
+      {
+        "start": 380.129,
+        "duration": 4.681,
+        "text": "table using this technique notice again"
+      },
+      {
+        "start": 382.409,
+        "duration": 3.6,
+        "text": "we have our ID column our year month but"
+      },
+      {
+        "start": 384.81,
+        "duration": 2.639,
+        "text": "now the key difference is the"
+      },
+      {
+        "start": 386.009,
+        "duration": 3.84,
+        "text": "measurements column that we've added"
+      },
+      {
+        "start": 387.449,
+        "duration": 6.21,
+        "text": "that will either store data from our"
+      },
+      {
+        "start": 389.849,
+        "duration": 6.151,
+        "text": "bytes JSON object or Java serializable"
+      },
+      {
+        "start": 393.659,
+        "duration": 4.171,
+        "text": "in the measurements field and again we"
+      },
+      {
+        "start": 396.0,
+        "duration": 4.08,
+        "text": "have some concrete insert statements"
+      },
+      {
+        "start": 397.83,
+        "duration": 3.33,
+        "text": "here that give you some examples of how"
+      },
+      {
+        "start": 400.08,
+        "duration": 2.57,
+        "text": "it might look"
+      },
+      {
+        "start": 401.16,
+        "duration": 4.17,
+        "text": "inserting data into this table"
+      },
+      {
+        "start": 402.65,
+        "duration": 4.63,
+        "text": "retrieving the daily data to store it in"
+      },
+      {
+        "start": 405.33,
+        "duration": 4.23,
+        "text": "a compressed fashion also gives us a"
+      },
+      {
+        "start": 407.28,
+        "duration": 4.83,
+        "text": "chance to sample values compute"
+      },
+      {
+        "start": 409.56,
+        "duration": 4.47,
+        "text": "statistics or aggregate data in a way"
+      },
+      {
+        "start": 412.11,
+        "duration": 4.14,
+        "text": "that may be useful at a higher level"
+      },
+      {
+        "start": 414.03,
+        "duration": 4.14,
+        "text": "these calculate aggregates may include"
+      },
+      {
+        "start": 416.25,
+        "duration": 4.29,
+        "text": "the number of values per day the Summa"
+      },
+      {
+        "start": 418.17,
+        "duration": 4.92,
+        "text": "values and maybe the average per day per"
+      },
+      {
+        "start": 420.54,
+        "duration": 4.77,
+        "text": "week or per month for example purging"
+      },
+      {
+        "start": 423.09,
+        "duration": 4.11,
+        "text": "data is always an important part of any"
+      },
+      {
+        "start": 425.31,
+        "duration": 4.53,
+        "text": "database and Cassandra and data sacks"
+      },
+      {
+        "start": 427.2,
+        "duration": 4.53,
+        "text": "have some tools to help here first is"
+      },
+      {
+        "start": 429.84,
+        "duration": 4.11,
+        "text": "the time to live feature which tells the"
+      },
+      {
+        "start": 431.73,
+        "duration": 4.5,
+        "text": "database to delete the data after a"
+      },
+      {
+        "start": 433.95,
+        "duration": 4.53,
+        "text": "certain amount of time we can also use"
+      },
+      {
+        "start": 436.23,
+        "duration": 4.14,
+        "text": "the power Sparx distributed engine to"
+      },
+      {
+        "start": 438.48,
+        "duration": 4.14,
+        "text": "concurrently process the delete jobs"
+      },
+      {
+        "start": 440.37,
+        "duration": 4.53,
+        "text": "this can be done as part of a batch job"
+      },
+      {
+        "start": 442.62,
+        "duration": 4.77,
+        "text": "that offloads the data to cold storage"
+      },
+      {
+        "start": 444.9,
+        "duration": 5.07,
+        "text": "and removes the data from the hot or"
+      },
+      {
+        "start": 447.39,
+        "duration": 4.83,
+        "text": "warm layer the data tearing aspect is"
+      },
+      {
+        "start": 449.97,
+        "duration": 4.56,
+        "text": "also very important from a cost of"
+      },
+      {
+        "start": 452.22,
+        "duration": 4.65,
+        "text": "ownership point of view we want data to"
+      },
+      {
+        "start": 454.53,
+        "duration": 4.59,
+        "text": "be moved through hot to cold storage as"
+      },
+      {
+        "start": 456.87,
+        "duration": 4.23,
+        "text": "the data becomes less valuable to the"
+      },
+      {
+        "start": 459.12,
+        "duration": 4.41,
+        "text": "system an example would be to use"
+      },
+      {
+        "start": 461.1,
+        "duration": 5.25,
+        "text": "Cassandra as a hot real time layer to"
+      },
+      {
+        "start": 463.53,
+        "duration": 4.32,
+        "text": "process analyze and collect the data the"
+      },
+      {
+        "start": 466.35,
+        "duration": 3.15,
+        "text": "warm layer would store a compressed"
+      },
+      {
+        "start": 467.85,
+        "duration": 4.56,
+        "text": "version along with statistics and"
+      },
+      {
+        "start": 469.5,
+        "duration": 4.86,
+        "text": "summary data again in Cassandra as the"
+      },
+      {
+        "start": 472.41,
+        "duration": 3.69,
+        "text": "data ages it would be compressed further"
+      },
+      {
+        "start": 474.36,
+        "duration": 3.45,
+        "text": "and stored in files or compress"
+      },
+      {
+        "start": 476.1,
+        "duration": 4.8,
+        "text": "structures and cheap storage such as"
+      },
+      {
+        "start": 477.81,
+        "duration": 5.01,
+        "text": "Hadoop or a data warehouse the insights"
+      },
+      {
+        "start": 480.9,
+        "duration": 3.72,
+        "text": "produced from a system are only as good"
+      },
+      {
+        "start": 482.82,
+        "duration": 3.599,
+        "text": "as the data that is available so"
+      },
+      {
+        "start": 484.62,
+        "duration": 3.74,
+        "text": "ensuring that data is relevant and"
+      },
+      {
+        "start": 486.419,
+        "duration": 3.931,
+        "text": "easily available is essential"
+      },
+      {
+        "start": 488.36,
+        "duration": 4.78,
+        "text": "technologies like machine learning and"
+      },
+      {
+        "start": 490.35,
+        "duration": 4.83,
+        "text": "AI are becoming more mainstream and the"
+      },
+      {
+        "start": 493.14,
+        "duration": 4.74,
+        "text": "keying rate into both of these is data"
+      },
+      {
+        "start": 495.18,
+        "duration": 4.11,
+        "text": "spark SQL allows us to get data from all"
+      },
+      {
+        "start": 497.88,
+        "duration": 3.84,
+        "text": "of the different storages at once"
+      },
+      {
+        "start": 499.29,
+        "duration": 4.8,
+        "text": "allowing us to easily combine new and"
+      },
+      {
+        "start": 501.72,
+        "duration": 5.07,
+        "text": "old data this is typical of a modern"
+      },
+      {
+        "start": 504.09,
+        "duration": 4.56,
+        "text": "lambda architecture another point to"
+      },
+      {
+        "start": 506.79,
+        "duration": 4.2,
+        "text": "consider is the use of AI machine"
+      },
+      {
+        "start": 508.65,
+        "duration": 4.019,
+        "text": "learning as a service more vendors are"
+      },
+      {
+        "start": 510.99,
+        "duration": 3.57,
+        "text": "offering services where customers use"
+      },
+      {
+        "start": 512.669,
+        "duration": 4.411,
+        "text": "these platforms and simply bring their"
+      },
+      {
+        "start": 514.56,
+        "duration": 4.5,
+        "text": "data to the service typical examples are"
+      },
+      {
+        "start": 517.08,
+        "duration": 4.11,
+        "text": "image classification and object"
+      },
+      {
+        "start": 519.06,
+        "duration": 4.53,
+        "text": "detection getting your big data sets"
+      },
+      {
+        "start": 521.19,
+        "duration": 4.89,
+        "text": "close to these platforms can be key and"
+      },
+      {
+        "start": 523.59,
+        "duration": 3.9,
+        "text": "taking Vantage of them but what if we"
+      },
+      {
+        "start": 526.08,
+        "duration": 2.67,
+        "text": "are decided on a cloud vendor that"
+      },
+      {
+        "start": 527.49,
+        "duration": 3.66,
+        "text": "doesn't have the services that you"
+      },
+      {
+        "start": 528.75,
+        "duration": 4.35,
+        "text": "require or maybe they offer the service"
+      },
+      {
+        "start": 531.15,
+        "duration": 2.41,
+        "text": "but you know now that another vendor"
+      },
+      {
+        "start": 533.1,
+        "duration": 2.23,
+        "text": "hasn't"
+      },
+      {
+        "start": 533.56,
+        "duration": 3.63,
+        "text": "more efficient algorithm for your use"
+      },
+      {
+        "start": 535.33,
+        "duration": 3.66,
+        "text": "case the need to have flexibility and"
+      },
+      {
+        "start": 537.19,
+        "duration": 4.64,
+        "text": "data sets will be key in taking"
+      },
+      {
+        "start": 538.99,
+        "duration": 2.84,
+        "text": "advantage of this platform"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T04:21:36.275704+00:00"
+}

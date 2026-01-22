@@ -1,0 +1,1775 @@
+{
+  "video_id": "LTH0TsOe9y0",
+  "title": "DS310.28 Write Path | DataStax Enterprise 6 Search",
+  "description": "#DataStaxAcademy #DS310\nDS310.28 Write Path\nIn this section we will see how indexing takes place following the write request sent to the DSE cluster.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-15T20:54:34Z",
+  "thumbnail": "https://i.ytimg.com/vi/LTH0TsOe9y0/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "search",
+    "tutorial",
+    "apache_cassandra",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=LTH0TsOe9y0",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] hi everybody this is jochu and welcome to the topic of this video the dsc search right path in this video we'll be taking a look at how indexing takes place in search which will start with what happens when a write request is sent to the dsc cluster and then following that request as it is sent to the replica node and then indexed typically indexing does not happen unless there is a cql write request that takes place whether that is an insert update or delete the write request is still defined by the replication set for the key space and the consistency level set for the operation depending on the number of replicas the request will be forwarded to the appropriate nodes where the write is processed and the index scene follows afterwards the indexing occurs independently across each of the search nodes with only the local data on a node being indexed it's only when the write request has been processed and the index scene has completed will the write request be considered to be completed on the node the other way that indexing may occur would be in the event of an index rebuild which can occur when a search index is created or reloaded or triggered manually by a user the rebuild will cause all nodes to read through their partitions and re-index that data following the same path that will be seen in just a few slides here you can see an example of a dsc search cluster that is divided into two data centers a search data center and a cassandra data center based on the key space definition in the upper right the data that would be written to the tables in this key space will have two replica nodes in the search data center and three replica nodes in the cassandra data center for a total of five replicas let's take a look at a write request that may take place starting with a client that is connected to a node in the search data center without taking dsc search into consideration the write request will still follow the normal cassandra brite path attempting to send the request to all five replica nodes asynchronously and then waiting for enough responses to fulfill the requirements for the consistency levels set for the write request here the write request is forwarded to five different nodes two in the search data center and three in the cassandra data center it doesn't matter that the write requests originated in the search data center the data for the write request will still be forwarded to the corresponding replica nodes in both of the data centers likewise you can also have a client send a write request to a node in the cassandra data center the writes will still be forwarded to the five nodes across both data centers in fact it makes sense to keep write requests to a data center meant we're handling pure transactional rights and queries and can be scaled accordingly to handle that workload data can still be replicated to nodes on the search data center and the data center can be scaled to handle the workload for search queries now we get to the tasks that take place at the node level regardless of the number of replicas that the write request would be sent to they all should do the same thing although not necessarily at the same time the first thing that happens is that the write request itself is executed that means that a row or partition is inserted updated or deleted once that is completed the secondary index hook will trigger the indexing for that data and is divided up into two parts the first is the prepare phase which is when the partition data is read from the database before actually being indexed we'll get into the reasoning behind why the data needs to be read again in just a bit the second and final phase is the execute base which is when the search index is updated based on red data the write process and index scene is synchronous so the write requests would not be complete until the index scene is complete as well the right path has been modified in dsc6 mainly due to the use of the new thread per core architecture and does have some noticeable differences from previous versions it used to be that indexing was asynchronous with writes and therefore an indexing task would be placed in a queue following a write while in the queue it would be considered to be in the queue phase once the write has completed and the secondary index hook has triggered the prepare phase starts and the indexing task is passed to a tpc thread the worker thread will re-read the corresponding row or partition that is being indexed from the database and a lucian document object is created from that data afterwards the document object is then used during the execute phase the execute phase is where the document that was created using the cql road data is actually indexed this process that will be explained here is what is known as near real-time indexing there is also an alternate process called real-time indexing which is explained in another video anyways back to the execute phase the update handler manages updating the index and writes the index changes into a ram buffer in on heap memory once in the ram buffer the execute phase and the indexing test is completed as more writes occur on the node the updated indexes are added to the ram buffer this will continue to occur until either a certain amount of time has passed or a memory threshold is reached both of these conditions will cause a soft commit to occur which will flush the indexes in the ram bumper and write them into a new index segment on disk it is only the entries stored in these index segments that are visible for searching segment files also have similar properties like cassandra ss tables they are immutable and their complete search index is made up of the sum of all of the index segments the soft commit behavior can be tuned by the auto soft commit max time setting in the search index config and determines how long indexes will accumulate in the ram buffer following an initial document that was added to the index and the ram buffer the default value is 10 000 and represents the number of milliseconds before a stock commit is automatically triggered this setting can be tuned depending on if there are a lot of writes taking place and frequent documents that slows down performance which may indicate that the setting is too low on the other hand if the value is too high it may cause search results to not show recently added documents quickly enough and can be tuned lower another setting is the auto socket slash max docs setting which determines the number of documents added since the last commit before automatically triggering a soft commit however this is not very often used with max time being the more useful setting it is also possible to issue a commit in a search query to ensure that all data and index changes are visible for the query however this is not recommended to do so in production as more rates occur updates are written to the ram buffer and then flush to segments there is also a hard commute which has the additional distinction of an absync being done which ensures that the index segments are written to disk at the os level and therefore durable on the cassandra side a mem table flush will trigger a hard commit to ensure that both data and index are synced on disk however there is no longer a manual way to trigger a heart commit from the search side once there are a certain number of segments a merge operation can take place and rewrite several segments into a new segment like compactions in cassandra merged will also have strategies that can be used to manage how segments are selected and the frequency of the operation they are i o and cpu intensive so one of the keys to understanding the right path is being able to avoid triggering extraneous merges from happening there is one other operation called optimize that can take place this must be manually triggered and will cause all the index segments to merge into one large segment dsc search also has its own commit log which can be found for each search index on every search node these do not have the same function as commit logs in cassandra and are used primarily when a new node is bootstrapping data when it is joining the cluster due to timing conditions it is possible for writes to be sent to the node before the search index is ready to begin indexing therefore any new writes are added to the search commit log and once the search index is enabled the commit log will be replayed and the rights can be indexed then once data has finished bootstrapping on the node the bootstrap data is re-indexed separately from the index scene that occurs from new write requests there are some things to be aware of when it comes to write performance for indexing one of these things is constant continuous updates as writes cause data to be indexed background operations can have an impact on search query performance if the right workload shows this kind of characteristics make sure to monitor the commits and merges that occur and tune the configuration as needed to help prevent performance degradation the other pattern to watch out for is are batch updates particularly caused by events such as bulk loading data having too many rights taking place at once may cause them to start to time out and fail as you may start to have resource contention from several different processes including indexing cassandra compaction and garbage collection when it comes to segment merging it behaves quite similarly to cassandra compactions meaning that it can be very cpu and i o intensive and you want to reduce the number of these operations as much as possible one way to help control this is with the ram bumper space threshold you do not want to set this too low as that may cause more frequent commits which creates more index segments and triggers merges to occur more often also avoid changing the merge settings in the search index config although these settings are available some of them are not supported anymore for the settings that do still work we don't recommend changing them from their default values one last thing to be aware of when it comes to indexing is the brief data inconsistency that can occur between cassandra data and search indexes specifically there is a period of time between when a write request has completed and when the data may actually be returned in search results real-time indexing also known as live indexing can drastically reduce the time before newly indexed data is searchable and can minimize the period of inconsistency between data and index now that the process between writing data and indexing data is synchronous in dlc6 that has actually eliminated some other sources of data inconsistency that were seen in earlier versions also keep in mind that due to the distributed nature of the database it is possible for the indexes across different nodes to be inconsistent for a period of time as well due to the asynchronous nature of the right path this can potentially cause indexes to be visible for searching sooner on some replica nodes and later on other replicas",
+    "segments": [
+      {
+        "start": 2.14,
+        "duration": 3.219,
+        "text": "[Music]"
+      },
+      {
+        "start": 4.4,
+        "duration": 2.959,
+        "text": "hi everybody"
+      },
+      {
+        "start": 5.359,
+        "duration": 4.32,
+        "text": "this is jochu and welcome to the topic"
+      },
+      {
+        "start": 7.359,
+        "duration": 4.24,
+        "text": "of this video the dsc search right path"
+      },
+      {
+        "start": 9.679,
+        "duration": 3.92,
+        "text": "in this video we'll be taking a look at"
+      },
+      {
+        "start": 11.599,
+        "duration": 3.521,
+        "text": "how indexing takes place in search"
+      },
+      {
+        "start": 13.599,
+        "duration": 3.121,
+        "text": "which will start with what happens when"
+      },
+      {
+        "start": 15.12,
+        "duration": 2.4,
+        "text": "a write request is sent to the dsc"
+      },
+      {
+        "start": 16.72,
+        "duration": 2.479,
+        "text": "cluster"
+      },
+      {
+        "start": 17.52,
+        "duration": 3.36,
+        "text": "and then following that request as it is"
+      },
+      {
+        "start": 19.199,
+        "duration": 4.16,
+        "text": "sent to the replica node and then"
+      },
+      {
+        "start": 20.88,
+        "duration": 4.159,
+        "text": "indexed typically indexing does not"
+      },
+      {
+        "start": 23.359,
+        "duration": 3.281,
+        "text": "happen unless there is a cql write"
+      },
+      {
+        "start": 25.039,
+        "duration": 3.521,
+        "text": "request that takes place"
+      },
+      {
+        "start": 26.64,
+        "duration": 3.36,
+        "text": "whether that is an insert update or"
+      },
+      {
+        "start": 28.56,
+        "duration": 3.36,
+        "text": "delete the write request"
+      },
+      {
+        "start": 30.0,
+        "duration": 3.76,
+        "text": "is still defined by the replication set"
+      },
+      {
+        "start": 31.92,
+        "duration": 2.24,
+        "text": "for the key space and the consistency"
+      },
+      {
+        "start": 33.76,
+        "duration": 2.319,
+        "text": "level"
+      },
+      {
+        "start": 34.16,
+        "duration": 3.76,
+        "text": "set for the operation depending on the"
+      },
+      {
+        "start": 36.079,
+        "duration": 3.521,
+        "text": "number of replicas the request will be"
+      },
+      {
+        "start": 37.92,
+        "duration": 3.36,
+        "text": "forwarded to the appropriate nodes where"
+      },
+      {
+        "start": 39.6,
+        "duration": 3.52,
+        "text": "the write is processed and the index"
+      },
+      {
+        "start": 41.28,
+        "duration": 4.16,
+        "text": "scene follows afterwards"
+      },
+      {
+        "start": 43.12,
+        "duration": 3.68,
+        "text": "the indexing occurs independently across"
+      },
+      {
+        "start": 45.44,
+        "duration": 3.439,
+        "text": "each of the search nodes"
+      },
+      {
+        "start": 46.8,
+        "duration": 4.239,
+        "text": "with only the local data on a node being"
+      },
+      {
+        "start": 48.879,
+        "duration": 3.121,
+        "text": "indexed it's only when the write request"
+      },
+      {
+        "start": 51.039,
+        "duration": 2.641,
+        "text": "has been processed"
+      },
+      {
+        "start": 52.0,
+        "duration": 3.199,
+        "text": "and the index scene has completed will"
+      },
+      {
+        "start": 53.68,
+        "duration": 2.8,
+        "text": "the write request be considered to be"
+      },
+      {
+        "start": 55.199,
+        "duration": 3.2,
+        "text": "completed on the node"
+      },
+      {
+        "start": 56.48,
+        "duration": 3.599,
+        "text": "the other way that indexing may occur"
+      },
+      {
+        "start": 58.399,
+        "duration": 2.561,
+        "text": "would be in the event of an index"
+      },
+      {
+        "start": 60.079,
+        "duration": 2.721,
+        "text": "rebuild"
+      },
+      {
+        "start": 60.96,
+        "duration": 3.199,
+        "text": "which can occur when a search index is"
+      },
+      {
+        "start": 62.8,
+        "duration": 3.28,
+        "text": "created or reloaded"
+      },
+      {
+        "start": 64.159,
+        "duration": 3.841,
+        "text": "or triggered manually by a user the"
+      },
+      {
+        "start": 66.08,
+        "duration": 3.52,
+        "text": "rebuild will cause all nodes to read"
+      },
+      {
+        "start": 68.0,
+        "duration": 2.479,
+        "text": "through their partitions and re-index"
+      },
+      {
+        "start": 69.6,
+        "duration": 2.32,
+        "text": "that data"
+      },
+      {
+        "start": 70.479,
+        "duration": 3.041,
+        "text": "following the same path that will be"
+      },
+      {
+        "start": 71.92,
+        "duration": 3.519,
+        "text": "seen in just a few slides"
+      },
+      {
+        "start": 73.52,
+        "duration": 3.84,
+        "text": "here you can see an example of a dsc"
+      },
+      {
+        "start": 75.439,
+        "duration": 2.72,
+        "text": "search cluster that is divided into two"
+      },
+      {
+        "start": 77.36,
+        "duration": 2.48,
+        "text": "data centers"
+      },
+      {
+        "start": 78.159,
+        "duration": 3.441,
+        "text": "a search data center and a cassandra"
+      },
+      {
+        "start": 79.84,
+        "duration": 3.36,
+        "text": "data center based on the key space"
+      },
+      {
+        "start": 81.6,
+        "duration": 3.199,
+        "text": "definition in the upper right"
+      },
+      {
+        "start": 83.2,
+        "duration": 3.52,
+        "text": "the data that would be written to the"
+      },
+      {
+        "start": 84.799,
+        "duration": 3.841,
+        "text": "tables in this key space will have two"
+      },
+      {
+        "start": 86.72,
+        "duration": 3.68,
+        "text": "replica nodes in the search data center"
+      },
+      {
+        "start": 88.64,
+        "duration": 4.32,
+        "text": "and three replica nodes in the cassandra"
+      },
+      {
+        "start": 90.4,
+        "duration": 4.0,
+        "text": "data center for a total of five replicas"
+      },
+      {
+        "start": 92.96,
+        "duration": 3.199,
+        "text": "let's take a look at a write request"
+      },
+      {
+        "start": 94.4,
+        "duration": 3.44,
+        "text": "that may take place starting with a"
+      },
+      {
+        "start": 96.159,
+        "duration": 3.201,
+        "text": "client that is connected to a node in"
+      },
+      {
+        "start": 97.84,
+        "duration": 3.12,
+        "text": "the search data center"
+      },
+      {
+        "start": 99.36,
+        "duration": 3.52,
+        "text": "without taking dsc search into"
+      },
+      {
+        "start": 100.96,
+        "duration": 3.68,
+        "text": "consideration the write request will"
+      },
+      {
+        "start": 102.88,
+        "duration": 2.32,
+        "text": "still follow the normal cassandra brite"
+      },
+      {
+        "start": 104.64,
+        "duration": 2.32,
+        "text": "path"
+      },
+      {
+        "start": 105.2,
+        "duration": 3.84,
+        "text": "attempting to send the request to all"
+      },
+      {
+        "start": 106.96,
+        "duration": 4.159,
+        "text": "five replica nodes asynchronously"
+      },
+      {
+        "start": 109.04,
+        "duration": 3.28,
+        "text": "and then waiting for enough responses to"
+      },
+      {
+        "start": 111.119,
+        "duration": 2.881,
+        "text": "fulfill the requirements"
+      },
+      {
+        "start": 112.32,
+        "duration": 3.839,
+        "text": "for the consistency levels set for the"
+      },
+      {
+        "start": 114.0,
+        "duration": 3.84,
+        "text": "write request here the write request is"
+      },
+      {
+        "start": 116.159,
+        "duration": 3.521,
+        "text": "forwarded to five different nodes"
+      },
+      {
+        "start": 117.84,
+        "duration": 3.279,
+        "text": "two in the search data center and three"
+      },
+      {
+        "start": 119.68,
+        "duration": 2.64,
+        "text": "in the cassandra data center"
+      },
+      {
+        "start": 121.119,
+        "duration": 2.96,
+        "text": "it doesn't matter that the write"
+      },
+      {
+        "start": 122.32,
+        "duration": 2.32,
+        "text": "requests originated in the search data"
+      },
+      {
+        "start": 124.079,
+        "duration": 2.241,
+        "text": "center"
+      },
+      {
+        "start": 124.64,
+        "duration": 3.36,
+        "text": "the data for the write request will"
+      },
+      {
+        "start": 126.32,
+        "duration": 3.279,
+        "text": "still be forwarded to the corresponding"
+      },
+      {
+        "start": 128.0,
+        "duration": 3.039,
+        "text": "replica nodes in both of the data"
+      },
+      {
+        "start": 129.599,
+        "duration": 3.28,
+        "text": "centers likewise"
+      },
+      {
+        "start": 131.039,
+        "duration": 3.521,
+        "text": "you can also have a client send a write"
+      },
+      {
+        "start": 132.879,
+        "duration": 2.241,
+        "text": "request to a node in the cassandra data"
+      },
+      {
+        "start": 134.56,
+        "duration": 2.08,
+        "text": "center"
+      },
+      {
+        "start": 135.12,
+        "duration": 3.68,
+        "text": "the writes will still be forwarded to"
+      },
+      {
+        "start": 136.64,
+        "duration": 4.08,
+        "text": "the five nodes across both data centers"
+      },
+      {
+        "start": 138.8,
+        "duration": 3.439,
+        "text": "in fact it makes sense to keep write"
+      },
+      {
+        "start": 140.72,
+        "duration": 3.12,
+        "text": "requests to a data center meant we're"
+      },
+      {
+        "start": 142.239,
+        "duration": 2.241,
+        "text": "handling pure transactional rights and"
+      },
+      {
+        "start": 143.84,
+        "duration": 2.32,
+        "text": "queries"
+      },
+      {
+        "start": 144.48,
+        "duration": 3.28,
+        "text": "and can be scaled accordingly to handle"
+      },
+      {
+        "start": 146.16,
+        "duration": 3.36,
+        "text": "that workload data can still be"
+      },
+      {
+        "start": 147.76,
+        "duration": 2.24,
+        "text": "replicated to nodes on the search data"
+      },
+      {
+        "start": 149.52,
+        "duration": 2.079,
+        "text": "center"
+      },
+      {
+        "start": 150.0,
+        "duration": 3.519,
+        "text": "and the data center can be scaled to"
+      },
+      {
+        "start": 151.599,
+        "duration": 3.681,
+        "text": "handle the workload for search queries"
+      },
+      {
+        "start": 153.519,
+        "duration": 3.121,
+        "text": "now we get to the tasks that take place"
+      },
+      {
+        "start": 155.28,
+        "duration": 2.959,
+        "text": "at the node level"
+      },
+      {
+        "start": 156.64,
+        "duration": 3.44,
+        "text": "regardless of the number of replicas"
+      },
+      {
+        "start": 158.239,
+        "duration": 3.441,
+        "text": "that the write request would be sent to"
+      },
+      {
+        "start": 160.08,
+        "duration": 3.04,
+        "text": "they all should do the same thing"
+      },
+      {
+        "start": 161.68,
+        "duration": 2.08,
+        "text": "although not necessarily at the same"
+      },
+      {
+        "start": 163.12,
+        "duration": 2.08,
+        "text": "time"
+      },
+      {
+        "start": 163.76,
+        "duration": 3.68,
+        "text": "the first thing that happens is that the"
+      },
+      {
+        "start": 165.2,
+        "duration": 4.0,
+        "text": "write request itself is executed"
+      },
+      {
+        "start": 167.44,
+        "duration": 3.76,
+        "text": "that means that a row or partition is"
+      },
+      {
+        "start": 169.2,
+        "duration": 3.759,
+        "text": "inserted updated or deleted"
+      },
+      {
+        "start": 171.2,
+        "duration": 3.6,
+        "text": "once that is completed the secondary"
+      },
+      {
+        "start": 172.959,
+        "duration": 2.56,
+        "text": "index hook will trigger the indexing for"
+      },
+      {
+        "start": 174.8,
+        "duration": 2.88,
+        "text": "that data"
+      },
+      {
+        "start": 175.519,
+        "duration": 3.601,
+        "text": "and is divided up into two parts the"
+      },
+      {
+        "start": 177.68,
+        "duration": 3.199,
+        "text": "first is the prepare phase"
+      },
+      {
+        "start": 179.12,
+        "duration": 3.759,
+        "text": "which is when the partition data is read"
+      },
+      {
+        "start": 180.879,
+        "duration": 2.561,
+        "text": "from the database before actually being"
+      },
+      {
+        "start": 182.879,
+        "duration": 2.321,
+        "text": "indexed"
+      },
+      {
+        "start": 183.44,
+        "duration": 3.2,
+        "text": "we'll get into the reasoning behind why"
+      },
+      {
+        "start": 185.2,
+        "duration": 3.679,
+        "text": "the data needs to be read again"
+      },
+      {
+        "start": 186.64,
+        "duration": 3.519,
+        "text": "in just a bit the second and final phase"
+      },
+      {
+        "start": 188.879,
+        "duration": 2.72,
+        "text": "is the execute base"
+      },
+      {
+        "start": 190.159,
+        "duration": 3.44,
+        "text": "which is when the search index is"
+      },
+      {
+        "start": 191.599,
+        "duration": 3.521,
+        "text": "updated based on red data"
+      },
+      {
+        "start": 193.599,
+        "duration": 3.201,
+        "text": "the write process and index scene is"
+      },
+      {
+        "start": 195.12,
+        "duration": 2.88,
+        "text": "synchronous so the write requests would"
+      },
+      {
+        "start": 196.8,
+        "duration": 3.2,
+        "text": "not be complete until"
+      },
+      {
+        "start": 198.0,
+        "duration": 4.319,
+        "text": "the index scene is complete as well the"
+      },
+      {
+        "start": 200.0,
+        "duration": 4.0,
+        "text": "right path has been modified in dsc6"
+      },
+      {
+        "start": 202.319,
+        "duration": 3.121,
+        "text": "mainly due to the use of the new thread"
+      },
+      {
+        "start": 204.0,
+        "duration": 2.72,
+        "text": "per core architecture"
+      },
+      {
+        "start": 205.44,
+        "duration": 3.12,
+        "text": "and does have some noticeable"
+      },
+      {
+        "start": 206.72,
+        "duration": 3.2,
+        "text": "differences from previous versions"
+      },
+      {
+        "start": 208.56,
+        "duration": 3.28,
+        "text": "it used to be that indexing was"
+      },
+      {
+        "start": 209.92,
+        "duration": 3.84,
+        "text": "asynchronous with writes and therefore"
+      },
+      {
+        "start": 211.84,
+        "duration": 2.479,
+        "text": "an indexing task would be placed in a"
+      },
+      {
+        "start": 213.76,
+        "duration": 2.559,
+        "text": "queue"
+      },
+      {
+        "start": 214.319,
+        "duration": 3.441,
+        "text": "following a write while in the queue it"
+      },
+      {
+        "start": 216.319,
+        "duration": 2.081,
+        "text": "would be considered to be in the queue"
+      },
+      {
+        "start": 217.76,
+        "duration": 2.08,
+        "text": "phase"
+      },
+      {
+        "start": 218.4,
+        "duration": 3.199,
+        "text": "once the write has completed and the"
+      },
+      {
+        "start": 219.84,
+        "duration": 3.36,
+        "text": "secondary index hook has triggered"
+      },
+      {
+        "start": 221.599,
+        "duration": 4.161,
+        "text": "the prepare phase starts and the"
+      },
+      {
+        "start": 223.2,
+        "duration": 4.16,
+        "text": "indexing task is passed to a tpc thread"
+      },
+      {
+        "start": 225.76,
+        "duration": 3.68,
+        "text": "the worker thread will re-read the"
+      },
+      {
+        "start": 227.36,
+        "duration": 3.599,
+        "text": "corresponding row or partition that is"
+      },
+      {
+        "start": 229.44,
+        "duration": 3.68,
+        "text": "being indexed from the database"
+      },
+      {
+        "start": 230.959,
+        "duration": 3.121,
+        "text": "and a lucian document object is created"
+      },
+      {
+        "start": 233.12,
+        "duration": 2.88,
+        "text": "from that data"
+      },
+      {
+        "start": 234.08,
+        "duration": 3.519,
+        "text": "afterwards the document object is then"
+      },
+      {
+        "start": 236.0,
+        "duration": 3.36,
+        "text": "used during the execute phase"
+      },
+      {
+        "start": 237.599,
+        "duration": 4.0,
+        "text": "the execute phase is where the document"
+      },
+      {
+        "start": 239.36,
+        "duration": 3.68,
+        "text": "that was created using the cql road data"
+      },
+      {
+        "start": 241.599,
+        "duration": 3.2,
+        "text": "is actually indexed"
+      },
+      {
+        "start": 243.04,
+        "duration": 3.6,
+        "text": "this process that will be explained here"
+      },
+      {
+        "start": 244.799,
+        "duration": 2.561,
+        "text": "is what is known as near real-time"
+      },
+      {
+        "start": 246.64,
+        "duration": 2.319,
+        "text": "indexing"
+      },
+      {
+        "start": 247.36,
+        "duration": 3.04,
+        "text": "there is also an alternate process"
+      },
+      {
+        "start": 248.959,
+        "duration": 3.441,
+        "text": "called real-time indexing"
+      },
+      {
+        "start": 250.4,
+        "duration": 3.919,
+        "text": "which is explained in another video"
+      },
+      {
+        "start": 252.4,
+        "duration": 4.0,
+        "text": "anyways back to the execute phase"
+      },
+      {
+        "start": 254.319,
+        "duration": 4.16,
+        "text": "the update handler manages updating the"
+      },
+      {
+        "start": 256.4,
+        "duration": 3.2,
+        "text": "index and writes the index changes into"
+      },
+      {
+        "start": 258.479,
+        "duration": 3.761,
+        "text": "a ram buffer"
+      },
+      {
+        "start": 259.6,
+        "duration": 3.84,
+        "text": "in on heap memory once in the ram buffer"
+      },
+      {
+        "start": 262.24,
+        "duration": 3.44,
+        "text": "the execute phase"
+      },
+      {
+        "start": 263.44,
+        "duration": 3.92,
+        "text": "and the indexing test is completed as"
+      },
+      {
+        "start": 265.68,
+        "duration": 3.6,
+        "text": "more writes occur on the node the"
+      },
+      {
+        "start": 267.36,
+        "duration": 2.64,
+        "text": "updated indexes are added to the ram"
+      },
+      {
+        "start": 269.28,
+        "duration": 2.96,
+        "text": "buffer"
+      },
+      {
+        "start": 270.0,
+        "duration": 4.0,
+        "text": "this will continue to occur until either"
+      },
+      {
+        "start": 272.24,
+        "duration": 4.08,
+        "text": "a certain amount of time has passed"
+      },
+      {
+        "start": 274.0,
+        "duration": 3.919,
+        "text": "or a memory threshold is reached both of"
+      },
+      {
+        "start": 276.32,
+        "duration": 2.72,
+        "text": "these conditions will cause a soft"
+      },
+      {
+        "start": 277.919,
+        "duration": 2.961,
+        "text": "commit to occur"
+      },
+      {
+        "start": 279.04,
+        "duration": 3.84,
+        "text": "which will flush the indexes in the ram"
+      },
+      {
+        "start": 280.88,
+        "duration": 3.28,
+        "text": "bumper and write them into a new index"
+      },
+      {
+        "start": 282.88,
+        "duration": 3.12,
+        "text": "segment on disk"
+      },
+      {
+        "start": 284.16,
+        "duration": 3.44,
+        "text": "it is only the entries stored in these"
+      },
+      {
+        "start": 286.0,
+        "duration": 2.56,
+        "text": "index segments that are visible for"
+      },
+      {
+        "start": 287.6,
+        "duration": 2.8,
+        "text": "searching"
+      },
+      {
+        "start": 288.56,
+        "duration": 4.0,
+        "text": "segment files also have similar"
+      },
+      {
+        "start": 290.4,
+        "duration": 4.0,
+        "text": "properties like cassandra ss tables"
+      },
+      {
+        "start": 292.56,
+        "duration": 3.68,
+        "text": "they are immutable and their complete"
+      },
+      {
+        "start": 294.4,
+        "duration": 3.28,
+        "text": "search index is made up of the sum of"
+      },
+      {
+        "start": 296.24,
+        "duration": 3.36,
+        "text": "all of the index segments"
+      },
+      {
+        "start": 297.68,
+        "duration": 3.359,
+        "text": "the soft commit behavior can be tuned by"
+      },
+      {
+        "start": 299.6,
+        "duration": 3.599,
+        "text": "the auto soft commit"
+      },
+      {
+        "start": 301.039,
+        "duration": 3.041,
+        "text": "max time setting in the search index"
+      },
+      {
+        "start": 303.199,
+        "duration": 2.801,
+        "text": "config"
+      },
+      {
+        "start": 304.08,
+        "duration": 3.44,
+        "text": "and determines how long indexes will"
+      },
+      {
+        "start": 306.0,
+        "duration": 3.12,
+        "text": "accumulate in the ram buffer"
+      },
+      {
+        "start": 307.52,
+        "duration": 3.28,
+        "text": "following an initial document that was"
+      },
+      {
+        "start": 309.12,
+        "duration": 3.84,
+        "text": "added to the index and the ram buffer"
+      },
+      {
+        "start": 310.8,
+        "duration": 4.08,
+        "text": "the default value is 10 000 and"
+      },
+      {
+        "start": 312.96,
+        "duration": 3.76,
+        "text": "represents the number of milliseconds"
+      },
+      {
+        "start": 314.88,
+        "duration": 3.68,
+        "text": "before a stock commit is automatically"
+      },
+      {
+        "start": 316.72,
+        "duration": 3.28,
+        "text": "triggered this setting can be tuned"
+      },
+      {
+        "start": 318.56,
+        "duration": 2.479,
+        "text": "depending on if there are a lot of"
+      },
+      {
+        "start": 320.0,
+        "duration": 2.88,
+        "text": "writes taking place"
+      },
+      {
+        "start": 321.039,
+        "duration": 3.841,
+        "text": "and frequent documents that slows down"
+      },
+      {
+        "start": 322.88,
+        "duration": 3.2,
+        "text": "performance which may indicate that the"
+      },
+      {
+        "start": 324.88,
+        "duration": 3.039,
+        "text": "setting is too low"
+      },
+      {
+        "start": 326.08,
+        "duration": 4.0,
+        "text": "on the other hand if the value is too"
+      },
+      {
+        "start": 327.919,
+        "duration": 3.921,
+        "text": "high it may cause search results to not"
+      },
+      {
+        "start": 330.08,
+        "duration": 2.399,
+        "text": "show recently added documents quickly"
+      },
+      {
+        "start": 331.84,
+        "duration": 3.04,
+        "text": "enough"
+      },
+      {
+        "start": 332.479,
+        "duration": 3.921,
+        "text": "and can be tuned lower another setting"
+      },
+      {
+        "start": 334.88,
+        "duration": 3.84,
+        "text": "is the auto socket slash"
+      },
+      {
+        "start": 336.4,
+        "duration": 4.079,
+        "text": "max docs setting which determines the"
+      },
+      {
+        "start": 338.72,
+        "duration": 2.319,
+        "text": "number of documents added since the last"
+      },
+      {
+        "start": 340.479,
+        "duration": 2.321,
+        "text": "commit"
+      },
+      {
+        "start": 341.039,
+        "duration": 3.921,
+        "text": "before automatically triggering a soft"
+      },
+      {
+        "start": 342.8,
+        "duration": 4.32,
+        "text": "commit however this is not very often"
+      },
+      {
+        "start": 344.96,
+        "duration": 2.64,
+        "text": "used with max time being the more useful"
+      },
+      {
+        "start": 347.12,
+        "duration": 2.88,
+        "text": "setting"
+      },
+      {
+        "start": 347.6,
+        "duration": 3.28,
+        "text": "it is also possible to issue a commit in"
+      },
+      {
+        "start": 350.0,
+        "duration": 2.56,
+        "text": "a search query"
+      },
+      {
+        "start": 350.88,
+        "duration": 3.68,
+        "text": "to ensure that all data and index"
+      },
+      {
+        "start": 352.56,
+        "duration": 4.0,
+        "text": "changes are visible for the query"
+      },
+      {
+        "start": 354.56,
+        "duration": 4.24,
+        "text": "however this is not recommended to do so"
+      },
+      {
+        "start": 356.56,
+        "duration": 3.919,
+        "text": "in production as more rates occur"
+      },
+      {
+        "start": 358.8,
+        "duration": 3.2,
+        "text": "updates are written to the ram buffer"
+      },
+      {
+        "start": 360.479,
+        "duration": 3.521,
+        "text": "and then flush to segments"
+      },
+      {
+        "start": 362.0,
+        "duration": 3.759,
+        "text": "there is also a hard commute which has"
+      },
+      {
+        "start": 364.0,
+        "duration": 2.08,
+        "text": "the additional distinction of an absync"
+      },
+      {
+        "start": 365.759,
+        "duration": 2.241,
+        "text": "being"
+      },
+      {
+        "start": 366.08,
+        "duration": 3.2,
+        "text": "done which ensures that the index"
+      },
+      {
+        "start": 368.0,
+        "duration": 3.759,
+        "text": "segments are written to disk"
+      },
+      {
+        "start": 369.28,
+        "duration": 3.52,
+        "text": "at the os level and therefore durable on"
+      },
+      {
+        "start": 371.759,
+        "duration": 2.801,
+        "text": "the cassandra side"
+      },
+      {
+        "start": 372.8,
+        "duration": 3.839,
+        "text": "a mem table flush will trigger a hard"
+      },
+      {
+        "start": 374.56,
+        "duration": 3.68,
+        "text": "commit to ensure that both data and"
+      },
+      {
+        "start": 376.639,
+        "duration": 3.521,
+        "text": "index are synced on disk"
+      },
+      {
+        "start": 378.24,
+        "duration": 3.28,
+        "text": "however there is no longer a manual way"
+      },
+      {
+        "start": 380.16,
+        "duration": 2.24,
+        "text": "to trigger a heart commit from the"
+      },
+      {
+        "start": 381.52,
+        "duration": 2.239,
+        "text": "search side"
+      },
+      {
+        "start": 382.4,
+        "duration": 3.6,
+        "text": "once there are a certain number of"
+      },
+      {
+        "start": 383.759,
+        "duration": 4.321,
+        "text": "segments a merge operation can take"
+      },
+      {
+        "start": 386.0,
+        "duration": 3.36,
+        "text": "place and rewrite several segments into"
+      },
+      {
+        "start": 388.08,
+        "duration": 3.44,
+        "text": "a new segment"
+      },
+      {
+        "start": 389.36,
+        "duration": 3.839,
+        "text": "like compactions in cassandra merged"
+      },
+      {
+        "start": 391.52,
+        "duration": 2.48,
+        "text": "will also have strategies that can be"
+      },
+      {
+        "start": 393.199,
+        "duration": 2.641,
+        "text": "used to manage"
+      },
+      {
+        "start": 394.0,
+        "duration": 3.36,
+        "text": "how segments are selected and the"
+      },
+      {
+        "start": 395.84,
+        "duration": 4.079,
+        "text": "frequency of the operation"
+      },
+      {
+        "start": 397.36,
+        "duration": 4.399,
+        "text": "they are i o and cpu intensive so one of"
+      },
+      {
+        "start": 399.919,
+        "duration": 3.361,
+        "text": "the keys to understanding the right path"
+      },
+      {
+        "start": 401.759,
+        "duration": 3.361,
+        "text": "is being able to avoid triggering"
+      },
+      {
+        "start": 403.28,
+        "duration": 3.6,
+        "text": "extraneous merges from happening"
+      },
+      {
+        "start": 405.12,
+        "duration": 3.84,
+        "text": "there is one other operation called"
+      },
+      {
+        "start": 406.88,
+        "duration": 4.08,
+        "text": "optimize that can take place"
+      },
+      {
+        "start": 408.96,
+        "duration": 3.92,
+        "text": "this must be manually triggered and will"
+      },
+      {
+        "start": 410.96,
+        "duration": 3.6,
+        "text": "cause all the index segments to merge"
+      },
+      {
+        "start": 412.88,
+        "duration": 4.08,
+        "text": "into one large segment"
+      },
+      {
+        "start": 414.56,
+        "duration": 4.479,
+        "text": "dsc search also has its own commit log"
+      },
+      {
+        "start": 416.96,
+        "duration": 2.32,
+        "text": "which can be found for each search index"
+      },
+      {
+        "start": 419.039,
+        "duration": 2.16,
+        "text": "on"
+      },
+      {
+        "start": 419.28,
+        "duration": 3.28,
+        "text": "every search node these do not have the"
+      },
+      {
+        "start": 421.199,
+        "duration": 2.241,
+        "text": "same function as commit logs in"
+      },
+      {
+        "start": 422.56,
+        "duration": 2.8,
+        "text": "cassandra"
+      },
+      {
+        "start": 423.44,
+        "duration": 3.68,
+        "text": "and are used primarily when a new node"
+      },
+      {
+        "start": 425.36,
+        "duration": 2.48,
+        "text": "is bootstrapping data when it is joining"
+      },
+      {
+        "start": 427.12,
+        "duration": 2.88,
+        "text": "the cluster"
+      },
+      {
+        "start": 427.84,
+        "duration": 3.919,
+        "text": "due to timing conditions it is possible"
+      },
+      {
+        "start": 430.0,
+        "duration": 3.44,
+        "text": "for writes to be sent to the node before"
+      },
+      {
+        "start": 431.759,
+        "duration": 2.481,
+        "text": "the search index is ready to begin"
+      },
+      {
+        "start": 433.44,
+        "duration": 2.879,
+        "text": "indexing"
+      },
+      {
+        "start": 434.24,
+        "duration": 3.28,
+        "text": "therefore any new writes are added to"
+      },
+      {
+        "start": 436.319,
+        "duration": 3.121,
+        "text": "the search commit log"
+      },
+      {
+        "start": 437.52,
+        "duration": 3.519,
+        "text": "and once the search index is enabled the"
+      },
+      {
+        "start": 439.44,
+        "duration": 3.599,
+        "text": "commit log will be replayed"
+      },
+      {
+        "start": 441.039,
+        "duration": 3.44,
+        "text": "and the rights can be indexed then once"
+      },
+      {
+        "start": 443.039,
+        "duration": 2.0,
+        "text": "data has finished bootstrapping on the"
+      },
+      {
+        "start": 444.479,
+        "duration": 2.401,
+        "text": "node"
+      },
+      {
+        "start": 445.039,
+        "duration": 3.28,
+        "text": "the bootstrap data is re-indexed"
+      },
+      {
+        "start": 446.88,
+        "duration": 3.12,
+        "text": "separately from the index scene that"
+      },
+      {
+        "start": 448.319,
+        "duration": 3.121,
+        "text": "occurs from new write requests"
+      },
+      {
+        "start": 450.0,
+        "duration": 2.88,
+        "text": "there are some things to be aware of"
+      },
+      {
+        "start": 451.44,
+        "duration": 2.64,
+        "text": "when it comes to write performance for"
+      },
+      {
+        "start": 452.88,
+        "duration": 2.48,
+        "text": "indexing"
+      },
+      {
+        "start": 454.08,
+        "duration": 4.16,
+        "text": "one of these things is constant"
+      },
+      {
+        "start": 455.36,
+        "duration": 4.0,
+        "text": "continuous updates as writes cause data"
+      },
+      {
+        "start": 458.24,
+        "duration": 3.2,
+        "text": "to be indexed"
+      },
+      {
+        "start": 459.36,
+        "duration": 3.839,
+        "text": "background operations can have an impact"
+      },
+      {
+        "start": 461.44,
+        "duration": 3.36,
+        "text": "on search query performance"
+      },
+      {
+        "start": 463.199,
+        "duration": 3.761,
+        "text": "if the right workload shows this kind of"
+      },
+      {
+        "start": 464.8,
+        "duration": 4.079,
+        "text": "characteristics make sure to monitor the"
+      },
+      {
+        "start": 466.96,
+        "duration": 3.84,
+        "text": "commits and merges that occur"
+      },
+      {
+        "start": 468.879,
+        "duration": 3.921,
+        "text": "and tune the configuration as needed to"
+      },
+      {
+        "start": 470.8,
+        "duration": 3.6,
+        "text": "help prevent performance degradation"
+      },
+      {
+        "start": 472.8,
+        "duration": 3.839,
+        "text": "the other pattern to watch out for is"
+      },
+      {
+        "start": 474.4,
+        "duration": 4.16,
+        "text": "are batch updates particularly caused by"
+      },
+      {
+        "start": 476.639,
+        "duration": 3.521,
+        "text": "events such as bulk loading data"
+      },
+      {
+        "start": 478.56,
+        "duration": 3.6,
+        "text": "having too many rights taking place at"
+      },
+      {
+        "start": 480.16,
+        "duration": 2.8,
+        "text": "once may cause them to start to time out"
+      },
+      {
+        "start": 482.16,
+        "duration": 2.24,
+        "text": "and fail"
+      },
+      {
+        "start": 482.96,
+        "duration": 2.799,
+        "text": "as you may start to have resource"
+      },
+      {
+        "start": 484.4,
+        "duration": 2.16,
+        "text": "contention from several different"
+      },
+      {
+        "start": 485.759,
+        "duration": 3.201,
+        "text": "processes"
+      },
+      {
+        "start": 486.56,
+        "duration": 3.68,
+        "text": "including indexing cassandra compaction"
+      },
+      {
+        "start": 488.96,
+        "duration": 2.88,
+        "text": "and garbage collection"
+      },
+      {
+        "start": 490.24,
+        "duration": 3.6,
+        "text": "when it comes to segment merging it"
+      },
+      {
+        "start": 491.84,
+        "duration": 2.799,
+        "text": "behaves quite similarly to cassandra"
+      },
+      {
+        "start": 493.84,
+        "duration": 3.12,
+        "text": "compactions"
+      },
+      {
+        "start": 494.639,
+        "duration": 3.12,
+        "text": "meaning that it can be very cpu and i o"
+      },
+      {
+        "start": 496.96,
+        "duration": 2.16,
+        "text": "intensive"
+      },
+      {
+        "start": 497.759,
+        "duration": 3.521,
+        "text": "and you want to reduce the number of"
+      },
+      {
+        "start": 499.12,
+        "duration": 3.759,
+        "text": "these operations as much as possible"
+      },
+      {
+        "start": 501.28,
+        "duration": 3.44,
+        "text": "one way to help control this is with the"
+      },
+      {
+        "start": 502.879,
+        "duration": 3.841,
+        "text": "ram bumper space threshold"
+      },
+      {
+        "start": 504.72,
+        "duration": 3.759,
+        "text": "you do not want to set this too low as"
+      },
+      {
+        "start": 506.72,
+        "duration": 3.52,
+        "text": "that may cause more frequent commits"
+      },
+      {
+        "start": 508.479,
+        "duration": 4.081,
+        "text": "which creates more index segments"
+      },
+      {
+        "start": 510.24,
+        "duration": 3.039,
+        "text": "and triggers merges to occur more often"
+      },
+      {
+        "start": 512.56,
+        "duration": 2.479,
+        "text": "also"
+      },
+      {
+        "start": 513.279,
+        "duration": 3.2,
+        "text": "avoid changing the merge settings in the"
+      },
+      {
+        "start": 515.039,
+        "duration": 3.201,
+        "text": "search index config"
+      },
+      {
+        "start": 516.479,
+        "duration": 3.761,
+        "text": "although these settings are available"
+      },
+      {
+        "start": 518.24,
+        "duration": 3.679,
+        "text": "some of them are not supported anymore"
+      },
+      {
+        "start": 520.24,
+        "duration": 3.359,
+        "text": "for the settings that do still work we"
+      },
+      {
+        "start": 521.919,
+        "duration": 2.801,
+        "text": "don't recommend changing them from their"
+      },
+      {
+        "start": 523.599,
+        "duration": 2.8,
+        "text": "default values"
+      },
+      {
+        "start": 524.72,
+        "duration": 3.52,
+        "text": "one last thing to be aware of when it"
+      },
+      {
+        "start": 526.399,
+        "duration": 2.801,
+        "text": "comes to indexing is the brief data"
+      },
+      {
+        "start": 528.24,
+        "duration": 2.96,
+        "text": "inconsistency"
+      },
+      {
+        "start": 529.2,
+        "duration": 3.44,
+        "text": "that can occur between cassandra data"
+      },
+      {
+        "start": 531.2,
+        "duration": 3.52,
+        "text": "and search indexes"
+      },
+      {
+        "start": 532.64,
+        "duration": 3.759,
+        "text": "specifically there is a period of time"
+      },
+      {
+        "start": 534.72,
+        "duration": 2.4,
+        "text": "between when a write request has"
+      },
+      {
+        "start": 536.399,
+        "duration": 2.161,
+        "text": "completed"
+      },
+      {
+        "start": 537.12,
+        "duration": 3.279,
+        "text": "and when the data may actually be"
+      },
+      {
+        "start": 538.56,
+        "duration": 2.64,
+        "text": "returned in search results real-time"
+      },
+      {
+        "start": 540.399,
+        "duration": 2.481,
+        "text": "indexing"
+      },
+      {
+        "start": 541.2,
+        "duration": 4.0,
+        "text": "also known as live indexing can"
+      },
+      {
+        "start": 542.88,
+        "duration": 3.84,
+        "text": "drastically reduce the time before newly"
+      },
+      {
+        "start": 545.2,
+        "duration": 2.96,
+        "text": "indexed data is searchable"
+      },
+      {
+        "start": 546.72,
+        "duration": 3.44,
+        "text": "and can minimize the period of"
+      },
+      {
+        "start": 548.16,
+        "duration": 3.92,
+        "text": "inconsistency between data and"
+      },
+      {
+        "start": 550.16,
+        "duration": 3.6,
+        "text": "index now that the process between"
+      },
+      {
+        "start": 552.08,
+        "duration": 3.36,
+        "text": "writing data and indexing data is"
+      },
+      {
+        "start": 553.76,
+        "duration": 3.519,
+        "text": "synchronous in dlc6"
+      },
+      {
+        "start": 555.44,
+        "duration": 3.44,
+        "text": "that has actually eliminated some other"
+      },
+      {
+        "start": 557.279,
+        "duration": 3.921,
+        "text": "sources of data inconsistency"
+      },
+      {
+        "start": 558.88,
+        "duration": 4.0,
+        "text": "that were seen in earlier versions also"
+      },
+      {
+        "start": 561.2,
+        "duration": 3.04,
+        "text": "keep in mind that due to the distributed"
+      },
+      {
+        "start": 562.88,
+        "duration": 3.2,
+        "text": "nature of the database"
+      },
+      {
+        "start": 564.24,
+        "duration": 3.52,
+        "text": "it is possible for the indexes across"
+      },
+      {
+        "start": 566.08,
+        "duration": 3.759,
+        "text": "different nodes to be inconsistent"
+      },
+      {
+        "start": 567.76,
+        "duration": 3.84,
+        "text": "for a period of time as well due to the"
+      },
+      {
+        "start": 569.839,
+        "duration": 3.601,
+        "text": "asynchronous nature of the right path"
+      },
+      {
+        "start": 571.6,
+        "duration": 3.28,
+        "text": "this can potentially cause indexes to be"
+      },
+      {
+        "start": 573.44,
+        "duration": 5.76,
+        "text": "visible for searching sooner"
+      },
+      {
+        "start": 574.88,
+        "duration": 4.32,
+        "text": "on some replica nodes and later on other"
+      },
+      {
+        "start": 581.24,
+        "duration": 3.0,
+        "text": "replicas"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:05:46.243914+00:00"
+}

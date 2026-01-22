@@ -1,0 +1,1678 @@
+{
+  "video_id": "XewiKw3zsCA",
+  "title": "DS330.05 Defining Graph Schemas | DataStax Enterprise 6 Graph",
+  "description": "#DataStaxAcademy #DS330\nDS330.05 Defining Graph Schemas\nIn this unit, you will learn everything you need to to get started with creating awesome graph schemas with Datastax Enterprise Graph.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-16T01:20:17Z",
+  "thumbnail": "https://i.ytimg.com/vi/XewiKw3zsCA/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "tutorial",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=XewiKw3zsCA",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] welcome to working with graph schemas my name is mark selwan a member of the product team and in this section we'll cover everything you need to know about getting started with creating awesome graph schemas to start things off let's talk about how we actually define schemas let's start by level setting on what graph schemas actually are in the world of data stacks enterprise it's important to note that graph schema is a concept introduced in dsc graph for efficiency now graph schema is a combination of property keys vertex labels edge labels and the semantics that connect them graph schema also enables the definition of indices before the data is inserted into the system graph schemas is managed by the graph schema api that's accessible to you the end user via the schema object in data stack studio or even inside of the gremlin console the schema api provides the methods such as property key vertex label edge label and also supports the fluid interface the schema api provides two types of schema modes that allow users to define whether they want to run in production mode or development mode production mode is the default and recommended mode to run as it requires you to find schema in advance up front to make sure that you're getting the best performance possible out of your graph development mode allows dsc graph to infer a schema at insertion of data while this is convenient for development it's still recommended to use this as a tool for exploration and development environments but you'll want to use production mode where performance and scalability are key dsc graph allows you to globally set the schema mode via the dsc yaml file but it's recommended to leave it as is defaulting to production mode you can dynamically specify the schema mode with the syntax on the bottom here should you want to switch to development mode for testing purposes or for exploration there are four main elements to building graph schema in order you must first define the property keys the vertex labels edge labels and indices let's take a deeper look into the first three elements property keys are the first step in your schema definition you can think of these as your attributes that define uniqueness data type cardinality and meta properties these attributes can then be associated with vertices edges however they are independent here's how you typically define a property specifically a single cardinality property key which is the most frequently used you can see here that we defined a property key name then data type and then the cardinality though single cardinality is assumed by default here's an example of defining a multi-property key a multi-property key allows for many text values to be stored for a respective property in this case it's possible that there are multiple film production companies for a given production dsc graph also allows for the creation of meta properties or multiple properties within a given property key you can see that we define a source and a date property key each with a different data type and we can include them inside of our budget property key it's also worth noting that meta properties can only be used with vertex properties and can be applied single or multiple cardinality properties here's a list of supported property data types as you can see everything you'd expect is here everything from small ins to decimals to text even geospatial objects so now that we understand how property keys work we're ready to talk about vertex labels vertex labels are your entities in the entity relationship model they define the type of vertices in a respective graph defining vertex labels are the second step in the schema definition process they contain the vertex id definition a unique label as well as the associated property keys we already defined in step one thinking about the vertex id is really important there are two types of vertex ids in dsc graph user-defined ids and system generated ids user-defined vertex ids are the recommended approach as they are much more performant and give the user the ability to control graph partitioning system generated vertex ids are to be deprecated and have performance limitations with larger graphs so let's dive into user-defined vertex ids they're defined via two components the partition key which a vertex belongs to and a clustering key which helps uniquely identify a vertex within a partition this may sound familiar because these are the exact same concepts taken out of data modeling with cql as such the partition key is defined as a non-empty set of property keys and a clustering key is defined as a set of property keys which can be empty both can be made up of single or composite property keys now that we understand how vertex ids work let's create our vertex labels remember step one is to define our property keys in this case our user id age and gender all of which are single cardinality then we define our vertex label we're creating a vertex label called user that's our entity and we're defining our partition key as our userid property then we define other properties or attributes that are associated with our user in this case age and gender the resulting graph partitioning may or may not make sense depending on the types of traversals you require for graph for example it would not be the best partitioning strategy for traversals to analyze all users within a particular age on the other hand this partitioning strategy does work well for queries that retrieve one user at a time by a known user id let's take a look at another example this time we'll be defining our movie vertex label notice how we have two properties year and country as our partition key this is known as a composite partition key as we're combining two or more values to define data locality it's important to remember that just like in cql data modeling you must always provide both values of a composite partition key when querying back the data now because a movie might have multiple releases or versions defined by year in country we're going to use movie id as our clustering key to define uniqueness for a given movie the data model allows us to start by finding all movies for a given year and country and then allows us to narrow down by movie id lastly let's take a look at an example that uses system generated ids remember system generated vertex ids are being deprecated so let's take a closer look notice that in our vertex label definition we have not specified a partition nor clustering key in this case dsc graph will generate an id on insertion that consists of a community and member ids while this sounds convenient in theory it also means that we lose all control of data locality and uniqueness the last thing to note about creating vertex labels is that you can reuse property keys across vertex label definitions this means there's no benefit for having a genre name or person name property simply to find the properties associated with the vertex label and the values of the properties will always remain local to the respective vertex okay so now that we know how to define our property keys and vertex labels let's talk about how you actually create the relationships between them these are known as edges and as such we need to define edge labels as the third step in our schema definition process similarly to vertex labels an edge label contains a unique label name cardinality associated properties and the domain and range you'll notice that there is no such thing as a user defined edge id this is because the edge ids are automatically derived from the vertex ids we'll take a closer look at that when we talk about inserting graph data let's talk about creating edge labels in this example we're creating a single cardinality edge label where a user rates a movie in this case we only want at most one rating between a respective user and movie so we add single to the edge label definition we then define our properties it's worth reminding you that edge labels cannot have multi properties with meta properties associated with them then we define our connection logically the directionality of the relationship is that a user rates a movie so we first define the user then the movie even though we define directionality this way relationships are stored bidirectionally on disk to make traversing in and out of relationships easy let's take a look at multi-cardinality edge label definitions in this example we have a movie vertex label and a person vertex label while person can be anyone we're relating movies and person by the roles that they play in a respective movie because it's possible that a single person played many roles in a movie we define this as a multi-cardinality edge label now multi-cardinality is assumed by default so it can be omitted from the edge label definition as you can see in the bottom example and here we have an example of defining multiple connections inside of a single edge label definition we have our user-to-user connection our user-to-person connection and our person-to-user connection all in a single edge label definition and remember because edges are stored bi-directionally on disk it's actually not necessary to create edges that go in both directions in most cases lastly it's time to talk about our fourth and final step in the schema definition process creating indices because there's a lot of depth to indices in dsc graph we'll cover them more in depth separately but for now know that there are three types of indices vertex property and edge indices now that you know the schema definition process let's talk about some ways you can find information about your schema starting with the schema describe command this will list all of your schema definitions if you want to print schema elements for a specific edge or vertex label you can simply do that by adding a describe at the end of schema.vertex label or schema.edgelabel now if you want to drop all of your schema definitions you can simply run a schema.drop command but please be careful as this will cause you to lose all of your data in your respective graph this is a larger example of a graph schema in our graph layered training units we'll be relying on this killer video graph schema example the graph schema contains four types of vertices labeled movie user genre and person and a number of labeled edges that may connect vertices of specific types study the vertex ids and properties their keys names and value types shown in the schema graph the edge cardinalities are omitted for visual clarity the only multiple cardinality edges are actor and screenwriter that is based on our specific data set properties there is only one multi-property and no meta properties now you've learned all about creating graph schemas let's take what you learned and put it to good use",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 5.31,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.359,
+        "duration": 3.521,
+        "text": "welcome to working with graph schemas my"
+      },
+      {
+        "start": 9.28,
+        "duration": 2.399,
+        "text": "name is mark selwan a member of the"
+      },
+      {
+        "start": 10.88,
+        "duration": 2.16,
+        "text": "product team"
+      },
+      {
+        "start": 11.679,
+        "duration": 2.321,
+        "text": "and in this section we'll cover"
+      },
+      {
+        "start": 13.04,
+        "duration": 2.479,
+        "text": "everything you need to know about"
+      },
+      {
+        "start": 14.0,
+        "duration": 2.48,
+        "text": "getting started with creating awesome"
+      },
+      {
+        "start": 15.519,
+        "duration": 3.281,
+        "text": "graph schemas"
+      },
+      {
+        "start": 16.48,
+        "duration": 5.04,
+        "text": "to start things off let's talk about how"
+      },
+      {
+        "start": 18.8,
+        "duration": 4.479,
+        "text": "we actually define schemas"
+      },
+      {
+        "start": 21.52,
+        "duration": 3.04,
+        "text": "let's start by level setting on what"
+      },
+      {
+        "start": 23.279,
+        "duration": 2.721,
+        "text": "graph schemas actually"
+      },
+      {
+        "start": 24.56,
+        "duration": 3.52,
+        "text": "are in the world of data stacks"
+      },
+      {
+        "start": 26.0,
+        "duration": 4.48,
+        "text": "enterprise it's important to note that"
+      },
+      {
+        "start": 28.08,
+        "duration": 4.72,
+        "text": "graph schema is a concept introduced in"
+      },
+      {
+        "start": 30.48,
+        "duration": 4.079,
+        "text": "dsc graph for efficiency"
+      },
+      {
+        "start": 32.8,
+        "duration": 3.52,
+        "text": "now graph schema is a combination of"
+      },
+      {
+        "start": 34.559,
+        "duration": 3.441,
+        "text": "property keys vertex labels"
+      },
+      {
+        "start": 36.32,
+        "duration": 4.239,
+        "text": "edge labels and the semantics that"
+      },
+      {
+        "start": 38.0,
+        "duration": 4.16,
+        "text": "connect them graph schema also enables"
+      },
+      {
+        "start": 40.559,
+        "duration": 4.0,
+        "text": "the definition of indices before the"
+      },
+      {
+        "start": 42.16,
+        "duration": 4.0,
+        "text": "data is inserted into the system"
+      },
+      {
+        "start": 44.559,
+        "duration": 3.84,
+        "text": "graph schemas is managed by the graph"
+      },
+      {
+        "start": 46.16,
+        "duration": 4.399,
+        "text": "schema api that's accessible to you"
+      },
+      {
+        "start": 48.399,
+        "duration": 3.68,
+        "text": "the end user via the schema object in"
+      },
+      {
+        "start": 50.559,
+        "duration": 2.801,
+        "text": "data stack studio or even inside of the"
+      },
+      {
+        "start": 52.079,
+        "duration": 3.681,
+        "text": "gremlin console"
+      },
+      {
+        "start": 53.36,
+        "duration": 4.16,
+        "text": "the schema api provides the methods such"
+      },
+      {
+        "start": 55.76,
+        "duration": 3.599,
+        "text": "as property key vertex label"
+      },
+      {
+        "start": 57.52,
+        "duration": 3.6,
+        "text": "edge label and also supports the fluid"
+      },
+      {
+        "start": 59.359,
+        "duration": 3.68,
+        "text": "interface"
+      },
+      {
+        "start": 61.12,
+        "duration": 3.679,
+        "text": "the schema api provides two types of"
+      },
+      {
+        "start": 63.039,
+        "duration": 3.44,
+        "text": "schema modes that allow users to define"
+      },
+      {
+        "start": 64.799,
+        "duration": 3.68,
+        "text": "whether they want to run in production"
+      },
+      {
+        "start": 66.479,
+        "duration": 3.601,
+        "text": "mode or development mode"
+      },
+      {
+        "start": 68.479,
+        "duration": 3.361,
+        "text": "production mode is the default and"
+      },
+      {
+        "start": 70.08,
+        "duration": 3.28,
+        "text": "recommended mode to run as it requires"
+      },
+      {
+        "start": 71.84,
+        "duration": 2.48,
+        "text": "you to find schema in advance"
+      },
+      {
+        "start": 73.36,
+        "duration": 2.88,
+        "text": "up front to make sure that you're"
+      },
+      {
+        "start": 74.32,
+        "duration": 3.76,
+        "text": "getting the best performance possible"
+      },
+      {
+        "start": 76.24,
+        "duration": 3.6,
+        "text": "out of your graph"
+      },
+      {
+        "start": 78.08,
+        "duration": 4.24,
+        "text": "development mode allows dsc graph to"
+      },
+      {
+        "start": 79.84,
+        "duration": 4.48,
+        "text": "infer a schema at insertion of data"
+      },
+      {
+        "start": 82.32,
+        "duration": 3.68,
+        "text": "while this is convenient for development"
+      },
+      {
+        "start": 84.32,
+        "duration": 2.4,
+        "text": "it's still recommended to use this as a"
+      },
+      {
+        "start": 86.0,
+        "duration": 2.56,
+        "text": "tool for"
+      },
+      {
+        "start": 86.72,
+        "duration": 3.439,
+        "text": "exploration and development environments"
+      },
+      {
+        "start": 88.56,
+        "duration": 3.28,
+        "text": "but you'll want to use production mode"
+      },
+      {
+        "start": 90.159,
+        "duration": 2.32,
+        "text": "where performance and scalability are"
+      },
+      {
+        "start": 91.84,
+        "duration": 2.959,
+        "text": "key"
+      },
+      {
+        "start": 92.479,
+        "duration": 4.401,
+        "text": "dsc graph allows you to globally set the"
+      },
+      {
+        "start": 94.799,
+        "duration": 3.441,
+        "text": "schema mode via the dsc yaml file but"
+      },
+      {
+        "start": 96.88,
+        "duration": 4.239,
+        "text": "it's recommended to leave it as"
+      },
+      {
+        "start": 98.24,
+        "duration": 4.879,
+        "text": "is defaulting to production mode you can"
+      },
+      {
+        "start": 101.119,
+        "duration": 3.521,
+        "text": "dynamically specify the schema mode with"
+      },
+      {
+        "start": 103.119,
+        "duration": 3.201,
+        "text": "the syntax on the bottom here should you"
+      },
+      {
+        "start": 104.64,
+        "duration": 5.119,
+        "text": "want to switch to development mode"
+      },
+      {
+        "start": 106.32,
+        "duration": 5.36,
+        "text": "for testing purposes or for exploration"
+      },
+      {
+        "start": 109.759,
+        "duration": 4.0,
+        "text": "there are four main elements to building"
+      },
+      {
+        "start": 111.68,
+        "duration": 3.52,
+        "text": "graph schema in order you must first"
+      },
+      {
+        "start": 113.759,
+        "duration": 3.521,
+        "text": "define the property keys"
+      },
+      {
+        "start": 115.2,
+        "duration": 4.239,
+        "text": "the vertex labels edge labels and"
+      },
+      {
+        "start": 117.28,
+        "duration": 3.6,
+        "text": "indices let's take a deeper look into"
+      },
+      {
+        "start": 119.439,
+        "duration": 2.96,
+        "text": "the first three elements"
+      },
+      {
+        "start": 120.88,
+        "duration": 3.44,
+        "text": "property keys are the first step in your"
+      },
+      {
+        "start": 122.399,
+        "duration": 3.281,
+        "text": "schema definition you can think of these"
+      },
+      {
+        "start": 124.32,
+        "duration": 2.079,
+        "text": "as your attributes that define"
+      },
+      {
+        "start": 125.68,
+        "duration": 2.559,
+        "text": "uniqueness"
+      },
+      {
+        "start": 126.399,
+        "duration": 4.401,
+        "text": "data type cardinality and meta"
+      },
+      {
+        "start": 128.239,
+        "duration": 3.921,
+        "text": "properties these attributes can then be"
+      },
+      {
+        "start": 130.8,
+        "duration": 4.4,
+        "text": "associated with vertices"
+      },
+      {
+        "start": 132.16,
+        "duration": 4.48,
+        "text": "edges however they are independent"
+      },
+      {
+        "start": 135.2,
+        "duration": 3.44,
+        "text": "here's how you typically define a"
+      },
+      {
+        "start": 136.64,
+        "duration": 3.679,
+        "text": "property specifically a single"
+      },
+      {
+        "start": 138.64,
+        "duration": 3.44,
+        "text": "cardinality property key which is the"
+      },
+      {
+        "start": 140.319,
+        "duration": 2.961,
+        "text": "most frequently used"
+      },
+      {
+        "start": 142.08,
+        "duration": 3.76,
+        "text": "you can see here that we defined a"
+      },
+      {
+        "start": 143.28,
+        "duration": 4.16,
+        "text": "property key name then data type"
+      },
+      {
+        "start": 145.84,
+        "duration": 4.24,
+        "text": "and then the cardinality though single"
+      },
+      {
+        "start": 147.44,
+        "duration": 4.32,
+        "text": "cardinality is assumed by default"
+      },
+      {
+        "start": 150.08,
+        "duration": 3.28,
+        "text": "here's an example of defining a"
+      },
+      {
+        "start": 151.76,
+        "duration": 3.839,
+        "text": "multi-property key"
+      },
+      {
+        "start": 153.36,
+        "duration": 3.76,
+        "text": "a multi-property key allows for many"
+      },
+      {
+        "start": 155.599,
+        "duration": 2.881,
+        "text": "text values to be stored for a"
+      },
+      {
+        "start": 157.12,
+        "duration": 2.88,
+        "text": "respective property"
+      },
+      {
+        "start": 158.48,
+        "duration": 3.36,
+        "text": "in this case it's possible that there"
+      },
+      {
+        "start": 160.0,
+        "duration": 4.08,
+        "text": "are multiple film production companies"
+      },
+      {
+        "start": 161.84,
+        "duration": 4.32,
+        "text": "for a given production"
+      },
+      {
+        "start": 164.08,
+        "duration": 3.6,
+        "text": "dsc graph also allows for the creation"
+      },
+      {
+        "start": 166.16,
+        "duration": 3.6,
+        "text": "of meta properties or multiple"
+      },
+      {
+        "start": 167.68,
+        "duration": 3.76,
+        "text": "properties within a given property key"
+      },
+      {
+        "start": 169.76,
+        "duration": 3.119,
+        "text": "you can see that we define a source and"
+      },
+      {
+        "start": 171.44,
+        "duration": 3.04,
+        "text": "a date property key each with a"
+      },
+      {
+        "start": 172.879,
+        "duration": 3.841,
+        "text": "different data type and we can include"
+      },
+      {
+        "start": 174.48,
+        "duration": 3.839,
+        "text": "them inside of our budget property key"
+      },
+      {
+        "start": 176.72,
+        "duration": 3.599,
+        "text": "it's also worth noting that meta"
+      },
+      {
+        "start": 178.319,
+        "duration": 3.681,
+        "text": "properties can only be used with vertex"
+      },
+      {
+        "start": 180.319,
+        "duration": 3.84,
+        "text": "properties and can be applied single or"
+      },
+      {
+        "start": 182.0,
+        "duration": 3.84,
+        "text": "multiple cardinality properties"
+      },
+      {
+        "start": 184.159,
+        "duration": 3.521,
+        "text": "here's a list of supported property data"
+      },
+      {
+        "start": 185.84,
+        "duration": 3.039,
+        "text": "types as you can see everything you'd"
+      },
+      {
+        "start": 187.68,
+        "duration": 3.44,
+        "text": "expect is here"
+      },
+      {
+        "start": 188.879,
+        "duration": 5.521,
+        "text": "everything from small ins to decimals to"
+      },
+      {
+        "start": 191.12,
+        "duration": 4.8,
+        "text": "text even geospatial objects"
+      },
+      {
+        "start": 194.4,
+        "duration": 3.199,
+        "text": "so now that we understand how property"
+      },
+      {
+        "start": 195.92,
+        "duration": 2.16,
+        "text": "keys work we're ready to talk about"
+      },
+      {
+        "start": 197.599,
+        "duration": 3.121,
+        "text": "vertex"
+      },
+      {
+        "start": 198.08,
+        "duration": 4.48,
+        "text": "labels vertex labels are your entities"
+      },
+      {
+        "start": 200.72,
+        "duration": 3.599,
+        "text": "in the entity relationship model they"
+      },
+      {
+        "start": 202.56,
+        "duration": 3.039,
+        "text": "define the type of vertices in a"
+      },
+      {
+        "start": 204.319,
+        "duration": 3.2,
+        "text": "respective graph"
+      },
+      {
+        "start": 205.599,
+        "duration": 4.0,
+        "text": "defining vertex labels are the second"
+      },
+      {
+        "start": 207.519,
+        "duration": 4.561,
+        "text": "step in the schema definition process"
+      },
+      {
+        "start": 209.599,
+        "duration": 4.321,
+        "text": "they contain the vertex id definition a"
+      },
+      {
+        "start": 212.08,
+        "duration": 3.84,
+        "text": "unique label as well as the associated"
+      },
+      {
+        "start": 213.92,
+        "duration": 3.36,
+        "text": "property keys we already defined in step"
+      },
+      {
+        "start": 215.92,
+        "duration": 3.28,
+        "text": "one"
+      },
+      {
+        "start": 217.28,
+        "duration": 3.84,
+        "text": "thinking about the vertex id is really"
+      },
+      {
+        "start": 219.2,
+        "duration": 3.119,
+        "text": "important there are two types of vertex"
+      },
+      {
+        "start": 221.12,
+        "duration": 3.28,
+        "text": "ids in dsc graph"
+      },
+      {
+        "start": 222.319,
+        "duration": 4.64,
+        "text": "user-defined ids and system generated"
+      },
+      {
+        "start": 224.4,
+        "duration": 4.16,
+        "text": "ids user-defined vertex ids are the"
+      },
+      {
+        "start": 226.959,
+        "duration": 3.121,
+        "text": "recommended approach as they are much"
+      },
+      {
+        "start": 228.56,
+        "duration": 3.599,
+        "text": "more performant and give the user the"
+      },
+      {
+        "start": 230.08,
+        "duration": 3.92,
+        "text": "ability to control graph partitioning"
+      },
+      {
+        "start": 232.159,
+        "duration": 3.121,
+        "text": "system generated vertex ids are to be"
+      },
+      {
+        "start": 234.0,
+        "duration": 3.599,
+        "text": "deprecated and have performance"
+      },
+      {
+        "start": 235.28,
+        "duration": 4.239,
+        "text": "limitations with larger graphs"
+      },
+      {
+        "start": 237.599,
+        "duration": 4.801,
+        "text": "so let's dive into user-defined vertex"
+      },
+      {
+        "start": 239.519,
+        "duration": 5.681,
+        "text": "ids they're defined via two components"
+      },
+      {
+        "start": 242.4,
+        "duration": 4.559,
+        "text": "the partition key which a vertex belongs"
+      },
+      {
+        "start": 245.2,
+        "duration": 3.759,
+        "text": "to and a clustering key which helps"
+      },
+      {
+        "start": 246.959,
+        "duration": 2.721,
+        "text": "uniquely identify a vertex within a"
+      },
+      {
+        "start": 248.959,
+        "duration": 2.321,
+        "text": "partition"
+      },
+      {
+        "start": 249.68,
+        "duration": 3.44,
+        "text": "this may sound familiar because these"
+      },
+      {
+        "start": 251.28,
+        "duration": 3.599,
+        "text": "are the exact same concepts taken out of"
+      },
+      {
+        "start": 253.12,
+        "duration": 4.239,
+        "text": "data modeling with cql"
+      },
+      {
+        "start": 254.879,
+        "duration": 4.561,
+        "text": "as such the partition key is defined as"
+      },
+      {
+        "start": 257.359,
+        "duration": 3.761,
+        "text": "a non-empty set of property keys and a"
+      },
+      {
+        "start": 259.44,
+        "duration": 4.0,
+        "text": "clustering key is defined as a set of"
+      },
+      {
+        "start": 261.12,
+        "duration": 3.84,
+        "text": "property keys which can be empty"
+      },
+      {
+        "start": 263.44,
+        "duration": 3.84,
+        "text": "both can be made up of single or"
+      },
+      {
+        "start": 264.96,
+        "duration": 4.32,
+        "text": "composite property keys"
+      },
+      {
+        "start": 267.28,
+        "duration": 4.8,
+        "text": "now that we understand how vertex ids"
+      },
+      {
+        "start": 269.28,
+        "duration": 4.56,
+        "text": "work let's create our vertex labels"
+      },
+      {
+        "start": 272.08,
+        "duration": 4.559,
+        "text": "remember step one is to define our"
+      },
+      {
+        "start": 273.84,
+        "duration": 4.639,
+        "text": "property keys in this case our user id"
+      },
+      {
+        "start": 276.639,
+        "duration": 3.041,
+        "text": "age and gender all of which are single"
+      },
+      {
+        "start": 278.479,
+        "duration": 3.121,
+        "text": "cardinality"
+      },
+      {
+        "start": 279.68,
+        "duration": 3.28,
+        "text": "then we define our vertex label we're"
+      },
+      {
+        "start": 281.6,
+        "duration": 2.96,
+        "text": "creating a vertex label called"
+      },
+      {
+        "start": 282.96,
+        "duration": 4.0,
+        "text": "user that's our entity and we're"
+      },
+      {
+        "start": 284.56,
+        "duration": 3.359,
+        "text": "defining our partition key as our userid"
+      },
+      {
+        "start": 286.96,
+        "duration": 2.72,
+        "text": "property"
+      },
+      {
+        "start": 287.919,
+        "duration": 3.361,
+        "text": "then we define other properties or"
+      },
+      {
+        "start": 289.68,
+        "duration": 4.4,
+        "text": "attributes that are associated with"
+      },
+      {
+        "start": 291.28,
+        "duration": 4.72,
+        "text": "our user in this case age and gender the"
+      },
+      {
+        "start": 294.08,
+        "duration": 3.52,
+        "text": "resulting graph partitioning may or may"
+      },
+      {
+        "start": 296.0,
+        "duration": 3.52,
+        "text": "not make sense depending on the types of"
+      },
+      {
+        "start": 297.6,
+        "duration": 3.68,
+        "text": "traversals you require for graph"
+      },
+      {
+        "start": 299.52,
+        "duration": 3.6,
+        "text": "for example it would not be the best"
+      },
+      {
+        "start": 301.28,
+        "duration": 3.759,
+        "text": "partitioning strategy for traversals to"
+      },
+      {
+        "start": 303.12,
+        "duration": 2.56,
+        "text": "analyze all users within a particular"
+      },
+      {
+        "start": 305.039,
+        "duration": 2.241,
+        "text": "age"
+      },
+      {
+        "start": 305.68,
+        "duration": 3.68,
+        "text": "on the other hand this partitioning"
+      },
+      {
+        "start": 307.28,
+        "duration": 2.72,
+        "text": "strategy does work well for queries that"
+      },
+      {
+        "start": 309.36,
+        "duration": 3.92,
+        "text": "retrieve"
+      },
+      {
+        "start": 310.0,
+        "duration": 4.96,
+        "text": "one user at a time by a known user id"
+      },
+      {
+        "start": 313.28,
+        "duration": 3.44,
+        "text": "let's take a look at another example"
+      },
+      {
+        "start": 314.96,
+        "duration": 3.12,
+        "text": "this time we'll be defining our movie"
+      },
+      {
+        "start": 316.72,
+        "duration": 3.759,
+        "text": "vertex label"
+      },
+      {
+        "start": 318.08,
+        "duration": 4.24,
+        "text": "notice how we have two properties year"
+      },
+      {
+        "start": 320.479,
+        "duration": 3.601,
+        "text": "and country as our partition key"
+      },
+      {
+        "start": 322.32,
+        "duration": 3.04,
+        "text": "this is known as a composite partition"
+      },
+      {
+        "start": 324.08,
+        "duration": 4.08,
+        "text": "key as we're combining two or more"
+      },
+      {
+        "start": 325.36,
+        "duration": 4.24,
+        "text": "values to define data locality"
+      },
+      {
+        "start": 328.16,
+        "duration": 3.36,
+        "text": "it's important to remember that just"
+      },
+      {
+        "start": 329.6,
+        "duration": 3.52,
+        "text": "like in cql data modeling you must"
+      },
+      {
+        "start": 331.52,
+        "duration": 3.44,
+        "text": "always provide both values of a"
+      },
+      {
+        "start": 333.12,
+        "duration": 3.12,
+        "text": "composite partition key when querying"
+      },
+      {
+        "start": 334.96,
+        "duration": 3.36,
+        "text": "back the data"
+      },
+      {
+        "start": 336.24,
+        "duration": 3.679,
+        "text": "now because a movie might have multiple"
+      },
+      {
+        "start": 338.32,
+        "duration": 3.52,
+        "text": "releases or versions"
+      },
+      {
+        "start": 339.919,
+        "duration": 3.921,
+        "text": "defined by year in country we're going"
+      },
+      {
+        "start": 341.84,
+        "duration": 4.4,
+        "text": "to use movie id as our clustering key to"
+      },
+      {
+        "start": 343.84,
+        "duration": 4.24,
+        "text": "define uniqueness for a given movie"
+      },
+      {
+        "start": 346.24,
+        "duration": 3.76,
+        "text": "the data model allows us to start by"
+      },
+      {
+        "start": 348.08,
+        "duration": 3.839,
+        "text": "finding all movies for a given year"
+      },
+      {
+        "start": 350.0,
+        "duration": 4.479,
+        "text": "and country and then allows us to narrow"
+      },
+      {
+        "start": 351.919,
+        "duration": 4.241,
+        "text": "down by movie id"
+      },
+      {
+        "start": 354.479,
+        "duration": 3.681,
+        "text": "lastly let's take a look at an example"
+      },
+      {
+        "start": 356.16,
+        "duration": 4.479,
+        "text": "that uses system generated ids"
+      },
+      {
+        "start": 358.16,
+        "duration": 3.52,
+        "text": "remember system generated vertex ids are"
+      },
+      {
+        "start": 360.639,
+        "duration": 2.881,
+        "text": "being deprecated"
+      },
+      {
+        "start": 361.68,
+        "duration": 3.6,
+        "text": "so let's take a closer look notice that"
+      },
+      {
+        "start": 363.52,
+        "duration": 2.48,
+        "text": "in our vertex label definition we have"
+      },
+      {
+        "start": 365.28,
+        "duration": 2.88,
+        "text": "not specified"
+      },
+      {
+        "start": 366.0,
+        "duration": 4.319,
+        "text": "a partition nor clustering key in this"
+      },
+      {
+        "start": 368.16,
+        "duration": 3.759,
+        "text": "case dsc graph will generate an id on"
+      },
+      {
+        "start": 370.319,
+        "duration": 2.88,
+        "text": "insertion that consists of a community"
+      },
+      {
+        "start": 371.919,
+        "duration": 2.881,
+        "text": "and member ids"
+      },
+      {
+        "start": 373.199,
+        "duration": 3.12,
+        "text": "while this sounds convenient in theory"
+      },
+      {
+        "start": 374.8,
+        "duration": 3.92,
+        "text": "it also means that we lose all control"
+      },
+      {
+        "start": 376.319,
+        "duration": 3.921,
+        "text": "of data locality and uniqueness"
+      },
+      {
+        "start": 378.72,
+        "duration": 3.36,
+        "text": "the last thing to note about creating"
+      },
+      {
+        "start": 380.24,
+        "duration": 2.88,
+        "text": "vertex labels is that you can reuse"
+      },
+      {
+        "start": 382.08,
+        "duration": 3.36,
+        "text": "property keys across"
+      },
+      {
+        "start": 383.12,
+        "duration": 4.24,
+        "text": "vertex label definitions this means"
+      },
+      {
+        "start": 385.44,
+        "duration": 4.479,
+        "text": "there's no benefit for having a"
+      },
+      {
+        "start": 387.36,
+        "duration": 4.24,
+        "text": "genre name or person name property"
+      },
+      {
+        "start": 389.919,
+        "duration": 3.441,
+        "text": "simply to find the properties associated"
+      },
+      {
+        "start": 391.6,
+        "duration": 3.36,
+        "text": "with the vertex label and the values of"
+      },
+      {
+        "start": 393.36,
+        "duration": 3.679,
+        "text": "the properties will always remain local"
+      },
+      {
+        "start": 394.96,
+        "duration": 3.679,
+        "text": "to the respective vertex"
+      },
+      {
+        "start": 397.039,
+        "duration": 3.761,
+        "text": "okay so now that we know how to define"
+      },
+      {
+        "start": 398.639,
+        "duration": 3.521,
+        "text": "our property keys and vertex labels"
+      },
+      {
+        "start": 400.8,
+        "duration": 3.28,
+        "text": "let's talk about how you actually create"
+      },
+      {
+        "start": 402.16,
+        "duration": 4.0,
+        "text": "the relationships between them"
+      },
+      {
+        "start": 404.08,
+        "duration": 3.839,
+        "text": "these are known as edges and as such we"
+      },
+      {
+        "start": 406.16,
+        "duration": 4.159,
+        "text": "need to define edge labels as the third"
+      },
+      {
+        "start": 407.919,
+        "duration": 4.72,
+        "text": "step in our schema definition process"
+      },
+      {
+        "start": 410.319,
+        "duration": 4.16,
+        "text": "similarly to vertex labels an edge label"
+      },
+      {
+        "start": 412.639,
+        "duration": 3.84,
+        "text": "contains a unique label name"
+      },
+      {
+        "start": 414.479,
+        "duration": 3.44,
+        "text": "cardinality associated properties and"
+      },
+      {
+        "start": 416.479,
+        "duration": 2.881,
+        "text": "the domain and range"
+      },
+      {
+        "start": 417.919,
+        "duration": 3.761,
+        "text": "you'll notice that there is no such"
+      },
+      {
+        "start": 419.36,
+        "duration": 4.239,
+        "text": "thing as a user defined edge id"
+      },
+      {
+        "start": 421.68,
+        "duration": 3.76,
+        "text": "this is because the edge ids are"
+      },
+      {
+        "start": 423.599,
+        "duration": 2.961,
+        "text": "automatically derived from the vertex"
+      },
+      {
+        "start": 425.44,
+        "duration": 2.56,
+        "text": "ids"
+      },
+      {
+        "start": 426.56,
+        "duration": 4.16,
+        "text": "we'll take a closer look at that when we"
+      },
+      {
+        "start": 428.0,
+        "duration": 4.479,
+        "text": "talk about inserting graph data"
+      },
+      {
+        "start": 430.72,
+        "duration": 3.28,
+        "text": "let's talk about creating edge labels in"
+      },
+      {
+        "start": 432.479,
+        "duration": 3.84,
+        "text": "this example we're creating a single"
+      },
+      {
+        "start": 434.0,
+        "duration": 5.28,
+        "text": "cardinality edge label where a user"
+      },
+      {
+        "start": 436.319,
+        "duration": 3.521,
+        "text": "rates a movie in this case we only want"
+      },
+      {
+        "start": 439.28,
+        "duration": 2.56,
+        "text": "at most"
+      },
+      {
+        "start": 439.84,
+        "duration": 4.4,
+        "text": "one rating between a respective user and"
+      },
+      {
+        "start": 441.84,
+        "duration": 3.44,
+        "text": "movie so we add single to the edge label"
+      },
+      {
+        "start": 444.24,
+        "duration": 3.359,
+        "text": "definition"
+      },
+      {
+        "start": 445.28,
+        "duration": 4.16,
+        "text": "we then define our properties it's worth"
+      },
+      {
+        "start": 447.599,
+        "duration": 2.481,
+        "text": "reminding you that edge labels cannot"
+      },
+      {
+        "start": 449.44,
+        "duration": 1.92,
+        "text": "have multi"
+      },
+      {
+        "start": 450.08,
+        "duration": 3.28,
+        "text": "properties with meta properties"
+      },
+      {
+        "start": 451.36,
+        "duration": 3.04,
+        "text": "associated with them then we define our"
+      },
+      {
+        "start": 453.36,
+        "duration": 2.959,
+        "text": "connection"
+      },
+      {
+        "start": 454.4,
+        "duration": 3.6,
+        "text": "logically the directionality of the"
+      },
+      {
+        "start": 456.319,
+        "duration": 3.681,
+        "text": "relationship is that a user"
+      },
+      {
+        "start": 458.0,
+        "duration": 4.16,
+        "text": "rates a movie so we first define the"
+      },
+      {
+        "start": 460.0,
+        "duration": 3.599,
+        "text": "user then the movie"
+      },
+      {
+        "start": 462.16,
+        "duration": 2.879,
+        "text": "even though we define directionality"
+      },
+      {
+        "start": 463.599,
+        "duration": 2.961,
+        "text": "this way relationships are stored"
+      },
+      {
+        "start": 465.039,
+        "duration": 3.28,
+        "text": "bidirectionally on disk to make"
+      },
+      {
+        "start": 466.56,
+        "duration": 3.52,
+        "text": "traversing in and out of relationships"
+      },
+      {
+        "start": 468.319,
+        "duration": 3.521,
+        "text": "easy"
+      },
+      {
+        "start": 470.08,
+        "duration": 3.44,
+        "text": "let's take a look at multi-cardinality"
+      },
+      {
+        "start": 471.84,
+        "duration": 4.4,
+        "text": "edge label definitions"
+      },
+      {
+        "start": 473.52,
+        "duration": 5.04,
+        "text": "in this example we have a movie vertex"
+      },
+      {
+        "start": 476.24,
+        "duration": 3.92,
+        "text": "label and a person vertex label"
+      },
+      {
+        "start": 478.56,
+        "duration": 3.84,
+        "text": "while person can be anyone we're"
+      },
+      {
+        "start": 480.16,
+        "duration": 4.8,
+        "text": "relating movies and person by the roles"
+      },
+      {
+        "start": 482.4,
+        "duration": 4.16,
+        "text": "that they play in a respective movie"
+      },
+      {
+        "start": 484.96,
+        "duration": 3.519,
+        "text": "because it's possible that a single"
+      },
+      {
+        "start": 486.56,
+        "duration": 3.759,
+        "text": "person played many roles in a movie we"
+      },
+      {
+        "start": 488.479,
+        "duration": 2.72,
+        "text": "define this as a multi-cardinality edge"
+      },
+      {
+        "start": 490.319,
+        "duration": 2.641,
+        "text": "label"
+      },
+      {
+        "start": 491.199,
+        "duration": 3.28,
+        "text": "now multi-cardinality is assumed by"
+      },
+      {
+        "start": 492.96,
+        "duration": 3.2,
+        "text": "default so it can be omitted from the"
+      },
+      {
+        "start": 494.479,
+        "duration": 4.081,
+        "text": "edge label definition as you can see in"
+      },
+      {
+        "start": 496.16,
+        "duration": 4.24,
+        "text": "the bottom example"
+      },
+      {
+        "start": 498.56,
+        "duration": 3.52,
+        "text": "and here we have an example of defining"
+      },
+      {
+        "start": 500.4,
+        "duration": 3.76,
+        "text": "multiple connections inside of a single"
+      },
+      {
+        "start": 502.08,
+        "duration": 4.559,
+        "text": "edge label definition"
+      },
+      {
+        "start": 504.16,
+        "duration": 4.039,
+        "text": "we have our user-to-user connection our"
+      },
+      {
+        "start": 506.639,
+        "duration": 3.361,
+        "text": "user-to-person connection and our"
+      },
+      {
+        "start": 508.199,
+        "duration": 3.641,
+        "text": "person-to-user connection all in a"
+      },
+      {
+        "start": 510.0,
+        "duration": 3.519,
+        "text": "single edge label definition"
+      },
+      {
+        "start": 511.84,
+        "duration": 3.04,
+        "text": "and remember because edges are stored"
+      },
+      {
+        "start": 513.519,
+        "duration": 3.2,
+        "text": "bi-directionally on disk it's actually"
+      },
+      {
+        "start": 514.88,
+        "duration": 5.599,
+        "text": "not necessary to create edges that go in"
+      },
+      {
+        "start": 516.719,
+        "duration": 5.2,
+        "text": "both directions in most cases"
+      },
+      {
+        "start": 520.479,
+        "duration": 3.201,
+        "text": "lastly it's time to talk about our"
+      },
+      {
+        "start": 521.919,
+        "duration": 2.961,
+        "text": "fourth and final step in the schema"
+      },
+      {
+        "start": 523.68,
+        "duration": 2.96,
+        "text": "definition process"
+      },
+      {
+        "start": 524.88,
+        "duration": 3.84,
+        "text": "creating indices because there's a lot"
+      },
+      {
+        "start": 526.64,
+        "duration": 4.16,
+        "text": "of depth to indices in dsc graph we'll"
+      },
+      {
+        "start": 528.72,
+        "duration": 2.64,
+        "text": "cover them more in depth separately but"
+      },
+      {
+        "start": 530.8,
+        "duration": 1.92,
+        "text": "for now"
+      },
+      {
+        "start": 531.36,
+        "duration": 5.68,
+        "text": "know that there are three types of"
+      },
+      {
+        "start": 532.72,
+        "duration": 5.84,
+        "text": "indices vertex property and edge indices"
+      },
+      {
+        "start": 537.04,
+        "duration": 3.2,
+        "text": "now that you know the schema definition"
+      },
+      {
+        "start": 538.56,
+        "duration": 3.52,
+        "text": "process let's talk about some ways you"
+      },
+      {
+        "start": 540.24,
+        "duration": 3.44,
+        "text": "can find information about your schema"
+      },
+      {
+        "start": 542.08,
+        "duration": 2.879,
+        "text": "starting with the schema describe"
+      },
+      {
+        "start": 543.68,
+        "duration": 3.159,
+        "text": "command"
+      },
+      {
+        "start": 544.959,
+        "duration": 4.88,
+        "text": "this will list all of your schema"
+      },
+      {
+        "start": 546.839,
+        "duration": 4.761,
+        "text": "definitions"
+      },
+      {
+        "start": 549.839,
+        "duration": 3.761,
+        "text": "if you want to print schema elements for"
+      },
+      {
+        "start": 551.6,
+        "duration": 4.16,
+        "text": "a specific edge or vertex label you can"
+      },
+      {
+        "start": 553.6,
+        "duration": 4.679,
+        "text": "simply do that by adding a describe at"
+      },
+      {
+        "start": 555.76,
+        "duration": 5.519,
+        "text": "the end of schema.vertex label or"
+      },
+      {
+        "start": 558.279,
+        "duration": 3.0,
+        "text": "schema.edgelabel"
+      },
+      {
+        "start": 561.44,
+        "duration": 3.44,
+        "text": "now if you want to drop all of your"
+      },
+      {
+        "start": 562.8,
+        "duration": 3.92,
+        "text": "schema definitions you can simply run a"
+      },
+      {
+        "start": 564.88,
+        "duration": 3.44,
+        "text": "schema.drop command but please be"
+      },
+      {
+        "start": 566.72,
+        "duration": 3.119,
+        "text": "careful as this will cause you to lose"
+      },
+      {
+        "start": 568.32,
+        "duration": 3.68,
+        "text": "all of your data in your respective"
+      },
+      {
+        "start": 569.839,
+        "duration": 3.841,
+        "text": "graph"
+      },
+      {
+        "start": 572.0,
+        "duration": 3.92,
+        "text": "this is a larger example of a graph"
+      },
+      {
+        "start": 573.68,
+        "duration": 4.159,
+        "text": "schema in our graph layered training"
+      },
+      {
+        "start": 575.92,
+        "duration": 3.919,
+        "text": "units we'll be relying on this killer"
+      },
+      {
+        "start": 577.839,
+        "duration": 3.761,
+        "text": "video graph schema example"
+      },
+      {
+        "start": 579.839,
+        "duration": 3.201,
+        "text": "the graph schema contains four types of"
+      },
+      {
+        "start": 581.6,
+        "duration": 4.32,
+        "text": "vertices labeled movie"
+      },
+      {
+        "start": 583.04,
+        "duration": 4.56,
+        "text": "user genre and person and a number of"
+      },
+      {
+        "start": 585.92,
+        "duration": 4.56,
+        "text": "labeled edges that may connect"
+      },
+      {
+        "start": 587.6,
+        "duration": 5.2,
+        "text": "vertices of specific types study the"
+      },
+      {
+        "start": 590.48,
+        "duration": 4.4,
+        "text": "vertex ids and properties their keys"
+      },
+      {
+        "start": 592.8,
+        "duration": 3.44,
+        "text": "names and value types shown in the"
+      },
+      {
+        "start": 594.88,
+        "duration": 2.959,
+        "text": "schema graph"
+      },
+      {
+        "start": 596.24,
+        "duration": 3.52,
+        "text": "the edge cardinalities are omitted for"
+      },
+      {
+        "start": 597.839,
+        "duration": 3.361,
+        "text": "visual clarity the only multiple"
+      },
+      {
+        "start": 599.76,
+        "duration": 3.04,
+        "text": "cardinality edges are actor and"
+      },
+      {
+        "start": 601.2,
+        "duration": 3.44,
+        "text": "screenwriter that is based on our"
+      },
+      {
+        "start": 602.8,
+        "duration": 4.0,
+        "text": "specific data set properties"
+      },
+      {
+        "start": 604.64,
+        "duration": 4.16,
+        "text": "there is only one multi-property and no"
+      },
+      {
+        "start": 606.8,
+        "duration": 3.279,
+        "text": "meta properties"
+      },
+      {
+        "start": 608.8,
+        "duration": 2.96,
+        "text": "now you've learned all about creating"
+      },
+      {
+        "start": 610.079,
+        "duration": 7.921,
+        "text": "graph schemas let's take what you"
+      },
+      {
+        "start": 611.76,
+        "duration": 6.24,
+        "text": "learned and put it to good use"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T22:55:40.890553+00:00"
+}

@@ -1,0 +1,1843 @@
+{
+  "video_id": "QWURkxw5qxA",
+  "title": "DS330.25 Subgraph Traversals | DataStax Enterprise 6 Graph",
+  "description": "#DataStaxAcademy #DS330\nDS330.25 Subgraph Traversals\nThe subgraph traversal extracts a full subset of the larger graph for analysis, visualization, or some other similar purpose. In this unit, you will learn about subgraph traversals.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-16T01:34:50Z",
+  "thumbnail": "https://i.ytimg.com/vi/QWURkxw5qxA/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "tutorial",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=QWURkxw5qxA",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] many of the traversals that we focus on walk around the graph calculate some statistical values select a list of vertices or edges pick a value or something like that but the subgraph traversal extracts a full subset of the larger graph for analysis visualization or some other purpose specifically it generates an edge-induced subgraph based on the edges we give it in the traversal stream now an edge induced subgraph is a subgraph formed by the subset of edges and their endpoint vertices in a graph it doesn't make sense for an edge not to have a vertex therefore once we have an edge we also have the vertices it is connected to also all of the properties from the vertices and edges are copied into the subgraph so the subgraph would have all of the properties we would expect it to have for subgraphs we have a new step that step is subgraph we give it a label and this label is the name of the induced subgraph this generates an edge-induced subgraph from the edges it receives in the traversal stream now this subgraph is not passed on to the subsequent steps in the stream instead it is produced as a side effect that is why the label is so important that is how we're going to identify it it is sort of stored off to the side in a map if you will its label is the key and the subgraph itself is the object in the side effect map now we mentioned that the subgraph step doesn't pass the subgraph into the subsequent steps in the traversal but you can force that if you would like if you use the cap step you tell it the label of the subgraph of interest if you use the cap step and you tell it the label of the subgraph of interest what cap will do is force all of the traversers that you have defined so far to complete their work that is to completely define the subgraph and then pass that subgraph onto the next step in the traversal or if you don't want to pass the subgraph onto the other steps in the traversal you can just call iterate now iterate will also like cap force all the traversers to do their work so you will know that when iterate is done the subgraph has been completely computed but the subgraph will just be stored into the side effect area and not passed on to the subsequent steps in the traversal for our upcoming examples a reminder as always of our killer video movie schema users know other users users rates movies and movies belong to genres we also have people who act direct write or compose the movies in our killer video sample data for the upcoming examples it's important to remember that users rate movies and users know each other that's the part of the example data that we're going to be extracting for our traversals in this first example let's extract the complete social graph of all killer video users in our example data this graph will be the users who know other users in the traversal we begin with our graph and we look at all of its edges and then only those edges which have the label nose we know from our schema that those edges will be connecting our users then we ask for the subgraph and we give it the label social graph after this we cap the social graph which means we make sure all of the traversers run and pass those traversers onto the next step in the traversal then we call next which will access the actual subgraph object that we have computed and that is what we're going to return that is what this traversal returns into the identifier social graph then we create a new traversal on that subgraph and we're going to do two things to it first we will get all of the vertices in group count them group count is a statistical step that we went over in a different video it is going to find all of the vertices that have a common label as shown in the bi modulator we will group up the vertices by their label and count them but in this subgraph we only extracted users so we're going to find 1079 users next we'll do the same thing but with the edges we will group them by their label and count them up now this is our social graph so the only kind of edges that we're going to see has the nose label lastly because this is an edge induced subgraph there is a consequence we will never see vertices that do not have edges it is perfectly fine for there to be an isolate or disconnected vertex in our graph a property graph supports this idea but those vertices will not show up in our edge induced subgraph and this last traversal counts up the total number of isolate vertices in this traversal we are looking for all of the vertices labeled user but do not have a nose edge coming in or out we count them up and we have 21 of them that is we have 21 disconnected users or loner users who do not know anyone in our data set yet next let's find a subgraph based on the immediate social connections of a particular user that user in this case is going to be goodall u1 so we are going to look for the vertex that has the user id of u1 then we're going to get both the incoming and outgoing edges with the nose labels that's all the social relationships for this user and compute the subgraph that's all the social relationships for this user and compute the subgraph based on those edges in edge induced sub graphs we start with the edges we will call that the u1 graph we will cap it to force those traversers to do their work and then we'll return the graph we will do the same kind of statistical analysis on this graph as we did in the last example we're going to group count by label the vertices and the edges in the results of this traversal we see that we get six users of course they're only going to be users because of our social network schema we know that this edge only connects users keeping in mind this will be the original u1 plus five other people that u1 knows then we will count the edges by label and find that we have five of them the u1 vertex and five edges to the five people that u1 knows let's expand our search a little bit let's look at the friends of u1's friends to do this we will need to use a recursive traversal that is covered in a whole other topic but that is the repeat step on the second line to start we get user u1 and then we do a recursive traversal looking for both incoming and outgoing edges looking for the nose edge label and we compute the subgraph based on those edges now note that the subgraph step is included inside the repeat step so we are repeating that we are repeating the subgraph step and each time we give it the same label u1 graph three how many times are we going to do this you see that in the fourth line with the time step where we say to do this three times so as the traversal is repeated the state of that side effect object the u1 graph 3 object is changed as the repetition proceeds as we run this traversal u1 graph 3 is growing as a subgraph when we are done we cap it to make sure those traversals are doing their work and we get the graph back in the u1 graph 3 identifier that we specify in the top line then we do the same statistical analysis we group the vertices by their label and the edges by their label we see that there are 195 users that is one user for one and then 194 friends friends of their friends and friends friends of their friends and then 240 edges that connect all of the people in this increasingly large subgraph now a subgraph traversal does not have to be limited to only extracting one subgraph in this example we are going to extract two we are going to start with all users and get the edges that connect them that is get all of the nose edges in the graph this is kind of the whole social network then we extract that subgraph calling it social graph now when we are done with that subgraph step we call both v now remember subgraph doesn't pass the subgraph onto the next step in the traversal stream it generates a side effect so the both v call on the second line is taking its input from the both e on the first line now in our schema the endpoint of a nose edge is always a user so both e will give us user vertices from there we will look at outgoing edges that have the rated label and we know from our schema that those are going to be the movies so we'll get the subgraph of movies so now we have created a side effect called moviegraph on the third line with that subgraph of movies from there recall that we are on an edge the most recent step and relevant step was out e rated so we're going to go to the incoming vertex with the nv call again we are at movies we will go from there to the outgoing edges and in our schema we know that those outgoing edges coming from movies are to things like director actor belongs to and so forth so we already have a subgraph called movie graph so in effect we are adding stuff into that graph by using the same label again so we are kind of enriching our movies subgraph with all of the people and genres associated with the movies then we want to do things with those two subgraphs so we can cap them both we call cap and we ask for the social graph and movie graph labels those traversers will finish and we will return those sub graphs in the graph identifiers that we have named on the first line now the object graphs will be a map of two sub graphs social graph and movie graph we will define traversals on those and again do very similar analysis we see the vertex and edge statistics of the social graph there are 179 users and 3 500 relationships relating those users we see the vertex and edge statistics of the social graph as expected there are 1079 users and 3 500 relationships relating those users then we see the label distribution of the movie graph there are 920 movies 8 759 people 18 genres and of course those 1079 users who are rating them likewise we can count the number of edges relating those things and we can get interesting facts like that there are 1 668 screenwriters or 1061 directors in our database now it's worth noting if we were to merge these two subgraphs back into one we actually wouldn't have our original graph because we have lost the disconnected people we extracted the social graph and the users with no social relationships didn't have a chance to show up we lost them and we also lost their ratings so the fact that we are extracting edge induced subgraphs has consequences like that and here's one more way of doing the same thing now our subgraph definitions are exactly the same as the previous example we are getting the social graph and then the movie graph we get the movie graph by starting with the movies the people that have rated them and we add on to that people who make the movies the genres they belong to etc instead of calling cap we just call iterate that is it the traversers do their work and the traversal is done now to access the subgraph we have to look at the side effect collection we treat it like a map and we get these things out of it by label we get the social graph and the movie graph and we create new traversals on those things then the rest of our analysis is exactly the same as before the key point in this last example is the side effect map and how to use that when we make a sub graph we are creating a side effect we are putting an entry into this side effect map whose key is the subgraph label and the value is the subgraph object itself we have this simple api that you can use to access those that is subgraph traversals in a nutshell we hope these examples have been helpful as you dig into the following exercise",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 5.31,
+        "text": "[Music]"
+      },
+      {
+        "start": 7.12,
+        "duration": 4.0,
+        "text": "many of the traversals that we focus on"
+      },
+      {
+        "start": 9.04,
+        "duration": 3.519,
+        "text": "walk around the graph calculate some"
+      },
+      {
+        "start": 11.12,
+        "duration": 3.92,
+        "text": "statistical values"
+      },
+      {
+        "start": 12.559,
+        "duration": 4.081,
+        "text": "select a list of vertices or edges pick"
+      },
+      {
+        "start": 15.04,
+        "duration": 3.6,
+        "text": "a value or something like that"
+      },
+      {
+        "start": 16.64,
+        "duration": 3.68,
+        "text": "but the subgraph traversal extracts a"
+      },
+      {
+        "start": 18.64,
+        "duration": 2.32,
+        "text": "full subset of the larger graph for"
+      },
+      {
+        "start": 20.32,
+        "duration": 2.56,
+        "text": "analysis"
+      },
+      {
+        "start": 20.96,
+        "duration": 3.6,
+        "text": "visualization or some other purpose"
+      },
+      {
+        "start": 22.88,
+        "duration": 3.2,
+        "text": "specifically it generates an"
+      },
+      {
+        "start": 24.56,
+        "duration": 2.959,
+        "text": "edge-induced subgraph"
+      },
+      {
+        "start": 26.08,
+        "duration": 4.08,
+        "text": "based on the edges we give it in the"
+      },
+      {
+        "start": 27.519,
+        "duration": 3.281,
+        "text": "traversal stream now an edge induced"
+      },
+      {
+        "start": 30.16,
+        "duration": 2.8,
+        "text": "subgraph"
+      },
+      {
+        "start": 30.8,
+        "duration": 4.24,
+        "text": "is a subgraph formed by the subset of"
+      },
+      {
+        "start": 32.96,
+        "duration": 2.48,
+        "text": "edges and their endpoint vertices in a"
+      },
+      {
+        "start": 35.04,
+        "duration": 2.16,
+        "text": "graph"
+      },
+      {
+        "start": 35.44,
+        "duration": 4.08,
+        "text": "it doesn't make sense for an edge not to"
+      },
+      {
+        "start": 37.2,
+        "duration": 2.879,
+        "text": "have a vertex therefore once we have an"
+      },
+      {
+        "start": 39.52,
+        "duration": 2.24,
+        "text": "edge"
+      },
+      {
+        "start": 40.079,
+        "duration": 3.121,
+        "text": "we also have the vertices it is"
+      },
+      {
+        "start": 41.76,
+        "duration": 3.36,
+        "text": "connected to also"
+      },
+      {
+        "start": 43.2,
+        "duration": 4.0,
+        "text": "all of the properties from the vertices"
+      },
+      {
+        "start": 45.12,
+        "duration": 3.68,
+        "text": "and edges are copied into the subgraph"
+      },
+      {
+        "start": 47.2,
+        "duration": 3.76,
+        "text": "so the subgraph would have all of the"
+      },
+      {
+        "start": 48.8,
+        "duration": 4.32,
+        "text": "properties we would expect it to have"
+      },
+      {
+        "start": 50.96,
+        "duration": 3.439,
+        "text": "for subgraphs we have a new step that"
+      },
+      {
+        "start": 53.12,
+        "duration": 3.279,
+        "text": "step is subgraph"
+      },
+      {
+        "start": 54.399,
+        "duration": 3.921,
+        "text": "we give it a label and this label is the"
+      },
+      {
+        "start": 56.399,
+        "duration": 4.081,
+        "text": "name of the induced subgraph"
+      },
+      {
+        "start": 58.32,
+        "duration": 3.84,
+        "text": "this generates an edge-induced subgraph"
+      },
+      {
+        "start": 60.48,
+        "duration": 2.559,
+        "text": "from the edges it receives in the"
+      },
+      {
+        "start": 62.16,
+        "duration": 3.2,
+        "text": "traversal stream"
+      },
+      {
+        "start": 63.039,
+        "duration": 4.321,
+        "text": "now this subgraph is not passed on to"
+      },
+      {
+        "start": 65.36,
+        "duration": 4.32,
+        "text": "the subsequent steps in the stream"
+      },
+      {
+        "start": 67.36,
+        "duration": 4.079,
+        "text": "instead it is produced as a side effect"
+      },
+      {
+        "start": 69.68,
+        "duration": 3.439,
+        "text": "that is why the label is so important"
+      },
+      {
+        "start": 71.439,
+        "duration": 3.521,
+        "text": "that is how we're going to identify it"
+      },
+      {
+        "start": 73.119,
+        "duration": 2.721,
+        "text": "it is sort of stored off to the side in"
+      },
+      {
+        "start": 74.96,
+        "duration": 3.28,
+        "text": "a map if you will"
+      },
+      {
+        "start": 75.84,
+        "duration": 3.84,
+        "text": "its label is the key and the subgraph"
+      },
+      {
+        "start": 78.24,
+        "duration": 3.6,
+        "text": "itself is the object"
+      },
+      {
+        "start": 79.68,
+        "duration": 3.52,
+        "text": "in the side effect map now we mentioned"
+      },
+      {
+        "start": 81.84,
+        "duration": 3.12,
+        "text": "that the subgraph step"
+      },
+      {
+        "start": 83.2,
+        "duration": 3.52,
+        "text": "doesn't pass the subgraph into the"
+      },
+      {
+        "start": 84.96,
+        "duration": 3.519,
+        "text": "subsequent steps in the traversal but"
+      },
+      {
+        "start": 86.72,
+        "duration": 3.84,
+        "text": "you can force that if you would like"
+      },
+      {
+        "start": 88.479,
+        "duration": 3.841,
+        "text": "if you use the cap step you tell it the"
+      },
+      {
+        "start": 90.56,
+        "duration": 3.84,
+        "text": "label of the subgraph of interest"
+      },
+      {
+        "start": 92.32,
+        "duration": 4.159,
+        "text": "if you use the cap step and you tell it"
+      },
+      {
+        "start": 94.4,
+        "duration": 4.16,
+        "text": "the label of the subgraph of interest"
+      },
+      {
+        "start": 96.479,
+        "duration": 4.401,
+        "text": "what cap will do is force all of the"
+      },
+      {
+        "start": 98.56,
+        "duration": 4.08,
+        "text": "traversers that you have defined so far"
+      },
+      {
+        "start": 100.88,
+        "duration": 3.279,
+        "text": "to complete their work that is to"
+      },
+      {
+        "start": 102.64,
+        "duration": 3.36,
+        "text": "completely define the subgraph"
+      },
+      {
+        "start": 104.159,
+        "duration": 3.441,
+        "text": "and then pass that subgraph onto the"
+      },
+      {
+        "start": 106.0,
+        "duration": 3.439,
+        "text": "next step in the traversal"
+      },
+      {
+        "start": 107.6,
+        "duration": 3.519,
+        "text": "or if you don't want to pass the"
+      },
+      {
+        "start": 109.439,
+        "duration": 3.04,
+        "text": "subgraph onto the other steps in the"
+      },
+      {
+        "start": 111.119,
+        "duration": 4.721,
+        "text": "traversal you can just call"
+      },
+      {
+        "start": 112.479,
+        "duration": 5.041,
+        "text": "iterate now iterate will also like cap"
+      },
+      {
+        "start": 115.84,
+        "duration": 3.44,
+        "text": "force all the traversers to do their"
+      },
+      {
+        "start": 117.52,
+        "duration": 2.32,
+        "text": "work so you will know that when iterate"
+      },
+      {
+        "start": 119.28,
+        "duration": 2.32,
+        "text": "is done"
+      },
+      {
+        "start": 119.84,
+        "duration": 3.919,
+        "text": "the subgraph has been completely"
+      },
+      {
+        "start": 121.6,
+        "duration": 4.32,
+        "text": "computed but the subgraph will just be"
+      },
+      {
+        "start": 123.759,
+        "duration": 3.761,
+        "text": "stored into the side effect area and not"
+      },
+      {
+        "start": 125.92,
+        "duration": 2.399,
+        "text": "passed on to the subsequent steps in the"
+      },
+      {
+        "start": 127.52,
+        "duration": 3.519,
+        "text": "traversal"
+      },
+      {
+        "start": 128.319,
+        "duration": 3.201,
+        "text": "for our upcoming examples a reminder as"
+      },
+      {
+        "start": 131.039,
+        "duration": 3.121,
+        "text": "always"
+      },
+      {
+        "start": 131.52,
+        "duration": 4.0,
+        "text": "of our killer video movie schema users"
+      },
+      {
+        "start": 134.16,
+        "duration": 4.079,
+        "text": "know other users"
+      },
+      {
+        "start": 135.52,
+        "duration": 3.359,
+        "text": "users rates movies and movies belong to"
+      },
+      {
+        "start": 138.239,
+        "duration": 3.521,
+        "text": "genres"
+      },
+      {
+        "start": 138.879,
+        "duration": 4.72,
+        "text": "we also have people who act direct write"
+      },
+      {
+        "start": 141.76,
+        "duration": 3.6,
+        "text": "or compose the movies in our killer"
+      },
+      {
+        "start": 143.599,
+        "duration": 2.401,
+        "text": "video sample data for the upcoming"
+      },
+      {
+        "start": 145.36,
+        "duration": 2.72,
+        "text": "examples"
+      },
+      {
+        "start": 146.0,
+        "duration": 4.239,
+        "text": "it's important to remember that users"
+      },
+      {
+        "start": 148.08,
+        "duration": 3.84,
+        "text": "rate movies and users know each other"
+      },
+      {
+        "start": 150.239,
+        "duration": 3.28,
+        "text": "that's the part of the example data that"
+      },
+      {
+        "start": 151.92,
+        "duration": 2.72,
+        "text": "we're going to be extracting for our"
+      },
+      {
+        "start": 153.519,
+        "duration": 3.041,
+        "text": "traversals"
+      },
+      {
+        "start": 154.64,
+        "duration": 3.2,
+        "text": "in this first example let's extract the"
+      },
+      {
+        "start": 156.56,
+        "duration": 3.36,
+        "text": "complete social graph"
+      },
+      {
+        "start": 157.84,
+        "duration": 4.0,
+        "text": "of all killer video users in our example"
+      },
+      {
+        "start": 159.92,
+        "duration": 2.319,
+        "text": "data this graph will be the users who"
+      },
+      {
+        "start": 161.84,
+        "duration": 2.72,
+        "text": "know"
+      },
+      {
+        "start": 162.239,
+        "duration": 3.041,
+        "text": "other users in the traversal we begin"
+      },
+      {
+        "start": 164.56,
+        "duration": 2.959,
+        "text": "with our graph"
+      },
+      {
+        "start": 165.28,
+        "duration": 4.08,
+        "text": "and we look at all of its edges and then"
+      },
+      {
+        "start": 167.519,
+        "duration": 3.681,
+        "text": "only those edges which have the label"
+      },
+      {
+        "start": 169.36,
+        "duration": 3.519,
+        "text": "nose we know from our schema"
+      },
+      {
+        "start": 171.2,
+        "duration": 4.24,
+        "text": "that those edges will be connecting our"
+      },
+      {
+        "start": 172.879,
+        "duration": 3.521,
+        "text": "users then we ask for the subgraph and"
+      },
+      {
+        "start": 175.44,
+        "duration": 3.439,
+        "text": "we give it the label"
+      },
+      {
+        "start": 176.4,
+        "duration": 4.0,
+        "text": "social graph after this we cap the"
+      },
+      {
+        "start": 178.879,
+        "duration": 3.841,
+        "text": "social graph which means"
+      },
+      {
+        "start": 180.4,
+        "duration": 4.16,
+        "text": "we make sure all of the traversers run"
+      },
+      {
+        "start": 182.72,
+        "duration": 4.159,
+        "text": "and pass those traversers"
+      },
+      {
+        "start": 184.56,
+        "duration": 3.52,
+        "text": "onto the next step in the traversal then"
+      },
+      {
+        "start": 186.879,
+        "duration": 3.28,
+        "text": "we call next"
+      },
+      {
+        "start": 188.08,
+        "duration": 3.6,
+        "text": "which will access the actual subgraph"
+      },
+      {
+        "start": 190.159,
+        "duration": 3.041,
+        "text": "object that we have computed"
+      },
+      {
+        "start": 191.68,
+        "duration": 3.52,
+        "text": "and that is what we're going to return"
+      },
+      {
+        "start": 193.2,
+        "duration": 3.759,
+        "text": "that is what this traversal returns into"
+      },
+      {
+        "start": 195.2,
+        "duration": 3.759,
+        "text": "the identifier social graph"
+      },
+      {
+        "start": 196.959,
+        "duration": 3.681,
+        "text": "then we create a new traversal on that"
+      },
+      {
+        "start": 198.959,
+        "duration": 2.721,
+        "text": "subgraph and we're going to do two"
+      },
+      {
+        "start": 200.64,
+        "duration": 3.36,
+        "text": "things to it"
+      },
+      {
+        "start": 201.68,
+        "duration": 3.279,
+        "text": "first we will get all of the vertices in"
+      },
+      {
+        "start": 204.0,
+        "duration": 2.879,
+        "text": "group count them"
+      },
+      {
+        "start": 204.959,
+        "duration": 3.36,
+        "text": "group count is a statistical step that"
+      },
+      {
+        "start": 206.879,
+        "duration": 3.44,
+        "text": "we went over in a different video"
+      },
+      {
+        "start": 208.319,
+        "duration": 3.28,
+        "text": "it is going to find all of the vertices"
+      },
+      {
+        "start": 210.319,
+        "duration": 3.601,
+        "text": "that have a common label"
+      },
+      {
+        "start": 211.599,
+        "duration": 4.161,
+        "text": "as shown in the bi modulator we will"
+      },
+      {
+        "start": 213.92,
+        "duration": 2.48,
+        "text": "group up the vertices by their label and"
+      },
+      {
+        "start": 215.76,
+        "duration": 3.039,
+        "text": "count them"
+      },
+      {
+        "start": 216.4,
+        "duration": 5.6,
+        "text": "but in this subgraph we only extracted"
+      },
+      {
+        "start": 218.799,
+        "duration": 5.201,
+        "text": "users so we're going to find 1079 users"
+      },
+      {
+        "start": 222.0,
+        "duration": 3.92,
+        "text": "next we'll do the same thing but with"
+      },
+      {
+        "start": 224.0,
+        "duration": 3.36,
+        "text": "the edges we will group them by their"
+      },
+      {
+        "start": 225.92,
+        "duration": 3.599,
+        "text": "label and count them up"
+      },
+      {
+        "start": 227.36,
+        "duration": 3.92,
+        "text": "now this is our social graph so the only"
+      },
+      {
+        "start": 229.519,
+        "duration": 4.72,
+        "text": "kind of edges that we're going to see"
+      },
+      {
+        "start": 231.28,
+        "duration": 4.56,
+        "text": "has the nose label lastly because this"
+      },
+      {
+        "start": 234.239,
+        "duration": 3.441,
+        "text": "is an edge induced subgraph"
+      },
+      {
+        "start": 235.84,
+        "duration": 3.679,
+        "text": "there is a consequence we will never see"
+      },
+      {
+        "start": 237.68,
+        "duration": 3.919,
+        "text": "vertices that do not have edges"
+      },
+      {
+        "start": 239.519,
+        "duration": 4.08,
+        "text": "it is perfectly fine for there to be an"
+      },
+      {
+        "start": 241.599,
+        "duration": 2.481,
+        "text": "isolate or disconnected vertex in our"
+      },
+      {
+        "start": 243.599,
+        "duration": 2.56,
+        "text": "graph"
+      },
+      {
+        "start": 244.08,
+        "duration": 4.159,
+        "text": "a property graph supports this idea but"
+      },
+      {
+        "start": 246.159,
+        "duration": 3.601,
+        "text": "those vertices will not show up in our"
+      },
+      {
+        "start": 248.239,
+        "duration": 3.841,
+        "text": "edge induced subgraph"
+      },
+      {
+        "start": 249.76,
+        "duration": 4.32,
+        "text": "and this last traversal counts up the"
+      },
+      {
+        "start": 252.08,
+        "duration": 3.84,
+        "text": "total number of isolate vertices in this"
+      },
+      {
+        "start": 254.08,
+        "duration": 4.32,
+        "text": "traversal we are looking for all of the"
+      },
+      {
+        "start": 255.92,
+        "duration": 5.52,
+        "text": "vertices labeled user but do not have a"
+      },
+      {
+        "start": 258.4,
+        "duration": 4.64,
+        "text": "nose edge coming in or out we count them"
+      },
+      {
+        "start": 261.44,
+        "duration": 4.88,
+        "text": "up and we have 21 of them"
+      },
+      {
+        "start": 263.04,
+        "duration": 5.439,
+        "text": "that is we have 21 disconnected users or"
+      },
+      {
+        "start": 266.32,
+        "duration": 3.52,
+        "text": "loner users who do not know anyone in"
+      },
+      {
+        "start": 268.479,
+        "duration": 3.521,
+        "text": "our data set yet"
+      },
+      {
+        "start": 269.84,
+        "duration": 3.84,
+        "text": "next let's find a subgraph based on the"
+      },
+      {
+        "start": 272.0,
+        "duration": 2.96,
+        "text": "immediate social connections of a"
+      },
+      {
+        "start": 273.68,
+        "duration": 3.12,
+        "text": "particular user"
+      },
+      {
+        "start": 274.96,
+        "duration": 4.08,
+        "text": "that user in this case is going to be"
+      },
+      {
+        "start": 276.8,
+        "duration": 4.24,
+        "text": "goodall u1 so we are going to look for"
+      },
+      {
+        "start": 279.04,
+        "duration": 4.8,
+        "text": "the vertex that has the user id"
+      },
+      {
+        "start": 281.04,
+        "duration": 3.439,
+        "text": "of u1 then we're going to get both the"
+      },
+      {
+        "start": 283.84,
+        "duration": 3.44,
+        "text": "incoming"
+      },
+      {
+        "start": 284.479,
+        "duration": 3.201,
+        "text": "and outgoing edges with the nose labels"
+      },
+      {
+        "start": 287.28,
+        "duration": 2.08,
+        "text": "that's"
+      },
+      {
+        "start": 287.68,
+        "duration": 3.28,
+        "text": "all the social relationships for this"
+      },
+      {
+        "start": 289.36,
+        "duration": 3.279,
+        "text": "user and compute the"
+      },
+      {
+        "start": 290.96,
+        "duration": 3.12,
+        "text": "subgraph that's all the social"
+      },
+      {
+        "start": 292.639,
+        "duration": 3.441,
+        "text": "relationships for this user"
+      },
+      {
+        "start": 294.08,
+        "duration": 4.48,
+        "text": "and compute the subgraph based on those"
+      },
+      {
+        "start": 296.08,
+        "duration": 4.32,
+        "text": "edges in edge induced sub graphs"
+      },
+      {
+        "start": 298.56,
+        "duration": 3.28,
+        "text": "we start with the edges we will call"
+      },
+      {
+        "start": 300.4,
+        "duration": 3.6,
+        "text": "that the u1 graph"
+      },
+      {
+        "start": 301.84,
+        "duration": 3.68,
+        "text": "we will cap it to force those traversers"
+      },
+      {
+        "start": 304.0,
+        "duration": 2.08,
+        "text": "to do their work and then we'll return"
+      },
+      {
+        "start": 305.52,
+        "duration": 2.32,
+        "text": "the graph"
+      },
+      {
+        "start": 306.08,
+        "duration": 3.119,
+        "text": "we will do the same kind of statistical"
+      },
+      {
+        "start": 307.84,
+        "duration": 3.28,
+        "text": "analysis on this graph"
+      },
+      {
+        "start": 309.199,
+        "duration": 3.44,
+        "text": "as we did in the last example we're"
+      },
+      {
+        "start": 311.12,
+        "duration": 3.359,
+        "text": "going to group count by label"
+      },
+      {
+        "start": 312.639,
+        "duration": 3.84,
+        "text": "the vertices and the edges in the"
+      },
+      {
+        "start": 314.479,
+        "duration": 2.961,
+        "text": "results of this traversal we see that we"
+      },
+      {
+        "start": 316.479,
+        "duration": 3.041,
+        "text": "get six users"
+      },
+      {
+        "start": 317.44,
+        "duration": 3.92,
+        "text": "of course they're only going to be users"
+      },
+      {
+        "start": 319.52,
+        "duration": 3.04,
+        "text": "because of our social network schema we"
+      },
+      {
+        "start": 321.36,
+        "duration": 3.44,
+        "text": "know that this edge"
+      },
+      {
+        "start": 322.56,
+        "duration": 4.4,
+        "text": "only connects users keeping in mind this"
+      },
+      {
+        "start": 324.8,
+        "duration": 4.72,
+        "text": "will be the original u1 plus five"
+      },
+      {
+        "start": 326.96,
+        "duration": 3.92,
+        "text": "other people that u1 knows then we will"
+      },
+      {
+        "start": 329.52,
+        "duration": 2.88,
+        "text": "count the edges by label"
+      },
+      {
+        "start": 330.88,
+        "duration": 4.159,
+        "text": "and find that we have five of them the"
+      },
+      {
+        "start": 332.4,
+        "duration": 3.12,
+        "text": "u1 vertex and five edges to the five"
+      },
+      {
+        "start": 335.039,
+        "duration": 3.121,
+        "text": "people"
+      },
+      {
+        "start": 335.52,
+        "duration": 4.32,
+        "text": "that u1 knows let's expand our search a"
+      },
+      {
+        "start": 338.16,
+        "duration": 2.8,
+        "text": "little bit let's look at the friends of"
+      },
+      {
+        "start": 339.84,
+        "duration": 2.639,
+        "text": "u1's friends"
+      },
+      {
+        "start": 340.96,
+        "duration": 3.44,
+        "text": "to do this we will need to use a"
+      },
+      {
+        "start": 342.479,
+        "duration": 3.521,
+        "text": "recursive traversal that is covered in a"
+      },
+      {
+        "start": 344.4,
+        "duration": 2.96,
+        "text": "whole other topic but that is the repeat"
+      },
+      {
+        "start": 346.0,
+        "duration": 3.84,
+        "text": "step on the second line"
+      },
+      {
+        "start": 347.36,
+        "duration": 3.6,
+        "text": "to start we get user u1 and then we do a"
+      },
+      {
+        "start": 349.84,
+        "duration": 3.6,
+        "text": "recursive traversal"
+      },
+      {
+        "start": 350.96,
+        "duration": 3.12,
+        "text": "looking for both incoming and outgoing"
+      },
+      {
+        "start": 353.44,
+        "duration": 2.56,
+        "text": "edges"
+      },
+      {
+        "start": 354.08,
+        "duration": 3.28,
+        "text": "looking for the nose edge label and we"
+      },
+      {
+        "start": 356.0,
+        "duration": 3.6,
+        "text": "compute the subgraph"
+      },
+      {
+        "start": 357.36,
+        "duration": 3.2,
+        "text": "based on those edges now note that the"
+      },
+      {
+        "start": 359.6,
+        "duration": 3.28,
+        "text": "subgraph step"
+      },
+      {
+        "start": 360.56,
+        "duration": 4.24,
+        "text": "is included inside the repeat step so we"
+      },
+      {
+        "start": 362.88,
+        "duration": 4.0,
+        "text": "are repeating that we are repeating the"
+      },
+      {
+        "start": 364.8,
+        "duration": 4.16,
+        "text": "subgraph step and each time we give it"
+      },
+      {
+        "start": 366.88,
+        "duration": 4.0,
+        "text": "the same label u1 graph three"
+      },
+      {
+        "start": 368.96,
+        "duration": 3.84,
+        "text": "how many times are we going to do this"
+      },
+      {
+        "start": 370.88,
+        "duration": 3.84,
+        "text": "you see that in the fourth line with the"
+      },
+      {
+        "start": 372.8,
+        "duration": 2.399,
+        "text": "time step where we say to do this three"
+      },
+      {
+        "start": 374.72,
+        "duration": 2.4,
+        "text": "times"
+      },
+      {
+        "start": 375.199,
+        "duration": 3.44,
+        "text": "so as the traversal is repeated the"
+      },
+      {
+        "start": 377.12,
+        "duration": 5.04,
+        "text": "state of that side effect"
+      },
+      {
+        "start": 378.639,
+        "duration": 5.84,
+        "text": "object the u1 graph 3 object is changed"
+      },
+      {
+        "start": 382.16,
+        "duration": 3.44,
+        "text": "as the repetition proceeds as we run"
+      },
+      {
+        "start": 384.479,
+        "duration": 4.081,
+        "text": "this traversal"
+      },
+      {
+        "start": 385.6,
+        "duration": 3.68,
+        "text": "u1 graph 3 is growing as a subgraph when"
+      },
+      {
+        "start": 388.56,
+        "duration": 3.04,
+        "text": "we are done"
+      },
+      {
+        "start": 389.28,
+        "duration": 3.28,
+        "text": "we cap it to make sure those traversals"
+      },
+      {
+        "start": 391.6,
+        "duration": 2.96,
+        "text": "are doing their work"
+      },
+      {
+        "start": 392.56,
+        "duration": 4.32,
+        "text": "and we get the graph back in the u1"
+      },
+      {
+        "start": 394.56,
+        "duration": 4.24,
+        "text": "graph 3 identifier that we specify"
+      },
+      {
+        "start": 396.88,
+        "duration": 3.2,
+        "text": "in the top line then we do the same"
+      },
+      {
+        "start": 398.8,
+        "duration": 3.36,
+        "text": "statistical analysis"
+      },
+      {
+        "start": 400.08,
+        "duration": 3.839,
+        "text": "we group the vertices by their label and"
+      },
+      {
+        "start": 402.16,
+        "duration": 3.599,
+        "text": "the edges by their label we see that"
+      },
+      {
+        "start": 403.919,
+        "duration": 4.881,
+        "text": "there are 195 users"
+      },
+      {
+        "start": 405.759,
+        "duration": 5.28,
+        "text": "that is one user for one and then 194"
+      },
+      {
+        "start": 408.8,
+        "duration": 3.04,
+        "text": "friends friends of their friends and"
+      },
+      {
+        "start": 411.039,
+        "duration": 3.681,
+        "text": "friends"
+      },
+      {
+        "start": 411.84,
+        "duration": 4.16,
+        "text": "friends of their friends and then 240"
+      },
+      {
+        "start": 414.72,
+        "duration": 2.879,
+        "text": "edges that connect"
+      },
+      {
+        "start": 416.0,
+        "duration": 3.039,
+        "text": "all of the people in this increasingly"
+      },
+      {
+        "start": 417.599,
+        "duration": 3.521,
+        "text": "large subgraph"
+      },
+      {
+        "start": 419.039,
+        "duration": 3.121,
+        "text": "now a subgraph traversal does not have"
+      },
+      {
+        "start": 421.12,
+        "duration": 3.359,
+        "text": "to be limited to"
+      },
+      {
+        "start": 422.16,
+        "duration": 4.159,
+        "text": "only extracting one subgraph in this"
+      },
+      {
+        "start": 424.479,
+        "duration": 4.401,
+        "text": "example we are going to extract two"
+      },
+      {
+        "start": 426.319,
+        "duration": 4.16,
+        "text": "we are going to start with all users and"
+      },
+      {
+        "start": 428.88,
+        "duration": 3.759,
+        "text": "get the edges that connect them"
+      },
+      {
+        "start": 430.479,
+        "duration": 4.0,
+        "text": "that is get all of the nose edges in the"
+      },
+      {
+        "start": 432.639,
+        "duration": 2.721,
+        "text": "graph this is kind of the whole social"
+      },
+      {
+        "start": 434.479,
+        "duration": 3.12,
+        "text": "network then"
+      },
+      {
+        "start": 435.36,
+        "duration": 3.2,
+        "text": "we extract that subgraph calling it"
+      },
+      {
+        "start": 437.599,
+        "duration": 2.641,
+        "text": "social graph"
+      },
+      {
+        "start": 438.56,
+        "duration": 3.6,
+        "text": "now when we are done with that subgraph"
+      },
+      {
+        "start": 440.24,
+        "duration": 4.32,
+        "text": "step we call both v"
+      },
+      {
+        "start": 442.16,
+        "duration": 4.4,
+        "text": "now remember subgraph doesn't pass the"
+      },
+      {
+        "start": 444.56,
+        "duration": 2.88,
+        "text": "subgraph onto the next step in the"
+      },
+      {
+        "start": 446.56,
+        "duration": 3.039,
+        "text": "traversal stream"
+      },
+      {
+        "start": 447.44,
+        "duration": 3.52,
+        "text": "it generates a side effect so the both v"
+      },
+      {
+        "start": 449.599,
+        "duration": 4.241,
+        "text": "call on the second line"
+      },
+      {
+        "start": 450.96,
+        "duration": 4.639,
+        "text": "is taking its input from the both e on"
+      },
+      {
+        "start": 453.84,
+        "duration": 4.32,
+        "text": "the first line now in our schema"
+      },
+      {
+        "start": 455.599,
+        "duration": 3.281,
+        "text": "the endpoint of a nose edge is always a"
+      },
+      {
+        "start": 458.16,
+        "duration": 3.52,
+        "text": "user so"
+      },
+      {
+        "start": 458.88,
+        "duration": 3.28,
+        "text": "both e will give us user vertices from"
+      },
+      {
+        "start": 461.68,
+        "duration": 2.56,
+        "text": "there"
+      },
+      {
+        "start": 462.16,
+        "duration": 3.12,
+        "text": "we will look at outgoing edges that have"
+      },
+      {
+        "start": 464.24,
+        "duration": 2.88,
+        "text": "the rated label"
+      },
+      {
+        "start": 465.28,
+        "duration": 3.12,
+        "text": "and we know from our schema that those"
+      },
+      {
+        "start": 467.12,
+        "duration": 3.519,
+        "text": "are going to be the movies"
+      },
+      {
+        "start": 468.4,
+        "duration": 3.919,
+        "text": "so we'll get the subgraph of movies so"
+      },
+      {
+        "start": 470.639,
+        "duration": 3.761,
+        "text": "now we have created a"
+      },
+      {
+        "start": 472.319,
+        "duration": 4.72,
+        "text": "side effect called moviegraph on the"
+      },
+      {
+        "start": 474.4,
+        "duration": 4.88,
+        "text": "third line with that subgraph of movies"
+      },
+      {
+        "start": 477.039,
+        "duration": 4.321,
+        "text": "from there recall that we are on an edge"
+      },
+      {
+        "start": 479.28,
+        "duration": 2.88,
+        "text": "the most recent step and relevant step"
+      },
+      {
+        "start": 481.36,
+        "duration": 2.399,
+        "text": "was out e"
+      },
+      {
+        "start": 482.16,
+        "duration": 4.319,
+        "text": "rated so we're going to go to the"
+      },
+      {
+        "start": 483.759,
+        "duration": 5.44,
+        "text": "incoming vertex with the nv call"
+      },
+      {
+        "start": 486.479,
+        "duration": 4.72,
+        "text": "again we are at movies we will go from"
+      },
+      {
+        "start": 489.199,
+        "duration": 4.56,
+        "text": "there to the outgoing edges and in our"
+      },
+      {
+        "start": 491.199,
+        "duration": 4.801,
+        "text": "schema we know that those outgoing edges"
+      },
+      {
+        "start": 493.759,
+        "duration": 3.28,
+        "text": "coming from movies are to things like"
+      },
+      {
+        "start": 496.0,
+        "duration": 3.68,
+        "text": "director"
+      },
+      {
+        "start": 497.039,
+        "duration": 4.321,
+        "text": "actor belongs to and so forth so we"
+      },
+      {
+        "start": 499.68,
+        "duration": 4.0,
+        "text": "already have a subgraph called movie"
+      },
+      {
+        "start": 501.36,
+        "duration": 4.32,
+        "text": "graph so in effect we are adding stuff"
+      },
+      {
+        "start": 503.68,
+        "duration": 3.919,
+        "text": "into that graph by using the same label"
+      },
+      {
+        "start": 505.68,
+        "duration": 2.88,
+        "text": "again so we are kind of enriching our"
+      },
+      {
+        "start": 507.599,
+        "duration": 2.561,
+        "text": "movies subgraph"
+      },
+      {
+        "start": 508.56,
+        "duration": 3.359,
+        "text": "with all of the people and genres"
+      },
+      {
+        "start": 510.16,
+        "duration": 3.999,
+        "text": "associated with the movies"
+      },
+      {
+        "start": 511.919,
+        "duration": 4.321,
+        "text": "then we want to do things with those two"
+      },
+      {
+        "start": 514.159,
+        "duration": 4.24,
+        "text": "subgraphs so we can cap them both"
+      },
+      {
+        "start": 516.24,
+        "duration": 4.08,
+        "text": "we call cap and we ask for the social"
+      },
+      {
+        "start": 518.399,
+        "duration": 3.12,
+        "text": "graph and movie graph labels those"
+      },
+      {
+        "start": 520.32,
+        "duration": 3.12,
+        "text": "traversers will finish"
+      },
+      {
+        "start": 521.519,
+        "duration": 3.201,
+        "text": "and we will return those sub graphs in"
+      },
+      {
+        "start": 523.44,
+        "duration": 3.519,
+        "text": "the graph identifiers"
+      },
+      {
+        "start": 524.72,
+        "duration": 3.52,
+        "text": "that we have named on the first line now"
+      },
+      {
+        "start": 526.959,
+        "duration": 4.0,
+        "text": "the object graphs"
+      },
+      {
+        "start": 528.24,
+        "duration": 3.36,
+        "text": "will be a map of two sub graphs social"
+      },
+      {
+        "start": 530.959,
+        "duration": 2.32,
+        "text": "graph"
+      },
+      {
+        "start": 531.6,
+        "duration": 3.84,
+        "text": "and movie graph we will define"
+      },
+      {
+        "start": 533.279,
+        "duration": 4.161,
+        "text": "traversals on those and again"
+      },
+      {
+        "start": 535.44,
+        "duration": 4.0,
+        "text": "do very similar analysis we see the"
+      },
+      {
+        "start": 537.44,
+        "duration": 2.399,
+        "text": "vertex and edge statistics of the social"
+      },
+      {
+        "start": 539.44,
+        "duration": 3.44,
+        "text": "graph"
+      },
+      {
+        "start": 539.839,
+        "duration": 4.961,
+        "text": "there are 179 users and 3 500"
+      },
+      {
+        "start": 542.88,
+        "duration": 3.92,
+        "text": "relationships relating those users"
+      },
+      {
+        "start": 544.8,
+        "duration": 3.039,
+        "text": "we see the vertex and edge statistics of"
+      },
+      {
+        "start": 546.8,
+        "duration": 4.8,
+        "text": "the social graph as"
+      },
+      {
+        "start": 547.839,
+        "duration": 6.56,
+        "text": "expected there are 1079 users and 3"
+      },
+      {
+        "start": 551.6,
+        "duration": 3.2,
+        "text": "500 relationships relating those users"
+      },
+      {
+        "start": 554.399,
+        "duration": 2.241,
+        "text": "then"
+      },
+      {
+        "start": 554.8,
+        "duration": 4.96,
+        "text": "we see the label distribution of the"
+      },
+      {
+        "start": 556.64,
+        "duration": 6.319,
+        "text": "movie graph there are 920 movies 8"
+      },
+      {
+        "start": 559.76,
+        "duration": 6.079,
+        "text": "759 people 18 genres and of course"
+      },
+      {
+        "start": 562.959,
+        "duration": 4.401,
+        "text": "those 1079 users who are rating them"
+      },
+      {
+        "start": 565.839,
+        "duration": 2.081,
+        "text": "likewise we can count the number of"
+      },
+      {
+        "start": 567.36,
+        "duration": 2.479,
+        "text": "edges"
+      },
+      {
+        "start": 567.92,
+        "duration": 3.28,
+        "text": "relating those things and we can get"
+      },
+      {
+        "start": 569.839,
+        "duration": 4.721,
+        "text": "interesting facts like"
+      },
+      {
+        "start": 571.2,
+        "duration": 6.56,
+        "text": "that there are 1 668 screenwriters"
+      },
+      {
+        "start": 574.56,
+        "duration": 5.12,
+        "text": "or 1061 directors in our database"
+      },
+      {
+        "start": 577.76,
+        "duration": 4.32,
+        "text": "now it's worth noting if we were to"
+      },
+      {
+        "start": 579.68,
+        "duration": 4.24,
+        "text": "merge these two subgraphs back into one"
+      },
+      {
+        "start": 582.08,
+        "duration": 3.6,
+        "text": "we actually wouldn't have our original"
+      },
+      {
+        "start": 583.92,
+        "duration": 3.76,
+        "text": "graph because we have lost"
+      },
+      {
+        "start": 585.68,
+        "duration": 4.32,
+        "text": "the disconnected people we extracted the"
+      },
+      {
+        "start": 587.68,
+        "duration": 4.4,
+        "text": "social graph and the users with no"
+      },
+      {
+        "start": 590.0,
+        "duration": 3.68,
+        "text": "social relationships didn't have a"
+      },
+      {
+        "start": 592.08,
+        "duration": 3.68,
+        "text": "chance to show up we lost them"
+      },
+      {
+        "start": 593.68,
+        "duration": 4.24,
+        "text": "and we also lost their ratings so the"
+      },
+      {
+        "start": 595.76,
+        "duration": 5.6,
+        "text": "fact that we are extracting edge induced"
+      },
+      {
+        "start": 597.92,
+        "duration": 5.12,
+        "text": "subgraphs has consequences like that"
+      },
+      {
+        "start": 601.36,
+        "duration": 4.0,
+        "text": "and here's one more way of doing the"
+      },
+      {
+        "start": 603.04,
+        "duration": 4.08,
+        "text": "same thing now our subgraph definitions"
+      },
+      {
+        "start": 605.36,
+        "duration": 2.64,
+        "text": "are exactly the same as the previous"
+      },
+      {
+        "start": 607.12,
+        "duration": 2.64,
+        "text": "example"
+      },
+      {
+        "start": 608.0,
+        "duration": 3.76,
+        "text": "we are getting the social graph and then"
+      },
+      {
+        "start": 609.76,
+        "duration": 3.519,
+        "text": "the movie graph we get the movie graph"
+      },
+      {
+        "start": 611.76,
+        "duration": 3.36,
+        "text": "by starting with the movies"
+      },
+      {
+        "start": 613.279,
+        "duration": 3.521,
+        "text": "the people that have rated them and we"
+      },
+      {
+        "start": 615.12,
+        "duration": 2.24,
+        "text": "add on to that people who make the"
+      },
+      {
+        "start": 616.8,
+        "duration": 3.36,
+        "text": "movies"
+      },
+      {
+        "start": 617.36,
+        "duration": 3.599,
+        "text": "the genres they belong to etc instead of"
+      },
+      {
+        "start": 620.16,
+        "duration": 2.56,
+        "text": "calling cap"
+      },
+      {
+        "start": 620.959,
+        "duration": 3.12,
+        "text": "we just call iterate that is it the"
+      },
+      {
+        "start": 622.72,
+        "duration": 2.48,
+        "text": "traversers do their work and the"
+      },
+      {
+        "start": 624.079,
+        "duration": 3.121,
+        "text": "traversal is done"
+      },
+      {
+        "start": 625.2,
+        "duration": 3.68,
+        "text": "now to access the subgraph we have to"
+      },
+      {
+        "start": 627.2,
+        "duration": 3.28,
+        "text": "look at the side effect collection"
+      },
+      {
+        "start": 628.88,
+        "duration": 3.44,
+        "text": "we treat it like a map and we get these"
+      },
+      {
+        "start": 630.48,
+        "duration": 2.72,
+        "text": "things out of it by label we get the"
+      },
+      {
+        "start": 632.32,
+        "duration": 2.8,
+        "text": "social graph"
+      },
+      {
+        "start": 633.2,
+        "duration": 3.44,
+        "text": "and the movie graph and we create new"
+      },
+      {
+        "start": 635.12,
+        "duration": 4.08,
+        "text": "traversals on those things"
+      },
+      {
+        "start": 636.64,
+        "duration": 3.84,
+        "text": "then the rest of our analysis is exactly"
+      },
+      {
+        "start": 639.2,
+        "duration": 3.36,
+        "text": "the same as before"
+      },
+      {
+        "start": 640.48,
+        "duration": 3.44,
+        "text": "the key point in this last example is"
+      },
+      {
+        "start": 642.56,
+        "duration": 3.2,
+        "text": "the side effect map"
+      },
+      {
+        "start": 643.92,
+        "duration": 3.919,
+        "text": "and how to use that when we make a sub"
+      },
+      {
+        "start": 645.76,
+        "duration": 4.24,
+        "text": "graph we are creating a side effect"
+      },
+      {
+        "start": 647.839,
+        "duration": 3.68,
+        "text": "we are putting an entry into this side"
+      },
+      {
+        "start": 650.0,
+        "duration": 4.0,
+        "text": "effect map whose key"
+      },
+      {
+        "start": 651.519,
+        "duration": 3.361,
+        "text": "is the subgraph label and the value is"
+      },
+      {
+        "start": 654.0,
+        "duration": 3.76,
+        "text": "the subgraph"
+      },
+      {
+        "start": 654.88,
+        "duration": 5.6,
+        "text": "object itself we have this simple api"
+      },
+      {
+        "start": 657.76,
+        "duration": 4.16,
+        "text": "that you can use to access those"
+      },
+      {
+        "start": 660.48,
+        "duration": 3.28,
+        "text": "that is subgraph traversals in a"
+      },
+      {
+        "start": 661.92,
+        "duration": 3.2,
+        "text": "nutshell we hope these examples have"
+      },
+      {
+        "start": 663.76,
+        "duration": 7.12,
+        "text": "been helpful as you dig into the"
+      },
+      {
+        "start": 665.12,
+        "duration": 5.76,
+        "text": "following exercise"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T22:34:29.112162+00:00"
+}

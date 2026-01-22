@@ -1,0 +1,4936 @@
+{
+  "video_id": "JX9A85jKPag",
+  "title": "Distributed Data Show Episode 35: Apache Cassandra vs. the Cloud Databases with Jonathan Ellis",
+  "description": "DataStax CTO Jonathan Ellis compares the tradeoffs, strengths, and weaknesses of Apache Cassandra vs. Amazon’s DynamoDB, Microsoft’s Azure Cosmos DB, and Google’s Cloud Spanner.\n\nHighlights!\n0:15 - How we managed to get Jonathan on the show\n0:45 - Apache Cassandra vs. the cloud databases\n1:22 - Three things the industry (mostly) agrees on - 1) eventual consistency is the way to go\n3:33 - 2) NoSQL is a bad term - everyone is using SQL variants now\n4:28 - 3) Making users understand your partitioning model is the only way to ensure good performance - VoltDB is a case in point. There are data models where there is no good way to auto-partition in a way that is optimized for all queries\n7:18 - How Cassandra answers the question of great performance at scale - 1) partition key plus clustering key has been in C* from the beginning\n9:45 - 2) More recently, the addition of collections and user defined types allows more complex structures to be nested within a partition, and these structures can even be represented in JSON on writes and reads\n11:00 - More about why Cassandra is awesome - 1) the requirement for a strict schema becomes important when you have more than one client accessing the data.\n14:00 - 2) letting the server do denormalization for you with materialized views. Jonathan shares his opinion on how MVs can be used safely in production\n16:45 - DynamoDB - the data model: each partition is a sorted map of items. No support for nested data types, still requires application side joins. \n18:34 - Defining Local vs. Global indexes. With local indexes, adding nodes to the cluster doesn’t improve performance. \n20:10 - DynamoDB’s global indexes are similar to Cassandra’s materialized views, but MVs also allow projection (filtering data and selecting a subset of columns). \n21:13 - Why Cosmos DB is the database Jonathan admires most (aside from Cassandra) - Cosmos tried to learn from Cassandra’s mistakes such as having too many consistency levels - why do we have ALL or non-",
+  "published_at": "2018-02-20T16:00:02Z",
+  "thumbnail": "https://i.ytimg.com/vi/JX9A85jKPag/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "nosql",
+    "performance",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=JX9A85jKPag",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems thank you Jeff welcome we've been trying to get you on the show forever and it's like what's it gonna take Jonathan to get you on the show and he's like you got to come to Austin no it didn't it didn't go like that that's pretty much how it went actually so here we are and we want to talk about Cassandra versus the cloud databases can I frame it like that too confrontational oh we can we can frame it like that sure yeah what what I wanted to do was take a look at new kind of the state of the art in the industry for cloud databases with Amazon DynamoDB with Azure cosmos DB and Google Cloud spanner and you know say you know how far have these come in the last six years since dynamodb was released and how do they compare with kind of the Best of Breed open source database Apache Cassandra okay okay good okay so I totally want to get into it maybe before we kind of get down into the details about any particular database are there points of agreement that that are just kind of like everybody's operating or singing from the same sheet of music yeah yeah I think there's a few places where you know the industry has evolved a little bit since I started working on Cassandra in 2008 so it's actually going to be ten years later this year and one of those is that you know when we were first you know building out Cassandra one of the things that really scared people was this concept of your eventual consistency and they're like oh no they're still scared yeah okay they're still scared but like there isn't a better way to accomplish what we want to accomplish all right so three of these four systems so you've got Cassandra DynamoDB & Kosmos to be okay through those three all defo default to eventually consistent operations rail and spanner is kind of the odd man out I'll talk a little bit more about them later but yeah okay let's save them yeah spanner is all acid all the time so there's no eventual consistency but you know I think what drove everyone to this conclusion or everyone but Google's engineers was you know if you're delivering full consistency strong consistency all the time that means your master node is going to be a bottleneck for all your operations right and so it's the same reason that people who do my sequel replication they do asynchronous replication to slave they serve reads from the slave to kind of offload some of that work from the master so everyone's kind of moved to that model and said hey we can deliver better performance more predictable performance lower latency by accepting eventual consistency at least as a default you know all of those systems give you an option to to move to a stronger consistency model including Cassandra yep but they're gonna pay for it who are gonna pay for it yeah okay okay so the that's the that's kind of the base level of agreement yeah so I think I could add a couple more yeah please do that list another one is that we kind of started this new next-generation distributed database around the tag line no sequel and that's never been a really good name to define yourself by what you're not well yeah and you know if you look at what the query languages for these databases look like now they're all basically sequel variants equal variance yeah and so cosmos DB and spanner they both come out and say hey we're sequel databases Cassandra was a little more cautious we said we're cql for Cassandra query language right but if you look at it were you know we're just as much as an SQL variant as cosmos to be in span or are we just made you know we've all made slightly different tweaks right to support where we were trying to do you want to find joins in there otherwise yeah there's a lot of similarity to the shirt yeah and then I think the other point of commonality is that everyone's kind of bottomed out that making users understand your partitioning model is the only way you're going to get good performance so yeah and this is something that that hurts people's brains when they're coming from a relational model or in particular a single machine database where I don't have to care about partitioning everything's living on my database box right but you know you just you can't get predictable performance unless you understand when you're gonna have to pull data from different machines and that means you need to understand the partitioning models so all for these days databases have built that into there you know DML their data modification language for specifying what does my data look like oh yes so you're saying there's agreement that you can't hide that or abstract that awareness away from your applications yeah yeah and you've got some some other systems that have tried to make that jump and try to abstract it away but I think by and large they've been less successful so the the main one that comes to mind is a research database called age store I was product as this volt DB oh and the problem problem that they ran into was you know with the database abstracting that away it's very confusing very confusing to their users when for reasons they don't that aren't clear to them their performance gets cut by two orders of magnitude when it has to go do this cross production operation why did this happen yeah so what each store tries to do is it looks you you tell it what your queries are going to be yeah and you know you give it your your data model and then it says okay I'm gonna infer the best partitioning for you to be able to pull data out that's access that's joined together frequently it allow you to pull that out from a single machine the problem is that there are data models where there no such thing as a single partitioning model that lets you do that for all your common operations right okay so for instance if you if you have a Facebook post and you have a bunch of comments associated with that post you might say okay I'm going to partition it by the the parent post ID and I'm going to put those comments in the same partition so now when I say fetch me the post and it's comments yet those come out together but now what if I also have a requirement where I also need to access access comments by user ID I need to be able to show show me all the comments that Jonathan made today now I can't do that with that same partitioning scheme right right okay it's that so it's that second and third and fourth access pattern that starts to destroy you yeah okay okay so that's good level of agreement that we that we think we have an industry now on this thing how does Cassandra handle these kind of issues like if the issue is how do you get to good performance at scale in a distributed database yo what's good Sanders answer so Cassandra's answer is when you create a table you give it a partitioning key and that's going to be the first element of your primary key by that's just how we defined it right and then all the other columns in your primary key we're going to sort the data the rows within that partition we're going to sort them by those other columns that you give gave us and so what that does is it gives you a very predictable performance model where I know that no rows at the front of my partition I'm going to be able to get those in basically constant time and then you can say well I wanted to sort of reverse chronologically instead of chronologically because I'm going to access the most recent rows first so it gives you a very predictable performance model and then so that was that was that's something that Cassandra's always had right and then more recently when one of the problems that we we ran into was if that's your only construct as I have partitions full of rows I'm going to have trouble with that kind of that model I just mentioned of I want to pull out data that's associated with each other right in a single operation okay and so what people were doing in their Kassandra applications was they were basically doing joins at the client side they're saying you know pull me out the users the user that I need grab me a list of his forum posts grab me a list in the comments and each of those three operations is another query or or you have to do a denormalized operation and then you're writing all of your comments to multiple different places yeah the normalized model and etc yeah but even if I'm doing normalizing it even if I have a separate section of those comments that's for each of those access patterns I'm still needing to fetch from each of those three tables you would still have to do a read before right in order to populate your denormalized tables so it's just a mess yeah and I can't always do it asynchronously either I can't always say give me these three and parallel eyes those because know if the information I'm looking for for the comments depends on the forum post that I'm pulling back then I need to block on on the one before I can get the other right so you're gonna tell me that we fix this yes so what we did was we we said we need to find a way to nest data within a single partition so that I can pull those back with a single query to a single table and so that's where we introduced collections and then we introduced user-defined types that allow you to next nest more complex data structures inside a Cassandra row so it's actually isomorphic to a JSON document and we even added syntax so there's an API that's right syntax to seek you all that so you can say select JSON and it'll take that row with it's nested collections and nested user-defined types and give you back a JSON document or vice versa great I pulled off this JSON blob from my micro service and I just want to throw it into this Cassandra row Cassandra will take care of pulling parsing that apart and storing it appropriately and I don't I don't know if people do enough take advantage and enough advantage of that feature actually because like you can free have a really simple micro service implement I don't I don't see that happening as much in practices and maybe as it should maybe it's a lesser known feature I don't know yeah I think it's one of those things that it's a little bit underappreciated that yet not too many people know about okay so great Cassandra's awesome we would say so but what about some of these other databases you want to start yeah I want to spend just a little more time talking about why Cassandra's awesome oh okay no no please we can do that all day yeah so so part of its awesome and part of its different right okay I said we've got a lot of consensus around some of these things and we've got some some things that that there's less consensus around so Cassandra's are bucking the trend in that it requires a strict we're going to talk about are all schema lists or a very flexible under scheme yeah and Cassandra says no that's the wrong way to do it you should tell me what data to expect what the columns are going to be named what data types are going to be part of those columns and that way as the source of truth Cassandra is the database can validate and reject malformed documents or malformed inputs and so there's actually a fair amount of research in the industry now that schema-less databases have been fairly popular for a few years showing that you know once we know if you have a single team yeah that's as a single codebase accessing the database you're good you know it doesn't matter the code is your schema right and there's nothing wrong with that but once you expand beyond that to another team accessing it maybe with a different language you know maybe a ruby on rails app now it has an application going through and doing some statistical analysis right no successful applications start to grow these they grow in terms of the teams that are dealing with them and the access you know client api's that are used right and so i think its inherent that you you do want your database providing that level of stability okay I got you yeah that makes absolute sense I mean I have architect alarm bells going off on my head when you're talking about multiple applications accessing the same tables we all know that happens in practice I always said no as an architect to that but that stuff happens right no this is an area where it's actually an easier sell to to our enterprise customers they kind of give they're like oh yeah scheme a list yeah we you know that's cute right so it's interesting how different parts of these scare different people gotcha well we don't want our operational database becoming just as disorganized as our data Lake that's that's kind of a back-end audiences so then the last thing that called in the cassandra side is that we added materialized views back in 3.0 okay so this is eighteen months ago or so which allows you so you mentioned that you do need to denormalize to fit your different query patterns in Cassandra because we don't give you joins to do that right until so materialized views is a way where you can tell the server I want you to maintain this denormalization for me rather than having to do it in application code okay so there's a lot of shade that's been thrown at the materialized view implementation in cassandra 3 so yeah yes so there's been some a little bit of drama on the on the mailing list and so there are some rough edges with with the design I'll acknowledge that but so first what I'd like to say is if you're using them the way they're designed to be used then they're very powerful they're very stable Dennis X Enterprise graph uses materialized use pervasively we're very comfortable with that right but you know they they're you know we did make some mistakes designing them and I would say that one of the main steaks that we did was we made materialized views asynchronous with respect to the base table and so so there's no guarantee actually that after I've written to the base table Cassandra says okay we're good and now I go and read from the materialized view no I it could be it could be a while and so that's a mistake because that understandably that we've given people consistency levels in Cassandra where I can say I'm doing quorum quorum so as you always see my most recent data but now you say that realist view is not governed exactly yeah okay so the reason we did this there was a method behind the madness the reason we did this was if I know we thought about what if the user creates no dozens of materialized views now if we if we make that synchronous I'm gonna be touching essentially every server in my cluster you have a dozen materialized views times three replicas thirty-six replicas I'm touching now that's gonna right so I'm potentially compromising my availability if you say I want to make those secretive but I think that was the wrong thing to optimize for and if you look at at other systems I believe if I remember correctly dynamodb s global indexes which are similar in spirit to materialized views okay I believe there's a limit on five that you can define so there's other things that you can do besides just accepting that right he's just gonna do crazy things with the system that might be one of those cases where a hard limit is it is advisable okay so you started you brought up the topic of dynamodb you brought it up do you want to dive into them yeah let's start talking about non Cassandra systems so the in my talk I tackle these chronologically okay and so Cassandra came out in 2008 was the first release yeah dynamodb first release was 2012 so that's next chronologically so this is actually I think so I said we all agree on a bunch of things and there's been an exception to just about everything I've said that we all agree on dynamos jeebies exception is there's still very much old school no sequel in terms of how you access your data so you have you have a partition key and you have a sort key but no dis or key is basically an index into the map that your partition represents okay so each partition is a sorted map of stuff of values so DynamoDB is nomenclature is you define tables tables contain partitions partitions contain items each item is that is a sorted map of tuples so my beef with DynamoDB is no in 2012 I get it that was that was adequate you know six years on Cassandra has nested data types cosmos to be has nested data types spanner has a slightly different take on nested data types but it's the same idea right so with DynamoDB you're still stuck in the bad old days of I need to make a query to every different table for everything there's an application side joins yes I'm back doing client-side joints yeah but dynamodb does have some some cool features I mentioned that they do have this global index yeah so let me let me back up a second then and talk about that because it might not be clear what a global index is versus a local index so okay please say local index means that each node each storage node in the database is indexing the data that's local to that so it's in a partitioned database that means you're indexing basically a random set of partitions and so if I want to do an index look up under that design yeah I need to do a scatter gather I needed to ask every node in the cluster do you have data matching this predicate right and pull it back in and say and compare notes and say okay which which results come first so so that means and and that sounds okay like maybe you don't want to do that every day every query but it sounds may be okay but there's a kind of a subtle gotcha which mean which is that if I'm Big O of n if I'm linear in the number of modes in my cluster that means that adding nodes to my cluster doesn't make local index lookups faster because eventually and with with Cassandra the it's about it's actually a fairly low number for nodes if you go from four nodes to eight nodes your local index performance is basically flat because now you're you're the dominant the dominant factor in your performance bottleneck is that scatter gather operation and not the local lookup gotcha um so Cassandra said we need to give people a way to repartition their data so I can go look that up by a key by a column value that becomes a partition key under the new repartition data and we got that materialized views materialized news let you do a little bit more fancy stuff because i can say i'm good to let you specify not just how much we partitioned but I'm gonna let you specify a projection I'm going to let you say which columns I want to pull out of the basic select a subset of those yes and then I can also specify conditions on it and say I only want to materialize rows that match so there are predicates yeah yeah so global index is a bit of a simpler minded thing but it's the same idea where I'm gonna repartition it and now my index query scale as well as queries against my base table okay alright so anything more to say about dynamo I think that those are that's the highlights okay so next cosmos DB yeah no spoiler alert this is the one I admire the most okay they've done a lot of things right and I think they took a look at Cassandra and they said what can we learn from mistakes Cassandra made which is always a smart thing to do yeah so one of the things that I think was a mistake that Cassandra made is we have too many consistency levels so if you if you look at the data sex documentation I put into my talk I pulled out screenshots of descriptions of the consistency level right it's three slides worth yeah there's around a dozen consist something for everyone something for everyone so if I'm looking at that now yeah do we actually need this I think it's fairly uncontroversial to say you don't need consistency level all because that means as soon as you lose and why's that you can't do that operation anymore right so no you never want to do that it's probably a little more controversial to say you don't need all of them on local consistency levels okay so we started off with quorum and that says a majority of all the replicas and then we said you know what actually when I'm in multiple data centers I don't actually want a majority of all the replicas because if I've got three data centers and nine nodes that means I need five of my nodes to reply so I'm touching at least you data centers probably all three right so we added local quorum we added local one and those are what the default should have been and so I would I would I wouldn't go as far as to say we don't need then the quorum we don't need one it should just be local quorum and local all right so this is interesting because maybe it should be more about the behavior you desire from the application perspective than having to figure out or think about how many nodes are out there and where are they yeah right so that is not where so like the session consistency level comes from yeah I want to read my own rights can I just do that can I just read my own rights yeah so no this is this is rare but it happens yet you know a customer will come to us and say hey I'm I'm reading against data center one but if I look at my network traffic it's also reading from data center - yeah you know I will go out on a limb and predict you're doing a coronary yes and that's you know you're doing what you told it to do but that's not what you expected right so right yeah that was a mistake we made I think okay so cosmos GPU says okay we're gonna let you choose from a bunch of consistency levels just like consider but there's only going to be five of them and actually I think that's actually probably still too many DynamoDB says you're gonna get to choose your honor right you don't get to choose it all but on a read you can choose from eventually consistent or strongly consistent well okay and that's pretty close to the right right level I think that people want to deal with but cosmos TVs has five with subtly different trade-offs but they even put in their documentation ninety-three percent of their users of the operations are either bounded staleness or session consistency and so everything else is very niche yeah so I think if you looked at that you can probably say you probably could have gotten away with two maybe three but you let the market decide yeah but they know it is it is an improvement over Cassandra don't get me wrong I'm saying it's not perfect but they did better than no than I did ten years ago so can't complain too hard about that some of the notable things about cosmos TV this is the coolest one is that everything is indexed by default okay and so their local indexes but everything is indexed and so there there's very little information about cosmos TVs implementation right which makes it a little bit of an outlier because Google has published at least three possibly four if I remember correctly papers on the cloud spanner yeah and kisara of coasts of course is open source but there's actually very little on cosmos DB there's very little on dynamo DB as well but the documentation on dynamo DB is is pretty first-class like yeah they have you can you can infer a lot about what the system is doing because they've given you the details in the documentation to understand that especially where they tell you the limitations or am I going too far what about that okay but yeah I mean there are limitations with dynamodb that can be fairly painful but to Amazon's credit there in the docs and you can learn the theory as part of the SLA seriously there's fine print but the fight there is fine print yes with cosmos GP there's there's less of that and you know you know giving them the benefit of the definitive of the doubt it's a newer product and I fully expect their documentation is gonna be fleshed out with see it as detailed as people ask questions about you know how does this work there's at least a couple of the Microsoft PM's program managers on Stack Overflow answering questions so no I know there's nothing nefarious about it is just an anger system but one of the one place where they did publish a paper was about this indexing that they do and it's really fascinating because what they've done is they've they it's they've taken instead of instead of an exact index where if you have an index entry you know exactly what documents contain that value it's kind of a probabilistic thing where they say we're going to tune our index so that 99% of the time when the index says it's in that document it's there but the other 1% of the time it's actually not there and so what the trade-off is and some of the time it's not there you need to do a two-stage index read/write ok need to read the index that says it's probably in these documents yeah and then you need to read the documents as they does it actually contain this term that I thought it contained but by doing that the trait that what they get for that trade off yeah is to index every column or every field in the in every document less than 20% overhead in 99% of the documents across across their data set okay that's it that's impressive and that lets them do is it lets them allow arbitrary order by so with Cassandra I mentioned that you specify your sorting how you want rosen a partition sorted as part of the primary key so that's right immutable and if you want to sort an analytical query well you can do that with SPARC and have SPARC compute with that new orderings gonna be but in terms of operational queries you know if you want another ordering you need another table that you normalize and do that ordering so that's very powerful that having days having everything indexed by default means that I can order by anything by default as well so that's a very powerful feature that cosmos TV offers now if I'm going to look at what's missing they don't offer any kind of denormalization so there's no materialized views there's no global indexes so so my conclusion is probably coming it's probably coming yeah yeah my conclusion is that no Cassandra and cosmos to be or a rough feature parity you know there's you know Cassandra gives you more powerful denormalization cosmos DB gives you more powerful indexing yeah so if you're following Cassandra development you know that there's a new index tag called sassy that's been contributed right contributed by Apple and no that's that's a good option but it hasn't been it that would actually let us do our Batory order by order by anything that has a sassy index but that hasn't been wired up to the the query engine yet it doesn't know how to leverage an index order by it just knows how to leverage it to do predicate matching so there Kosmos to be as ahead all right so we have one database left so I'll tell you one thing that puzzles me about cosmos to be and you can leave this in here cut this out there's something that puzzles me because they say that with respect to their multi region story that that they support local reads and writes with asynchronous replication between regions so far so good they also say that they support stored procedure transactions that are atomic within a partition you can't do both of those at the same time you know because if I'm if I'm committing a stored procedure transaction and then say global replicated asynchronously and then I'm doing the same thing in another atomic anymore yeah so I don't know how to reconcile those two statements okay all right well it's a puzzle well hello let readers can write in with yeah we'll have to let that be revealed at a future time we have one database let's talk about okay so let's talk about spanner it's a little bit not like the others if you remember the old Sesame Street sketch it is the architecture because Cassandra and cosmos DB says this explicitly and I'm assuming it's true for DynamoDB as well they're all dealing with you know you have some compute nodes and you have some storage that's attached to those compute nodes that you know I do the compute against and so that's why you have these concepts of partitions and you have limits on the partition size because I want to provide it you know you know can keep my SLA where I can't let that get too big because it's tied to a specific core or a specific compute node but spanner is different it's built upon Google's distributed file system and so you've got blocks of file storage that can be mixed and matched and attached to you know compute nodes arbitrarily across Google's you know secret best in the industry they were the network yeah it really is that good yeah and so and you know just just as an aside when we were testing you know data stacks enterprise in Cassandra on Google's compute you know they said oh all the storages networked we don't do local storage and so based on our experience with non local storage yeah what mattered it's a pattern yeah you know that's gonna be terrible performance right and they're like no trust us you know we know what we're doing and in jazz the performance characteristics indistinguishable from localstorage nothing to complain about super interesting yeah so they know what they're doing there and so they leverage that to build this know this distributed database that's unlike any of the others and so now with Google there there isn't really a concept of I have partitions and rows within the partition you just have you know here's my partition key and then you know that's all I need to care about there is one limit the limit is that you can have columns of up to ten megabytes that you can have up to you know 1024 columns per row so that's you can have rows of up to ten gigabytes basically that's the limit that's but otherwise there's there's no limits on how many rows are in a partition because the partition is the row and then the wave the way they do the way they do performance joins is they have a concept called interleaved tables which is basically what a way of saying this table over here I wanted to basically be a child of this first table and so the storage in it is going to you know interleave that's where the name comes from the child data with the parent rows okay and so when I do a joint between two tables like that against the the key that's you know that's cool locating them then you know it becomes a local joint it doesn't become a cross you know what we call a cross partition join in one of the other systems so a really interesting design and then the other part of course that we don't really have time to go into is this hell no it provides full acid using their to time mechanism and there and Paxos chorim's doing two-phase commit so got its unfortunately I think this is the most sophisticated and the most competent implementation of the wrong design because and the reason is that if you're saying I'm all acid all the time that is a really big price to pay whenever you do a right right and you know even though you know Google is doing multi Paxos and doing all the optimizations right it's a very expensive operation to do two-phase commit across paksas core and there's no other option there's no doubt of it and so just knowing nothing about it other than that that's the architecture you can look at that and say rights are going to be significantly slower than in any of the other systems yeah and so I I didn't distance myself and then the test doesn't involve Cassandra but top lip con who is the main architect for cloud eras Apache kudu project talked about which is you know a columnar database that's kind of designed for what Gartner calls H type hybrid transactional and analytics so they did they benchmark so the nice thing about spanner is you purchase it by nodes your and storage so you've got you pay for your storage then you pay for your compute nodes okay and the compute node is roughly equivalent to I hadn't not I guess an I 3.4 excel based on the pricing something like that it's basically eighty five hundred dollars a year for a compute node is what it works out to so you can do a fairly apples to apples comparison by standing up a node of Cassandra and new one nodes worth of code spanner and seeing what performance characteristics do I get for my money and so Todd did that with kudu and with spanner and Cooter's cranking along ingesting a hundred and twelve thousand rows per second clouds banners ingesting four thousand rows per second huh and that's the full acid transactions yeah that's why you're paying part of part of it is its inherently slow because of that acid design in fairness the spanner engineers were communicating on Twitter and saying well you know part of the slowness is that no it needs to start splitting these files across multiple file boxes storage returns multiple computer regions as you're pouring in more and more writes you know we need to dynamically grow it if you're familiar with HBase you know HBase has this concept of regions and then you need to split the region as you start adding data to it okay and then one of and one of the one of the best practices with each phase is if you're going to do a bulk load you need to pre split the regions to get best oh great right I'm so spanner you know under the hood it's got kind of a similar architecture and so the problem is that there isn't any way to tell you can't every split to pre split it yeah so so there's there's some implementation detail but then you know even if they get even if they completely solved that problem there's still the base problem of I'm paying this this no multipacks those are multi no two-phase commit unpacks is chorim's and that's that's a heavyweight operation there's no way around that right Wow okay so anything else to say about spanner no I think that's that's the highlights yeah yeah that's the highlights yep so what I bought them doubt with is I wanted to leave people with this all it does weirdest if I up level this where do I end up yeah I I don't see any reason why you reduce dynamodb it's just the the limitations of not having any nested data of evidence of those plants adjoins right it's going to slow your product development down significantly I do not recommend spanner because of those performance characteristics that we just talked about right so if if I'm gonna choose if I were out there not working for data stacks saying I need to build my my company's next application my short list is going to be Cassandra and cosmos to be that decision comes down to no well you know if I'm looking at the feature list like I said pretty similar in terms of the capabilities to give you you know Cassandra mode a little more advanced here at cosmos a little more advanced there but if it's roughly the same why would I pick the one that I can only run in Microsoft's cloud I mean so that's a pretty easy decision for me and with that with the footnote that you know you're finally doing if I'm a hobbyist or if I know that this project is never going to need to to scale of you know past one or two servers then okay yeah I probably who's causing this to be for that I don't need because right Cassandra itself you're it's open source you're paying for the infrastructure but you're also paying for your your time to operate it right we need in your own learning curve and your own learning curve yeah there's there's there's something there so so yeah if this isn't a project that I can afford to have at least a part-time DBA allocated to then Kosmos to be makes sense but as you start to scale then you know both you you have the lock and I mentioned but just in terms of cost of ownership there you get a lot more for your money once you're starting to leverage that you know once you have tens of tens of cassandra nodes even hundreds of Cassandra nodes right you make that investment in a DBA you make that back pretty quickly right okay oh my goodness there are so many more directions that we could have taken things here I want to have conversations about managed services and about what it means to be a multi model database and maybe if we get some reader mail and some suggested topics and questions so we can collate some of that and come come back at you with another round how about that that would be fantastic all right well thank you very much and thank you for joining us for another episode of the distributed data shows thanks chefs thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data Stax Academy and tell us what you think you can also find us on the data Stax Academy YouTube channel or find our podcast on iTunes Google Play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.37,
+        "duration": 4.23,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.6,
+        "duration": 4.05,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 16.559,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 15.84,
+        "text": "large-scale distributed systems thank"
+      },
+      {
+        "start": 25.019,
+        "duration": 3.6,
+        "text": "you Jeff welcome we've been trying to"
+      },
+      {
+        "start": 26.49,
+        "duration": 3.779,
+        "text": "get you on the show forever and it's"
+      },
+      {
+        "start": 28.619,
+        "duration": 3.06,
+        "text": "like what's it gonna take Jonathan to"
+      },
+      {
+        "start": 30.269,
+        "duration": 3.901,
+        "text": "get you on the show and he's like you"
+      },
+      {
+        "start": 31.679,
+        "duration": 4.021,
+        "text": "got to come to Austin no it didn't it"
+      },
+      {
+        "start": 34.17,
+        "duration": 4.979,
+        "text": "didn't go like that that's pretty much"
+      },
+      {
+        "start": 35.7,
+        "duration": 6.96,
+        "text": "how it went actually so here we are and"
+      },
+      {
+        "start": 39.149,
+        "duration": 5.82,
+        "text": "we want to talk about Cassandra versus"
+      },
+      {
+        "start": 42.66,
+        "duration": 4.86,
+        "text": "the cloud databases can I frame it like"
+      },
+      {
+        "start": 44.969,
+        "duration": 4.5,
+        "text": "that too confrontational oh we can we"
+      },
+      {
+        "start": 47.52,
+        "duration": 4.8,
+        "text": "can frame it like that sure yeah"
+      },
+      {
+        "start": 49.469,
+        "duration": 4.951,
+        "text": "what what I wanted to do was take a look"
+      },
+      {
+        "start": 52.32,
+        "duration": 4.079,
+        "text": "at new kind of the state of the art in"
+      },
+      {
+        "start": 54.42,
+        "duration": 5.97,
+        "text": "the industry for cloud databases with"
+      },
+      {
+        "start": 56.399,
+        "duration": 6.451,
+        "text": "Amazon DynamoDB with Azure cosmos DB and"
+      },
+      {
+        "start": 60.39,
+        "duration": 5.04,
+        "text": "Google Cloud spanner and you know say"
+      },
+      {
+        "start": 62.85,
+        "duration": 6.15,
+        "text": "you know how far have these come in the"
+      },
+      {
+        "start": 65.43,
+        "duration": 6.18,
+        "text": "last six years since dynamodb was"
+      },
+      {
+        "start": 69.0,
+        "duration": 4.56,
+        "text": "released and how do they compare with"
+      },
+      {
+        "start": 71.61,
+        "duration": 5.49,
+        "text": "kind of the Best of Breed open source"
+      },
+      {
+        "start": 73.56,
+        "duration": 5.97,
+        "text": "database Apache Cassandra okay okay good"
+      },
+      {
+        "start": 77.1,
+        "duration": 4.92,
+        "text": "okay so I totally want to get into it"
+      },
+      {
+        "start": 79.53,
+        "duration": 4.17,
+        "text": "maybe before we kind of get down into"
+      },
+      {
+        "start": 82.02,
+        "duration": 3.389,
+        "text": "the details about any particular"
+      },
+      {
+        "start": 83.7,
+        "duration": 4.47,
+        "text": "database are there points of agreement"
+      },
+      {
+        "start": 85.409,
+        "duration": 4.17,
+        "text": "that that are just kind of like"
+      },
+      {
+        "start": 88.17,
+        "duration": 3.42,
+        "text": "everybody's operating or singing from"
+      },
+      {
+        "start": 89.579,
+        "duration": 4.441,
+        "text": "the same sheet of music yeah yeah I"
+      },
+      {
+        "start": 91.59,
+        "duration": 4.08,
+        "text": "think there's a few places where you"
+      },
+      {
+        "start": 94.02,
+        "duration": 3.69,
+        "text": "know the industry has evolved a little"
+      },
+      {
+        "start": 95.67,
+        "duration": 6.69,
+        "text": "bit since I started working on Cassandra"
+      },
+      {
+        "start": 97.71,
+        "duration": 7.83,
+        "text": "in 2008 so it's actually going to be ten"
+      },
+      {
+        "start": 102.36,
+        "duration": 6.78,
+        "text": "years later this year and one of those"
+      },
+      {
+        "start": 105.54,
+        "duration": 5.46,
+        "text": "is that you know when we were first you"
+      },
+      {
+        "start": 109.14,
+        "duration": 3.299,
+        "text": "know building out Cassandra one of the"
+      },
+      {
+        "start": 111.0,
+        "duration": 3.24,
+        "text": "things that really scared people was"
+      },
+      {
+        "start": 112.439,
+        "duration": 3.54,
+        "text": "this concept of your eventual"
+      },
+      {
+        "start": 114.24,
+        "duration": 5.85,
+        "text": "consistency and they're like oh no"
+      },
+      {
+        "start": 115.979,
+        "duration": 7.74,
+        "text": "they're still scared yeah okay they're"
+      },
+      {
+        "start": 120.09,
+        "duration": 5.61,
+        "text": "still scared but like there isn't a"
+      },
+      {
+        "start": 123.719,
+        "duration": 4.531,
+        "text": "better way to accomplish what we want to"
+      },
+      {
+        "start": 125.7,
+        "duration": 5.31,
+        "text": "accomplish all right so three of these"
+      },
+      {
+        "start": 128.25,
+        "duration": 5.53,
+        "text": "four systems so you've got Cassandra"
+      },
+      {
+        "start": 131.01,
+        "duration": 5.92,
+        "text": "DynamoDB & Kosmos to be okay through"
+      },
+      {
+        "start": 133.78,
+        "duration": 5.039,
+        "text": "those three all defo default to"
+      },
+      {
+        "start": 136.93,
+        "duration": 5.12,
+        "text": "eventually consistent operations rail"
+      },
+      {
+        "start": 138.819,
+        "duration": 5.881,
+        "text": "and spanner is kind of the odd man out"
+      },
+      {
+        "start": 142.05,
+        "duration": 4.48,
+        "text": "I'll talk a little bit more about them"
+      },
+      {
+        "start": 144.7,
+        "duration": 5.49,
+        "text": "later but yeah okay let's save them yeah"
+      },
+      {
+        "start": 146.53,
+        "duration": 7.709,
+        "text": "spanner is all acid all the time so"
+      },
+      {
+        "start": 150.19,
+        "duration": 6.269,
+        "text": "there's no eventual consistency but you"
+      },
+      {
+        "start": 154.239,
+        "duration": 4.591,
+        "text": "know I think what drove everyone to this"
+      },
+      {
+        "start": 156.459,
+        "duration": 5.541,
+        "text": "conclusion or everyone but Google's"
+      },
+      {
+        "start": 158.83,
+        "duration": 6.18,
+        "text": "engineers was you know if you're"
+      },
+      {
+        "start": 162.0,
+        "duration": 5.26,
+        "text": "delivering full consistency strong"
+      },
+      {
+        "start": 165.01,
+        "duration": 4.08,
+        "text": "consistency all the time that means your"
+      },
+      {
+        "start": 167.26,
+        "duration": 3.87,
+        "text": "master node is going to be a bottleneck"
+      },
+      {
+        "start": 169.09,
+        "duration": 3.479,
+        "text": "for all your operations right and so"
+      },
+      {
+        "start": 171.13,
+        "duration": 3.3,
+        "text": "it's the same reason that people who do"
+      },
+      {
+        "start": 172.569,
+        "duration": 3.81,
+        "text": "my sequel replication they do"
+      },
+      {
+        "start": 174.43,
+        "duration": 3.48,
+        "text": "asynchronous replication to slave they"
+      },
+      {
+        "start": 176.379,
+        "duration": 2.851,
+        "text": "serve reads from the slave to kind of"
+      },
+      {
+        "start": 177.91,
+        "duration": 3.689,
+        "text": "offload some of that work from the"
+      },
+      {
+        "start": 179.23,
+        "duration": 4.05,
+        "text": "master so everyone's kind of moved to"
+      },
+      {
+        "start": 181.599,
+        "duration": 3.301,
+        "text": "that model and said hey we can deliver"
+      },
+      {
+        "start": 183.28,
+        "duration": 5.01,
+        "text": "better performance more predictable"
+      },
+      {
+        "start": 184.9,
+        "duration": 5.64,
+        "text": "performance lower latency by accepting"
+      },
+      {
+        "start": 188.29,
+        "duration": 3.839,
+        "text": "eventual consistency at least as a"
+      },
+      {
+        "start": 190.54,
+        "duration": 4.229,
+        "text": "default you know all of those systems"
+      },
+      {
+        "start": 192.129,
+        "duration": 5.161,
+        "text": "give you an option to to move to a"
+      },
+      {
+        "start": 194.769,
+        "duration": 4.47,
+        "text": "stronger consistency model including"
+      },
+      {
+        "start": 197.29,
+        "duration": 3.599,
+        "text": "Cassandra yep"
+      },
+      {
+        "start": 199.239,
+        "duration": 4.891,
+        "text": "but they're gonna pay for it who are"
+      },
+      {
+        "start": 200.889,
+        "duration": 5.731,
+        "text": "gonna pay for it yeah okay okay so the"
+      },
+      {
+        "start": 204.13,
+        "duration": 5.699,
+        "text": "that's the that's kind of the base level"
+      },
+      {
+        "start": 206.62,
+        "duration": 5.869,
+        "text": "of agreement yeah so I think I could add"
+      },
+      {
+        "start": 209.829,
+        "duration": 6.27,
+        "text": "a couple more yeah please do that list"
+      },
+      {
+        "start": 212.489,
+        "duration": 6.911,
+        "text": "another one is that we kind of started"
+      },
+      {
+        "start": 216.099,
+        "duration": 5.691,
+        "text": "this new next-generation distributed"
+      },
+      {
+        "start": 219.4,
+        "duration": 5.669,
+        "text": "database around the tag line no sequel"
+      },
+      {
+        "start": 221.79,
+        "duration": 5.5,
+        "text": "and that's never been a really good name"
+      },
+      {
+        "start": 225.069,
+        "duration": 5.461,
+        "text": "to define yourself by what you're not"
+      },
+      {
+        "start": 227.29,
+        "duration": 4.89,
+        "text": "well yeah and you know if you look at"
+      },
+      {
+        "start": 230.53,
+        "duration": 3.9,
+        "text": "what the query languages for these"
+      },
+      {
+        "start": 232.18,
+        "duration": 4.739,
+        "text": "databases look like now they're all"
+      },
+      {
+        "start": 234.43,
+        "duration": 5.55,
+        "text": "basically sequel variants equal variance"
+      },
+      {
+        "start": 236.919,
+        "duration": 4.561,
+        "text": "yeah and so cosmos DB and spanner they"
+      },
+      {
+        "start": 239.98,
+        "duration": 5.43,
+        "text": "both come out and say hey we're sequel"
+      },
+      {
+        "start": 241.48,
+        "duration": 6.479,
+        "text": "databases Cassandra was a little more"
+      },
+      {
+        "start": 245.41,
+        "duration": 4.409,
+        "text": "cautious we said we're cql for Cassandra"
+      },
+      {
+        "start": 247.959,
+        "duration": 5.64,
+        "text": "query language right but if you look at"
+      },
+      {
+        "start": 249.819,
+        "duration": 7.081,
+        "text": "it were you know we're just as much as"
+      },
+      {
+        "start": 253.599,
+        "duration": 4.741,
+        "text": "an SQL variant as cosmos to be in span"
+      },
+      {
+        "start": 256.9,
+        "duration": 3.48,
+        "text": "or are we just made you know we've all"
+      },
+      {
+        "start": 258.34,
+        "duration": 3.449,
+        "text": "made slightly different tweaks right to"
+      },
+      {
+        "start": 260.38,
+        "duration": 2.75,
+        "text": "support where we were trying to do you"
+      },
+      {
+        "start": 261.789,
+        "duration": 3.141,
+        "text": "want to find joins in there"
+      },
+      {
+        "start": 263.13,
+        "duration": 5.16,
+        "text": "otherwise yeah there's a lot of"
+      },
+      {
+        "start": 264.93,
+        "duration": 5.13,
+        "text": "similarity to the shirt yeah and then I"
+      },
+      {
+        "start": 268.29,
+        "duration": 3.33,
+        "text": "think the other point of commonality is"
+      },
+      {
+        "start": 270.06,
+        "duration": 5.01,
+        "text": "that everyone's kind of bottomed out"
+      },
+      {
+        "start": 271.62,
+        "duration": 5.49,
+        "text": "that making users understand your"
+      },
+      {
+        "start": 275.07,
+        "duration": 4.55,
+        "text": "partitioning model is the only way"
+      },
+      {
+        "start": 277.11,
+        "duration": 4.86,
+        "text": "you're going to get good performance so"
+      },
+      {
+        "start": 279.62,
+        "duration": 3.88,
+        "text": "yeah and this is something that that"
+      },
+      {
+        "start": 281.97,
+        "duration": 4.32,
+        "text": "hurts people's brains when they're"
+      },
+      {
+        "start": 283.5,
+        "duration": 5.16,
+        "text": "coming from a relational model or in"
+      },
+      {
+        "start": 286.29,
+        "duration": 3.42,
+        "text": "particular a single machine database"
+      },
+      {
+        "start": 288.66,
+        "duration": 3.3,
+        "text": "where I don't have to care about"
+      },
+      {
+        "start": 289.71,
+        "duration": 6.24,
+        "text": "partitioning everything's living on my"
+      },
+      {
+        "start": 291.96,
+        "duration": 6.24,
+        "text": "database box right but you know you just"
+      },
+      {
+        "start": 295.95,
+        "duration": 3.93,
+        "text": "you can't get predictable performance"
+      },
+      {
+        "start": 298.2,
+        "duration": 3.06,
+        "text": "unless you understand when you're gonna"
+      },
+      {
+        "start": 299.88,
+        "duration": 3.03,
+        "text": "have to pull data from different"
+      },
+      {
+        "start": 301.26,
+        "duration": 3.27,
+        "text": "machines and that means you need to"
+      },
+      {
+        "start": 302.91,
+        "duration": 3.93,
+        "text": "understand the partitioning models so"
+      },
+      {
+        "start": 304.53,
+        "duration": 3.66,
+        "text": "all for these days databases have built"
+      },
+      {
+        "start": 306.84,
+        "duration": 4.02,
+        "text": "that into there"
+      },
+      {
+        "start": 308.19,
+        "duration": 5.19,
+        "text": "you know DML their data modification"
+      },
+      {
+        "start": 310.86,
+        "duration": 4.35,
+        "text": "language for specifying what does my"
+      },
+      {
+        "start": 313.38,
+        "duration": 3.9,
+        "text": "data look like oh yes so you're saying"
+      },
+      {
+        "start": 315.21,
+        "duration": 4.26,
+        "text": "there's agreement that you can't hide"
+      },
+      {
+        "start": 317.28,
+        "duration": 4.47,
+        "text": "that or abstract that awareness away"
+      },
+      {
+        "start": 319.47,
+        "duration": 4.77,
+        "text": "from your applications yeah yeah and"
+      },
+      {
+        "start": 321.75,
+        "duration": 4.83,
+        "text": "you've got some some other systems that"
+      },
+      {
+        "start": 324.24,
+        "duration": 4.59,
+        "text": "have tried to make that jump and try to"
+      },
+      {
+        "start": 326.58,
+        "duration": 4.71,
+        "text": "abstract it away but I think by and"
+      },
+      {
+        "start": 328.83,
+        "duration": 4.92,
+        "text": "large they've been less successful so"
+      },
+      {
+        "start": 331.29,
+        "duration": 5.31,
+        "text": "the the main one that comes to mind is a"
+      },
+      {
+        "start": 333.75,
+        "duration": 5.22,
+        "text": "research database called age store I was"
+      },
+      {
+        "start": 336.6,
+        "duration": 5.18,
+        "text": "product as this volt DB oh and the"
+      },
+      {
+        "start": 338.97,
+        "duration": 5.7,
+        "text": "problem problem that they ran into was"
+      },
+      {
+        "start": 341.78,
+        "duration": 4.99,
+        "text": "you know with the database abstracting"
+      },
+      {
+        "start": 344.67,
+        "duration": 6.6,
+        "text": "that away it's very confusing very"
+      },
+      {
+        "start": 346.77,
+        "duration": 6.09,
+        "text": "confusing to their users when for"
+      },
+      {
+        "start": 351.27,
+        "duration": 4.08,
+        "text": "reasons they don't that aren't clear to"
+      },
+      {
+        "start": 352.86,
+        "duration": 4.77,
+        "text": "them their performance gets cut by two"
+      },
+      {
+        "start": 355.35,
+        "duration": 4.11,
+        "text": "orders of magnitude when it has to go do"
+      },
+      {
+        "start": 357.63,
+        "duration": 4.56,
+        "text": "this cross production operation why did"
+      },
+      {
+        "start": 359.46,
+        "duration": 5.52,
+        "text": "this happen yeah so what each store"
+      },
+      {
+        "start": 362.19,
+        "duration": 4.44,
+        "text": "tries to do is it looks you you tell it"
+      },
+      {
+        "start": 364.98,
+        "duration": 4.14,
+        "text": "what your queries are going to be yeah"
+      },
+      {
+        "start": 366.63,
+        "duration": 4.41,
+        "text": "and you know you give it your your data"
+      },
+      {
+        "start": 369.12,
+        "duration": 4.53,
+        "text": "model and then it says okay I'm gonna"
+      },
+      {
+        "start": 371.04,
+        "duration": 5.43,
+        "text": "infer the best partitioning for you to"
+      },
+      {
+        "start": 373.65,
+        "duration": 4.98,
+        "text": "be able to pull data out that's access"
+      },
+      {
+        "start": 376.47,
+        "duration": 4.29,
+        "text": "that's joined together frequently it"
+      },
+      {
+        "start": 378.63,
+        "duration": 6.18,
+        "text": "allow you to pull that out from a single"
+      },
+      {
+        "start": 380.76,
+        "duration": 6.54,
+        "text": "machine the problem is that there are"
+      },
+      {
+        "start": 384.81,
+        "duration": 4.949,
+        "text": "data models where there"
+      },
+      {
+        "start": 387.3,
+        "duration": 4.23,
+        "text": "no such thing as a single partitioning"
+      },
+      {
+        "start": 389.759,
+        "duration": 4.231,
+        "text": "model that lets you do that for all your"
+      },
+      {
+        "start": 391.53,
+        "duration": 4.05,
+        "text": "common operations right okay so for"
+      },
+      {
+        "start": 393.99,
+        "duration": 3.389,
+        "text": "instance if you if you have a Facebook"
+      },
+      {
+        "start": 395.58,
+        "duration": 4.11,
+        "text": "post and you have a bunch of comments"
+      },
+      {
+        "start": 397.379,
+        "duration": 4.651,
+        "text": "associated with that post you might say"
+      },
+      {
+        "start": 399.69,
+        "duration": 5.34,
+        "text": "okay I'm going to partition it by the"
+      },
+      {
+        "start": 402.03,
+        "duration": 5.31,
+        "text": "the parent post ID and I'm going to put"
+      },
+      {
+        "start": 405.03,
+        "duration": 4.319,
+        "text": "those comments in the same partition so"
+      },
+      {
+        "start": 407.34,
+        "duration": 3.539,
+        "text": "now when I say fetch me the post and"
+      },
+      {
+        "start": 409.349,
+        "duration": 4.47,
+        "text": "it's comments yet those come out"
+      },
+      {
+        "start": 410.879,
+        "duration": 6.871,
+        "text": "together but now what if I also have a"
+      },
+      {
+        "start": 413.819,
+        "duration": 6.84,
+        "text": "requirement where I also need to access"
+      },
+      {
+        "start": 417.75,
+        "duration": 4.83,
+        "text": "access comments by user ID I need to be"
+      },
+      {
+        "start": 420.659,
+        "duration": 4.741,
+        "text": "able to show show me all the comments"
+      },
+      {
+        "start": 422.58,
+        "duration": 4.5,
+        "text": "that Jonathan made today now I can't do"
+      },
+      {
+        "start": 425.4,
+        "duration": 3.299,
+        "text": "that with that same partitioning scheme"
+      },
+      {
+        "start": 427.08,
+        "duration": 3.63,
+        "text": "right right okay it's that so it's that"
+      },
+      {
+        "start": 428.699,
+        "duration": 4.201,
+        "text": "second and third and fourth access"
+      },
+      {
+        "start": 430.71,
+        "duration": 4.679,
+        "text": "pattern that starts to destroy you yeah"
+      },
+      {
+        "start": 432.9,
+        "duration": 4.169,
+        "text": "okay okay so that's good level of"
+      },
+      {
+        "start": 435.389,
+        "duration": 2.851,
+        "text": "agreement that we that we think we have"
+      },
+      {
+        "start": 437.069,
+        "duration": 3.961,
+        "text": "an industry now on this thing"
+      },
+      {
+        "start": 438.24,
+        "duration": 5.16,
+        "text": "how does Cassandra handle these kind of"
+      },
+      {
+        "start": 441.03,
+        "duration": 4.949,
+        "text": "issues like if the issue is how do you"
+      },
+      {
+        "start": 443.4,
+        "duration": 4.41,
+        "text": "get to good performance at scale in a"
+      },
+      {
+        "start": 445.979,
+        "duration": 4.141,
+        "text": "distributed database yo what's good"
+      },
+      {
+        "start": 447.81,
+        "duration": 5.159,
+        "text": "Sanders answer so Cassandra's answer is"
+      },
+      {
+        "start": 450.12,
+        "duration": 5.669,
+        "text": "when you create a table you give it a"
+      },
+      {
+        "start": 452.969,
+        "duration": 4.98,
+        "text": "partitioning key and that's going to be"
+      },
+      {
+        "start": 455.789,
+        "duration": 4.951,
+        "text": "the first element of your primary key by"
+      },
+      {
+        "start": 457.949,
+        "duration": 4.681,
+        "text": "that's just how we defined it right and"
+      },
+      {
+        "start": 460.74,
+        "duration": 4.32,
+        "text": "then all the other columns in your"
+      },
+      {
+        "start": 462.63,
+        "duration": 5.039,
+        "text": "primary key we're going to sort the data"
+      },
+      {
+        "start": 465.06,
+        "duration": 3.96,
+        "text": "the rows within that partition we're"
+      },
+      {
+        "start": 467.669,
+        "duration": 4.351,
+        "text": "going to sort them by those other"
+      },
+      {
+        "start": 469.02,
+        "duration": 5.16,
+        "text": "columns that you give gave us and so"
+      },
+      {
+        "start": 472.02,
+        "duration": 4.139,
+        "text": "what that does is it gives you a very"
+      },
+      {
+        "start": 474.18,
+        "duration": 5.16,
+        "text": "predictable performance model where I"
+      },
+      {
+        "start": 476.159,
+        "duration": 5.401,
+        "text": "know that no rows at the front of my"
+      },
+      {
+        "start": 479.34,
+        "duration": 5.22,
+        "text": "partition I'm going to be able to get"
+      },
+      {
+        "start": 481.56,
+        "duration": 5.37,
+        "text": "those in basically constant time and"
+      },
+      {
+        "start": 484.56,
+        "duration": 4.56,
+        "text": "then you can say well I wanted to sort"
+      },
+      {
+        "start": 486.93,
+        "duration": 3.69,
+        "text": "of reverse chronologically instead of"
+      },
+      {
+        "start": 489.12,
+        "duration": 3.479,
+        "text": "chronologically because I'm going to"
+      },
+      {
+        "start": 490.62,
+        "duration": 4.289,
+        "text": "access the most recent rows first so it"
+      },
+      {
+        "start": 492.599,
+        "duration": 5.151,
+        "text": "gives you a very predictable performance"
+      },
+      {
+        "start": 494.909,
+        "duration": 5.04,
+        "text": "model and then so that was that was"
+      },
+      {
+        "start": 497.75,
+        "duration": 4.84,
+        "text": "that's something that Cassandra's always"
+      },
+      {
+        "start": 499.949,
+        "duration": 5.761,
+        "text": "had right and then more recently when"
+      },
+      {
+        "start": 502.59,
+        "duration": 7.77,
+        "text": "one of the problems that we we ran into"
+      },
+      {
+        "start": 505.71,
+        "duration": 9.749,
+        "text": "was if that's your only construct as I"
+      },
+      {
+        "start": 510.36,
+        "duration": 7.92,
+        "text": "have partitions full of rows I'm going"
+      },
+      {
+        "start": 515.459,
+        "duration": 5.191,
+        "text": "to have trouble with that kind of that"
+      },
+      {
+        "start": 518.28,
+        "duration": 4.199,
+        "text": "model I just mentioned of I want to pull"
+      },
+      {
+        "start": 520.65,
+        "duration": 4.74,
+        "text": "out data that's associated with each"
+      },
+      {
+        "start": 522.479,
+        "duration": 4.351,
+        "text": "other right in a single operation okay"
+      },
+      {
+        "start": 525.39,
+        "duration": 4.14,
+        "text": "and so what people were doing in their"
+      },
+      {
+        "start": 526.83,
+        "duration": 5.37,
+        "text": "Kassandra applications was they were"
+      },
+      {
+        "start": 529.53,
+        "duration": 5.73,
+        "text": "basically doing joins at the client side"
+      },
+      {
+        "start": 532.2,
+        "duration": 4.98,
+        "text": "they're saying you know pull me out the"
+      },
+      {
+        "start": 535.26,
+        "duration": 4.89,
+        "text": "users the user that I need"
+      },
+      {
+        "start": 537.18,
+        "duration": 4.5,
+        "text": "grab me a list of his forum posts grab"
+      },
+      {
+        "start": 540.15,
+        "duration": 3.9,
+        "text": "me a list in the comments and each of"
+      },
+      {
+        "start": 541.68,
+        "duration": 4.41,
+        "text": "those three operations is another query"
+      },
+      {
+        "start": 544.05,
+        "duration": 3.87,
+        "text": "or or you have to do a denormalized"
+      },
+      {
+        "start": 546.09,
+        "duration": 3.27,
+        "text": "operation and then you're writing all of"
+      },
+      {
+        "start": 547.92,
+        "duration": 2.13,
+        "text": "your comments to multiple different"
+      },
+      {
+        "start": 549.36,
+        "duration": 3.03,
+        "text": "places"
+      },
+      {
+        "start": 550.05,
+        "duration": 3.9,
+        "text": "yeah the normalized model and etc yeah"
+      },
+      {
+        "start": 552.39,
+        "duration": 3.72,
+        "text": "but even if I'm doing normalizing it"
+      },
+      {
+        "start": 553.95,
+        "duration": 4.29,
+        "text": "even if I have a separate section of"
+      },
+      {
+        "start": 556.11,
+        "duration": 3.93,
+        "text": "those comments that's for each of those"
+      },
+      {
+        "start": 558.24,
+        "duration": 3.54,
+        "text": "access patterns I'm still needing to"
+      },
+      {
+        "start": 560.04,
+        "duration": 2.91,
+        "text": "fetch from each of those three tables"
+      },
+      {
+        "start": 561.78,
+        "duration": 2.58,
+        "text": "you would still have to do a read before"
+      },
+      {
+        "start": 562.95,
+        "duration": 3.36,
+        "text": "right in order to populate your"
+      },
+      {
+        "start": 564.36,
+        "duration": 4.89,
+        "text": "denormalized tables so it's just a mess"
+      },
+      {
+        "start": 566.31,
+        "duration": 4.77,
+        "text": "yeah and I can't always do it"
+      },
+      {
+        "start": 569.25,
+        "duration": 3.93,
+        "text": "asynchronously either I can't always say"
+      },
+      {
+        "start": 571.08,
+        "duration": 5.76,
+        "text": "give me these three and parallel eyes"
+      },
+      {
+        "start": 573.18,
+        "duration": 6.51,
+        "text": "those because know if the information"
+      },
+      {
+        "start": 576.84,
+        "duration": 4.14,
+        "text": "I'm looking for for the comments depends"
+      },
+      {
+        "start": 579.69,
+        "duration": 3.45,
+        "text": "on the forum post that I'm pulling back"
+      },
+      {
+        "start": 580.98,
+        "duration": 4.32,
+        "text": "then I need to block on on the one"
+      },
+      {
+        "start": 583.14,
+        "duration": 3.75,
+        "text": "before I can get the other right so"
+      },
+      {
+        "start": 585.3,
+        "duration": 3.6,
+        "text": "you're gonna tell me that we fix this"
+      },
+      {
+        "start": 586.89,
+        "duration": 5.73,
+        "text": "yes so what we did was we we said we"
+      },
+      {
+        "start": 588.9,
+        "duration": 6.39,
+        "text": "need to find a way to nest data within a"
+      },
+      {
+        "start": 592.62,
+        "duration": 4.2,
+        "text": "single partition so that I can pull"
+      },
+      {
+        "start": 595.29,
+        "duration": 3.69,
+        "text": "those back with a single query to a"
+      },
+      {
+        "start": 596.82,
+        "duration": 4.08,
+        "text": "single table and so that's where we"
+      },
+      {
+        "start": 598.98,
+        "duration": 4.74,
+        "text": "introduced collections and then we"
+      },
+      {
+        "start": 600.9,
+        "duration": 6.42,
+        "text": "introduced user-defined types that allow"
+      },
+      {
+        "start": 603.72,
+        "duration": 6.0,
+        "text": "you to next nest more complex data"
+      },
+      {
+        "start": 607.32,
+        "duration": 5.58,
+        "text": "structures inside a Cassandra row so"
+      },
+      {
+        "start": 609.72,
+        "duration": 5.76,
+        "text": "it's actually isomorphic to a JSON"
+      },
+      {
+        "start": 612.9,
+        "duration": 5.31,
+        "text": "document and we even added syntax so"
+      },
+      {
+        "start": 615.48,
+        "duration": 4.38,
+        "text": "there's an API that's right syntax to"
+      },
+      {
+        "start": 618.21,
+        "duration": 5.67,
+        "text": "seek you all that so you can say select"
+      },
+      {
+        "start": 619.86,
+        "duration": 6.09,
+        "text": "JSON and it'll take that row with it's"
+      },
+      {
+        "start": 623.88,
+        "duration": 3.69,
+        "text": "nested collections and nested"
+      },
+      {
+        "start": 625.95,
+        "duration": 4.139,
+        "text": "user-defined types and give you back a"
+      },
+      {
+        "start": 627.57,
+        "duration": 5.82,
+        "text": "JSON document or vice versa great I"
+      },
+      {
+        "start": 630.089,
+        "duration": 4.771,
+        "text": "pulled off this JSON blob from my micro"
+      },
+      {
+        "start": 633.39,
+        "duration": 3.66,
+        "text": "service and I just want to throw it into"
+      },
+      {
+        "start": 634.86,
+        "duration": 4.53,
+        "text": "this Cassandra row Cassandra will take"
+      },
+      {
+        "start": 637.05,
+        "duration": 4.53,
+        "text": "care of pulling parsing that apart and"
+      },
+      {
+        "start": 639.39,
+        "duration": 3.51,
+        "text": "storing it appropriately and I don't I"
+      },
+      {
+        "start": 641.58,
+        "duration": 3.57,
+        "text": "don't know if people do enough take"
+      },
+      {
+        "start": 642.9,
+        "duration": 3.9,
+        "text": "advantage and enough advantage of that"
+      },
+      {
+        "start": 645.15,
+        "duration": 3.809,
+        "text": "feature actually because like you can"
+      },
+      {
+        "start": 646.8,
+        "duration": 3.34,
+        "text": "free have a really simple micro service"
+      },
+      {
+        "start": 648.959,
+        "duration": 2.831,
+        "text": "implement"
+      },
+      {
+        "start": 650.14,
+        "duration": 3.24,
+        "text": "I don't I don't see that happening as"
+      },
+      {
+        "start": 651.79,
+        "duration": 3.21,
+        "text": "much in practices and maybe as it should"
+      },
+      {
+        "start": 653.38,
+        "duration": 3.0,
+        "text": "maybe it's a lesser known feature I"
+      },
+      {
+        "start": 655.0,
+        "duration": 2.85,
+        "text": "don't know yeah I think it's one of"
+      },
+      {
+        "start": 656.38,
+        "duration": 3.15,
+        "text": "those things that it's a little bit"
+      },
+      {
+        "start": 657.85,
+        "duration": 5.13,
+        "text": "underappreciated that yet not too many"
+      },
+      {
+        "start": 659.53,
+        "duration": 5.55,
+        "text": "people know about okay so great"
+      },
+      {
+        "start": 662.98,
+        "duration": 4.38,
+        "text": "Cassandra's awesome we would say so but"
+      },
+      {
+        "start": 665.08,
+        "duration": 5.31,
+        "text": "what about some of these other databases"
+      },
+      {
+        "start": 667.36,
+        "duration": 4.08,
+        "text": "you want to start yeah I want to spend"
+      },
+      {
+        "start": 670.39,
+        "duration": 3.03,
+        "text": "just a little more time talking about"
+      },
+      {
+        "start": 671.44,
+        "duration": 6.81,
+        "text": "why Cassandra's awesome oh okay no no"
+      },
+      {
+        "start": 673.42,
+        "duration": 6.57,
+        "text": "please we can do that all day yeah so so"
+      },
+      {
+        "start": 678.25,
+        "duration": 3.45,
+        "text": "part of its awesome and part of its"
+      },
+      {
+        "start": 679.99,
+        "duration": 3.69,
+        "text": "different right okay I said we've got a"
+      },
+      {
+        "start": 681.7,
+        "duration": 4.14,
+        "text": "lot of consensus around some of these"
+      },
+      {
+        "start": 683.68,
+        "duration": 4.28,
+        "text": "things and we've got some some things"
+      },
+      {
+        "start": 685.84,
+        "duration": 6.27,
+        "text": "that that there's less consensus around"
+      },
+      {
+        "start": 687.96,
+        "duration": 9.67,
+        "text": "so Cassandra's are bucking the trend in"
+      },
+      {
+        "start": 692.11,
+        "duration": 9.57,
+        "text": "that it requires a strict we're going to"
+      },
+      {
+        "start": 697.63,
+        "duration": 6.81,
+        "text": "talk about are all schema lists or a"
+      },
+      {
+        "start": 701.68,
+        "duration": 4.44,
+        "text": "very flexible under scheme yeah and"
+      },
+      {
+        "start": 704.44,
+        "duration": 4.83,
+        "text": "Cassandra says no that's the wrong way"
+      },
+      {
+        "start": 706.12,
+        "duration": 4.8,
+        "text": "to do it you should tell me what data to"
+      },
+      {
+        "start": 709.27,
+        "duration": 3.48,
+        "text": "expect what the columns are going to be"
+      },
+      {
+        "start": 710.92,
+        "duration": 4.56,
+        "text": "named what data types are going to be"
+      },
+      {
+        "start": 712.75,
+        "duration": 6.03,
+        "text": "part of those columns and that way as"
+      },
+      {
+        "start": 715.48,
+        "duration": 7.04,
+        "text": "the source of truth Cassandra is the"
+      },
+      {
+        "start": 718.78,
+        "duration": 8.3,
+        "text": "database can validate and reject"
+      },
+      {
+        "start": 722.52,
+        "duration": 8.2,
+        "text": "malformed documents or malformed inputs"
+      },
+      {
+        "start": 727.08,
+        "duration": 5.35,
+        "text": "and so there's actually a fair amount of"
+      },
+      {
+        "start": 730.72,
+        "duration": 4.23,
+        "text": "research in the industry"
+      },
+      {
+        "start": 732.43,
+        "duration": 4.86,
+        "text": "now that schema-less databases have been"
+      },
+      {
+        "start": 734.95,
+        "duration": 4.44,
+        "text": "fairly popular for a few years showing"
+      },
+      {
+        "start": 737.29,
+        "duration": 4.68,
+        "text": "that you know once we know if you have a"
+      },
+      {
+        "start": 739.39,
+        "duration": 5.04,
+        "text": "single team yeah that's as a single"
+      },
+      {
+        "start": 741.97,
+        "duration": 4.92,
+        "text": "codebase accessing the database you're"
+      },
+      {
+        "start": 744.43,
+        "duration": 4.83,
+        "text": "good you know it doesn't matter the code"
+      },
+      {
+        "start": 746.89,
+        "duration": 4.8,
+        "text": "is your schema right and there's nothing"
+      },
+      {
+        "start": 749.26,
+        "duration": 5.19,
+        "text": "wrong with that but once you expand"
+      },
+      {
+        "start": 751.69,
+        "duration": 5.49,
+        "text": "beyond that to another team accessing it"
+      },
+      {
+        "start": 754.45,
+        "duration": 6.65,
+        "text": "maybe with a different language you know"
+      },
+      {
+        "start": 757.18,
+        "duration": 6.48,
+        "text": "maybe a ruby on rails app now it has an"
+      },
+      {
+        "start": 761.1,
+        "duration": 6.46,
+        "text": "application going through and doing some"
+      },
+      {
+        "start": 763.66,
+        "duration": 6.69,
+        "text": "statistical analysis right no successful"
+      },
+      {
+        "start": 767.56,
+        "duration": 4.62,
+        "text": "applications start to grow these they"
+      },
+      {
+        "start": 770.35,
+        "duration": 4.6,
+        "text": "grow in terms of the teams that are"
+      },
+      {
+        "start": 772.18,
+        "duration": 5.17,
+        "text": "dealing with them and the access"
+      },
+      {
+        "start": 774.95,
+        "duration": 5.42,
+        "text": "you know client api's that are used"
+      },
+      {
+        "start": 777.35,
+        "duration": 5.94,
+        "text": "right and so i think its inherent that"
+      },
+      {
+        "start": 780.37,
+        "duration": 5.53,
+        "text": "you you do want your database providing"
+      },
+      {
+        "start": 783.29,
+        "duration": 4.35,
+        "text": "that level of stability okay I got you"
+      },
+      {
+        "start": 785.9,
+        "duration": 3.9,
+        "text": "yeah that makes absolute sense I mean I"
+      },
+      {
+        "start": 787.64,
+        "duration": 3.3,
+        "text": "have architect alarm bells going off on"
+      },
+      {
+        "start": 789.8,
+        "duration": 3.69,
+        "text": "my head when you're talking about"
+      },
+      {
+        "start": 790.94,
+        "duration": 4.89,
+        "text": "multiple applications accessing the same"
+      },
+      {
+        "start": 793.49,
+        "duration": 4.53,
+        "text": "tables we all know that happens in"
+      },
+      {
+        "start": 795.83,
+        "duration": 3.9,
+        "text": "practice I always said no as an"
+      },
+      {
+        "start": 798.02,
+        "duration": 5.37,
+        "text": "architect to that but that stuff happens"
+      },
+      {
+        "start": 799.73,
+        "duration": 7.5,
+        "text": "right no this is an area where it's"
+      },
+      {
+        "start": 803.39,
+        "duration": 6.42,
+        "text": "actually an easier sell to to our"
+      },
+      {
+        "start": 807.23,
+        "duration": 4.53,
+        "text": "enterprise customers they kind of give"
+      },
+      {
+        "start": 809.81,
+        "duration": 5.85,
+        "text": "they're like oh yeah scheme a list yeah"
+      },
+      {
+        "start": 811.76,
+        "duration": 5.42,
+        "text": "we you know that's cute right so it's"
+      },
+      {
+        "start": 815.66,
+        "duration": 4.16,
+        "text": "interesting how different parts of these"
+      },
+      {
+        "start": 817.18,
+        "duration": 4.72,
+        "text": "scare different people gotcha"
+      },
+      {
+        "start": 819.82,
+        "duration": 4.21,
+        "text": "well we don't want our operational"
+      },
+      {
+        "start": 821.9,
+        "duration": 6.33,
+        "text": "database becoming just as disorganized"
+      },
+      {
+        "start": 824.03,
+        "duration": 10.41,
+        "text": "as our data Lake that's that's kind of a"
+      },
+      {
+        "start": 828.23,
+        "duration": 7.71,
+        "text": "back-end audiences so then the last"
+      },
+      {
+        "start": 834.44,
+        "duration": 4.44,
+        "text": "thing that called in the cassandra side"
+      },
+      {
+        "start": 835.94,
+        "duration": 6.75,
+        "text": "is that we added materialized views back"
+      },
+      {
+        "start": 838.88,
+        "duration": 5.76,
+        "text": "in 3.0 okay so this is eighteen months"
+      },
+      {
+        "start": 842.69,
+        "duration": 4.08,
+        "text": "ago or so which allows you so you"
+      },
+      {
+        "start": 844.64,
+        "duration": 4.56,
+        "text": "mentioned that you do need to"
+      },
+      {
+        "start": 846.77,
+        "duration": 4.23,
+        "text": "denormalize to fit your different query"
+      },
+      {
+        "start": 849.2,
+        "duration": 6.36,
+        "text": "patterns in Cassandra because we don't"
+      },
+      {
+        "start": 851.0,
+        "duration": 6.18,
+        "text": "give you joins to do that right until so"
+      },
+      {
+        "start": 855.56,
+        "duration": 3.9,
+        "text": "materialized views is a way where you"
+      },
+      {
+        "start": 857.18,
+        "duration": 4.47,
+        "text": "can tell the server I want you to"
+      },
+      {
+        "start": 859.46,
+        "duration": 3.96,
+        "text": "maintain this denormalization for me"
+      },
+      {
+        "start": 861.65,
+        "duration": 3.81,
+        "text": "rather than having to do it in"
+      },
+      {
+        "start": 863.42,
+        "duration": 4.05,
+        "text": "application code okay so there's a lot"
+      },
+      {
+        "start": 865.46,
+        "duration": 3.51,
+        "text": "of shade that's been thrown at the"
+      },
+      {
+        "start": 867.47,
+        "duration": 4.95,
+        "text": "materialized view implementation in"
+      },
+      {
+        "start": 868.97,
+        "duration": 5.55,
+        "text": "cassandra 3 so yeah yes so there's been"
+      },
+      {
+        "start": 872.42,
+        "duration": 6.03,
+        "text": "some a little bit of drama on the on the"
+      },
+      {
+        "start": 874.52,
+        "duration": 5.88,
+        "text": "mailing list and so there are some rough"
+      },
+      {
+        "start": 878.45,
+        "duration": 4.53,
+        "text": "edges with with the design I'll"
+      },
+      {
+        "start": 880.4,
+        "duration": 6.81,
+        "text": "acknowledge that but so first what I'd"
+      },
+      {
+        "start": 882.98,
+        "duration": 5.94,
+        "text": "like to say is if you're using them the"
+      },
+      {
+        "start": 887.21,
+        "duration": 3.06,
+        "text": "way they're designed to be used then"
+      },
+      {
+        "start": 888.92,
+        "duration": 2.1,
+        "text": "they're very powerful they're very"
+      },
+      {
+        "start": 890.27,
+        "duration": 4.83,
+        "text": "stable"
+      },
+      {
+        "start": 891.02,
+        "duration": 6.87,
+        "text": "Dennis X Enterprise graph uses"
+      },
+      {
+        "start": 895.1,
+        "duration": 5.61,
+        "text": "materialized use pervasively we're very"
+      },
+      {
+        "start": 897.89,
+        "duration": 4.92,
+        "text": "comfortable with that right but you know"
+      },
+      {
+        "start": 900.71,
+        "duration": 4.41,
+        "text": "they they're you know we did make some"
+      },
+      {
+        "start": 902.81,
+        "duration": 3.35,
+        "text": "mistakes designing them and I would say"
+      },
+      {
+        "start": 905.12,
+        "duration": 4.31,
+        "text": "that one of the main"
+      },
+      {
+        "start": 906.16,
+        "duration": 6.359,
+        "text": "steaks that we did was we made"
+      },
+      {
+        "start": 909.43,
+        "duration": 6.899,
+        "text": "materialized views asynchronous with"
+      },
+      {
+        "start": 912.519,
+        "duration": 5.971,
+        "text": "respect to the base table and so so"
+      },
+      {
+        "start": 916.329,
+        "duration": 3.541,
+        "text": "there's no guarantee actually that after"
+      },
+      {
+        "start": 918.49,
+        "duration": 3.36,
+        "text": "I've written to the base table Cassandra"
+      },
+      {
+        "start": 919.87,
+        "duration": 3.48,
+        "text": "says okay we're good and now I go and"
+      },
+      {
+        "start": 921.85,
+        "duration": 6.479,
+        "text": "read from the materialized view"
+      },
+      {
+        "start": 923.35,
+        "duration": 8.33,
+        "text": "no I it could be it could be a while and"
+      },
+      {
+        "start": 928.329,
+        "duration": 5.671,
+        "text": "so that's a mistake because that"
+      },
+      {
+        "start": 931.68,
+        "duration": 4.36,
+        "text": "understandably that we've given people"
+      },
+      {
+        "start": 934.0,
+        "duration": 4.68,
+        "text": "consistency levels in Cassandra where I"
+      },
+      {
+        "start": 936.04,
+        "duration": 4.71,
+        "text": "can say I'm doing quorum quorum so as"
+      },
+      {
+        "start": 938.68,
+        "duration": 4.56,
+        "text": "you always see my most recent data but"
+      },
+      {
+        "start": 940.75,
+        "duration": 5.939,
+        "text": "now you say that realist view is not"
+      },
+      {
+        "start": 943.24,
+        "duration": 4.8,
+        "text": "governed exactly yeah okay so the reason"
+      },
+      {
+        "start": 946.689,
+        "duration": 3.661,
+        "text": "we did this there was a method behind"
+      },
+      {
+        "start": 948.04,
+        "duration": 5.099,
+        "text": "the madness the reason we did this was"
+      },
+      {
+        "start": 950.35,
+        "duration": 6.15,
+        "text": "if I know we thought about what if the"
+      },
+      {
+        "start": 953.139,
+        "duration": 5.461,
+        "text": "user creates no dozens of materialized"
+      },
+      {
+        "start": 956.5,
+        "duration": 4.23,
+        "text": "views now if we if we make that"
+      },
+      {
+        "start": 958.6,
+        "duration": 4.08,
+        "text": "synchronous I'm gonna be touching"
+      },
+      {
+        "start": 960.73,
+        "duration": 4.229,
+        "text": "essentially every server in my cluster"
+      },
+      {
+        "start": 962.68,
+        "duration": 4.889,
+        "text": "you have a dozen materialized views"
+      },
+      {
+        "start": 964.959,
+        "duration": 5.671,
+        "text": "times three replicas thirty-six replicas"
+      },
+      {
+        "start": 967.569,
+        "duration": 5.851,
+        "text": "I'm touching now that's gonna right so"
+      },
+      {
+        "start": 970.63,
+        "duration": 5.55,
+        "text": "I'm potentially compromising my"
+      },
+      {
+        "start": 973.42,
+        "duration": 5.19,
+        "text": "availability if you say I want to make"
+      },
+      {
+        "start": 976.18,
+        "duration": 4.529,
+        "text": "those secretive but I think that was the"
+      },
+      {
+        "start": 978.61,
+        "duration": 5.31,
+        "text": "wrong thing to optimize for and if you"
+      },
+      {
+        "start": 980.709,
+        "duration": 4.341,
+        "text": "look at at other systems I believe if I"
+      },
+      {
+        "start": 983.92,
+        "duration": 5.7,
+        "text": "remember correctly"
+      },
+      {
+        "start": 985.05,
+        "duration": 6.76,
+        "text": "dynamodb s global indexes which are"
+      },
+      {
+        "start": 989.62,
+        "duration": 4.319,
+        "text": "similar in spirit to materialized views"
+      },
+      {
+        "start": 991.81,
+        "duration": 4.5,
+        "text": "okay I believe there's a limit on five"
+      },
+      {
+        "start": 993.939,
+        "duration": 4.02,
+        "text": "that you can define so there's other"
+      },
+      {
+        "start": 996.31,
+        "duration": 3.899,
+        "text": "things that you can do besides just"
+      },
+      {
+        "start": 997.959,
+        "duration": 3.87,
+        "text": "accepting that right he's just gonna do"
+      },
+      {
+        "start": 1000.209,
+        "duration": 3.331,
+        "text": "crazy things with the system that might"
+      },
+      {
+        "start": 1001.829,
+        "duration": 4.56,
+        "text": "be one of those cases where a hard limit"
+      },
+      {
+        "start": 1003.54,
+        "duration": 5.58,
+        "text": "is it is advisable okay so you started"
+      },
+      {
+        "start": 1006.389,
+        "duration": 4.021,
+        "text": "you brought up the topic of dynamodb you"
+      },
+      {
+        "start": 1009.12,
+        "duration": 3.449,
+        "text": "brought it up do you want to dive into"
+      },
+      {
+        "start": 1010.41,
+        "duration": 5.25,
+        "text": "them yeah let's start talking about non"
+      },
+      {
+        "start": 1012.569,
+        "duration": 4.95,
+        "text": "Cassandra systems so the in my talk I"
+      },
+      {
+        "start": 1015.66,
+        "duration": 6.299,
+        "text": "tackle these chronologically"
+      },
+      {
+        "start": 1017.519,
+        "duration": 8.131,
+        "text": "okay and so Cassandra came out in 2008"
+      },
+      {
+        "start": 1021.959,
+        "duration": 5.941,
+        "text": "was the first release yeah dynamodb"
+      },
+      {
+        "start": 1025.65,
+        "duration": 5.279,
+        "text": "first release was 2012 so that's next"
+      },
+      {
+        "start": 1027.9,
+        "duration": 6.36,
+        "text": "chronologically so this is actually I"
+      },
+      {
+        "start": 1030.929,
+        "duration": 4.391,
+        "text": "think so I said we all agree on a bunch"
+      },
+      {
+        "start": 1034.26,
+        "duration": 4.01,
+        "text": "of things"
+      },
+      {
+        "start": 1035.32,
+        "duration": 4.33,
+        "text": "and there's been an exception to just"
+      },
+      {
+        "start": 1038.27,
+        "duration": 2.31,
+        "text": "about everything I've said that we all"
+      },
+      {
+        "start": 1039.65,
+        "duration": 3.36,
+        "text": "agree on"
+      },
+      {
+        "start": 1040.58,
+        "duration": 4.74,
+        "text": "dynamos jeebies exception is there's"
+      },
+      {
+        "start": 1043.01,
+        "duration": 4.5,
+        "text": "still very much old school no sequel in"
+      },
+      {
+        "start": 1045.32,
+        "duration": 4.74,
+        "text": "terms of how you access your data so you"
+      },
+      {
+        "start": 1047.51,
+        "duration": 5.37,
+        "text": "have you have a partition key and you"
+      },
+      {
+        "start": 1050.06,
+        "duration": 6.9,
+        "text": "have a sort key but no dis or key is"
+      },
+      {
+        "start": 1052.88,
+        "duration": 6.18,
+        "text": "basically an index into the map that"
+      },
+      {
+        "start": 1056.96,
+        "duration": 5.31,
+        "text": "your partition represents okay so each"
+      },
+      {
+        "start": 1059.06,
+        "duration": 7.8,
+        "text": "partition is a sorted map of stuff of"
+      },
+      {
+        "start": 1062.27,
+        "duration": 6.6,
+        "text": "values so DynamoDB is nomenclature is"
+      },
+      {
+        "start": 1066.86,
+        "duration": 5.31,
+        "text": "you define tables tables contain"
+      },
+      {
+        "start": 1068.87,
+        "duration": 7.94,
+        "text": "partitions partitions contain items each"
+      },
+      {
+        "start": 1072.17,
+        "duration": 9.87,
+        "text": "item is that is a sorted map of tuples"
+      },
+      {
+        "start": 1076.81,
+        "duration": 8.56,
+        "text": "so my beef with DynamoDB is no in 2012 I"
+      },
+      {
+        "start": 1082.04,
+        "duration": 6.21,
+        "text": "get it that was that was adequate you"
+      },
+      {
+        "start": 1085.37,
+        "duration": 6.18,
+        "text": "know six years on Cassandra has nested"
+      },
+      {
+        "start": 1088.25,
+        "duration": 5.76,
+        "text": "data types cosmos to be has nested data"
+      },
+      {
+        "start": 1091.55,
+        "duration": 4.29,
+        "text": "types spanner has a slightly different"
+      },
+      {
+        "start": 1094.01,
+        "duration": 3.15,
+        "text": "take on nested data types but it's the"
+      },
+      {
+        "start": 1095.84,
+        "duration": 4.2,
+        "text": "same idea right"
+      },
+      {
+        "start": 1097.16,
+        "duration": 5.13,
+        "text": "so with DynamoDB you're still stuck in"
+      },
+      {
+        "start": 1100.04,
+        "duration": 5.36,
+        "text": "the bad old days of I need to make a"
+      },
+      {
+        "start": 1102.29,
+        "duration": 5.58,
+        "text": "query to every different table for"
+      },
+      {
+        "start": 1105.4,
+        "duration": 5.17,
+        "text": "everything there's an application side"
+      },
+      {
+        "start": 1107.87,
+        "duration": 7.89,
+        "text": "joins yes I'm back doing client-side"
+      },
+      {
+        "start": 1110.57,
+        "duration": 7.17,
+        "text": "joints yeah but dynamodb does have some"
+      },
+      {
+        "start": 1115.76,
+        "duration": 4.86,
+        "text": "some cool features I mentioned that they"
+      },
+      {
+        "start": 1117.74,
+        "duration": 4.77,
+        "text": "do have this global index yeah so let me"
+      },
+      {
+        "start": 1120.62,
+        "duration": 3.86,
+        "text": "let me back up a second then and talk"
+      },
+      {
+        "start": 1122.51,
+        "duration": 4.5,
+        "text": "about that because it might not be clear"
+      },
+      {
+        "start": 1124.48,
+        "duration": 5.41,
+        "text": "what a global index is versus a local"
+      },
+      {
+        "start": 1127.01,
+        "duration": 6.51,
+        "text": "index so okay please say local index"
+      },
+      {
+        "start": 1129.89,
+        "duration": 6.39,
+        "text": "means that each node each storage node"
+      },
+      {
+        "start": 1133.52,
+        "duration": 5.52,
+        "text": "in the database is indexing the data"
+      },
+      {
+        "start": 1136.28,
+        "duration": 4.59,
+        "text": "that's local to that so it's in a"
+      },
+      {
+        "start": 1139.04,
+        "duration": 4.1,
+        "text": "partitioned database that means you're"
+      },
+      {
+        "start": 1140.87,
+        "duration": 5.58,
+        "text": "indexing basically a random set of"
+      },
+      {
+        "start": 1143.14,
+        "duration": 5.53,
+        "text": "partitions and so if I want to do an"
+      },
+      {
+        "start": 1146.45,
+        "duration": 4.35,
+        "text": "index look up under that design yeah I"
+      },
+      {
+        "start": 1148.67,
+        "duration": 4.14,
+        "text": "need to do a scatter gather I needed to"
+      },
+      {
+        "start": 1150.8,
+        "duration": 4.14,
+        "text": "ask every node in the cluster do you"
+      },
+      {
+        "start": 1152.81,
+        "duration": 3.81,
+        "text": "have data matching this predicate right"
+      },
+      {
+        "start": 1154.94,
+        "duration": 3.84,
+        "text": "and pull it back in and say and compare"
+      },
+      {
+        "start": 1156.62,
+        "duration": 5.76,
+        "text": "notes and say okay which which results"
+      },
+      {
+        "start": 1158.78,
+        "duration": 5.1,
+        "text": "come first so so that means and and that"
+      },
+      {
+        "start": 1162.38,
+        "duration": 3.2,
+        "text": "sounds okay like maybe you don't want to"
+      },
+      {
+        "start": 1163.88,
+        "duration": 4.85,
+        "text": "do that every day every"
+      },
+      {
+        "start": 1165.58,
+        "duration": 5.4,
+        "text": "query but it sounds may be okay but"
+      },
+      {
+        "start": 1168.73,
+        "duration": 5.52,
+        "text": "there's a kind of a subtle gotcha which"
+      },
+      {
+        "start": 1170.98,
+        "duration": 5.67,
+        "text": "mean which is that if I'm Big O of n if"
+      },
+      {
+        "start": 1174.25,
+        "duration": 4.83,
+        "text": "I'm linear in the number of modes in my"
+      },
+      {
+        "start": 1176.65,
+        "duration": 5.55,
+        "text": "cluster that means that adding nodes to"
+      },
+      {
+        "start": 1179.08,
+        "duration": 6.42,
+        "text": "my cluster doesn't make local index"
+      },
+      {
+        "start": 1182.2,
+        "duration": 6.48,
+        "text": "lookups faster because eventually and"
+      },
+      {
+        "start": 1185.5,
+        "duration": 5.16,
+        "text": "with with Cassandra the it's about it's"
+      },
+      {
+        "start": 1188.68,
+        "duration": 4.04,
+        "text": "actually a fairly low number for nodes"
+      },
+      {
+        "start": 1190.66,
+        "duration": 4.53,
+        "text": "if you go from four nodes to eight nodes"
+      },
+      {
+        "start": 1192.72,
+        "duration": 5.71,
+        "text": "your local index performance is"
+      },
+      {
+        "start": 1195.19,
+        "duration": 8.58,
+        "text": "basically flat because now you're you're"
+      },
+      {
+        "start": 1198.43,
+        "duration": 7.53,
+        "text": "the dominant the dominant factor in your"
+      },
+      {
+        "start": 1203.77,
+        "duration": 3.81,
+        "text": "performance bottleneck is that scatter"
+      },
+      {
+        "start": 1205.96,
+        "duration": 2.76,
+        "text": "gather operation and not the local"
+      },
+      {
+        "start": 1207.58,
+        "duration": 5.04,
+        "text": "lookup gotcha"
+      },
+      {
+        "start": 1208.72,
+        "duration": 5.73,
+        "text": "um so Cassandra said we need to give"
+      },
+      {
+        "start": 1212.62,
+        "duration": 6.12,
+        "text": "people a way to repartition their data"
+      },
+      {
+        "start": 1214.45,
+        "duration": 7.5,
+        "text": "so I can go look that up by a key by a"
+      },
+      {
+        "start": 1218.74,
+        "duration": 6.15,
+        "text": "column value that becomes a partition"
+      },
+      {
+        "start": 1221.95,
+        "duration": 4.47,
+        "text": "key under the new repartition data and"
+      },
+      {
+        "start": 1224.89,
+        "duration": 3.66,
+        "text": "we got that materialized views"
+      },
+      {
+        "start": 1226.42,
+        "duration": 4.29,
+        "text": "materialized news let you do a little"
+      },
+      {
+        "start": 1228.55,
+        "duration": 4.8,
+        "text": "bit more fancy stuff because i can say"
+      },
+      {
+        "start": 1230.71,
+        "duration": 4.44,
+        "text": "i'm good to let you specify not just how"
+      },
+      {
+        "start": 1233.35,
+        "duration": 3.51,
+        "text": "much we partitioned but I'm gonna let"
+      },
+      {
+        "start": 1235.15,
+        "duration": 4.02,
+        "text": "you specify a projection I'm going to"
+      },
+      {
+        "start": 1236.86,
+        "duration": 3.87,
+        "text": "let you say which columns I want to pull"
+      },
+      {
+        "start": 1239.17,
+        "duration": 5.49,
+        "text": "out of the basic select a subset of"
+      },
+      {
+        "start": 1240.73,
+        "duration": 6.48,
+        "text": "those yes and then I can also specify"
+      },
+      {
+        "start": 1244.66,
+        "duration": 5.07,
+        "text": "conditions on it and say I only want to"
+      },
+      {
+        "start": 1247.21,
+        "duration": 5.46,
+        "text": "materialize rows that match so there are"
+      },
+      {
+        "start": 1249.73,
+        "duration": 5.58,
+        "text": "predicates yeah yeah so global index is"
+      },
+      {
+        "start": 1252.67,
+        "duration": 3.84,
+        "text": "a bit of a simpler minded thing but it's"
+      },
+      {
+        "start": 1255.31,
+        "duration": 3.75,
+        "text": "the same idea where I'm gonna"
+      },
+      {
+        "start": 1256.51,
+        "duration": 6.12,
+        "text": "repartition it and now my index query"
+      },
+      {
+        "start": 1259.06,
+        "duration": 7.08,
+        "text": "scale as well as queries against my base"
+      },
+      {
+        "start": 1262.63,
+        "duration": 6.72,
+        "text": "table okay alright so anything more to"
+      },
+      {
+        "start": 1266.14,
+        "duration": 5.78,
+        "text": "say about dynamo I think that those are"
+      },
+      {
+        "start": 1269.35,
+        "duration": 5.25,
+        "text": "that's the highlights okay so next"
+      },
+      {
+        "start": 1271.92,
+        "duration": 5.05,
+        "text": "cosmos DB yeah"
+      },
+      {
+        "start": 1274.6,
+        "duration": 4.95,
+        "text": "no spoiler alert this is the one I"
+      },
+      {
+        "start": 1276.97,
+        "duration": 5.61,
+        "text": "admire the most okay they've done a lot"
+      },
+      {
+        "start": 1279.55,
+        "duration": 5.25,
+        "text": "of things right and I think they took a"
+      },
+      {
+        "start": 1282.58,
+        "duration": 4.65,
+        "text": "look at Cassandra and they said what can"
+      },
+      {
+        "start": 1284.8,
+        "duration": 4.8,
+        "text": "we learn from mistakes Cassandra made"
+      },
+      {
+        "start": 1287.23,
+        "duration": 4.59,
+        "text": "which is always a smart thing to do yeah"
+      },
+      {
+        "start": 1289.6,
+        "duration": 3.99,
+        "text": "so one of the things that I think was a"
+      },
+      {
+        "start": 1291.82,
+        "duration": 4.08,
+        "text": "mistake that Cassandra made"
+      },
+      {
+        "start": 1293.59,
+        "duration": 5.37,
+        "text": "is we have too many consistency levels"
+      },
+      {
+        "start": 1295.9,
+        "duration": 5.879,
+        "text": "so if you if you look at the data sex"
+      },
+      {
+        "start": 1298.96,
+        "duration": 4.949,
+        "text": "documentation I put into my talk I"
+      },
+      {
+        "start": 1301.779,
+        "duration": 3.571,
+        "text": "pulled out screenshots of descriptions"
+      },
+      {
+        "start": 1303.909,
+        "duration": 4.351,
+        "text": "of the consistency level right it's"
+      },
+      {
+        "start": 1305.35,
+        "duration": 4.59,
+        "text": "three slides worth yeah there's around a"
+      },
+      {
+        "start": 1308.26,
+        "duration": 4.62,
+        "text": "dozen consist something for everyone"
+      },
+      {
+        "start": 1309.94,
+        "duration": 5.76,
+        "text": "something for everyone so if I'm looking"
+      },
+      {
+        "start": 1312.88,
+        "duration": 5.52,
+        "text": "at that now yeah do we actually need"
+      },
+      {
+        "start": 1315.7,
+        "duration": 5.67,
+        "text": "this I think it's fairly uncontroversial"
+      },
+      {
+        "start": 1318.4,
+        "duration": 5.82,
+        "text": "to say you don't need consistency level"
+      },
+      {
+        "start": 1321.37,
+        "duration": 4.71,
+        "text": "all because that means as soon as you"
+      },
+      {
+        "start": 1324.22,
+        "duration": 5.52,
+        "text": "lose and why's that you can't do that"
+      },
+      {
+        "start": 1326.08,
+        "duration": 6.78,
+        "text": "operation anymore right so no you never"
+      },
+      {
+        "start": 1329.74,
+        "duration": 6.45,
+        "text": "want to do that it's probably a little"
+      },
+      {
+        "start": 1332.86,
+        "duration": 6.689,
+        "text": "more controversial to say you don't need"
+      },
+      {
+        "start": 1336.19,
+        "duration": 6.0,
+        "text": "all of them on local consistency levels"
+      },
+      {
+        "start": 1339.549,
+        "duration": 4.591,
+        "text": "okay so we started off with quorum and"
+      },
+      {
+        "start": 1342.19,
+        "duration": 3.63,
+        "text": "that says a majority of all the replicas"
+      },
+      {
+        "start": 1344.14,
+        "duration": 3.509,
+        "text": "and then we said you know what actually"
+      },
+      {
+        "start": 1345.82,
+        "duration": 3.959,
+        "text": "when I'm in multiple data centers I"
+      },
+      {
+        "start": 1347.649,
+        "duration": 5.221,
+        "text": "don't actually want a majority of all"
+      },
+      {
+        "start": 1349.779,
+        "duration": 5.491,
+        "text": "the replicas because if I've got three"
+      },
+      {
+        "start": 1352.87,
+        "duration": 5.939,
+        "text": "data centers and nine nodes that means I"
+      },
+      {
+        "start": 1355.27,
+        "duration": 5.67,
+        "text": "need five of my nodes to reply so I'm"
+      },
+      {
+        "start": 1358.809,
+        "duration": 4.98,
+        "text": "touching at least you data centers"
+      },
+      {
+        "start": 1360.94,
+        "duration": 6.8,
+        "text": "probably all three right so we added"
+      },
+      {
+        "start": 1363.789,
+        "duration": 6.061,
+        "text": "local quorum we added local one and"
+      },
+      {
+        "start": 1367.74,
+        "duration": 5.5,
+        "text": "those are what the default should have"
+      },
+      {
+        "start": 1369.85,
+        "duration": 5.579,
+        "text": "been and so I would I would I wouldn't"
+      },
+      {
+        "start": 1373.24,
+        "duration": 5.52,
+        "text": "go as far as to say we don't need then"
+      },
+      {
+        "start": 1375.429,
+        "duration": 5.161,
+        "text": "the quorum we don't need one it should"
+      },
+      {
+        "start": 1378.76,
+        "duration": 3.63,
+        "text": "just be local quorum and local all right"
+      },
+      {
+        "start": 1380.59,
+        "duration": 4.35,
+        "text": "so this is interesting because maybe it"
+      },
+      {
+        "start": 1382.39,
+        "duration": 4.71,
+        "text": "should be more about the behavior you"
+      },
+      {
+        "start": 1384.94,
+        "duration": 3.81,
+        "text": "desire from the application perspective"
+      },
+      {
+        "start": 1387.1,
+        "duration": 3.15,
+        "text": "than having to figure out or think about"
+      },
+      {
+        "start": 1388.75,
+        "duration": 3.69,
+        "text": "how many nodes are out there and where"
+      },
+      {
+        "start": 1390.25,
+        "duration": 4.289,
+        "text": "are they yeah right so that is not where"
+      },
+      {
+        "start": 1392.44,
+        "duration": 3.81,
+        "text": "so like the session consistency level"
+      },
+      {
+        "start": 1394.539,
+        "duration": 3.27,
+        "text": "comes from yeah I want to read my own"
+      },
+      {
+        "start": 1396.25,
+        "duration": 4.89,
+        "text": "rights can I just do that can I just"
+      },
+      {
+        "start": 1397.809,
+        "duration": 7.081,
+        "text": "read my own rights yeah so no this is"
+      },
+      {
+        "start": 1401.14,
+        "duration": 6.12,
+        "text": "this is rare but it happens yet you know"
+      },
+      {
+        "start": 1404.89,
+        "duration": 5.82,
+        "text": "a customer will come to us and say hey"
+      },
+      {
+        "start": 1407.26,
+        "duration": 6.0,
+        "text": "I'm I'm reading against data center one"
+      },
+      {
+        "start": 1410.71,
+        "duration": 5.819,
+        "text": "but if I look at my network traffic it's"
+      },
+      {
+        "start": 1413.26,
+        "duration": 6.0,
+        "text": "also reading from data center - yeah you"
+      },
+      {
+        "start": 1416.529,
+        "duration": 4.761,
+        "text": "know I will go out on a limb and predict"
+      },
+      {
+        "start": 1419.26,
+        "duration": 3.59,
+        "text": "you're doing a coronary yes"
+      },
+      {
+        "start": 1421.29,
+        "duration": 3.0,
+        "text": "and that's you know you're doing what"
+      },
+      {
+        "start": 1422.85,
+        "duration": 3.87,
+        "text": "you told it to do but that's not what"
+      },
+      {
+        "start": 1424.29,
+        "duration": 3.93,
+        "text": "you expected right so right yeah that"
+      },
+      {
+        "start": 1426.72,
+        "duration": 4.5,
+        "text": "was a mistake we made I think"
+      },
+      {
+        "start": 1428.22,
+        "duration": 5.88,
+        "text": "okay so cosmos GPU says okay we're gonna"
+      },
+      {
+        "start": 1431.22,
+        "duration": 4.77,
+        "text": "let you choose from a bunch of"
+      },
+      {
+        "start": 1434.1,
+        "duration": 3.3,
+        "text": "consistency levels just like consider"
+      },
+      {
+        "start": 1435.99,
+        "duration": 3.45,
+        "text": "but there's only going to be five of"
+      },
+      {
+        "start": 1437.4,
+        "duration": 4.49,
+        "text": "them and actually I think that's"
+      },
+      {
+        "start": 1439.44,
+        "duration": 5.31,
+        "text": "actually probably still too many"
+      },
+      {
+        "start": 1441.89,
+        "duration": 4.84,
+        "text": "DynamoDB says you're gonna get to choose"
+      },
+      {
+        "start": 1444.75,
+        "duration": 4.049,
+        "text": "your honor right you don't get to choose"
+      },
+      {
+        "start": 1446.73,
+        "duration": 3.9,
+        "text": "it all but on a read you can choose from"
+      },
+      {
+        "start": 1448.799,
+        "duration": 5.701,
+        "text": "eventually consistent or strongly"
+      },
+      {
+        "start": 1450.63,
+        "duration": 6.75,
+        "text": "consistent well okay and that's pretty"
+      },
+      {
+        "start": 1454.5,
+        "duration": 6.78,
+        "text": "close to the right right level I think"
+      },
+      {
+        "start": 1457.38,
+        "duration": 5.549,
+        "text": "that people want to deal with but cosmos"
+      },
+      {
+        "start": 1461.28,
+        "duration": 4.29,
+        "text": "TVs has five with subtly different"
+      },
+      {
+        "start": 1462.929,
+        "duration": 6.24,
+        "text": "trade-offs but they even put in their"
+      },
+      {
+        "start": 1465.57,
+        "duration": 6.739,
+        "text": "documentation ninety-three percent of"
+      },
+      {
+        "start": 1469.169,
+        "duration": 7.201,
+        "text": "their users of the operations are either"
+      },
+      {
+        "start": 1472.309,
+        "duration": 6.131,
+        "text": "bounded staleness or session consistency"
+      },
+      {
+        "start": 1476.37,
+        "duration": 3.929,
+        "text": "and so everything else is very niche"
+      },
+      {
+        "start": 1478.44,
+        "duration": 3.15,
+        "text": "yeah so I think if you looked at that"
+      },
+      {
+        "start": 1480.299,
+        "duration": 3.891,
+        "text": "you can probably say you probably could"
+      },
+      {
+        "start": 1481.59,
+        "duration": 6.02,
+        "text": "have gotten away with two maybe three"
+      },
+      {
+        "start": 1484.19,
+        "duration": 6.13,
+        "text": "but you let the market decide yeah"
+      },
+      {
+        "start": 1487.61,
+        "duration": 4.18,
+        "text": "but they know it is it is an improvement"
+      },
+      {
+        "start": 1490.32,
+        "duration": 3.239,
+        "text": "over Cassandra don't get me wrong I'm"
+      },
+      {
+        "start": 1491.79,
+        "duration": 5.16,
+        "text": "saying it's not perfect but they did"
+      },
+      {
+        "start": 1493.559,
+        "duration": 8.151,
+        "text": "better than no than I did ten years ago"
+      },
+      {
+        "start": 1496.95,
+        "duration": 4.76,
+        "text": "so can't complain too hard about that"
+      },
+      {
+        "start": 1502.22,
+        "duration": 4.57,
+        "text": "some of the notable things about cosmos"
+      },
+      {
+        "start": 1504.57,
+        "duration": 5.91,
+        "text": "TV this is the coolest one is that"
+      },
+      {
+        "start": 1506.79,
+        "duration": 6.42,
+        "text": "everything is indexed by default okay"
+      },
+      {
+        "start": 1510.48,
+        "duration": 5.79,
+        "text": "and so their local indexes but"
+      },
+      {
+        "start": 1513.21,
+        "duration": 5.31,
+        "text": "everything is indexed and so there"
+      },
+      {
+        "start": 1516.27,
+        "duration": 6.45,
+        "text": "there's very little information about"
+      },
+      {
+        "start": 1518.52,
+        "duration": 5.76,
+        "text": "cosmos TVs implementation right which"
+      },
+      {
+        "start": 1522.72,
+        "duration": 4.53,
+        "text": "makes it a little bit of an outlier"
+      },
+      {
+        "start": 1524.28,
+        "duration": 6.33,
+        "text": "because Google has published at least"
+      },
+      {
+        "start": 1527.25,
+        "duration": 5.64,
+        "text": "three possibly four if I remember"
+      },
+      {
+        "start": 1530.61,
+        "duration": 5.64,
+        "text": "correctly papers on the cloud spanner"
+      },
+      {
+        "start": 1532.89,
+        "duration": 5.97,
+        "text": "yeah and kisara of coasts of course is"
+      },
+      {
+        "start": 1536.25,
+        "duration": 6.059,
+        "text": "open source but there's actually very"
+      },
+      {
+        "start": 1538.86,
+        "duration": 5.1,
+        "text": "little on cosmos DB there's very little"
+      },
+      {
+        "start": 1542.309,
+        "duration": 4.86,
+        "text": "on dynamo DB as well but the"
+      },
+      {
+        "start": 1543.96,
+        "duration": 6.699,
+        "text": "documentation on dynamo DB is is pretty"
+      },
+      {
+        "start": 1547.169,
+        "duration": 5.47,
+        "text": "first-class like yeah they have"
+      },
+      {
+        "start": 1550.659,
+        "duration": 3.541,
+        "text": "you can you can infer a lot about what"
+      },
+      {
+        "start": 1552.639,
+        "duration": 2.67,
+        "text": "the system is doing because they've"
+      },
+      {
+        "start": 1554.2,
+        "duration": 2.49,
+        "text": "given you the details in the"
+      },
+      {
+        "start": 1555.309,
+        "duration": 3.0,
+        "text": "documentation to understand that"
+      },
+      {
+        "start": 1556.69,
+        "duration": 4.679,
+        "text": "especially where they tell you the"
+      },
+      {
+        "start": 1558.309,
+        "duration": 5.401,
+        "text": "limitations or am I going too far what"
+      },
+      {
+        "start": 1561.369,
+        "duration": 4.41,
+        "text": "about that okay but yeah I mean there"
+      },
+      {
+        "start": 1563.71,
+        "duration": 5.179,
+        "text": "are limitations with dynamodb that can"
+      },
+      {
+        "start": 1565.779,
+        "duration": 6.12,
+        "text": "be fairly painful but to Amazon's credit"
+      },
+      {
+        "start": 1568.889,
+        "duration": 4.87,
+        "text": "there in the docs and you can learn the"
+      },
+      {
+        "start": 1571.899,
+        "duration": 3.84,
+        "text": "theory as part of the SLA seriously"
+      },
+      {
+        "start": 1573.759,
+        "duration": 4.821,
+        "text": "there's fine print but the fight there"
+      },
+      {
+        "start": 1575.739,
+        "duration": 6.841,
+        "text": "is fine print yes with cosmos GP there's"
+      },
+      {
+        "start": 1578.58,
+        "duration": 5.049,
+        "text": "there's less of that and you know you"
+      },
+      {
+        "start": 1582.58,
+        "duration": 2.699,
+        "text": "know giving them the benefit of the"
+      },
+      {
+        "start": 1583.629,
+        "duration": 3.87,
+        "text": "definitive of the doubt it's a newer"
+      },
+      {
+        "start": 1585.279,
+        "duration": 3.75,
+        "text": "product and I fully expect their"
+      },
+      {
+        "start": 1587.499,
+        "duration": 3.87,
+        "text": "documentation is gonna be fleshed out"
+      },
+      {
+        "start": 1589.029,
+        "duration": 4.02,
+        "text": "with see it as detailed as people ask"
+      },
+      {
+        "start": 1591.369,
+        "duration": 5.101,
+        "text": "questions about you know how does this"
+      },
+      {
+        "start": 1593.049,
+        "duration": 7.32,
+        "text": "work there's at least a couple of the"
+      },
+      {
+        "start": 1596.47,
+        "duration": 7.589,
+        "text": "Microsoft PM's program managers on Stack"
+      },
+      {
+        "start": 1600.369,
+        "duration": 5.581,
+        "text": "Overflow answering questions so no I"
+      },
+      {
+        "start": 1604.059,
+        "duration": 5.37,
+        "text": "know there's nothing nefarious about it"
+      },
+      {
+        "start": 1605.95,
+        "duration": 5.01,
+        "text": "is just an anger system but one of the"
+      },
+      {
+        "start": 1609.429,
+        "duration": 4.08,
+        "text": "one place where they did publish a paper"
+      },
+      {
+        "start": 1610.96,
+        "duration": 5.25,
+        "text": "was about this indexing that they do and"
+      },
+      {
+        "start": 1613.509,
+        "duration": 4.561,
+        "text": "it's really fascinating because what"
+      },
+      {
+        "start": 1616.21,
+        "duration": 4.74,
+        "text": "they've done is they've they it's"
+      },
+      {
+        "start": 1618.07,
+        "duration": 4.77,
+        "text": "they've taken instead of instead of an"
+      },
+      {
+        "start": 1620.95,
+        "duration": 4.289,
+        "text": "exact index where if you have an index"
+      },
+      {
+        "start": 1622.84,
+        "duration": 6.089,
+        "text": "entry you know exactly what documents"
+      },
+      {
+        "start": 1625.239,
+        "duration": 5.64,
+        "text": "contain that value it's kind of a"
+      },
+      {
+        "start": 1628.929,
+        "duration": 5.19,
+        "text": "probabilistic thing where they say we're"
+      },
+      {
+        "start": 1630.879,
+        "duration": 5.67,
+        "text": "going to tune our index so that 99% of"
+      },
+      {
+        "start": 1634.119,
+        "duration": 4.201,
+        "text": "the time when the index says it's in"
+      },
+      {
+        "start": 1636.549,
+        "duration": 3.69,
+        "text": "that document it's there but the other"
+      },
+      {
+        "start": 1638.32,
+        "duration": 6.15,
+        "text": "1% of the time it's actually not there"
+      },
+      {
+        "start": 1640.239,
+        "duration": 6.06,
+        "text": "and so what the trade-off is and some of"
+      },
+      {
+        "start": 1644.47,
+        "duration": 4.049,
+        "text": "the time it's not there you need to do a"
+      },
+      {
+        "start": 1646.299,
+        "duration": 4.38,
+        "text": "two-stage index read/write ok need to"
+      },
+      {
+        "start": 1648.519,
+        "duration": 3.75,
+        "text": "read the index that says it's probably"
+      },
+      {
+        "start": 1650.679,
+        "duration": 3.541,
+        "text": "in these documents yeah and then you"
+      },
+      {
+        "start": 1652.269,
+        "duration": 4.23,
+        "text": "need to read the documents as they does"
+      },
+      {
+        "start": 1654.22,
+        "duration": 4.379,
+        "text": "it actually contain this term that I"
+      },
+      {
+        "start": 1656.499,
+        "duration": 4.081,
+        "text": "thought it contained but by doing that"
+      },
+      {
+        "start": 1658.599,
+        "duration": 6.991,
+        "text": "the trait that what they get for that"
+      },
+      {
+        "start": 1660.58,
+        "duration": 8.149,
+        "text": "trade off yeah is to index every column"
+      },
+      {
+        "start": 1665.59,
+        "duration": 8.339,
+        "text": "or every field in the in every document"
+      },
+      {
+        "start": 1668.729,
+        "duration": 8.14,
+        "text": "less than 20% overhead in 99% of the"
+      },
+      {
+        "start": 1673.929,
+        "duration": 6.63,
+        "text": "documents across across their data set"
+      },
+      {
+        "start": 1676.869,
+        "duration": 7.29,
+        "text": "okay that's it that's impressive and"
+      },
+      {
+        "start": 1680.559,
+        "duration": 7.22,
+        "text": "that lets them do is it lets them allow"
+      },
+      {
+        "start": 1684.159,
+        "duration": 6.831,
+        "text": "arbitrary order by so with Cassandra I"
+      },
+      {
+        "start": 1687.779,
+        "duration": 6.551,
+        "text": "mentioned that you specify your sorting"
+      },
+      {
+        "start": 1690.99,
+        "duration": 4.899,
+        "text": "how you want rosen a partition sorted as"
+      },
+      {
+        "start": 1694.33,
+        "duration": 5.669,
+        "text": "part of the primary key so that's right"
+      },
+      {
+        "start": 1695.889,
+        "duration": 5.941,
+        "text": "immutable and if you want to sort an"
+      },
+      {
+        "start": 1699.999,
+        "duration": 4.111,
+        "text": "analytical query well you can do that"
+      },
+      {
+        "start": 1701.83,
+        "duration": 4.349,
+        "text": "with SPARC and have SPARC compute with"
+      },
+      {
+        "start": 1704.11,
+        "duration": 3.929,
+        "text": "that new orderings gonna be but in terms"
+      },
+      {
+        "start": 1706.179,
+        "duration": 3.48,
+        "text": "of operational queries you know if you"
+      },
+      {
+        "start": 1708.039,
+        "duration": 3.63,
+        "text": "want another ordering you need another"
+      },
+      {
+        "start": 1709.659,
+        "duration": 4.321,
+        "text": "table that you normalize and do that"
+      },
+      {
+        "start": 1711.669,
+        "duration": 4.411,
+        "text": "ordering so that's very powerful that"
+      },
+      {
+        "start": 1713.98,
+        "duration": 4.529,
+        "text": "having days having everything indexed by"
+      },
+      {
+        "start": 1716.08,
+        "duration": 5.039,
+        "text": "default means that I can order by"
+      },
+      {
+        "start": 1718.509,
+        "duration": 5.67,
+        "text": "anything by default as well so that's a"
+      },
+      {
+        "start": 1721.119,
+        "duration": 5.43,
+        "text": "very powerful feature that cosmos TV"
+      },
+      {
+        "start": 1724.179,
+        "duration": 5.041,
+        "text": "offers now if I'm going to look at"
+      },
+      {
+        "start": 1726.549,
+        "duration": 4.2,
+        "text": "what's missing they don't offer any kind"
+      },
+      {
+        "start": 1729.22,
+        "duration": 3.72,
+        "text": "of denormalization so there's no"
+      },
+      {
+        "start": 1730.749,
+        "duration": 7.17,
+        "text": "materialized views there's no global"
+      },
+      {
+        "start": 1732.94,
+        "duration": 7.92,
+        "text": "indexes so so my conclusion is probably"
+      },
+      {
+        "start": 1737.919,
+        "duration": 4.651,
+        "text": "coming it's probably coming yeah yeah my"
+      },
+      {
+        "start": 1740.86,
+        "duration": 3.63,
+        "text": "conclusion is that no Cassandra and"
+      },
+      {
+        "start": 1742.57,
+        "duration": 5.819,
+        "text": "cosmos to be or a rough feature parity"
+      },
+      {
+        "start": 1744.49,
+        "duration": 5.45,
+        "text": "you know there's you know Cassandra"
+      },
+      {
+        "start": 1748.389,
+        "duration": 3.451,
+        "text": "gives you more powerful denormalization"
+      },
+      {
+        "start": 1749.94,
+        "duration": 6.459,
+        "text": "cosmos DB gives you more powerful"
+      },
+      {
+        "start": 1751.84,
+        "duration": 6.719,
+        "text": "indexing yeah so if you're following"
+      },
+      {
+        "start": 1756.399,
+        "duration": 4.5,
+        "text": "Cassandra development you know that"
+      },
+      {
+        "start": 1758.559,
+        "duration": 3.781,
+        "text": "there's a new index tag called sassy"
+      },
+      {
+        "start": 1760.899,
+        "duration": 5.461,
+        "text": "that's been contributed right"
+      },
+      {
+        "start": 1762.34,
+        "duration": 7.86,
+        "text": "contributed by Apple and no that's"
+      },
+      {
+        "start": 1766.36,
+        "duration": 5.939,
+        "text": "that's a good option but it hasn't been"
+      },
+      {
+        "start": 1770.2,
+        "duration": 4.14,
+        "text": "it that would actually let us do our"
+      },
+      {
+        "start": 1772.299,
+        "duration": 4.891,
+        "text": "Batory order by order by anything that"
+      },
+      {
+        "start": 1774.34,
+        "duration": 6.809,
+        "text": "has a sassy index but that hasn't been"
+      },
+      {
+        "start": 1777.19,
+        "duration": 5.67,
+        "text": "wired up to the the query engine yet it"
+      },
+      {
+        "start": 1781.149,
+        "duration": 3.541,
+        "text": "doesn't know how to leverage an index"
+      },
+      {
+        "start": 1782.86,
+        "duration": 3.75,
+        "text": "order by it just knows how to leverage"
+      },
+      {
+        "start": 1784.69,
+        "duration": 4.38,
+        "text": "it to do predicate matching so there"
+      },
+      {
+        "start": 1786.61,
+        "duration": 5.1,
+        "text": "Kosmos to be as ahead all right so we"
+      },
+      {
+        "start": 1789.07,
+        "duration": 4.41,
+        "text": "have one database left so I'll tell you"
+      },
+      {
+        "start": 1791.71,
+        "duration": 3.39,
+        "text": "one thing that puzzles me about cosmos"
+      },
+      {
+        "start": 1793.48,
+        "duration": 3.899,
+        "text": "to be and you can leave this in here cut"
+      },
+      {
+        "start": 1795.1,
+        "duration": 5.159,
+        "text": "this out there's something that puzzles"
+      },
+      {
+        "start": 1797.379,
+        "duration": 5.701,
+        "text": "me because they say that with respect to"
+      },
+      {
+        "start": 1800.259,
+        "duration": 5.61,
+        "text": "their multi region story that that they"
+      },
+      {
+        "start": 1803.08,
+        "duration": 6.23,
+        "text": "support local reads and writes with"
+      },
+      {
+        "start": 1805.869,
+        "duration": 7.821,
+        "text": "asynchronous replication between regions"
+      },
+      {
+        "start": 1809.31,
+        "duration": 7.52,
+        "text": "so far so good they also say that they"
+      },
+      {
+        "start": 1813.69,
+        "duration": 8.22,
+        "text": "support stored procedure transactions"
+      },
+      {
+        "start": 1816.83,
+        "duration": 6.67,
+        "text": "that are atomic within a partition you"
+      },
+      {
+        "start": 1821.91,
+        "duration": 5.06,
+        "text": "can't do both of those at the same time"
+      },
+      {
+        "start": 1823.5,
+        "duration": 5.28,
+        "text": "you know because if I'm if I'm"
+      },
+      {
+        "start": 1826.97,
+        "duration": 3.79,
+        "text": "committing a stored procedure"
+      },
+      {
+        "start": 1828.78,
+        "duration": 4.35,
+        "text": "transaction and then say global"
+      },
+      {
+        "start": 1830.76,
+        "duration": 4.52,
+        "text": "replicated asynchronously and then I'm"
+      },
+      {
+        "start": 1833.13,
+        "duration": 4.5,
+        "text": "doing the same thing in another atomic"
+      },
+      {
+        "start": 1835.28,
+        "duration": 6.13,
+        "text": "anymore yeah so I don't know how to"
+      },
+      {
+        "start": 1837.63,
+        "duration": 5.94,
+        "text": "reconcile those two statements okay all"
+      },
+      {
+        "start": 1841.41,
+        "duration": 5.46,
+        "text": "right well it's a puzzle well hello let"
+      },
+      {
+        "start": 1843.57,
+        "duration": 4.98,
+        "text": "readers can write in with yeah we'll"
+      },
+      {
+        "start": 1846.87,
+        "duration": 4.71,
+        "text": "have to let that be revealed at a future"
+      },
+      {
+        "start": 1848.55,
+        "duration": 5.52,
+        "text": "time we have one database let's talk"
+      },
+      {
+        "start": 1851.58,
+        "duration": 5.43,
+        "text": "about okay so let's talk about spanner"
+      },
+      {
+        "start": 1854.07,
+        "duration": 4.71,
+        "text": "it's a little bit not like the others if"
+      },
+      {
+        "start": 1857.01,
+        "duration": 8.51,
+        "text": "you remember the old Sesame Street"
+      },
+      {
+        "start": 1858.78,
+        "duration": 10.02,
+        "text": "sketch it is the architecture because"
+      },
+      {
+        "start": 1865.52,
+        "duration": 5.11,
+        "text": "Cassandra and cosmos DB says this"
+      },
+      {
+        "start": 1868.8,
+        "duration": 4.38,
+        "text": "explicitly and I'm assuming it's true"
+      },
+      {
+        "start": 1870.63,
+        "duration": 4.95,
+        "text": "for DynamoDB as well they're all dealing"
+      },
+      {
+        "start": 1873.18,
+        "duration": 4.59,
+        "text": "with you know you have some compute"
+      },
+      {
+        "start": 1875.58,
+        "duration": 4.59,
+        "text": "nodes and you have some storage that's"
+      },
+      {
+        "start": 1877.77,
+        "duration": 4.89,
+        "text": "attached to those compute nodes that you"
+      },
+      {
+        "start": 1880.17,
+        "duration": 4.77,
+        "text": "know I do the compute against and so"
+      },
+      {
+        "start": 1882.66,
+        "duration": 4.32,
+        "text": "that's why you have these concepts of"
+      },
+      {
+        "start": 1884.94,
+        "duration": 4.35,
+        "text": "partitions and you have limits on the"
+      },
+      {
+        "start": 1886.98,
+        "duration": 5.4,
+        "text": "partition size because I want to provide"
+      },
+      {
+        "start": 1889.29,
+        "duration": 5.1,
+        "text": "it you know you know can keep my SLA"
+      },
+      {
+        "start": 1892.38,
+        "duration": 4.44,
+        "text": "where I can't let that get too big"
+      },
+      {
+        "start": 1894.39,
+        "duration": 6.69,
+        "text": "because it's tied to a specific core or"
+      },
+      {
+        "start": 1896.82,
+        "duration": 7.49,
+        "text": "a specific compute node but spanner is"
+      },
+      {
+        "start": 1901.08,
+        "duration": 5.97,
+        "text": "different it's built upon Google's"
+      },
+      {
+        "start": 1904.31,
+        "duration": 6.4,
+        "text": "distributed file system and so you've"
+      },
+      {
+        "start": 1907.05,
+        "duration": 7.32,
+        "text": "got blocks of file storage that can be"
+      },
+      {
+        "start": 1910.71,
+        "duration": 6.03,
+        "text": "mixed and matched and attached to you"
+      },
+      {
+        "start": 1914.37,
+        "duration": 4.89,
+        "text": "know compute nodes arbitrarily across"
+      },
+      {
+        "start": 1916.74,
+        "duration": 3.09,
+        "text": "Google's you know secret best in the"
+      },
+      {
+        "start": 1919.26,
+        "duration": 3.42,
+        "text": "industry"
+      },
+      {
+        "start": 1919.83,
+        "duration": 6.3,
+        "text": "they were the network yeah it really is"
+      },
+      {
+        "start": 1922.68,
+        "duration": 6.83,
+        "text": "that good yeah and so and you know just"
+      },
+      {
+        "start": 1926.13,
+        "duration": 5.64,
+        "text": "just as an aside when we were testing"
+      },
+      {
+        "start": 1929.51,
+        "duration": 5.32,
+        "text": "you know data stacks enterprise in"
+      },
+      {
+        "start": 1931.77,
+        "duration": 4.8,
+        "text": "Cassandra on Google's compute you know"
+      },
+      {
+        "start": 1934.83,
+        "duration": 4.02,
+        "text": "they said oh all the storages networked"
+      },
+      {
+        "start": 1936.57,
+        "duration": 4.11,
+        "text": "we don't do local storage and so based"
+      },
+      {
+        "start": 1938.85,
+        "duration": 2.37,
+        "text": "on our experience with non local storage"
+      },
+      {
+        "start": 1940.68,
+        "duration": 3.6,
+        "text": "yeah"
+      },
+      {
+        "start": 1941.22,
+        "duration": 4.199,
+        "text": "what mattered it's a pattern yeah you"
+      },
+      {
+        "start": 1944.28,
+        "duration": 2.67,
+        "text": "know that's gonna be terrible"
+      },
+      {
+        "start": 1945.419,
+        "duration": 3.061,
+        "text": "performance right and they're like no"
+      },
+      {
+        "start": 1946.95,
+        "duration": 4.68,
+        "text": "trust us you know we know what we're"
+      },
+      {
+        "start": 1948.48,
+        "duration": 5.13,
+        "text": "doing and in jazz the performance"
+      },
+      {
+        "start": 1951.63,
+        "duration": 2.82,
+        "text": "characteristics indistinguishable from"
+      },
+      {
+        "start": 1953.61,
+        "duration": 2.61,
+        "text": "localstorage"
+      },
+      {
+        "start": 1954.45,
+        "duration": 3.33,
+        "text": "nothing to complain about super"
+      },
+      {
+        "start": 1956.22,
+        "duration": 3.36,
+        "text": "interesting yeah so they know what"
+      },
+      {
+        "start": 1957.78,
+        "duration": 4.95,
+        "text": "they're doing there and so they leverage"
+      },
+      {
+        "start": 1959.58,
+        "duration": 5.13,
+        "text": "that to build this know this distributed"
+      },
+      {
+        "start": 1962.73,
+        "duration": 4.86,
+        "text": "database that's unlike any of the others"
+      },
+      {
+        "start": 1964.71,
+        "duration": 4.68,
+        "text": "and so now with Google there there isn't"
+      },
+      {
+        "start": 1967.59,
+        "duration": 3.9,
+        "text": "really a concept of I have partitions"
+      },
+      {
+        "start": 1969.39,
+        "duration": 4.38,
+        "text": "and rows within the partition you just"
+      },
+      {
+        "start": 1971.49,
+        "duration": 4.95,
+        "text": "have you know here's my partition key"
+      },
+      {
+        "start": 1973.77,
+        "duration": 3.3,
+        "text": "and then you know that's all I need to"
+      },
+      {
+        "start": 1976.44,
+        "duration": 3.75,
+        "text": "care about"
+      },
+      {
+        "start": 1977.07,
+        "duration": 5.37,
+        "text": "there is one limit the limit is that you"
+      },
+      {
+        "start": 1980.19,
+        "duration": 6.18,
+        "text": "can have columns of up to ten megabytes"
+      },
+      {
+        "start": 1982.44,
+        "duration": 7.2,
+        "text": "that you can have up to you know 1024"
+      },
+      {
+        "start": 1986.37,
+        "duration": 5.49,
+        "text": "columns per row so that's you can have"
+      },
+      {
+        "start": 1989.64,
+        "duration": 5.279,
+        "text": "rows of up to ten gigabytes basically"
+      },
+      {
+        "start": 1991.86,
+        "duration": 5.189,
+        "text": "that's the limit that's but otherwise"
+      },
+      {
+        "start": 1994.919,
+        "duration": 4.111,
+        "text": "there's there's no limits on how many"
+      },
+      {
+        "start": 1997.049,
+        "duration": 6.12,
+        "text": "rows are in a partition because the"
+      },
+      {
+        "start": 1999.03,
+        "duration": 7.379,
+        "text": "partition is the row and then the wave"
+      },
+      {
+        "start": 2003.169,
+        "duration": 6.961,
+        "text": "the way they do the way they do"
+      },
+      {
+        "start": 2006.409,
+        "duration": 6.091,
+        "text": "performance joins is they have a concept"
+      },
+      {
+        "start": 2010.13,
+        "duration": 3.81,
+        "text": "called interleaved tables which is"
+      },
+      {
+        "start": 2012.5,
+        "duration": 2.88,
+        "text": "basically what a way of saying this"
+      },
+      {
+        "start": 2013.94,
+        "duration": 4.02,
+        "text": "table over here"
+      },
+      {
+        "start": 2015.38,
+        "duration": 5.73,
+        "text": "I wanted to basically be a child of this"
+      },
+      {
+        "start": 2017.96,
+        "duration": 5.01,
+        "text": "first table and so the storage in it is"
+      },
+      {
+        "start": 2021.11,
+        "duration": 3.9,
+        "text": "going to you know interleave that's"
+      },
+      {
+        "start": 2022.97,
+        "duration": 5.22,
+        "text": "where the name comes from the child data"
+      },
+      {
+        "start": 2025.01,
+        "duration": 5.46,
+        "text": "with the parent rows okay and so when I"
+      },
+      {
+        "start": 2028.19,
+        "duration": 5.55,
+        "text": "do a joint between two tables like that"
+      },
+      {
+        "start": 2030.47,
+        "duration": 6.15,
+        "text": "against the the key that's you know"
+      },
+      {
+        "start": 2033.74,
+        "duration": 4.71,
+        "text": "that's cool locating them then you know"
+      },
+      {
+        "start": 2036.62,
+        "duration": 4.02,
+        "text": "it becomes a local joint it doesn't"
+      },
+      {
+        "start": 2038.45,
+        "duration": 4.38,
+        "text": "become a cross you know what we call a"
+      },
+      {
+        "start": 2040.64,
+        "duration": 6.08,
+        "text": "cross partition join in one of the other"
+      },
+      {
+        "start": 2042.83,
+        "duration": 7.41,
+        "text": "systems so a really interesting design"
+      },
+      {
+        "start": 2046.72,
+        "duration": 5.29,
+        "text": "and then the other part of course that"
+      },
+      {
+        "start": 2050.24,
+        "duration": 5.25,
+        "text": "we don't really have time to go into is"
+      },
+      {
+        "start": 2052.01,
+        "duration": 6.119,
+        "text": "this hell no it provides full acid using"
+      },
+      {
+        "start": 2055.49,
+        "duration": 8.669,
+        "text": "their to time mechanism and there and"
+      },
+      {
+        "start": 2058.129,
+        "duration": 12.21,
+        "text": "Paxos chorim's doing two-phase commit so"
+      },
+      {
+        "start": 2064.159,
+        "duration": 8.791,
+        "text": "got its unfortunately I think this is"
+      },
+      {
+        "start": 2070.339,
+        "duration": 5.641,
+        "text": "the most sophisticated and the most"
+      },
+      {
+        "start": 2072.95,
+        "duration": 6.51,
+        "text": "competent implementation of the wrong"
+      },
+      {
+        "start": 2075.98,
+        "duration": 6.03,
+        "text": "design because and the reason is that if"
+      },
+      {
+        "start": 2079.46,
+        "duration": 5.159,
+        "text": "you're saying I'm all acid all the time"
+      },
+      {
+        "start": 2082.01,
+        "duration": 6.51,
+        "text": "that is a really big price to pay"
+      },
+      {
+        "start": 2084.619,
+        "duration": 5.7,
+        "text": "whenever you do a right right and you"
+      },
+      {
+        "start": 2088.52,
+        "duration": 3.539,
+        "text": "know even though you know Google is"
+      },
+      {
+        "start": 2090.319,
+        "duration": 3.54,
+        "text": "doing multi Paxos and doing all the"
+      },
+      {
+        "start": 2092.059,
+        "duration": 4.5,
+        "text": "optimizations right it's a very"
+      },
+      {
+        "start": 2093.859,
+        "duration": 3.18,
+        "text": "expensive operation to do two-phase"
+      },
+      {
+        "start": 2096.559,
+        "duration": 2.671,
+        "text": "commit"
+      },
+      {
+        "start": 2097.039,
+        "duration": 4.891,
+        "text": "across paksas core and there's no other"
+      },
+      {
+        "start": 2099.23,
+        "duration": 5.76,
+        "text": "option there's no doubt of it and so"
+      },
+      {
+        "start": 2101.93,
+        "duration": 4.889,
+        "text": "just knowing nothing about it other than"
+      },
+      {
+        "start": 2104.99,
+        "duration": 3.78,
+        "text": "that that's the architecture you can"
+      },
+      {
+        "start": 2106.819,
+        "duration": 4.47,
+        "text": "look at that and say rights are going to"
+      },
+      {
+        "start": 2108.77,
+        "duration": 5.4,
+        "text": "be significantly slower than in any of"
+      },
+      {
+        "start": 2111.289,
+        "duration": 3.841,
+        "text": "the other systems yeah and so I I didn't"
+      },
+      {
+        "start": 2114.17,
+        "duration": 2.58,
+        "text": "distance myself"
+      },
+      {
+        "start": 2115.13,
+        "duration": 5.88,
+        "text": "and then the test doesn't involve"
+      },
+      {
+        "start": 2116.75,
+        "duration": 7.049,
+        "text": "Cassandra but top lip con who is the"
+      },
+      {
+        "start": 2121.01,
+        "duration": 6.359,
+        "text": "main architect for cloud eras Apache"
+      },
+      {
+        "start": 2123.799,
+        "duration": 6.331,
+        "text": "kudu project talked about which is you"
+      },
+      {
+        "start": 2127.369,
+        "duration": 4.71,
+        "text": "know a columnar database that's kind of"
+      },
+      {
+        "start": 2130.13,
+        "duration": 7.169,
+        "text": "designed for what Gartner calls H type"
+      },
+      {
+        "start": 2132.079,
+        "duration": 7.081,
+        "text": "hybrid transactional and analytics so"
+      },
+      {
+        "start": 2137.299,
+        "duration": 5.191,
+        "text": "they did they benchmark so the nice"
+      },
+      {
+        "start": 2139.16,
+        "duration": 6.48,
+        "text": "thing about spanner is you purchase it"
+      },
+      {
+        "start": 2142.49,
+        "duration": 4.799,
+        "text": "by nodes your and storage so you've got"
+      },
+      {
+        "start": 2145.64,
+        "duration": 3.0,
+        "text": "you pay for your storage then you pay"
+      },
+      {
+        "start": 2147.289,
+        "duration": 2.671,
+        "text": "for your compute nodes"
+      },
+      {
+        "start": 2148.64,
+        "duration": 5.219,
+        "text": "okay and the compute node is roughly"
+      },
+      {
+        "start": 2149.96,
+        "duration": 6.24,
+        "text": "equivalent to I hadn't not I guess an I"
+      },
+      {
+        "start": 2153.859,
+        "duration": 5.041,
+        "text": "3.4 excel based on the pricing something"
+      },
+      {
+        "start": 2156.2,
+        "duration": 4.139,
+        "text": "like that it's basically eighty five"
+      },
+      {
+        "start": 2158.9,
+        "duration": 5.219,
+        "text": "hundred dollars a year for a compute"
+      },
+      {
+        "start": 2160.339,
+        "duration": 5.811,
+        "text": "node is what it works out to so you can"
+      },
+      {
+        "start": 2164.119,
+        "duration": 4.651,
+        "text": "do a fairly apples to apples comparison"
+      },
+      {
+        "start": 2166.15,
+        "duration": 6.01,
+        "text": "by standing up a node of Cassandra and"
+      },
+      {
+        "start": 2168.77,
+        "duration": 5.67,
+        "text": "new one nodes worth of code spanner and"
+      },
+      {
+        "start": 2172.16,
+        "duration": 4.98,
+        "text": "seeing what performance characteristics"
+      },
+      {
+        "start": 2174.44,
+        "duration": 4.859,
+        "text": "do I get for my money and so Todd did"
+      },
+      {
+        "start": 2177.14,
+        "duration": 5.13,
+        "text": "that with kudu and with spanner and"
+      },
+      {
+        "start": 2179.299,
+        "duration": 4.98,
+        "text": "Cooter's cranking along ingesting a"
+      },
+      {
+        "start": 2182.27,
+        "duration": 5.43,
+        "text": "hundred and twelve thousand rows per"
+      },
+      {
+        "start": 2184.279,
+        "duration": 8.28,
+        "text": "second clouds banners ingesting four"
+      },
+      {
+        "start": 2187.7,
+        "duration": 7.869,
+        "text": "thousand rows per second huh"
+      },
+      {
+        "start": 2192.559,
+        "duration": 5.831,
+        "text": "and that's the full acid transactions"
+      },
+      {
+        "start": 2195.569,
+        "duration": 6.181,
+        "text": "yeah that's why you're paying part of"
+      },
+      {
+        "start": 2198.39,
+        "duration": 7.939,
+        "text": "part of it is its inherently slow"
+      },
+      {
+        "start": 2201.75,
+        "duration": 7.95,
+        "text": "because of that acid design in fairness"
+      },
+      {
+        "start": 2206.329,
+        "duration": 5.23,
+        "text": "the spanner engineers were communicating"
+      },
+      {
+        "start": 2209.7,
+        "duration": 4.619,
+        "text": "on Twitter and saying well you know part"
+      },
+      {
+        "start": 2211.559,
+        "duration": 4.53,
+        "text": "of the slowness is that no it needs to"
+      },
+      {
+        "start": 2214.319,
+        "duration": 5.79,
+        "text": "start splitting these files across"
+      },
+      {
+        "start": 2216.089,
+        "duration": 5.911,
+        "text": "multiple file boxes storage returns"
+      },
+      {
+        "start": 2220.109,
+        "duration": 4.021,
+        "text": "multiple computer regions as you're"
+      },
+      {
+        "start": 2222.0,
+        "duration": 4.65,
+        "text": "pouring in more and more writes you know"
+      },
+      {
+        "start": 2224.13,
+        "duration": 4.739,
+        "text": "we need to dynamically grow it if you're"
+      },
+      {
+        "start": 2226.65,
+        "duration": 4.23,
+        "text": "familiar with HBase you know HBase has"
+      },
+      {
+        "start": 2228.869,
+        "duration": 4.651,
+        "text": "this concept of regions and then you"
+      },
+      {
+        "start": 2230.88,
+        "duration": 5.04,
+        "text": "need to split the region as you start"
+      },
+      {
+        "start": 2233.52,
+        "duration": 7.079,
+        "text": "adding data to it okay and then one of"
+      },
+      {
+        "start": 2235.92,
+        "duration": 6.33,
+        "text": "and one of the one of the best practices"
+      },
+      {
+        "start": 2240.599,
+        "duration": 3.691,
+        "text": "with each phase is if you're going to do"
+      },
+      {
+        "start": 2242.25,
+        "duration": 6.359,
+        "text": "a bulk load you need to pre split the"
+      },
+      {
+        "start": 2244.29,
+        "duration": 6.539,
+        "text": "regions to get best oh great right I'm"
+      },
+      {
+        "start": 2248.609,
+        "duration": 4.26,
+        "text": "so spanner you know under the hood it's"
+      },
+      {
+        "start": 2250.829,
+        "duration": 3.901,
+        "text": "got kind of a similar architecture and"
+      },
+      {
+        "start": 2252.869,
+        "duration": 4.261,
+        "text": "so the problem is that there isn't any"
+      },
+      {
+        "start": 2254.73,
+        "duration": 5.46,
+        "text": "way to tell you can't every split to pre"
+      },
+      {
+        "start": 2257.13,
+        "duration": 5.16,
+        "text": "split it yeah so so there's there's some"
+      },
+      {
+        "start": 2260.19,
+        "duration": 3.869,
+        "text": "implementation detail but then you know"
+      },
+      {
+        "start": 2262.29,
+        "duration": 3.809,
+        "text": "even if they get even if they completely"
+      },
+      {
+        "start": 2264.059,
+        "duration": 6.351,
+        "text": "solved that problem there's still the"
+      },
+      {
+        "start": 2266.099,
+        "duration": 7.47,
+        "text": "base problem of I'm paying this this no"
+      },
+      {
+        "start": 2270.41,
+        "duration": 6.06,
+        "text": "multipacks those are multi no two-phase"
+      },
+      {
+        "start": 2273.569,
+        "duration": 5.161,
+        "text": "commit unpacks is chorim's and that's"
+      },
+      {
+        "start": 2276.47,
+        "duration": 5.29,
+        "text": "that's a heavyweight operation there's"
+      },
+      {
+        "start": 2278.73,
+        "duration": 6.9,
+        "text": "no way around that right Wow okay so"
+      },
+      {
+        "start": 2281.76,
+        "duration": 7.549,
+        "text": "anything else to say about spanner no I"
+      },
+      {
+        "start": 2285.63,
+        "duration": 7.229,
+        "text": "think that's that's the highlights yeah"
+      },
+      {
+        "start": 2289.309,
+        "duration": 5.981,
+        "text": "yeah that's the highlights yep so what I"
+      },
+      {
+        "start": 2292.859,
+        "duration": 5.22,
+        "text": "bought them doubt with is I wanted to"
+      },
+      {
+        "start": 2295.29,
+        "duration": 5.61,
+        "text": "leave people with this all it does"
+      },
+      {
+        "start": 2298.079,
+        "duration": 7.77,
+        "text": "weirdest if I up level this where do I"
+      },
+      {
+        "start": 2300.9,
+        "duration": 8.1,
+        "text": "end up yeah I I don't see any reason why"
+      },
+      {
+        "start": 2305.849,
+        "duration": 5.311,
+        "text": "you reduce dynamodb it's just the the"
+      },
+      {
+        "start": 2309.0,
+        "duration": 4.559,
+        "text": "limitations of not having any nested"
+      },
+      {
+        "start": 2311.16,
+        "duration": 4.38,
+        "text": "data of evidence of those plants adjoins"
+      },
+      {
+        "start": 2313.559,
+        "duration": 6.361,
+        "text": "right it's going to slow your product"
+      },
+      {
+        "start": 2315.54,
+        "duration": 6.329,
+        "text": "development down significantly I do not"
+      },
+      {
+        "start": 2319.92,
+        "duration": 4.23,
+        "text": "recommend spanner because of those"
+      },
+      {
+        "start": 2321.869,
+        "duration": 3.241,
+        "text": "performance characteristics that we just"
+      },
+      {
+        "start": 2324.15,
+        "duration": 3.66,
+        "text": "talked about right"
+      },
+      {
+        "start": 2325.11,
+        "duration": 5.43,
+        "text": "so if if I'm gonna choose if I were out"
+      },
+      {
+        "start": 2327.81,
+        "duration": 5.01,
+        "text": "there not working for data stacks saying"
+      },
+      {
+        "start": 2330.54,
+        "duration": 4.62,
+        "text": "I need to build my my company's next"
+      },
+      {
+        "start": 2332.82,
+        "duration": 5.82,
+        "text": "application my short list is going to be"
+      },
+      {
+        "start": 2335.16,
+        "duration": 5.82,
+        "text": "Cassandra and cosmos to be that decision"
+      },
+      {
+        "start": 2338.64,
+        "duration": 4.29,
+        "text": "comes down to no well you know if I'm"
+      },
+      {
+        "start": 2340.98,
+        "duration": 3.96,
+        "text": "looking at the feature list like I said"
+      },
+      {
+        "start": 2342.93,
+        "duration": 4.71,
+        "text": "pretty similar in terms of the"
+      },
+      {
+        "start": 2344.94,
+        "duration": 4.17,
+        "text": "capabilities to give you you know"
+      },
+      {
+        "start": 2347.64,
+        "duration": 2.91,
+        "text": "Cassandra mode a little more advanced"
+      },
+      {
+        "start": 2349.11,
+        "duration": 4.35,
+        "text": "here at cosmos a little more advanced"
+      },
+      {
+        "start": 2350.55,
+        "duration": 5.34,
+        "text": "there but if it's roughly the same why"
+      },
+      {
+        "start": 2353.46,
+        "duration": 6.66,
+        "text": "would I pick the one that I can only run"
+      },
+      {
+        "start": 2355.89,
+        "duration": 7.17,
+        "text": "in Microsoft's cloud I mean so that's a"
+      },
+      {
+        "start": 2360.12,
+        "duration": 5.04,
+        "text": "pretty easy decision for me and with"
+      },
+      {
+        "start": 2363.06,
+        "duration": 4.14,
+        "text": "that with the footnote that you know"
+      },
+      {
+        "start": 2365.16,
+        "duration": 6.36,
+        "text": "you're finally doing if I'm a hobbyist"
+      },
+      {
+        "start": 2367.2,
+        "duration": 8.31,
+        "text": "or if I know that this project is never"
+      },
+      {
+        "start": 2371.52,
+        "duration": 6.99,
+        "text": "going to need to to scale of you know"
+      },
+      {
+        "start": 2375.51,
+        "duration": 4.56,
+        "text": "past one or two servers then okay yeah I"
+      },
+      {
+        "start": 2378.51,
+        "duration": 3.86,
+        "text": "probably who's causing this to be for"
+      },
+      {
+        "start": 2380.07,
+        "duration": 5.67,
+        "text": "that I don't need because right"
+      },
+      {
+        "start": 2382.37,
+        "duration": 5.62,
+        "text": "Cassandra itself you're it's open source"
+      },
+      {
+        "start": 2385.74,
+        "duration": 4.2,
+        "text": "you're paying for the infrastructure but"
+      },
+      {
+        "start": 2387.99,
+        "duration": 3.93,
+        "text": "you're also paying for your your time to"
+      },
+      {
+        "start": 2389.94,
+        "duration": 3.42,
+        "text": "operate it right we need in your own"
+      },
+      {
+        "start": 2391.92,
+        "duration": 3.03,
+        "text": "learning curve and your own learning"
+      },
+      {
+        "start": 2393.36,
+        "duration": 8.82,
+        "text": "curve yeah there's there's there's"
+      },
+      {
+        "start": 2394.95,
+        "duration": 9.33,
+        "text": "something there so so yeah if this isn't"
+      },
+      {
+        "start": 2402.18,
+        "duration": 5.67,
+        "text": "a project that I can afford to have at"
+      },
+      {
+        "start": 2404.28,
+        "duration": 5.73,
+        "text": "least a part-time DBA allocated to then"
+      },
+      {
+        "start": 2407.85,
+        "duration": 5.97,
+        "text": "Kosmos to be makes sense but as you"
+      },
+      {
+        "start": 2410.01,
+        "duration": 5.4,
+        "text": "start to scale then you know both you"
+      },
+      {
+        "start": 2413.82,
+        "duration": 4.35,
+        "text": "you have the lock and I mentioned but"
+      },
+      {
+        "start": 2415.41,
+        "duration": 4.41,
+        "text": "just in terms of cost of ownership there"
+      },
+      {
+        "start": 2418.17,
+        "duration": 3.24,
+        "text": "you get a lot more for your money once"
+      },
+      {
+        "start": 2419.82,
+        "duration": 2.85,
+        "text": "you're starting to leverage that you"
+      },
+      {
+        "start": 2421.41,
+        "duration": 2.61,
+        "text": "know once you have tens of tens of"
+      },
+      {
+        "start": 2422.67,
+        "duration": 2.97,
+        "text": "cassandra nodes even hundreds of"
+      },
+      {
+        "start": 2424.02,
+        "duration": 3.87,
+        "text": "Cassandra nodes right you make that"
+      },
+      {
+        "start": 2425.64,
+        "duration": 5.07,
+        "text": "investment in a DBA you make that back"
+      },
+      {
+        "start": 2427.89,
+        "duration": 4.38,
+        "text": "pretty quickly right okay"
+      },
+      {
+        "start": 2430.71,
+        "duration": 2.7,
+        "text": "oh my goodness there are so many more"
+      },
+      {
+        "start": 2432.27,
+        "duration": 3.21,
+        "text": "directions that we could have taken"
+      },
+      {
+        "start": 2433.41,
+        "duration": 5.94,
+        "text": "things here I want to have conversations"
+      },
+      {
+        "start": 2435.48,
+        "duration": 5.61,
+        "text": "about managed services and about what it"
+      },
+      {
+        "start": 2439.35,
+        "duration": 3.72,
+        "text": "means to be a multi model database and"
+      },
+      {
+        "start": 2441.09,
+        "duration": 4.29,
+        "text": "maybe if we get some reader mail and"
+      },
+      {
+        "start": 2443.07,
+        "duration": 3.96,
+        "text": "some suggested topics and questions so"
+      },
+      {
+        "start": 2445.38,
+        "duration": 3.72,
+        "text": "we can collate some of that and come"
+      },
+      {
+        "start": 2447.03,
+        "duration": 3.6,
+        "text": "come back at you with another round how"
+      },
+      {
+        "start": 2449.1,
+        "duration": 2.91,
+        "text": "about that that would be fantastic"
+      },
+      {
+        "start": 2450.63,
+        "duration": 2.97,
+        "text": "all right well thank you very much and"
+      },
+      {
+        "start": 2452.01,
+        "duration": 3.82,
+        "text": "thank you for joining us for another"
+      },
+      {
+        "start": 2453.6,
+        "duration": 4.99,
+        "text": "episode of the distributed data shows"
+      },
+      {
+        "start": 2455.83,
+        "duration": 4.8,
+        "text": "thanks chefs thank you for joining us"
+      },
+      {
+        "start": 2458.59,
+        "duration": 3.57,
+        "text": "again for the distributed data show we"
+      },
+      {
+        "start": 2460.63,
+        "duration": 3.45,
+        "text": "love your feedback so go to the"
+      },
+      {
+        "start": 2462.16,
+        "duration": 3.75,
+        "text": "distributed data show page on data Stax"
+      },
+      {
+        "start": 2464.08,
+        "duration": 3.33,
+        "text": "Academy and tell us what you think you"
+      },
+      {
+        "start": 2465.91,
+        "duration": 3.87,
+        "text": "can also find us on the data Stax"
+      },
+      {
+        "start": 2467.41,
+        "duration": 4.32,
+        "text": "Academy YouTube channel or find our"
+      },
+      {
+        "start": 2469.78,
+        "duration": 4.32,
+        "text": "podcast on iTunes Google Play or"
+      },
+      {
+        "start": 2471.73,
+        "duration": 4.35,
+        "text": "wherever you get great podcast while"
+      },
+      {
+        "start": 2474.1,
+        "duration": 4.86,
+        "text": "you're there make sure and subscribe so"
+      },
+      {
+        "start": 2476.08,
+        "duration": 6.749,
+        "text": "you don't miss a single episode"
+      },
+      {
+        "start": 2478.96,
+        "duration": 3.869,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T06:49:28.680672+00:00"
+}

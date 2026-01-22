@@ -1,0 +1,3401 @@
+{
+  "video_id": "8BR5eQRjzsA",
+  "title": "Distributed Data Show Episode 52: Benchmarking with Nitsan Wakart",
+  "description": "Are all benchmarks lies? Nitsan Wakart joins the show to explain the discipline of performance engineering, the ingredients of an effective benchmark, why you should always create custom benchmarks based on your expected workload, and the benchmarking effort we undertook for DSE 6. \n\nHighlights\n0:15 - Nitsan introduces his background in performance engineering at companies including Push Technology and Azul Systems and how he ended up at DataStax working on DSE 6.\n3:18 - Defining the role of a “performance engineer” - applying scientific approaches\n5:37 - On the bad reputation of benchmarks: abuse in marketing means that many benchmarks don’t actually mean what the “headline” says they mean. Brendan Gregg from Netflix has a great reference book on Systems Performance\n8:50 - An example of bad math in benchmarks: dividing throughput by number of messages  to get latency. This can result in benchmark metrics that are actually meaningless for your domain. The recommendation on Java benchmarking is traditionally “Don’t do it”, but it’s not evil, and should be part of the curriculum\n11:24 - The ingredients of good benchmarking: a use case, hardware, JVM version, and measurements of the system at rest.  “Performance is easy, all you have to understand is everything.” \n13:05 - Taking lots of measurements and measuring variance is important. It’s rare to get two measurements that are exactly the same. Experiments should run long enough to be relevant for the domain, and for JVMs you need to have a warm up period.\n17:01 - Benchmarking distributed databases requires a variety of benchmarks with different workloads on different hardware. To keep the combination of options from exploding we give particular weight to scenarios from the field.\n19:52 - On how DataStax rationalizes the marketing message of DSE 6 being 2x faster than DSE 5 and Apache Cassandra. In particular, scaling to larger numbers of cores yields more than 2x improvements. Tail latencies are vastly improved even ",
+  "published_at": "2018-06-19T15:00:01Z",
+  "thumbnail": "https://i.ytimg.com/vi/8BR5eQRjzsA/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "performance",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=8BR5eQRjzsA",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems this episode of the distributed data show is going to be all about performance and benchmarking I'm Jeff carpenter I'm here with nitzan what cards so it's good to have you on the show I've been checking out your background a little bit and you've done quite a bit in this area so we're real excited to have you with us here at data sacks now so can you just elaborate on that for me a little bit how you came to be with us and you know what you worked on so I used to work for a bunch of companies and the long path but more recently or more relevantly to the kind of performance field I used to work in finance so pricing systems trading systems and so on well obviously there's a lot of focus on performance it's kind of drew my interest into profiling in analysis and kind of different aspects of the performance engineering side of things I went on from there to work for a company called push technology they have a messaging on that core called the fusion which is where I was doing performance engineering as a full-time job for the first time and from there I went on to work for us all systems on the Xing JVM doing performance engineering folks focusing mainly on the JVM compiler output and ways to improve the performance of compiled code so you write your Java code and the compiler needs to make the best decision it can make given the profile Etsy's of your usage of that code into generating machine code that is appropriate for the architecture and appropriate for you know the classes the available code and so on and so forth which means as I spent three years basically looking at a lot of assembly on the one hand and Ja the other hand in trying to see where can we go into something a bit better on the right-hand side working for zoo I got to know Jake from data stacks because I was working on on zing-zing is is used in a lot of use cases involving Cassandra so I got talking to Jake about Cassandra's performance and we kind of consulted each other I then left as all went on to do some consulting give some courses we kept in touch and we got talking and you kind of pulled me in to work on the data stacks Enterprise six release which came out just recently yeah so I've been with data stacks for six months pretty much full time and yeah amazing team and the great product so here we are cool see so this term of performance engineer is a job role that maybe may be new to some people as a discipline I think it's a warranted kind of thing given the large scale kind of systems and you know high performance requirements that we have on many of our systems and it sounds like you've worked at if I if I have this right you know kind of at the application level at more the database or infrastructure level and then down at the JVM level like you've already a pretty wide broad swath of performance engineering experience so can you elaborate just a little bit on kind of like what do you see is that role of the performance engineer to look like so I think to me engineering is about taking a systematic analytic approach to topic and in that sense performance engineering is about applying those kind of logical scientific steps to to software where we can say you this is what the software does this is what behaves that way and we can improve it if we choose to by taking these steps and in you know in software there's I think computer science erred on the size and side of mathematics in the curriculum and universities and in the people's right out and that is a a from a philosophical standpoint kind of a rationalist view where if I think it it is so if the code looks fast then it must be fast where the engineering comes in is you know the real world steps in and ruins everything so you have the situation where code that looks great just performs horribly right and you know vice versa code that looks for a ball performs great it's not always the case but performance is quite often surprising and quite often you know related to too many many factors that are difficult to just rationalize out of thin air annual couch well how could you do you have to just go out there and make measurements and be methodical about it so you couldn't I mean though with modern application development you're relying on so many third-party libraries that you're probably using it you have little to no idea of what they're actually doing and then what hardware are you running on is this shared hardware you're running in a cloud environment you know how how big of a slice of the time are you even getting from this virtual machine I mean there's a lot of factors so you mentioned the importance of measurement in this and so I'll ask the question you know when I think of performance engineering probably the number one tool that comes to mind in your toolbox is the benchmark yes/no yeah definitely and and benchmarking have a really bad reputation in the industry because it is it is often a it gets to a point where it's it's kind of a marketing tool so there's a lot of pressure on people to show a result that puts them in the best line and reality is often very complex and talking about complicated things doesn't make great headlines so you want to be able to go out there and say I'm doing 10 million operations per second and then going into the details of those are very small operations or very big operations and what I mean by that is I have to use a massive machine with lots and lots of memory where I'm doing it on a very small machine these operations are very simple or the very complex all of these factors you know the constraints that you have on what you're trying to do they all play into it in a way and that just doesn't make great headlines and doesn't make great marketing so we were left with this kind of reductionist approach where you have to give people a headline on the one hand on the other hand because as a discipline you know programmers don't have that experience we're being methodical about measurement and you know approaching you know the topic methodically we end up with a lot of benchmarks not actually measuring what they purport to be in that given you know people give to the results is often inappropriate one of the sort of big names in the space is Brendon Greg was a performance engineer for the senior performance something or other for Netflix at the moment it's got tons of experience he's got a great book called systems performance yeah it's a great reference book I recommend it to anybody and it's he has this quote versus people benchmark a to measure B and end up measuring C or something along those lines there's often this kind of chain of confused events where you end up some measuring something that may or may not be at all relevant to the workload you thought you were measuring right it may not have any basis and what you actually care about about your application so you often see people perform some sort of throughput benchmark for network and you would see them them take that number let's say I sent a million messages per second and they would say that means I'm the latency as one microsecond now to get one microsecond latency between two machines it's actually quite difficult you need specialized hardware of course ya have a guy pass this is very very unlikely that this is what they so what they did is they took a throughput number they divided it by the amount of time and poured the latency number out of that it's bad math it is math math but it's also quite typical of the field now and today the complexity of the kind of the stack we we all operate there where you have your code then in you know in the java world you have the JVM you have the operating system and you have the hardware and maybe you have some sort of virtualization layer between the JVM the OS as well all right when the OS in the hardware all of them just multiplies the the factors that feed in - why did you get that result that you want to get and and sorry there how come you got the result out of the experiment that you ran and any number of factors can play into that which makes analysis harder which makes the reporting of results trickier which means a lot of people are reporting results that are entirely meaningless to the domain there and so if you look for literature on Java benchmarks you will find a lot of the advice out there has don't do it just just don't measure because you're gonna get it wrong and benchmarking is confusing an ego and should only be done by the experts interesting and so it's benchmarking evil no I think benchmarking it should be you know a necessary part of the curriculum and I think the more people do it the better they'll get at it the more open this course we'll have around results and you know the more world will evolve as a profession towards having you know a better foundation and a better methodology we can share with each other around okay so yeah what are the ingredients of a good benchmarking or if we could you like nutshell that methodology is like I know that described in the conditions like all of the conditions as much as possible is probably an ingredient what else is there so you have to start with some understanding of the configuration in which you're running the the use case yeah at the very basic level what are ways want hardware what JVM version I'm running under that all the pieces that are underneath your stack there's a guy which work or sergey krutsenko is in the performance team that and he has a great tool online about performance and he says performance is easy all you have to understand is everything which by which you means you have to understand all the factors but I think to start off with let's just you know describe the hardware and the settings were in and we don't need to know the cpu internals to say this is the CPU I'm running it on and this is the OS I'm running on in this version and so even capturing that bit of data would be a good starting point you want to move on from there to have some baseline measurements of you know this is and this is the system address this is the system on the some load these are similar measurements like right within this environment you want to make sure that your lab is set up such that measurements are stable we want to take lots of measurements to understand the variability in in the environment and in your benchmarks you want to try and get an idea of the statistics involved in the measurement and this is where a lot of people fail because they take for granted the that kind of stability the mathematical model of computing is I'm I'm running an algorithm in my you know in this theoretical world every operation is with X and I add it all up and performance should be there for Y in reality with the amount of moving parts underneath your software it's very rare to get two measurements that are exactly the same this is always going to be some variance involved so you know come up with a scenario run it in a stable environment and seeing what sort of variants you see and then that's that's a good starting point if everybody's starting from there would be much happier yeah I would think it you would have to run benchmark for over a long enough period of time that you actually can have some meaningful variation like say did you run it long enough for the JVM to go through a GC cycle is this I think it needs to be long enough to be meaningful for your domain mm-hmm and the more clever your environment the longer you need to run it in a way because part of the sophistication of the JVM is the fact that code stones in the interpreted amount and then gets compiled part of the sophistication of the underlying hardware is that your data starts off on this and ends up in memory and yes access thrashing yeah so there's a warm-up stage and you know in the JVM there's a lot of heuristics involved in the code so the JVM learns as you run your code and as such if you don't give it time to learn you're not going to see the performance that you would get once it's not now is this relevant to you every kind of you know benchmark you wanna run on the JVM maybe you wrote a little batch tool that you running for three seconds and then it's done right then that's what you need to measure but if you're measuring a server-side system where it's gonna be running for hopefully you know month before it falls over right or well maybe it never falls over never gets replaced in this kind of utopia then you know then give it some time to get to the point where it's more representative and further than that some situations take days to get to especially when you're talking about that's right a large keeps with GC some GC algorithms more than others end up getting their knickers in a twist as they say right and you know three days and you will have a very fragmented heap you'll have a full GC event that would take many many many seconds know if your own really find what your tail agencies are if you're only measuring the first you know five minutes ten minutes fifteen minutes of your application then you'll never see that granted running your application for three days is a long time to wait for something bad to happen and you know who knows maybe it takes a week maybe it takes a month but the running it for 30 seconds is arguably trivially too little right so you you have to kind of match the experiment to the reality you wish it would represent right okay so thinking in terms of I think we've already hinted at this a little bit but thinking in terms of performance engineering and running benchmarks on a distributed database system yeah and you know keeping in mind that we we have just released DSD 6 and we ourselves a put marketing message out there saying hey this is you know 2 times as fast as our previous version roughly well you know that's on the short hand marketing speech but you know there is an apples-to-apples kind of comparison that's that's behind that but you know what can you tell us about kind of what does that process look like performance engineering on a distributed database like Cassandra TSE so a lot of the tools we use are internal so I don't think it helps to go into detail there yeah not a specific tool but processes but in terms of process what we do is we we have a bunch of workloads that we look at repeatedly with each kind of mutation of the count and you know if we want to build a new feature we would test that with a set of benchmarks and you know run it many times to see what sort of variants we see compare that to previous versions compare that with different configurations the the one thing that happens very very quickly is your matrix of testing explodes because there are so many variables yeah assess it on this size machine that science machine virtual machine versus on bare metal even with different JVM for for different purposes so you you end up having to run the same scenario on the many different conditions just to get the different perspectives and the kind of to get the interesting data something that works well on bare metal might be a disaster on average and vice versa so you take all that and then on top of that we have the field engineers feeding in their feedback and their use cases we have specific benchmarks we write to exercise particular scenarios that we think are interesting or would squeeze out conditions that are extreme enough to write so like well I push tiny rows large rows really wide partitions like what kinds of things number of connections number of requests per second different schemas etc it all kind of feeds into making the observation that version a is better than version B now if I'm honest I'm uneasy with anybody putting a number on it and saying performance a is better than performance be simply because performance is such a loaded yeah well what exactly do you mean by that what are you measuring but I could say that well for one I think that saying it's twice as good is by industry standards quite a modest Proclamation that's right you see a far more extreme kind of expressions of joy out there but more than that I feel it's it's it's justified in some senses so for instance do you see six scales far better in terms of core count than previous versions if you take you know previous versions of the CM Cassandra and you compare how they would behave going from machine with eight cores to 16 cores to 64 okay yeah do you see six great where do you see five will Cassandra I think it's the equivalent is somewhere and the three and just can't go beyond a certain point so on the scalability side I think it's way more than two times better yeah so you're talking about the in terms of the ability the ability to take advantage of running on machines with more course absolutely yet with more cores with more memory on the latency side we see a much better tail end latency and we see much better behavior of latency under load so as you increase the load the latency is what will stay down for far with what the SE six this is the original Cassandra now where it becomes tricky under very low load you will get latencies again it's within certain parameters and within a particular configuration you will get latency that is similar or slightly better if you're just making one query per second or you know a thousand query significant no this is very very low rate then you know performance might not you know I'm gonna see a big difference because you know part of the challenge we were tackling here is to make dc-6 better for high load better for scalability ray better for you know bigger workloads so if you're on the tiny tiny tiny scale maybe we didn't help you that much maybe for you that probably was already pretty fast for that yeah make their usage pattern what I'm saying is maybe on that scenario the 2x performance doesn't materialize are you right yeah and and that's where I'm you know as a person who likes precision that's right mint is kind of a broad stroke yeah you're trying to generalize I would boughs into test cases into sort of a general would like a thousand-page document this is the new performance this is the old performance and that's fine and that's what that's what we what we use as engineers need and and want for our applications so let's take this up the stack a little bit so I'm an application developer and I'm looking at distributed databases how am I to evaluate the performance of different options that I'm looking at what's your advice recommendation on how to go about doing that so should I just insert a bunch of intz yeah absolutely as fast as possible that's what your application does there the problem with industry benchmarks and and that goes for the JVM as well if you look at spec JVM or spec gbb and the same goes for distributed databases if you look at YC s B or C stress and to pre-conceived workloads there very tempting for the vendors to try and over fit into at the end of the day that's right we tuned it we tuned it for this particular better again yeah and and at the end of the day how relevant is that workload to your workload so if you're writing you know schema that is the same as the ycs be benchmark schema and you're gonna have a similar workload coming from a similar you know set up maybe it is relevant but for most people it's completely irrelevant so right if you want to know how a particular technology is going to benefit you in in any real sense you would have to custom build your workload you can use see stress and you can use you know other load generators as a starting point but you're going to have to customize that to fit your workload to fit your usage patterns to fit your schema and your data and you're gonna have to go through the exercise of shoveling enough data into the system to make this exercise worthwhile and meaningful and only then are you going to be able to say this is the right direction for me or you know this is the right product for me and it sounds like a lot of work it is but and I would love to say that in every case you will end up on you know on Cassandra or DRC six for that matter but you may go through the whole exercise and find out that you've gone completely in the wrong direction it is an investment but if you want a meaningful answer to that question that's the only way you're going to get it looking at how well you know a JVM performs on on an industry benchmark or a database performs on an industry benchmark has very little predictive value if you will so you know you're gonna have to do some work yeah I gotcha well that that is always probably the reality and probably the the advice that we would give to anyone but in terms of advice that you would give to somebody who's interested in this field of performance engineering I've know you've mentioned a couple of authors a couple of individuals that have influenced you do you have any other thoughts that you would share about how about how somebody kind of gets into this area and educates themselves so this is a bunch of great you know engineers who are on Twitter and have some of them have lungs in particular is alexey shavelev who used to work at work or now works for Red Hat and between him and sergey krutsenko and i'm imagining there's there's a few other people who were involved in this effort they built joh which is the micro benchmarking harness people should be using if the benchmarking java programs and it enables you to build a whole range of benchmarks from you know tiny benchmarks measuring the performance of you know very simple operations or you can hook it up to you know bigger and bigger frameworks and have more meaningful benchmarks to work with and what it does is automates a lot of the boilerplate involved in building a harness and it throws in you know some excellent formatting options and a bunch of profile as you can use so if if you're in the java kind of sphere of influence even they have plugins for jvm languages so you could be in groovy you could be in scala but if you're running on the JVM you should be using jmh yeah to write benchmarks that looks like a great tool by the way I saw a demo that he did that was very an eye-opener that you know basically kind of show you that when you do a sleep it doesn't really sleep for as long as you asked for yeah that's the other side of it you you need to start you know that's the the childhood that the child engineer in all of us yeah take things apart and then try and put them back together again and see if you get the same result right and often you won't and then you know keep digging and you know stay curious about my mega damage offers you a lot of help down that path there's the mechanical sympathy mailing list and as a wealth of already you know existing discussions on that you read through and there's a whole lot of experts on that mailing list if you you know if you have a meaningful question to ask then you know people will more very helpfully chime in there's a whole lot of information available for the more jvm kind of geek kind of people on the jvm mailing list you can take this pretty far huh yeah you look you can get into the the o west side of things the jvm side of things right hardware side of things but yeah there's a ton of information out there I think where you need to have the determination and the kind of inclination to go and measure stuff and if you know you measure it and doesn't make sense don't be afraid to go up to people and say I tried the sound didn't work out yeah you helped my results I yeah I thought I would do this and it would work out and it didn't and I invested the time into investigating it can you help me out people in my experience very helpful and and very supportive and that's actually I think this a lot of not to discount it but there's there's often a lot of self beating in the industry about how terrible people are terrible to to other people and it's absolutely true that there are you know this in every industry but I think it's also you know important to celebrate the good people and the good behaviors in our industry and and those exist yeah people that are willing to help absolutely and I and it's been my experience that a lot of people are willing to help yeah excellent well I know that you're one of those and I'm very grateful to you to coming on the show and your continued influence on performance engineering as a as a discipline in the industry and your contributions of data stacks so thank you very much all right until next time thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data Stax Academy and tell us what you think you can also find us on the data Stax Academy YouTube channel or find our podcast on itunes google play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.37,
+        "duration": 4.23,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.6,
+        "duration": 4.05,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 8.01,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 8.4,
+        "text": "large-scale distributed systems this"
+      },
+      {
+        "start": 16.47,
+        "duration": 5.01,
+        "text": "episode of the distributed data show is"
+      },
+      {
+        "start": 19.05,
+        "duration": 5.219,
+        "text": "going to be all about performance and"
+      },
+      {
+        "start": 21.48,
+        "duration": 5.789,
+        "text": "benchmarking I'm Jeff carpenter I'm here"
+      },
+      {
+        "start": 24.269,
+        "duration": 5.16,
+        "text": "with nitzan what cards so it's good to"
+      },
+      {
+        "start": 27.269,
+        "duration": 3.811,
+        "text": "have you on the show I've been checking"
+      },
+      {
+        "start": 29.429,
+        "duration": 4.411,
+        "text": "out your background a little bit and"
+      },
+      {
+        "start": 31.08,
+        "duration": 4.83,
+        "text": "you've done quite a bit in this area so"
+      },
+      {
+        "start": 33.84,
+        "duration": 4.379,
+        "text": "we're real excited to have you with us"
+      },
+      {
+        "start": 35.91,
+        "duration": 3.98,
+        "text": "here at data sacks now so can you just"
+      },
+      {
+        "start": 38.219,
+        "duration": 4.051,
+        "text": "elaborate on that for me a little bit"
+      },
+      {
+        "start": 39.89,
+        "duration": 7.06,
+        "text": "how you came to be with us and you know"
+      },
+      {
+        "start": 42.27,
+        "duration": 7.14,
+        "text": "what you worked on so I used to work for"
+      },
+      {
+        "start": 46.95,
+        "duration": 7.26,
+        "text": "a bunch of companies and the long path"
+      },
+      {
+        "start": 49.41,
+        "duration": 6.989,
+        "text": "but more recently or more relevantly to"
+      },
+      {
+        "start": 54.21,
+        "duration": 3.36,
+        "text": "the kind of performance field I used to"
+      },
+      {
+        "start": 56.399,
+        "duration": 4.171,
+        "text": "work in finance"
+      },
+      {
+        "start": 57.57,
+        "duration": 5.82,
+        "text": "so pricing systems trading systems and"
+      },
+      {
+        "start": 60.57,
+        "duration": 5.7,
+        "text": "so on well obviously there's a lot of"
+      },
+      {
+        "start": 63.39,
+        "duration": 5.729,
+        "text": "focus on performance it's kind of drew"
+      },
+      {
+        "start": 66.27,
+        "duration": 4.74,
+        "text": "my interest into profiling in analysis"
+      },
+      {
+        "start": 69.119,
+        "duration": 4.82,
+        "text": "and kind of different aspects of the"
+      },
+      {
+        "start": 71.01,
+        "duration": 6.719,
+        "text": "performance engineering side of things I"
+      },
+      {
+        "start": 73.939,
+        "duration": 6.191,
+        "text": "went on from there to work for a company"
+      },
+      {
+        "start": 77.729,
+        "duration": 5.25,
+        "text": "called push technology they have a"
+      },
+      {
+        "start": 80.13,
+        "duration": 7.169,
+        "text": "messaging on that core called the fusion"
+      },
+      {
+        "start": 82.979,
+        "duration": 6.691,
+        "text": "which is where I was doing performance"
+      },
+      {
+        "start": 87.299,
+        "duration": 6.451,
+        "text": "engineering as a full-time job for the"
+      },
+      {
+        "start": 89.67,
+        "duration": 9.17,
+        "text": "first time and from there I went on to"
+      },
+      {
+        "start": 93.75,
+        "duration": 7.32,
+        "text": "work for us all systems on the Xing JVM"
+      },
+      {
+        "start": 98.84,
+        "duration": 5.889,
+        "text": "doing performance engineering folks"
+      },
+      {
+        "start": 101.07,
+        "duration": 8.689,
+        "text": "focusing mainly on the JVM compiler"
+      },
+      {
+        "start": 104.729,
+        "duration": 7.951,
+        "text": "output and ways to improve the"
+      },
+      {
+        "start": 109.759,
+        "duration": 5.771,
+        "text": "performance of compiled code so you"
+      },
+      {
+        "start": 112.68,
+        "duration": 6.39,
+        "text": "write your Java code and the compiler"
+      },
+      {
+        "start": 115.53,
+        "duration": 8.1,
+        "text": "needs to make the best decision it can"
+      },
+      {
+        "start": 119.07,
+        "duration": 7.28,
+        "text": "make given the profile Etsy's of your"
+      },
+      {
+        "start": 123.63,
+        "duration": 5.519,
+        "text": "usage of that code into generating"
+      },
+      {
+        "start": 126.35,
+        "duration": 5.32,
+        "text": "machine code that is appropriate for the"
+      },
+      {
+        "start": 129.149,
+        "duration": 3.341,
+        "text": "architecture and appropriate for you"
+      },
+      {
+        "start": 131.67,
+        "duration": 3.37,
+        "text": "know the classes"
+      },
+      {
+        "start": 132.49,
+        "duration": 3.83,
+        "text": "the available code and so on and so"
+      },
+      {
+        "start": 135.04,
+        "duration": 3.48,
+        "text": "forth"
+      },
+      {
+        "start": 136.32,
+        "duration": 4.09,
+        "text": "which means as I spent three years"
+      },
+      {
+        "start": 138.52,
+        "duration": 4.23,
+        "text": "basically looking at a lot of assembly"
+      },
+      {
+        "start": 140.41,
+        "duration": 4.38,
+        "text": "on the one hand and Ja the other hand in"
+      },
+      {
+        "start": 142.75,
+        "duration": 4.53,
+        "text": "trying to see where can we go into"
+      },
+      {
+        "start": 144.79,
+        "duration": 2.97,
+        "text": "something a bit better on the right-hand"
+      },
+      {
+        "start": 147.28,
+        "duration": 5.55,
+        "text": "side"
+      },
+      {
+        "start": 147.76,
+        "duration": 8.73,
+        "text": "working for zoo I got to know Jake from"
+      },
+      {
+        "start": 152.83,
+        "duration": 7.35,
+        "text": "data stacks because I was working on on"
+      },
+      {
+        "start": 156.49,
+        "duration": 7.05,
+        "text": "zing-zing is is used in a lot of use"
+      },
+      {
+        "start": 160.18,
+        "duration": 5.82,
+        "text": "cases involving Cassandra so I got"
+      },
+      {
+        "start": 163.54,
+        "duration": 4.41,
+        "text": "talking to Jake about Cassandra's"
+      },
+      {
+        "start": 166.0,
+        "duration": 5.46,
+        "text": "performance and we kind of consulted"
+      },
+      {
+        "start": 167.95,
+        "duration": 6.09,
+        "text": "each other I then left as all went on to"
+      },
+      {
+        "start": 171.46,
+        "duration": 6.81,
+        "text": "do some consulting give some courses we"
+      },
+      {
+        "start": 174.04,
+        "duration": 7.17,
+        "text": "kept in touch and we got talking and you"
+      },
+      {
+        "start": 178.27,
+        "duration": 6.0,
+        "text": "kind of pulled me in to work on the data"
+      },
+      {
+        "start": 181.21,
+        "duration": 5.79,
+        "text": "stacks Enterprise six release which came"
+      },
+      {
+        "start": 184.27,
+        "duration": 4.92,
+        "text": "out just recently yeah so I've been with"
+      },
+      {
+        "start": 187.0,
+        "duration": 6.75,
+        "text": "data stacks for six months pretty much"
+      },
+      {
+        "start": 189.19,
+        "duration": 8.39,
+        "text": "full time and yeah amazing team and the"
+      },
+      {
+        "start": 193.75,
+        "duration": 7.11,
+        "text": "great product so here we are cool see so"
+      },
+      {
+        "start": 197.58,
+        "duration": 6.43,
+        "text": "this term of performance engineer is a"
+      },
+      {
+        "start": 200.86,
+        "duration": 6.23,
+        "text": "job role that maybe may be new to some"
+      },
+      {
+        "start": 204.01,
+        "duration": 5.37,
+        "text": "people as a discipline I think it's a"
+      },
+      {
+        "start": 207.09,
+        "duration": 6.01,
+        "text": "warranted kind of thing given the large"
+      },
+      {
+        "start": 209.38,
+        "duration": 5.16,
+        "text": "scale kind of systems and you know high"
+      },
+      {
+        "start": 213.1,
+        "duration": 2.88,
+        "text": "performance requirements that we have on"
+      },
+      {
+        "start": 214.54,
+        "duration": 4.44,
+        "text": "many of our systems and it sounds like"
+      },
+      {
+        "start": 215.98,
+        "duration": 3.87,
+        "text": "you've worked at if I if I have this"
+      },
+      {
+        "start": 218.98,
+        "duration": 3.57,
+        "text": "right you know kind of at the"
+      },
+      {
+        "start": 219.85,
+        "duration": 4.2,
+        "text": "application level at more the database"
+      },
+      {
+        "start": 222.55,
+        "duration": 3.03,
+        "text": "or infrastructure level and then down at"
+      },
+      {
+        "start": 224.05,
+        "duration": 5.52,
+        "text": "the JVM level like you've already a"
+      },
+      {
+        "start": 225.58,
+        "duration": 5.46,
+        "text": "pretty wide broad swath of performance"
+      },
+      {
+        "start": 229.57,
+        "duration": 2.82,
+        "text": "engineering experience so can you"
+      },
+      {
+        "start": 231.04,
+        "duration": 3.6,
+        "text": "elaborate just a little bit on kind of"
+      },
+      {
+        "start": 232.39,
+        "duration": 4.5,
+        "text": "like what do you see is that role of the"
+      },
+      {
+        "start": 234.64,
+        "duration": 10.26,
+        "text": "performance engineer to look like so I"
+      },
+      {
+        "start": 236.89,
+        "duration": 12.81,
+        "text": "think to me engineering is about taking"
+      },
+      {
+        "start": 244.9,
+        "duration": 6.38,
+        "text": "a systematic analytic approach to topic"
+      },
+      {
+        "start": 249.7,
+        "duration": 5.94,
+        "text": "and in that sense performance"
+      },
+      {
+        "start": 251.28,
+        "duration": 7.84,
+        "text": "engineering is about applying those kind"
+      },
+      {
+        "start": 255.64,
+        "duration": 7.32,
+        "text": "of logical scientific steps to to"
+      },
+      {
+        "start": 259.12,
+        "duration": 6.329,
+        "text": "software where we can say you"
+      },
+      {
+        "start": 262.96,
+        "duration": 5.579,
+        "text": "this is what the software does this is"
+      },
+      {
+        "start": 265.449,
+        "duration": 6.331,
+        "text": "what behaves that way and we can improve"
+      },
+      {
+        "start": 268.539,
+        "duration": 9.211,
+        "text": "it if we choose to by taking these steps"
+      },
+      {
+        "start": 271.78,
+        "duration": 8.58,
+        "text": "and in you know in software there's I"
+      },
+      {
+        "start": 277.75,
+        "duration": 5.37,
+        "text": "think computer science erred on the size"
+      },
+      {
+        "start": 280.36,
+        "duration": 4.47,
+        "text": "and side of mathematics in the"
+      },
+      {
+        "start": 283.12,
+        "duration": 6.389,
+        "text": "curriculum and universities and in the"
+      },
+      {
+        "start": 284.83,
+        "duration": 6.809,
+        "text": "people's right out and that is a a from"
+      },
+      {
+        "start": 289.509,
+        "duration": 4.981,
+        "text": "a philosophical standpoint kind of a"
+      },
+      {
+        "start": 291.639,
+        "duration": 6.0,
+        "text": "rationalist view where if I think it it"
+      },
+      {
+        "start": 294.49,
+        "duration": 6.63,
+        "text": "is so if the code looks fast then it"
+      },
+      {
+        "start": 297.639,
+        "duration": 5.941,
+        "text": "must be fast where the engineering comes"
+      },
+      {
+        "start": 301.12,
+        "duration": 3.6,
+        "text": "in is you know the real world steps in"
+      },
+      {
+        "start": 303.58,
+        "duration": 3.929,
+        "text": "and ruins everything"
+      },
+      {
+        "start": 304.72,
+        "duration": 5.759,
+        "text": "so you have the situation where code"
+      },
+      {
+        "start": 307.509,
+        "duration": 6.481,
+        "text": "that looks great just performs horribly"
+      },
+      {
+        "start": 310.479,
+        "duration": 6.571,
+        "text": "right and you know vice versa code that"
+      },
+      {
+        "start": 313.99,
+        "duration": 5.85,
+        "text": "looks for a ball performs great it's not"
+      },
+      {
+        "start": 317.05,
+        "duration": 6.839,
+        "text": "always the case but performance is quite"
+      },
+      {
+        "start": 319.84,
+        "duration": 5.759,
+        "text": "often surprising and quite often you"
+      },
+      {
+        "start": 323.889,
+        "duration": 3.78,
+        "text": "know related to too many many factors"
+      },
+      {
+        "start": 325.599,
+        "duration": 3.091,
+        "text": "that are difficult to just rationalize"
+      },
+      {
+        "start": 327.669,
+        "duration": 3.81,
+        "text": "out of thin air"
+      },
+      {
+        "start": 328.69,
+        "duration": 4.949,
+        "text": "annual couch well how could you do you"
+      },
+      {
+        "start": 331.479,
+        "duration": 5.521,
+        "text": "have to just go out there and make"
+      },
+      {
+        "start": 333.639,
+        "duration": 5.25,
+        "text": "measurements and be methodical about it"
+      },
+      {
+        "start": 337.0,
+        "duration": 3.36,
+        "text": "so you couldn't I mean though with"
+      },
+      {
+        "start": 338.889,
+        "duration": 4.261,
+        "text": "modern application development you're"
+      },
+      {
+        "start": 340.36,
+        "duration": 4.16,
+        "text": "relying on so many third-party libraries"
+      },
+      {
+        "start": 343.15,
+        "duration": 3.509,
+        "text": "that you're probably using it you have"
+      },
+      {
+        "start": 344.52,
+        "duration": 3.88,
+        "text": "little to no idea of what they're"
+      },
+      {
+        "start": 346.659,
+        "duration": 4.591,
+        "text": "actually doing and then what hardware"
+      },
+      {
+        "start": 348.4,
+        "duration": 3.96,
+        "text": "are you running on is this shared"
+      },
+      {
+        "start": 351.25,
+        "duration": 2.969,
+        "text": "hardware you're running in a cloud"
+      },
+      {
+        "start": 352.36,
+        "duration": 3.149,
+        "text": "environment you know how how big of a"
+      },
+      {
+        "start": 354.219,
+        "duration": 3.48,
+        "text": "slice of the time are you even getting"
+      },
+      {
+        "start": 355.509,
+        "duration": 4.231,
+        "text": "from this virtual machine I mean there's"
+      },
+      {
+        "start": 357.699,
+        "duration": 6.27,
+        "text": "a lot of factors so you mentioned the"
+      },
+      {
+        "start": 359.74,
+        "duration": 6.269,
+        "text": "importance of measurement in this and so"
+      },
+      {
+        "start": 363.969,
+        "duration": 3.391,
+        "text": "I'll ask the question you know when I"
+      },
+      {
+        "start": 366.009,
+        "duration": 2.851,
+        "text": "think of performance engineering"
+      },
+      {
+        "start": 367.36,
+        "duration": 6.32,
+        "text": "probably the number one tool that comes"
+      },
+      {
+        "start": 368.86,
+        "duration": 7.41,
+        "text": "to mind in your toolbox is the benchmark"
+      },
+      {
+        "start": 373.68,
+        "duration": 5.32,
+        "text": "yes/no yeah definitely and and"
+      },
+      {
+        "start": 376.27,
+        "duration": 6.48,
+        "text": "benchmarking have a really bad"
+      },
+      {
+        "start": 379.0,
+        "duration": 7.169,
+        "text": "reputation in the industry because it is"
+      },
+      {
+        "start": 382.75,
+        "duration": 6.09,
+        "text": "it is often a it gets to a point where"
+      },
+      {
+        "start": 386.169,
+        "duration": 4.411,
+        "text": "it's it's kind of a marketing tool so"
+      },
+      {
+        "start": 388.84,
+        "duration": 5.28,
+        "text": "there's a lot of pressure on people to"
+      },
+      {
+        "start": 390.58,
+        "duration": 5.669,
+        "text": "show a result that puts them in the best"
+      },
+      {
+        "start": 394.12,
+        "duration": 4.079,
+        "text": "line and reality is"
+      },
+      {
+        "start": 396.249,
+        "duration": 3.51,
+        "text": "often very complex and talking about"
+      },
+      {
+        "start": 398.199,
+        "duration": 3.57,
+        "text": "complicated things doesn't make great"
+      },
+      {
+        "start": 399.759,
+        "duration": 5.21,
+        "text": "headlines so you want to be able to go"
+      },
+      {
+        "start": 401.769,
+        "duration": 6.84,
+        "text": "out there and say I'm doing 10 million"
+      },
+      {
+        "start": 404.969,
+        "duration": 7.3,
+        "text": "operations per second and then going"
+      },
+      {
+        "start": 408.609,
+        "duration": 6.0,
+        "text": "into the details of those are very small"
+      },
+      {
+        "start": 412.269,
+        "duration": 4.23,
+        "text": "operations or very big operations and"
+      },
+      {
+        "start": 414.609,
+        "duration": 3.63,
+        "text": "what I mean by that is I have to use a"
+      },
+      {
+        "start": 416.499,
+        "duration": 3.42,
+        "text": "massive machine with lots and lots of"
+      },
+      {
+        "start": 418.239,
+        "duration": 4.26,
+        "text": "memory where I'm doing it on a very"
+      },
+      {
+        "start": 419.919,
+        "duration": 5.25,
+        "text": "small machine these operations are very"
+      },
+      {
+        "start": 422.499,
+        "duration": 6.361,
+        "text": "simple or the very complex all of these"
+      },
+      {
+        "start": 425.169,
+        "duration": 5.4,
+        "text": "factors you know the constraints that"
+      },
+      {
+        "start": 428.86,
+        "duration": 4.349,
+        "text": "you have on what you're trying to do"
+      },
+      {
+        "start": 430.569,
+        "duration": 4.71,
+        "text": "they all play into it in a way and that"
+      },
+      {
+        "start": 433.209,
+        "duration": 6.12,
+        "text": "just doesn't make great headlines and"
+      },
+      {
+        "start": 435.279,
+        "duration": 6.23,
+        "text": "doesn't make great marketing so we were"
+      },
+      {
+        "start": 439.329,
+        "duration": 4.83,
+        "text": "left with this kind of reductionist"
+      },
+      {
+        "start": 441.509,
+        "duration": 4.15,
+        "text": "approach where you have to give people a"
+      },
+      {
+        "start": 444.159,
+        "duration": 6.56,
+        "text": "headline on the one hand on the other"
+      },
+      {
+        "start": 445.659,
+        "duration": 7.71,
+        "text": "hand because as a discipline you know"
+      },
+      {
+        "start": 450.719,
+        "duration": 6.37,
+        "text": "programmers don't have that experience"
+      },
+      {
+        "start": 453.369,
+        "duration": 10.41,
+        "text": "we're being methodical about measurement"
+      },
+      {
+        "start": 457.089,
+        "duration": 10.32,
+        "text": "and you know approaching you know the"
+      },
+      {
+        "start": 463.779,
+        "duration": 5.91,
+        "text": "topic methodically we end up with a lot"
+      },
+      {
+        "start": 467.409,
+        "duration": 8.64,
+        "text": "of benchmarks not actually measuring"
+      },
+      {
+        "start": 469.689,
+        "duration": 8.16,
+        "text": "what they purport to be in that given"
+      },
+      {
+        "start": 476.049,
+        "duration": 6.99,
+        "text": "you know people give to the results is"
+      },
+      {
+        "start": 477.849,
+        "duration": 8.49,
+        "text": "often inappropriate one of the sort of"
+      },
+      {
+        "start": 483.039,
+        "duration": 7.38,
+        "text": "big names in the space is Brendon Greg"
+      },
+      {
+        "start": 486.339,
+        "duration": 5.97,
+        "text": "was a performance engineer for the"
+      },
+      {
+        "start": 490.419,
+        "duration": 4.2,
+        "text": "senior performance something or other"
+      },
+      {
+        "start": 492.309,
+        "duration": 3.69,
+        "text": "for Netflix at the moment it's got tons"
+      },
+      {
+        "start": 494.619,
+        "duration": 5.52,
+        "text": "of experience he's got a great book"
+      },
+      {
+        "start": 495.999,
+        "duration": 6.0,
+        "text": "called systems performance yeah it's a"
+      },
+      {
+        "start": 500.139,
+        "duration": 6.21,
+        "text": "great reference book I recommend it to"
+      },
+      {
+        "start": 501.999,
+        "duration": 8.55,
+        "text": "anybody and it's he has this quote"
+      },
+      {
+        "start": 506.349,
+        "duration": 6.63,
+        "text": "versus people benchmark a to measure B"
+      },
+      {
+        "start": 510.549,
+        "duration": 3.84,
+        "text": "and end up measuring C or something"
+      },
+      {
+        "start": 512.979,
+        "duration": 3.96,
+        "text": "along those lines there's often this"
+      },
+      {
+        "start": 514.389,
+        "duration": 4.32,
+        "text": "kind of chain of confused events where"
+      },
+      {
+        "start": 516.939,
+        "duration": 4.26,
+        "text": "you end up some measuring something that"
+      },
+      {
+        "start": 518.709,
+        "duration": 4.02,
+        "text": "may or may not be at all relevant to the"
+      },
+      {
+        "start": 521.199,
+        "duration": 5.521,
+        "text": "workload you thought you were measuring"
+      },
+      {
+        "start": 522.729,
+        "duration": 5.55,
+        "text": "right it may not have any basis and what"
+      },
+      {
+        "start": 526.72,
+        "duration": 2.24,
+        "text": "you actually care about about your"
+      },
+      {
+        "start": 528.279,
+        "duration": 6.471,
+        "text": "application"
+      },
+      {
+        "start": 528.96,
+        "duration": 9.0,
+        "text": "so you often see people perform some"
+      },
+      {
+        "start": 534.75,
+        "duration": 6.48,
+        "text": "sort of throughput benchmark for network"
+      },
+      {
+        "start": 537.96,
+        "duration": 5.58,
+        "text": "and you would see them them take that"
+      },
+      {
+        "start": 541.23,
+        "duration": 4.44,
+        "text": "number let's say I sent a million"
+      },
+      {
+        "start": 543.54,
+        "duration": 6.57,
+        "text": "messages per second and they would say"
+      },
+      {
+        "start": 545.67,
+        "duration": 7.08,
+        "text": "that means I'm the latency as one"
+      },
+      {
+        "start": 550.11,
+        "duration": 4.62,
+        "text": "microsecond now to get one microsecond"
+      },
+      {
+        "start": 552.75,
+        "duration": 3.24,
+        "text": "latency between two machines it's"
+      },
+      {
+        "start": 554.73,
+        "duration": 3.27,
+        "text": "actually quite difficult you need"
+      },
+      {
+        "start": 555.99,
+        "duration": 6.12,
+        "text": "specialized hardware of course ya have a"
+      },
+      {
+        "start": 558.0,
+        "duration": 6.33,
+        "text": "guy pass this is very very unlikely that"
+      },
+      {
+        "start": 562.11,
+        "duration": 3.45,
+        "text": "this is what they so what they did is"
+      },
+      {
+        "start": 564.33,
+        "duration": 3.3,
+        "text": "they took a throughput number they"
+      },
+      {
+        "start": 565.56,
+        "duration": 4.649,
+        "text": "divided it by the amount of time and"
+      },
+      {
+        "start": 567.63,
+        "duration": 5.64,
+        "text": "poured the latency number out of that"
+      },
+      {
+        "start": 570.209,
+        "duration": 7.081,
+        "text": "it's bad math it is math math but it's"
+      },
+      {
+        "start": 573.27,
+        "duration": 8.129,
+        "text": "also quite typical of the field now and"
+      },
+      {
+        "start": 577.29,
+        "duration": 6.87,
+        "text": "today the complexity of the kind of the"
+      },
+      {
+        "start": 581.399,
+        "duration": 5.821,
+        "text": "stack we we all operate there where you"
+      },
+      {
+        "start": 584.16,
+        "duration": 5.58,
+        "text": "have your code then in you know in the"
+      },
+      {
+        "start": 587.22,
+        "duration": 3.869,
+        "text": "java world you have the JVM you have the"
+      },
+      {
+        "start": 589.74,
+        "duration": 3.599,
+        "text": "operating system and you have the"
+      },
+      {
+        "start": 591.089,
+        "duration": 4.5,
+        "text": "hardware and maybe you have some sort of"
+      },
+      {
+        "start": 593.339,
+        "duration": 4.231,
+        "text": "virtualization layer between the JVM the"
+      },
+      {
+        "start": 595.589,
+        "duration": 8.041,
+        "text": "OS as well all right when the OS in the"
+      },
+      {
+        "start": 597.57,
+        "duration": 8.91,
+        "text": "hardware all of them just multiplies the"
+      },
+      {
+        "start": 603.63,
+        "duration": 6.99,
+        "text": "the factors that feed in - why did you"
+      },
+      {
+        "start": 606.48,
+        "duration": 6.93,
+        "text": "get that result that you want to get and"
+      },
+      {
+        "start": 610.62,
+        "duration": 4.11,
+        "text": "and sorry there how come you got the"
+      },
+      {
+        "start": 613.41,
+        "duration": 6.33,
+        "text": "result out of the experiment that you"
+      },
+      {
+        "start": 614.73,
+        "duration": 8.549,
+        "text": "ran and any number of factors can play"
+      },
+      {
+        "start": 619.74,
+        "duration": 5.78,
+        "text": "into that which makes analysis harder"
+      },
+      {
+        "start": 623.279,
+        "duration": 5.071,
+        "text": "which makes the reporting of results"
+      },
+      {
+        "start": 625.52,
+        "duration": 5.77,
+        "text": "trickier which means a lot of people are"
+      },
+      {
+        "start": 628.35,
+        "duration": 6.44,
+        "text": "reporting results that are entirely"
+      },
+      {
+        "start": 631.29,
+        "duration": 7.62,
+        "text": "meaningless to the domain there and so"
+      },
+      {
+        "start": 634.79,
+        "duration": 6.91,
+        "text": "if you look for literature on Java"
+      },
+      {
+        "start": 638.91,
+        "duration": 5.36,
+        "text": "benchmarks you will find a lot of the"
+      },
+      {
+        "start": 641.7,
+        "duration": 5.009,
+        "text": "advice out there has don't do it just"
+      },
+      {
+        "start": 644.27,
+        "duration": 4.9,
+        "text": "just don't measure because you're gonna"
+      },
+      {
+        "start": 646.709,
+        "duration": 4.62,
+        "text": "get it wrong and benchmarking is"
+      },
+      {
+        "start": 649.17,
+        "duration": 3.099,
+        "text": "confusing an ego and should only be done"
+      },
+      {
+        "start": 651.329,
+        "duration": 5.801,
+        "text": "by"
+      },
+      {
+        "start": 652.269,
+        "duration": 7.651,
+        "text": "the experts interesting and so it's"
+      },
+      {
+        "start": 657.13,
+        "duration": 5.129,
+        "text": "benchmarking evil no I think"
+      },
+      {
+        "start": 659.92,
+        "duration": 5.609,
+        "text": "benchmarking it should be you know a"
+      },
+      {
+        "start": 662.259,
+        "duration": 5.551,
+        "text": "necessary part of the curriculum and I"
+      },
+      {
+        "start": 665.529,
+        "duration": 4.651,
+        "text": "think the more people do it the better"
+      },
+      {
+        "start": 667.81,
+        "duration": 5.699,
+        "text": "they'll get at it the more open this"
+      },
+      {
+        "start": 670.18,
+        "duration": 5.909,
+        "text": "course we'll have around results and you"
+      },
+      {
+        "start": 673.509,
+        "duration": 5.731,
+        "text": "know the more world will evolve as a"
+      },
+      {
+        "start": 676.089,
+        "duration": 4.8,
+        "text": "profession towards having you know a"
+      },
+      {
+        "start": 679.24,
+        "duration": 3.839,
+        "text": "better foundation and a better"
+      },
+      {
+        "start": 680.889,
+        "duration": 3.991,
+        "text": "methodology we can share with each other"
+      },
+      {
+        "start": 683.079,
+        "duration": 4.44,
+        "text": "around okay so yeah what are the"
+      },
+      {
+        "start": 684.88,
+        "duration": 4.1,
+        "text": "ingredients of a good benchmarking or if"
+      },
+      {
+        "start": 687.519,
+        "duration": 3.57,
+        "text": "we could you like nutshell that"
+      },
+      {
+        "start": 688.98,
+        "duration": 4.719,
+        "text": "methodology is like I know that"
+      },
+      {
+        "start": 691.089,
+        "duration": 4.321,
+        "text": "described in the conditions like all of"
+      },
+      {
+        "start": 693.699,
+        "duration": 4.471,
+        "text": "the conditions as much as possible is"
+      },
+      {
+        "start": 695.41,
+        "duration": 7.849,
+        "text": "probably an ingredient what else is"
+      },
+      {
+        "start": 698.17,
+        "duration": 8.01,
+        "text": "there so you have to start with some"
+      },
+      {
+        "start": 703.259,
+        "duration": 5.2,
+        "text": "understanding of the configuration in"
+      },
+      {
+        "start": 706.18,
+        "duration": 5.67,
+        "text": "which you're running the the use case"
+      },
+      {
+        "start": 708.459,
+        "duration": 6.36,
+        "text": "yeah at the very basic level what are"
+      },
+      {
+        "start": 711.85,
+        "duration": 5.28,
+        "text": "ways want hardware what JVM version I'm"
+      },
+      {
+        "start": 714.819,
+        "duration": 5.311,
+        "text": "running under that all the pieces that"
+      },
+      {
+        "start": 717.13,
+        "duration": 6.059,
+        "text": "are underneath your stack"
+      },
+      {
+        "start": 720.13,
+        "duration": 4.889,
+        "text": "there's a guy which work or sergey"
+      },
+      {
+        "start": 723.189,
+        "duration": 4.921,
+        "text": "krutsenko is in the performance team"
+      },
+      {
+        "start": 725.019,
+        "duration": 5.13,
+        "text": "that and he has a great tool online"
+      },
+      {
+        "start": 728.11,
+        "duration": 3.959,
+        "text": "about performance and he says"
+      },
+      {
+        "start": 730.149,
+        "duration": 5.31,
+        "text": "performance is easy all you have to"
+      },
+      {
+        "start": 732.069,
+        "duration": 4.861,
+        "text": "understand is everything which by which"
+      },
+      {
+        "start": 735.459,
+        "duration": 5.61,
+        "text": "you means you have to understand all the"
+      },
+      {
+        "start": 736.93,
+        "duration": 7.5,
+        "text": "factors but I think to start off with"
+      },
+      {
+        "start": 741.069,
+        "duration": 7.171,
+        "text": "let's just you know describe the"
+      },
+      {
+        "start": 744.43,
+        "duration": 6.87,
+        "text": "hardware and the settings were in and we"
+      },
+      {
+        "start": 748.24,
+        "duration": 5.19,
+        "text": "don't need to know the cpu internals to"
+      },
+      {
+        "start": 751.3,
+        "duration": 4.649,
+        "text": "say this is the CPU I'm running it on"
+      },
+      {
+        "start": 753.43,
+        "duration": 5.659,
+        "text": "and this is the OS I'm running on in"
+      },
+      {
+        "start": 755.949,
+        "duration": 5.64,
+        "text": "this version and so even capturing that"
+      },
+      {
+        "start": 759.089,
+        "duration": 5.411,
+        "text": "bit of data would be a good starting"
+      },
+      {
+        "start": 761.589,
+        "duration": 6.75,
+        "text": "point you want to move on from there to"
+      },
+      {
+        "start": 764.5,
+        "duration": 7.649,
+        "text": "have some baseline measurements of you"
+      },
+      {
+        "start": 768.339,
+        "duration": 6.48,
+        "text": "know this is and this is the system"
+      },
+      {
+        "start": 772.149,
+        "duration": 4.981,
+        "text": "address this is the system on the some"
+      },
+      {
+        "start": 774.819,
+        "duration": 4.95,
+        "text": "load these are similar measurements like"
+      },
+      {
+        "start": 777.13,
+        "duration": 5.61,
+        "text": "right within this environment you want"
+      },
+      {
+        "start": 779.769,
+        "duration": 3.651,
+        "text": "to make sure that your lab is set up"
+      },
+      {
+        "start": 782.74,
+        "duration": 2.75,
+        "text": "such that"
+      },
+      {
+        "start": 783.42,
+        "duration": 4.35,
+        "text": "measurements are stable we want to take"
+      },
+      {
+        "start": 785.49,
+        "duration": 6.78,
+        "text": "lots of measurements to understand the"
+      },
+      {
+        "start": 787.77,
+        "duration": 7.95,
+        "text": "variability in in the environment and in"
+      },
+      {
+        "start": 792.27,
+        "duration": 7.14,
+        "text": "your benchmarks you want to try and get"
+      },
+      {
+        "start": 795.72,
+        "duration": 5.1,
+        "text": "an idea of the statistics involved in"
+      },
+      {
+        "start": 799.41,
+        "duration": 5.28,
+        "text": "the measurement and this is where a lot"
+      },
+      {
+        "start": 800.82,
+        "duration": 9.66,
+        "text": "of people fail because they take for"
+      },
+      {
+        "start": 804.69,
+        "duration": 8.07,
+        "text": "granted the that kind of stability the"
+      },
+      {
+        "start": 810.48,
+        "duration": 4.53,
+        "text": "mathematical model of computing is I'm"
+      },
+      {
+        "start": 812.76,
+        "duration": 4.2,
+        "text": "I'm running an algorithm in my you know"
+      },
+      {
+        "start": 815.01,
+        "duration": 4.98,
+        "text": "in this theoretical world every"
+      },
+      {
+        "start": 816.96,
+        "duration": 6.27,
+        "text": "operation is with X and I add it all up"
+      },
+      {
+        "start": 819.99,
+        "duration": 6.75,
+        "text": "and performance should be there for Y in"
+      },
+      {
+        "start": 823.23,
+        "duration": 6.42,
+        "text": "reality with the amount of moving parts"
+      },
+      {
+        "start": 826.74,
+        "duration": 5.19,
+        "text": "underneath your software it's very rare"
+      },
+      {
+        "start": 829.65,
+        "duration": 4.53,
+        "text": "to get two measurements that are exactly"
+      },
+      {
+        "start": 831.93,
+        "duration": 5.22,
+        "text": "the same this is always going to be some"
+      },
+      {
+        "start": 834.18,
+        "duration": 5.52,
+        "text": "variance involved so you know come up"
+      },
+      {
+        "start": 837.15,
+        "duration": 4.68,
+        "text": "with a scenario run it in a stable"
+      },
+      {
+        "start": 839.7,
+        "duration": 5.07,
+        "text": "environment and seeing what sort of"
+      },
+      {
+        "start": 841.83,
+        "duration": 4.65,
+        "text": "variants you see and then that's that's"
+      },
+      {
+        "start": 844.77,
+        "duration": 3.12,
+        "text": "a good starting point if everybody's"
+      },
+      {
+        "start": 846.48,
+        "duration": 1.83,
+        "text": "starting from there would be much"
+      },
+      {
+        "start": 847.89,
+        "duration": 2.07,
+        "text": "happier"
+      },
+      {
+        "start": 848.31,
+        "duration": 4.17,
+        "text": "yeah I would think it you would have to"
+      },
+      {
+        "start": 849.96,
+        "duration": 4.23,
+        "text": "run benchmark for over a long enough"
+      },
+      {
+        "start": 852.48,
+        "duration": 4.02,
+        "text": "period of time that you actually can"
+      },
+      {
+        "start": 854.19,
+        "duration": 5.07,
+        "text": "have some meaningful variation like say"
+      },
+      {
+        "start": 856.5,
+        "duration": 8.28,
+        "text": "did you run it long enough for the JVM"
+      },
+      {
+        "start": 859.26,
+        "duration": 7.26,
+        "text": "to go through a GC cycle is this I think"
+      },
+      {
+        "start": 864.78,
+        "duration": 3.96,
+        "text": "it needs to be long enough to be"
+      },
+      {
+        "start": 866.52,
+        "duration": 5.97,
+        "text": "meaningful for your domain mm-hmm and"
+      },
+      {
+        "start": 868.74,
+        "duration": 6.66,
+        "text": "the more clever your environment the"
+      },
+      {
+        "start": 872.49,
+        "duration": 5.61,
+        "text": "longer you need to run it in a way"
+      },
+      {
+        "start": 875.4,
+        "duration": 6.0,
+        "text": "because part of the sophistication of"
+      },
+      {
+        "start": 878.1,
+        "duration": 6.21,
+        "text": "the JVM is the fact that code stones in"
+      },
+      {
+        "start": 881.4,
+        "duration": 6.12,
+        "text": "the interpreted amount and then gets"
+      },
+      {
+        "start": 884.31,
+        "duration": 5.4,
+        "text": "compiled part of the sophistication of"
+      },
+      {
+        "start": 887.52,
+        "duration": 4.83,
+        "text": "the underlying hardware is that your"
+      },
+      {
+        "start": 889.71,
+        "duration": 5.1,
+        "text": "data starts off on this and ends up in"
+      },
+      {
+        "start": 892.35,
+        "duration": 8.16,
+        "text": "memory and yes access thrashing yeah so"
+      },
+      {
+        "start": 894.81,
+        "duration": 7.47,
+        "text": "there's a warm-up stage and you know in"
+      },
+      {
+        "start": 900.51,
+        "duration": 5.85,
+        "text": "the JVM there's a lot of heuristics"
+      },
+      {
+        "start": 902.28,
+        "duration": 7.68,
+        "text": "involved in the code so the JVM learns"
+      },
+      {
+        "start": 906.36,
+        "duration": 5.52,
+        "text": "as you run your code and as such if you"
+      },
+      {
+        "start": 909.96,
+        "duration": 4.5,
+        "text": "don't give it time to learn you're not"
+      },
+      {
+        "start": 911.88,
+        "duration": 4.35,
+        "text": "going to see the performance that you"
+      },
+      {
+        "start": 914.46,
+        "duration": 5.91,
+        "text": "would get once it's not now"
+      },
+      {
+        "start": 916.23,
+        "duration": 6.15,
+        "text": "is this relevant to you every kind of"
+      },
+      {
+        "start": 920.37,
+        "duration": 4.59,
+        "text": "you know benchmark you wanna run on the"
+      },
+      {
+        "start": 922.38,
+        "duration": 4.41,
+        "text": "JVM maybe you wrote a little batch tool"
+      },
+      {
+        "start": 924.96,
+        "duration": 4.02,
+        "text": "that you running for three seconds and"
+      },
+      {
+        "start": 926.79,
+        "duration": 3.9,
+        "text": "then it's done right then that's what"
+      },
+      {
+        "start": 928.98,
+        "duration": 4.83,
+        "text": "you need to measure but if you're"
+      },
+      {
+        "start": 930.69,
+        "duration": 6.12,
+        "text": "measuring a server-side system where"
+      },
+      {
+        "start": 933.81,
+        "duration": 5.28,
+        "text": "it's gonna be running for hopefully you"
+      },
+      {
+        "start": 936.81,
+        "duration": 3.69,
+        "text": "know month before it falls over right or"
+      },
+      {
+        "start": 939.09,
+        "duration": 5.03,
+        "text": "well maybe it never falls over never"
+      },
+      {
+        "start": 940.5,
+        "duration": 7.74,
+        "text": "gets replaced in this kind of utopia"
+      },
+      {
+        "start": 944.12,
+        "duration": 6.16,
+        "text": "then you know then give it some time to"
+      },
+      {
+        "start": 948.24,
+        "duration": 7.61,
+        "text": "get to the point where it's more"
+      },
+      {
+        "start": 950.28,
+        "duration": 9.14,
+        "text": "representative and further than that"
+      },
+      {
+        "start": 955.85,
+        "duration": 5.29,
+        "text": "some situations take days to get to"
+      },
+      {
+        "start": 959.42,
+        "duration": 5.77,
+        "text": "especially when you're talking about"
+      },
+      {
+        "start": 961.14,
+        "duration": 6.86,
+        "text": "that's right a large keeps with GC some"
+      },
+      {
+        "start": 965.19,
+        "duration": 5.16,
+        "text": "GC algorithms more than others end up"
+      },
+      {
+        "start": 968.0,
+        "duration": 5.05,
+        "text": "getting their knickers in a twist as"
+      },
+      {
+        "start": 970.35,
+        "duration": 4.95,
+        "text": "they say right and you know three days"
+      },
+      {
+        "start": 973.05,
+        "duration": 4.8,
+        "text": "and you will have a very fragmented heap"
+      },
+      {
+        "start": 975.3,
+        "duration": 6.0,
+        "text": "you'll have a full GC event that would"
+      },
+      {
+        "start": 977.85,
+        "duration": 6.36,
+        "text": "take many many many seconds know if your"
+      },
+      {
+        "start": 981.3,
+        "duration": 5.37,
+        "text": "own really find what your tail agencies"
+      },
+      {
+        "start": 984.21,
+        "duration": 3.9,
+        "text": "are if you're only measuring the first"
+      },
+      {
+        "start": 986.67,
+        "duration": 3.99,
+        "text": "you know five minutes ten minutes"
+      },
+      {
+        "start": 988.11,
+        "duration": 6.66,
+        "text": "fifteen minutes of your application then"
+      },
+      {
+        "start": 990.66,
+        "duration": 5.58,
+        "text": "you'll never see that granted running"
+      },
+      {
+        "start": 994.77,
+        "duration": 3.06,
+        "text": "your application for three days is a"
+      },
+      {
+        "start": 996.24,
+        "duration": 4.41,
+        "text": "long time to wait for something bad to"
+      },
+      {
+        "start": 997.83,
+        "duration": 5.69,
+        "text": "happen and you know who knows maybe it"
+      },
+      {
+        "start": 1000.65,
+        "duration": 6.54,
+        "text": "takes a week maybe it takes a month but"
+      },
+      {
+        "start": 1003.52,
+        "duration": 7.81,
+        "text": "the running it for 30 seconds is"
+      },
+      {
+        "start": 1007.19,
+        "duration": 7.25,
+        "text": "arguably trivially too little right so"
+      },
+      {
+        "start": 1011.33,
+        "duration": 7.02,
+        "text": "you you have to kind of match the"
+      },
+      {
+        "start": 1014.44,
+        "duration": 9.01,
+        "text": "experiment to the reality you wish it"
+      },
+      {
+        "start": 1018.35,
+        "duration": 7.2,
+        "text": "would represent right okay so thinking"
+      },
+      {
+        "start": 1023.45,
+        "duration": 3.99,
+        "text": "in terms of I think we've already hinted"
+      },
+      {
+        "start": 1025.55,
+        "duration": 4.02,
+        "text": "at this a little bit but thinking in"
+      },
+      {
+        "start": 1027.44,
+        "duration": 3.81,
+        "text": "terms of performance engineering and"
+      },
+      {
+        "start": 1029.57,
+        "duration": 5.01,
+        "text": "running benchmarks on a distributed"
+      },
+      {
+        "start": 1031.25,
+        "duration": 4.95,
+        "text": "database system yeah and you know"
+      },
+      {
+        "start": 1034.58,
+        "duration": 4.17,
+        "text": "keeping in mind that we we have just"
+      },
+      {
+        "start": 1036.2,
+        "duration": 4.05,
+        "text": "released DSD 6 and we ourselves a put"
+      },
+      {
+        "start": 1038.75,
+        "duration": 3.84,
+        "text": "marketing message out there saying hey"
+      },
+      {
+        "start": 1040.25,
+        "duration": 4.74,
+        "text": "this is you know 2 times as fast as our"
+      },
+      {
+        "start": 1042.59,
+        "duration": 5.52,
+        "text": "previous version roughly well you know"
+      },
+      {
+        "start": 1044.99,
+        "duration": 4.77,
+        "text": "that's on the short hand marketing"
+      },
+      {
+        "start": 1048.11,
+        "duration": 3.33,
+        "text": "speech but you know"
+      },
+      {
+        "start": 1049.76,
+        "duration": 4.59,
+        "text": "there is an apples-to-apples kind of"
+      },
+      {
+        "start": 1051.44,
+        "duration": 5.37,
+        "text": "comparison that's that's behind that but"
+      },
+      {
+        "start": 1054.35,
+        "duration": 4.13,
+        "text": "you know what can you tell us about kind"
+      },
+      {
+        "start": 1056.81,
+        "duration": 3.6,
+        "text": "of what does that process look like"
+      },
+      {
+        "start": 1058.48,
+        "duration": 4.81,
+        "text": "performance engineering on a distributed"
+      },
+      {
+        "start": 1060.41,
+        "duration": 6.0,
+        "text": "database like Cassandra TSE so a lot of"
+      },
+      {
+        "start": 1063.29,
+        "duration": 5.18,
+        "text": "the tools we use are internal so I don't"
+      },
+      {
+        "start": 1066.41,
+        "duration": 5.22,
+        "text": "think it helps to go into detail there"
+      },
+      {
+        "start": 1068.47,
+        "duration": 6.57,
+        "text": "yeah not a specific tool but processes"
+      },
+      {
+        "start": 1071.63,
+        "duration": 9.03,
+        "text": "but in terms of process what we do is we"
+      },
+      {
+        "start": 1075.04,
+        "duration": 8.68,
+        "text": "we have a bunch of workloads that we"
+      },
+      {
+        "start": 1080.66,
+        "duration": 5.7,
+        "text": "look at repeatedly with each kind of"
+      },
+      {
+        "start": 1083.72,
+        "duration": 4.53,
+        "text": "mutation of the count and you know if we"
+      },
+      {
+        "start": 1086.36,
+        "duration": 4.91,
+        "text": "want to build a new feature we would"
+      },
+      {
+        "start": 1088.25,
+        "duration": 6.57,
+        "text": "test that with a set of benchmarks and"
+      },
+      {
+        "start": 1091.27,
+        "duration": 6.64,
+        "text": "you know run it many times to see what"
+      },
+      {
+        "start": 1094.82,
+        "duration": 5.01,
+        "text": "sort of variants we see compare that to"
+      },
+      {
+        "start": 1097.91,
+        "duration": 3.63,
+        "text": "previous versions"
+      },
+      {
+        "start": 1099.83,
+        "duration": 5.7,
+        "text": "compare that with different"
+      },
+      {
+        "start": 1101.54,
+        "duration": 6.36,
+        "text": "configurations the the one thing that"
+      },
+      {
+        "start": 1105.53,
+        "duration": 5.07,
+        "text": "happens very very quickly is your matrix"
+      },
+      {
+        "start": 1107.9,
+        "duration": 5.28,
+        "text": "of testing explodes because there are so"
+      },
+      {
+        "start": 1110.6,
+        "duration": 4.61,
+        "text": "many variables yeah assess it on this"
+      },
+      {
+        "start": 1113.18,
+        "duration": 7.22,
+        "text": "size machine that science machine"
+      },
+      {
+        "start": 1115.21,
+        "duration": 8.83,
+        "text": "virtual machine versus on bare metal"
+      },
+      {
+        "start": 1120.4,
+        "duration": 6.88,
+        "text": "even with different JVM for for"
+      },
+      {
+        "start": 1124.04,
+        "duration": 5.79,
+        "text": "different purposes so you you end up"
+      },
+      {
+        "start": 1127.28,
+        "duration": 6.0,
+        "text": "having to run the same scenario on the"
+      },
+      {
+        "start": 1129.83,
+        "duration": 5.46,
+        "text": "many different conditions just to get"
+      },
+      {
+        "start": 1133.28,
+        "duration": 4.11,
+        "text": "the different perspectives and the kind"
+      },
+      {
+        "start": 1135.29,
+        "duration": 4.56,
+        "text": "of to get the interesting data something"
+      },
+      {
+        "start": 1137.39,
+        "duration": 7.14,
+        "text": "that works well on bare metal might be a"
+      },
+      {
+        "start": 1139.85,
+        "duration": 8.07,
+        "text": "disaster on average and vice versa so"
+      },
+      {
+        "start": 1144.53,
+        "duration": 6.87,
+        "text": "you take all that and then on top of"
+      },
+      {
+        "start": 1147.92,
+        "duration": 6.96,
+        "text": "that we have the field engineers feeding"
+      },
+      {
+        "start": 1151.4,
+        "duration": 6.18,
+        "text": "in their feedback and their use cases we"
+      },
+      {
+        "start": 1154.88,
+        "duration": 5.58,
+        "text": "have specific benchmarks we write to"
+      },
+      {
+        "start": 1157.58,
+        "duration": 5.16,
+        "text": "exercise particular scenarios that we"
+      },
+      {
+        "start": 1160.46,
+        "duration": 7.74,
+        "text": "think are interesting or would squeeze"
+      },
+      {
+        "start": 1162.74,
+        "duration": 8.45,
+        "text": "out conditions that are extreme enough"
+      },
+      {
+        "start": 1168.2,
+        "duration": 6.69,
+        "text": "to write so like well I push tiny rows"
+      },
+      {
+        "start": 1171.19,
+        "duration": 6.19,
+        "text": "large rows really wide partitions like"
+      },
+      {
+        "start": 1174.89,
+        "duration": 4.14,
+        "text": "what kinds of things number of"
+      },
+      {
+        "start": 1177.38,
+        "duration": 2.92,
+        "text": "connections number of requests per"
+      },
+      {
+        "start": 1179.03,
+        "duration": 5.38,
+        "text": "second"
+      },
+      {
+        "start": 1180.3,
+        "duration": 7.53,
+        "text": "different schemas etc it all kind of"
+      },
+      {
+        "start": 1184.41,
+        "duration": 7.82,
+        "text": "feeds into making the observation that"
+      },
+      {
+        "start": 1187.83,
+        "duration": 8.67,
+        "text": "version a is better than version B now"
+      },
+      {
+        "start": 1192.23,
+        "duration": 7.92,
+        "text": "if I'm honest I'm uneasy with anybody"
+      },
+      {
+        "start": 1196.5,
+        "duration": 6.93,
+        "text": "putting a number on it and saying"
+      },
+      {
+        "start": 1200.15,
+        "duration": 5.47,
+        "text": "performance a is better than performance"
+      },
+      {
+        "start": 1203.43,
+        "duration": 4.86,
+        "text": "be simply because performance is such a"
+      },
+      {
+        "start": 1205.62,
+        "duration": 3.42,
+        "text": "loaded yeah well what exactly do you"
+      },
+      {
+        "start": 1208.29,
+        "duration": 3.57,
+        "text": "mean by that"
+      },
+      {
+        "start": 1209.04,
+        "duration": 7.47,
+        "text": "what are you measuring but I could say"
+      },
+      {
+        "start": 1211.86,
+        "duration": 8.58,
+        "text": "that well for one I think that saying"
+      },
+      {
+        "start": 1216.51,
+        "duration": 5.85,
+        "text": "it's twice as good is by industry"
+      },
+      {
+        "start": 1220.44,
+        "duration": 5.46,
+        "text": "standards quite a modest Proclamation"
+      },
+      {
+        "start": 1222.36,
+        "duration": 8.39,
+        "text": "that's right you see a far more extreme"
+      },
+      {
+        "start": 1225.9,
+        "duration": 7.98,
+        "text": "kind of expressions of joy out there but"
+      },
+      {
+        "start": 1230.75,
+        "duration": 7.51,
+        "text": "more than that I feel it's it's it's"
+      },
+      {
+        "start": 1233.88,
+        "duration": 8.52,
+        "text": "justified in some senses so for instance"
+      },
+      {
+        "start": 1238.26,
+        "duration": 8.01,
+        "text": "do you see six scales far better in"
+      },
+      {
+        "start": 1242.4,
+        "duration": 6.57,
+        "text": "terms of core count than previous"
+      },
+      {
+        "start": 1246.27,
+        "duration": 5.85,
+        "text": "versions if you take you know previous"
+      },
+      {
+        "start": 1248.97,
+        "duration": 7.77,
+        "text": "versions of the CM Cassandra and you"
+      },
+      {
+        "start": 1252.12,
+        "duration": 7.29,
+        "text": "compare how they would behave going from"
+      },
+      {
+        "start": 1256.74,
+        "duration": 6.29,
+        "text": "machine with eight cores to 16 cores to"
+      },
+      {
+        "start": 1259.41,
+        "duration": 7.65,
+        "text": "64 okay yeah do you see six"
+      },
+      {
+        "start": 1263.03,
+        "duration": 7.39,
+        "text": "great where do you see five will"
+      },
+      {
+        "start": 1267.06,
+        "duration": 7.05,
+        "text": "Cassandra I think it's the equivalent is"
+      },
+      {
+        "start": 1270.42,
+        "duration": 7.26,
+        "text": "somewhere and the three and just can't"
+      },
+      {
+        "start": 1274.11,
+        "duration": 6.3,
+        "text": "go beyond a certain point so on the"
+      },
+      {
+        "start": 1277.68,
+        "duration": 4.8,
+        "text": "scalability side I think it's way more"
+      },
+      {
+        "start": 1280.41,
+        "duration": 3.9,
+        "text": "than two times better yeah so you're"
+      },
+      {
+        "start": 1282.48,
+        "duration": 5.4,
+        "text": "talking about the in terms of the"
+      },
+      {
+        "start": 1284.31,
+        "duration": 5.22,
+        "text": "ability the ability to take advantage of"
+      },
+      {
+        "start": 1287.88,
+        "duration": 3.84,
+        "text": "running on machines with more course"
+      },
+      {
+        "start": 1289.53,
+        "duration": 7.56,
+        "text": "absolutely yet with more cores with more"
+      },
+      {
+        "start": 1291.72,
+        "duration": 9.33,
+        "text": "memory on the latency side we see a much"
+      },
+      {
+        "start": 1297.09,
+        "duration": 6.99,
+        "text": "better tail end latency and we see much"
+      },
+      {
+        "start": 1301.05,
+        "duration": 9.06,
+        "text": "better behavior of latency under load so"
+      },
+      {
+        "start": 1304.08,
+        "duration": 9.03,
+        "text": "as you increase the load the latency is"
+      },
+      {
+        "start": 1310.11,
+        "duration": 6.3,
+        "text": "what will stay down for far"
+      },
+      {
+        "start": 1313.11,
+        "duration": 6.42,
+        "text": "with what the SE six this is the"
+      },
+      {
+        "start": 1316.41,
+        "duration": 6.03,
+        "text": "original Cassandra now where it becomes"
+      },
+      {
+        "start": 1319.53,
+        "duration": 6.6,
+        "text": "tricky under very low load you will get"
+      },
+      {
+        "start": 1322.44,
+        "duration": 6.48,
+        "text": "latencies again it's within certain"
+      },
+      {
+        "start": 1326.13,
+        "duration": 5.46,
+        "text": "parameters and within a particular"
+      },
+      {
+        "start": 1328.92,
+        "duration": 5.43,
+        "text": "configuration you will get latency that"
+      },
+      {
+        "start": 1331.59,
+        "duration": 5.31,
+        "text": "is similar or slightly better if you're"
+      },
+      {
+        "start": 1334.35,
+        "duration": 4.56,
+        "text": "just making one query per second or you"
+      },
+      {
+        "start": 1336.9,
+        "duration": 4.65,
+        "text": "know a thousand query significant no"
+      },
+      {
+        "start": 1338.91,
+        "duration": 4.71,
+        "text": "this is very very low rate then you know"
+      },
+      {
+        "start": 1341.55,
+        "duration": 4.56,
+        "text": "performance might not you know I'm gonna"
+      },
+      {
+        "start": 1343.62,
+        "duration": 4.77,
+        "text": "see a big difference because you know"
+      },
+      {
+        "start": 1346.11,
+        "duration": 6.33,
+        "text": "part of the challenge we were tackling"
+      },
+      {
+        "start": 1348.39,
+        "duration": 8.22,
+        "text": "here is to make dc-6 better for high"
+      },
+      {
+        "start": 1352.44,
+        "duration": 8.55,
+        "text": "load better for scalability ray better"
+      },
+      {
+        "start": 1356.61,
+        "duration": 6.9,
+        "text": "for you know bigger workloads so if"
+      },
+      {
+        "start": 1360.99,
+        "duration": 4.5,
+        "text": "you're on the tiny tiny tiny scale maybe"
+      },
+      {
+        "start": 1363.51,
+        "duration": 3.99,
+        "text": "we didn't help you that much maybe for"
+      },
+      {
+        "start": 1365.49,
+        "duration": 4.11,
+        "text": "you that probably was already pretty"
+      },
+      {
+        "start": 1367.5,
+        "duration": 4.52,
+        "text": "fast for that yeah make their usage"
+      },
+      {
+        "start": 1369.6,
+        "duration": 6.9,
+        "text": "pattern what I'm saying is maybe on that"
+      },
+      {
+        "start": 1372.02,
+        "duration": 6.76,
+        "text": "scenario the 2x performance doesn't"
+      },
+      {
+        "start": 1376.5,
+        "duration": 4.8,
+        "text": "materialize are you right yeah and and"
+      },
+      {
+        "start": 1378.78,
+        "duration": 4.65,
+        "text": "that's where I'm you know as a person"
+      },
+      {
+        "start": 1381.3,
+        "duration": 4.35,
+        "text": "who likes precision that's right mint is"
+      },
+      {
+        "start": 1383.43,
+        "duration": 4.65,
+        "text": "kind of a broad stroke yeah you're"
+      },
+      {
+        "start": 1385.65,
+        "duration": 5.28,
+        "text": "trying to generalize I would boughs into"
+      },
+      {
+        "start": 1388.08,
+        "duration": 6.57,
+        "text": "test cases into sort of a general would"
+      },
+      {
+        "start": 1390.93,
+        "duration": 5.19,
+        "text": "like a thousand-page document this is"
+      },
+      {
+        "start": 1394.65,
+        "duration": 5.52,
+        "text": "the new performance this is the old"
+      },
+      {
+        "start": 1396.12,
+        "duration": 5.64,
+        "text": "performance and that's fine and that's"
+      },
+      {
+        "start": 1400.17,
+        "duration": 4.5,
+        "text": "what that's what we what we use as"
+      },
+      {
+        "start": 1401.76,
+        "duration": 5.58,
+        "text": "engineers need and and want for our"
+      },
+      {
+        "start": 1404.67,
+        "duration": 4.32,
+        "text": "applications so let's take this up the"
+      },
+      {
+        "start": 1407.34,
+        "duration": 3.66,
+        "text": "stack a little bit so I'm an application"
+      },
+      {
+        "start": 1408.99,
+        "duration": 5.4,
+        "text": "developer and I'm looking at distributed"
+      },
+      {
+        "start": 1411.0,
+        "duration": 5.16,
+        "text": "databases how am I to evaluate the"
+      },
+      {
+        "start": 1414.39,
+        "duration": 3.42,
+        "text": "performance of different options that"
+      },
+      {
+        "start": 1416.16,
+        "duration": 3.78,
+        "text": "I'm looking at what's your advice"
+      },
+      {
+        "start": 1417.81,
+        "duration": 4.5,
+        "text": "recommendation on how to go about doing"
+      },
+      {
+        "start": 1419.94,
+        "duration": 5.04,
+        "text": "that so should I just insert a bunch of"
+      },
+      {
+        "start": 1422.31,
+        "duration": 4.92,
+        "text": "intz yeah absolutely as fast as possible"
+      },
+      {
+        "start": 1424.98,
+        "duration": 6.02,
+        "text": "that's what your application does there"
+      },
+      {
+        "start": 1427.23,
+        "duration": 6.45,
+        "text": "the problem with industry benchmarks and"
+      },
+      {
+        "start": 1431.0,
+        "duration": 6.01,
+        "text": "and that goes for the JVM"
+      },
+      {
+        "start": 1433.68,
+        "duration": 6.3,
+        "text": "as well if you look at spec JVM or spec"
+      },
+      {
+        "start": 1437.01,
+        "duration": 5.46,
+        "text": "gbb and the same goes for distributed"
+      },
+      {
+        "start": 1439.98,
+        "duration": 3.72,
+        "text": "databases if you look at YC s B or C"
+      },
+      {
+        "start": 1442.47,
+        "duration": 6.449,
+        "text": "stress and"
+      },
+      {
+        "start": 1443.7,
+        "duration": 7.62,
+        "text": "to pre-conceived workloads there very"
+      },
+      {
+        "start": 1448.919,
+        "duration": 7.98,
+        "text": "tempting for the vendors to try and over"
+      },
+      {
+        "start": 1451.32,
+        "duration": 7.949,
+        "text": "fit into at the end of the day that's"
+      },
+      {
+        "start": 1456.899,
+        "duration": 5.64,
+        "text": "right we tuned it we tuned it for this"
+      },
+      {
+        "start": 1459.269,
+        "duration": 7.671,
+        "text": "particular better again yeah and and at"
+      },
+      {
+        "start": 1462.539,
+        "duration": 7.291,
+        "text": "the end of the day how relevant is that"
+      },
+      {
+        "start": 1466.94,
+        "duration": 7.54,
+        "text": "workload to your workload so if you're"
+      },
+      {
+        "start": 1469.83,
+        "duration": 6.689,
+        "text": "writing you know schema that is the same"
+      },
+      {
+        "start": 1474.48,
+        "duration": 3.96,
+        "text": "as the ycs be benchmark schema and"
+      },
+      {
+        "start": 1476.519,
+        "duration": 6.03,
+        "text": "you're gonna have a similar workload"
+      },
+      {
+        "start": 1478.44,
+        "duration": 6.81,
+        "text": "coming from a similar you know set up"
+      },
+      {
+        "start": 1482.549,
+        "duration": 5.401,
+        "text": "maybe it is relevant but for most people"
+      },
+      {
+        "start": 1485.25,
+        "duration": 5.34,
+        "text": "it's completely irrelevant so right if"
+      },
+      {
+        "start": 1487.95,
+        "duration": 5.31,
+        "text": "you want to know how a particular"
+      },
+      {
+        "start": 1490.59,
+        "duration": 6.689,
+        "text": "technology is going to benefit you in in"
+      },
+      {
+        "start": 1493.26,
+        "duration": 6.899,
+        "text": "any real sense you would have to custom"
+      },
+      {
+        "start": 1497.279,
+        "duration": 5.76,
+        "text": "build your workload you can use see"
+      },
+      {
+        "start": 1500.159,
+        "duration": 5.961,
+        "text": "stress and you can use you know other"
+      },
+      {
+        "start": 1503.039,
+        "duration": 5.61,
+        "text": "load generators as a starting point but"
+      },
+      {
+        "start": 1506.12,
+        "duration": 5.169,
+        "text": "you're going to have to customize that"
+      },
+      {
+        "start": 1508.649,
+        "duration": 4.441,
+        "text": "to fit your workload to fit your usage"
+      },
+      {
+        "start": 1511.289,
+        "duration": 5.401,
+        "text": "patterns to fit your schema and your"
+      },
+      {
+        "start": 1513.09,
+        "duration": 5.699,
+        "text": "data and you're gonna have to go through"
+      },
+      {
+        "start": 1516.69,
+        "duration": 4.05,
+        "text": "the exercise of shoveling enough data"
+      },
+      {
+        "start": 1518.789,
+        "duration": 6.331,
+        "text": "into the system to make this exercise"
+      },
+      {
+        "start": 1520.74,
+        "duration": 7.439,
+        "text": "worthwhile and meaningful and only then"
+      },
+      {
+        "start": 1525.12,
+        "duration": 5.789,
+        "text": "are you going to be able to say this is"
+      },
+      {
+        "start": 1528.179,
+        "duration": 5.49,
+        "text": "the right direction for me or you know"
+      },
+      {
+        "start": 1530.909,
+        "duration": 4.921,
+        "text": "this is the right product for me and it"
+      },
+      {
+        "start": 1533.669,
+        "duration": 4.591,
+        "text": "sounds like a lot of work it is but and"
+      },
+      {
+        "start": 1535.83,
+        "duration": 5.219,
+        "text": "I would love to say that in every case"
+      },
+      {
+        "start": 1538.26,
+        "duration": 6.87,
+        "text": "you will end up on you know on Cassandra"
+      },
+      {
+        "start": 1541.049,
+        "duration": 5.791,
+        "text": "or DRC six for that matter but you may"
+      },
+      {
+        "start": 1545.13,
+        "duration": 3.779,
+        "text": "go through the whole exercise and find"
+      },
+      {
+        "start": 1546.84,
+        "duration": 5.579,
+        "text": "out that you've gone completely in the"
+      },
+      {
+        "start": 1548.909,
+        "duration": 5.4,
+        "text": "wrong direction it is an investment but"
+      },
+      {
+        "start": 1552.419,
+        "duration": 3.571,
+        "text": "if you want a meaningful answer to that"
+      },
+      {
+        "start": 1554.309,
+        "duration": 6.24,
+        "text": "question that's the only way you're"
+      },
+      {
+        "start": 1555.99,
+        "duration": 6.809,
+        "text": "going to get it looking at how well you"
+      },
+      {
+        "start": 1560.549,
+        "duration": 5.551,
+        "text": "know a JVM performs on on an industry"
+      },
+      {
+        "start": 1562.799,
+        "duration": 6.541,
+        "text": "benchmark or a database performs on an"
+      },
+      {
+        "start": 1566.1,
+        "duration": 8.25,
+        "text": "industry benchmark has very little"
+      },
+      {
+        "start": 1569.34,
+        "duration": 6.77,
+        "text": "predictive value if you will so you know"
+      },
+      {
+        "start": 1574.35,
+        "duration": 6.26,
+        "text": "you're gonna have to do some work yeah"
+      },
+      {
+        "start": 1576.11,
+        "duration": 6.6,
+        "text": "I gotcha well that that is always"
+      },
+      {
+        "start": 1580.61,
+        "duration": 3.48,
+        "text": "probably the reality and probably the"
+      },
+      {
+        "start": 1582.71,
+        "duration": 3.69,
+        "text": "the advice that we would give to anyone"
+      },
+      {
+        "start": 1584.09,
+        "duration": 3.719,
+        "text": "but in terms of advice that you would"
+      },
+      {
+        "start": 1586.4,
+        "duration": 2.94,
+        "text": "give to somebody who's interested in"
+      },
+      {
+        "start": 1587.809,
+        "duration": 2.821,
+        "text": "this field of performance engineering"
+      },
+      {
+        "start": 1589.34,
+        "duration": 4.26,
+        "text": "I've know you've mentioned a couple of"
+      },
+      {
+        "start": 1590.63,
+        "duration": 4.83,
+        "text": "authors a couple of individuals that"
+      },
+      {
+        "start": 1593.6,
+        "duration": 2.79,
+        "text": "have influenced you do you have any"
+      },
+      {
+        "start": 1595.46,
+        "duration": 2.339,
+        "text": "other thoughts that you would share"
+      },
+      {
+        "start": 1596.39,
+        "duration": 3.18,
+        "text": "about how about how somebody kind of"
+      },
+      {
+        "start": 1597.799,
+        "duration": 6.921,
+        "text": "gets into this area and educates"
+      },
+      {
+        "start": 1599.57,
+        "duration": 8.609,
+        "text": "themselves so this is a bunch of great"
+      },
+      {
+        "start": 1604.72,
+        "duration": 6.61,
+        "text": "you know engineers who are on Twitter"
+      },
+      {
+        "start": 1608.179,
+        "duration": 6.451,
+        "text": "and have some of them have lungs"
+      },
+      {
+        "start": 1611.33,
+        "duration": 5.339,
+        "text": "in particular is alexey shavelev who"
+      },
+      {
+        "start": 1614.63,
+        "duration": 5.669,
+        "text": "used to work at work or now works for"
+      },
+      {
+        "start": 1616.669,
+        "duration": 6.421,
+        "text": "Red Hat and between him and sergey"
+      },
+      {
+        "start": 1620.299,
+        "duration": 4.531,
+        "text": "krutsenko and i'm imagining there's"
+      },
+      {
+        "start": 1623.09,
+        "duration": 4.74,
+        "text": "there's a few other people who were"
+      },
+      {
+        "start": 1624.83,
+        "duration": 6.12,
+        "text": "involved in this effort they built"
+      },
+      {
+        "start": 1627.83,
+        "duration": 5.64,
+        "text": "joh which is the micro benchmarking"
+      },
+      {
+        "start": 1630.95,
+        "duration": 5.55,
+        "text": "harness people should be using if the"
+      },
+      {
+        "start": 1633.47,
+        "duration": 5.959,
+        "text": "benchmarking java programs and it"
+      },
+      {
+        "start": 1636.5,
+        "duration": 6.33,
+        "text": "enables you to build a whole range of"
+      },
+      {
+        "start": 1639.429,
+        "duration": 5.081,
+        "text": "benchmarks from you know tiny benchmarks"
+      },
+      {
+        "start": 1642.83,
+        "duration": 4.17,
+        "text": "measuring the performance of you know"
+      },
+      {
+        "start": 1644.51,
+        "duration": 4.35,
+        "text": "very simple operations or you can hook"
+      },
+      {
+        "start": 1647.0,
+        "duration": 5.66,
+        "text": "it up to you know bigger and bigger"
+      },
+      {
+        "start": 1648.86,
+        "duration": 3.8,
+        "text": "frameworks and have more meaningful"
+      },
+      {
+        "start": 1652.72,
+        "duration": 5.05,
+        "text": "benchmarks to work with and what it does"
+      },
+      {
+        "start": 1654.919,
+        "duration": 5.491,
+        "text": "is automates a lot of the boilerplate"
+      },
+      {
+        "start": 1657.77,
+        "duration": 5.46,
+        "text": "involved in building a harness and it"
+      },
+      {
+        "start": 1660.41,
+        "duration": 5.43,
+        "text": "throws in you know some excellent"
+      },
+      {
+        "start": 1663.23,
+        "duration": 6.24,
+        "text": "formatting options and a bunch of"
+      },
+      {
+        "start": 1665.84,
+        "duration": 6.51,
+        "text": "profile as you can use so if if you're"
+      },
+      {
+        "start": 1669.47,
+        "duration": 6.51,
+        "text": "in the java kind of sphere of influence"
+      },
+      {
+        "start": 1672.35,
+        "duration": 5.069,
+        "text": "even they have plugins for jvm languages"
+      },
+      {
+        "start": 1675.98,
+        "duration": 3.63,
+        "text": "so you could be in groovy you could be"
+      },
+      {
+        "start": 1677.419,
+        "duration": 5.581,
+        "text": "in scala but if you're running on the"
+      },
+      {
+        "start": 1679.61,
+        "duration": 5.22,
+        "text": "JVM you should be using jmh yeah to"
+      },
+      {
+        "start": 1683.0,
+        "duration": 4.11,
+        "text": "write benchmarks that looks like a great"
+      },
+      {
+        "start": 1684.83,
+        "duration": 6.15,
+        "text": "tool by the way I saw a demo that he did"
+      },
+      {
+        "start": 1687.11,
+        "duration": 5.13,
+        "text": "that was very an eye-opener that you"
+      },
+      {
+        "start": 1690.98,
+        "duration": 3.09,
+        "text": "know basically kind of show you that"
+      },
+      {
+        "start": 1692.24,
+        "duration": 4.319,
+        "text": "when you do a sleep"
+      },
+      {
+        "start": 1694.07,
+        "duration": 5.16,
+        "text": "it doesn't really sleep for as long as"
+      },
+      {
+        "start": 1696.559,
+        "duration": 4.981,
+        "text": "you asked for yeah that's the other side"
+      },
+      {
+        "start": 1699.23,
+        "duration": 6.21,
+        "text": "of it you you need to start you know"
+      },
+      {
+        "start": 1701.54,
+        "duration": 6.15,
+        "text": "that's the the childhood that the child"
+      },
+      {
+        "start": 1705.44,
+        "duration": 3.03,
+        "text": "engineer in all of us yeah take things"
+      },
+      {
+        "start": 1707.69,
+        "duration": 2.369,
+        "text": "apart"
+      },
+      {
+        "start": 1708.47,
+        "duration": 3.54,
+        "text": "and then try and put them back together"
+      },
+      {
+        "start": 1710.059,
+        "duration": 4.591,
+        "text": "again and see if you get the same result"
+      },
+      {
+        "start": 1712.01,
+        "duration": 5.7,
+        "text": "right and often you won't and then you"
+      },
+      {
+        "start": 1714.65,
+        "duration": 5.82,
+        "text": "know keep digging and you know stay"
+      },
+      {
+        "start": 1717.71,
+        "duration": 5.67,
+        "text": "curious about my mega damage offers you"
+      },
+      {
+        "start": 1720.47,
+        "duration": 6.18,
+        "text": "a lot of help down that path there's the"
+      },
+      {
+        "start": 1723.38,
+        "duration": 8.4,
+        "text": "mechanical sympathy mailing list and as"
+      },
+      {
+        "start": 1726.65,
+        "duration": 8.09,
+        "text": "a wealth of already you know existing"
+      },
+      {
+        "start": 1731.78,
+        "duration": 5.34,
+        "text": "discussions on that you read through and"
+      },
+      {
+        "start": 1734.74,
+        "duration": 5.35,
+        "text": "there's a whole lot of experts on that"
+      },
+      {
+        "start": 1737.12,
+        "duration": 6.15,
+        "text": "mailing list if you you know if you have"
+      },
+      {
+        "start": 1740.09,
+        "duration": 5.39,
+        "text": "a meaningful question to ask then you"
+      },
+      {
+        "start": 1743.27,
+        "duration": 8.69,
+        "text": "know people will more very helpfully"
+      },
+      {
+        "start": 1745.48,
+        "duration": 9.91,
+        "text": "chime in there's a whole lot of"
+      },
+      {
+        "start": 1751.96,
+        "duration": 8.589,
+        "text": "information available for the more jvm"
+      },
+      {
+        "start": 1755.39,
+        "duration": 6.81,
+        "text": "kind of geek kind of people on the jvm"
+      },
+      {
+        "start": 1760.549,
+        "duration": 4.591,
+        "text": "mailing list you can take this pretty"
+      },
+      {
+        "start": 1762.2,
+        "duration": 6.599,
+        "text": "far huh yeah you look you can get into"
+      },
+      {
+        "start": 1765.14,
+        "duration": 5.07,
+        "text": "the the o west side of things the jvm"
+      },
+      {
+        "start": 1768.799,
+        "duration": 3.87,
+        "text": "side of things right hardware side of"
+      },
+      {
+        "start": 1770.21,
+        "duration": 8.51,
+        "text": "things but yeah there's a ton of"
+      },
+      {
+        "start": 1772.669,
+        "duration": 8.731,
+        "text": "information out there I think where you"
+      },
+      {
+        "start": 1778.72,
+        "duration": 5.439,
+        "text": "need to have the determination and the"
+      },
+      {
+        "start": 1781.4,
+        "duration": 7.17,
+        "text": "kind of inclination to go and measure"
+      },
+      {
+        "start": 1784.159,
+        "duration": 5.371,
+        "text": "stuff and if you know you measure it and"
+      },
+      {
+        "start": 1788.57,
+        "duration": 3.45,
+        "text": "doesn't make sense"
+      },
+      {
+        "start": 1789.53,
+        "duration": 4.44,
+        "text": "don't be afraid to go up to people and"
+      },
+      {
+        "start": 1792.02,
+        "duration": 6.24,
+        "text": "say I tried the sound didn't work out"
+      },
+      {
+        "start": 1793.97,
+        "duration": 6.15,
+        "text": "yeah you helped my results I yeah I"
+      },
+      {
+        "start": 1798.26,
+        "duration": 4.2,
+        "text": "thought I would do this and it would"
+      },
+      {
+        "start": 1800.12,
+        "duration": 6.24,
+        "text": "work out and it didn't and I invested"
+      },
+      {
+        "start": 1802.46,
+        "duration": 9.42,
+        "text": "the time into investigating it can you"
+      },
+      {
+        "start": 1806.36,
+        "duration": 8.04,
+        "text": "help me out people in my experience very"
+      },
+      {
+        "start": 1811.88,
+        "duration": 8.96,
+        "text": "helpful and and very supportive and"
+      },
+      {
+        "start": 1814.4,
+        "duration": 9.33,
+        "text": "that's actually I think this a lot of"
+      },
+      {
+        "start": 1820.84,
+        "duration": 4.66,
+        "text": "not to discount it but there's there's"
+      },
+      {
+        "start": 1823.73,
+        "duration": 5.179,
+        "text": "often a lot of self beating in the"
+      },
+      {
+        "start": 1825.5,
+        "duration": 8.1,
+        "text": "industry about how terrible people are"
+      },
+      {
+        "start": 1828.909,
+        "duration": 6.611,
+        "text": "terrible to to other people and it's"
+      },
+      {
+        "start": 1833.6,
+        "duration": 3.8,
+        "text": "absolutely true that there are you know"
+      },
+      {
+        "start": 1835.52,
+        "duration": 5.11,
+        "text": "this"
+      },
+      {
+        "start": 1837.4,
+        "duration": 6.18,
+        "text": "in every industry but I think it's also"
+      },
+      {
+        "start": 1840.63,
+        "duration": 5.32,
+        "text": "you know important to celebrate the good"
+      },
+      {
+        "start": 1843.58,
+        "duration": 5.43,
+        "text": "people and the good behaviors in our"
+      },
+      {
+        "start": 1845.95,
+        "duration": 5.13,
+        "text": "industry and and those exist yeah people"
+      },
+      {
+        "start": 1849.01,
+        "duration": 3.84,
+        "text": "that are willing to help absolutely and"
+      },
+      {
+        "start": 1851.08,
+        "duration": 3.56,
+        "text": "I and it's been my experience that a lot"
+      },
+      {
+        "start": 1852.85,
+        "duration": 3.81,
+        "text": "of people are willing to help yeah"
+      },
+      {
+        "start": 1854.64,
+        "duration": 4.12,
+        "text": "excellent well I know that you're one of"
+      },
+      {
+        "start": 1856.66,
+        "duration": 4.23,
+        "text": "those and I'm very grateful to you to"
+      },
+      {
+        "start": 1858.76,
+        "duration": 3.96,
+        "text": "coming on the show and your continued"
+      },
+      {
+        "start": 1860.89,
+        "duration": 3.84,
+        "text": "influence on performance engineering as"
+      },
+      {
+        "start": 1862.72,
+        "duration": 4.11,
+        "text": "a as a discipline in the industry and"
+      },
+      {
+        "start": 1864.73,
+        "duration": 4.28,
+        "text": "your contributions of data stacks so"
+      },
+      {
+        "start": 1866.83,
+        "duration": 6.03,
+        "text": "thank you very much all right"
+      },
+      {
+        "start": 1869.01,
+        "duration": 5.919,
+        "text": "until next time thank you for joining us"
+      },
+      {
+        "start": 1872.86,
+        "duration": 3.6,
+        "text": "again for the distributed data show we"
+      },
+      {
+        "start": 1874.929,
+        "duration": 3.451,
+        "text": "love your feedback so go to the"
+      },
+      {
+        "start": 1876.46,
+        "duration": 3.75,
+        "text": "distributed data show page on data Stax"
+      },
+      {
+        "start": 1878.38,
+        "duration": 3.299,
+        "text": "Academy and tell us what you think you"
+      },
+      {
+        "start": 1880.21,
+        "duration": 3.87,
+        "text": "can also find us on the data Stax"
+      },
+      {
+        "start": 1881.679,
+        "duration": 4.261,
+        "text": "Academy YouTube channel or find our"
+      },
+      {
+        "start": 1884.08,
+        "duration": 4.32,
+        "text": "podcast on itunes google play or"
+      },
+      {
+        "start": 1885.94,
+        "duration": 4.44,
+        "text": "wherever you get great podcast while"
+      },
+      {
+        "start": 1888.4,
+        "duration": 4.85,
+        "text": "you're there make sure and subscribe so"
+      },
+      {
+        "start": 1890.38,
+        "duration": 5.979,
+        "text": "you don't miss a single episode"
+      },
+      {
+        "start": 1893.25,
+        "duration": 3.109,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T06:33:22.421360+00:00"
+}
