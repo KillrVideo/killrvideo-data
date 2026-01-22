@@ -20,6 +20,8 @@ Usage:
 
 import argparse
 import csv
+from curses import raw
+import json
 import sys
 import time
 import yaml
@@ -28,6 +30,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from uuid import UUID
+from decimal import Decimal
 
 try:
     from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT
@@ -268,9 +271,10 @@ class AstraTableLoader:
             embedding = self.embedder.generate_embedding(text)
 
             # Reduce to target dimensions
-            reduced = self.embedder.reduce_dimensions(embedding, target_dimensions)
+            #reduced = self.embedder.reduce_dimensions(embedding, target_dimensions)
 
-            return reduced.flatten().tolist()
+            #return reduced.flatten().tolist()
+            return embedding
 
         except Exception as e:
             log_warning(f"Failed to generate embedding: {e}")
@@ -385,8 +389,8 @@ class AstraTableLoader:
         rows_failed = 0
         embeddings_generated = 0
 
-        try:
-            with open(csv_path, 'r', encoding='utf-8') as f:
+        #try:
+        with open(csv_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 columns = list(reader.fieldnames)
 
@@ -410,7 +414,7 @@ class AstraTableLoader:
                 batch = []
 
                 for row in reader:
-                    try:
+                    #try:
                         parsed_values = []
                         text_for_embedding = None
 
@@ -437,17 +441,50 @@ class AstraTableLoader:
 
                                 # Generate embedding
                                 if text_for_embedding:
+                                    #print("Got here")
                                     embedding = self.generate_embedding_for_text(
                                         text_for_embedding,
                                         vector_mappings[table_name]['dimensions']
                                     )
+                                    #print("Got here2")
                                     parsed_values.append(embedding)
-                                    if embedding:
+                                    if embedding is not None:
                                         embeddings_generated += 1
                                 else:
                                     parsed_values.append(None)
+                            elif col.endswith('id'):
+                                raw_value = UUID(row.get(col, ''))
+                                parsed_values.append(raw_value if raw_value != '' else None)
+                            elif col.endswith('date'):
+                                value = row.get(col, '')
+                                raw_value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                                parsed_values.append(raw_value if raw_value != '' else None)
+                            elif row.get(col, '').replace('.','').isdigit():
+                                # numeric
+                                value = row.get(col, '')
+                                if '.' in value:
+                                    #float
+                                    raw_value = float(Decimal(value))
+                                    parsed_values.append(raw_value)
+                                else:
+                                    #integer
+                                    raw_value = int(value)
+                                    parsed_values.append(raw_value)
+                            elif row.get(col, '').startswith("[") and row.get(col, '').endswith("]"):
+                                # set
+                                raw_value = set(json.loads(row.get(col, '')))
+                                parsed_values.append(raw_value if raw_value != '' else None)
+                            elif row.get(col, '').startswith("{") and row.get(col, '').endswith("}"):
+                                # list
+                                items_str = row.get(col, '')[1:-1]
+                                raw_value = [
+                                    item.strip().strip('"').strip("'")
+                                    for item in items_str.split(",")
+                                    if item.strip()
+                                ]
+                                parsed_values.append(raw_value if raw_value != '' else None)
                             else:
-                                # Regular column
+                                # Regular text column
                                 raw_value = row.get(col, '')
                                 parsed_values.append(raw_value if raw_value != '' else None)
 
@@ -465,9 +502,9 @@ class AstraTableLoader:
                                     status += f" ({embeddings_generated} embeddings)"
                                 print(status + "...", end='\r')
 
-                    except Exception as e:
-                        log_warning(f"Failed to process row: {e}")
-                        rows_failed += 1
+                    #except Exception as e:
+                    #    log_warning(f"Failed to process row: {e}")
+                    #    rows_failed += 1
 
                 # Execute remaining batch
                 if batch:
@@ -485,9 +522,9 @@ class AstraTableLoader:
 
                 return rows_loaded, rows_failed
 
-        except Exception as e:
-            log_error(f"Failed to load {table_name}: {e}")
-            return rows_loaded, rows_failed
+        #except Exception as e:
+        #    log_error(f"Failed to load {table_name}: {e}")
+        #    return rows_loaded, rows_failed
 
     def load_counter_table(self, table_name: str, csv_path: Path, update_query: str) -> tuple[int, int]:
         """Load counter table (same as before)"""
@@ -567,10 +604,13 @@ def main():
                        help='Path to configuration file (default: config.yaml)')
     parser.add_argument('--skip-embeddings', action='store_true',
                        help='Skip embedding generation, load NULL vectors')
+    parser.add_argument('--table',
+                       help='Loads only a specific table')
 
     args = parser.parse_args()
 
     config_path = Path(args.config)
+    table = args.table
 
     if not config_path.exists():
         log_error(f"Configuration file not found: {config_path}")
@@ -607,84 +647,121 @@ def main():
     total_failed = 0
 
     try:
-        # Load data in dependency order
-        log_section("LEVEL 1: Independent Tables")
 
-        loaded, failed = loader.load_table_with_embeddings('users', csv_dir / 'users.csv')
-        total_loaded += loaded
-        total_failed += failed
+        if not table:
+            # Load data in dependency order
+            log_section("LEVEL 1: Independent Tables")
 
-        loaded, failed = loader.load_table_with_embeddings('tags', csv_dir / 'tags.csv')
-        total_loaded += loaded
-        total_failed += failed
+            loaded, failed = loader.load_table_with_embeddings('users', csv_dir / 'users.csv')
+            total_loaded += loaded
+            total_failed += failed
 
-        log_section("LEVEL 2: Tables Depending on Users")
+            loaded, failed = loader.load_table_with_embeddings('tags', csv_dir / 'tags.csv')
+            total_loaded += loaded
+            total_failed += failed
 
-        loaded, failed = loader.load_table_with_embeddings('user_credentials', csv_dir / 'user_credentials.csv')
-        total_loaded += loaded
-        total_failed += failed
+            log_section("LEVEL 2: Tables Depending on Users")
 
-        loaded, failed = loader.load_table_with_embeddings('user_preferences', csv_dir / 'user_preferences.csv')
-        total_loaded += loaded
-        total_failed += failed
+            loaded, failed = loader.load_table_with_embeddings('user_credentials', csv_dir / 'user_credentials.csv')
+            total_loaded += loaded
+            total_failed += failed
 
-        loaded, failed = loader.load_table_with_embeddings('videos', csv_dir / 'videos.csv')
-        total_loaded += loaded
-        total_failed += failed
+            loaded, failed = loader.load_table_with_embeddings('user_preferences', csv_dir / 'user_preferences.csv')
+            total_loaded += loaded
+            total_failed += failed
 
-        log_section("LEVEL 3: Tables Depending on Videos")
+            loaded, failed = loader.load_table_with_embeddings('videos', csv_dir / 'videos.csv')
+            total_loaded += loaded
+            total_failed += failed
 
-        loaded, failed = loader.load_table_with_embeddings('latest_videos', csv_dir / 'latest_videos.csv')
-        total_loaded += loaded
-        total_failed += failed
+            log_section("LEVEL 3: Tables Depending on Videos")
 
-        loaded, failed = loader.load_counter_table(
-            'video_playback_stats',
-            csv_dir / 'video_playback_stats.csv',
-            f"UPDATE {keyspace}.video_playback_stats SET views = views + :views, "
-            "total_play_time = total_play_time + :total_play_time, "
-            "complete_views = complete_views + :complete_views, "
-            "unique_viewers = unique_viewers + :unique_viewers "
-            "WHERE videoid = :videoid"
-        )
-        total_loaded += loaded
-        total_failed += failed
+            loaded, failed = loader.load_table_with_embeddings('latest_videos', csv_dir / 'latest_videos.csv')
+            total_loaded += loaded
+            total_failed += failed
 
-        loaded, failed = loader.load_counter_table(
-            'video_ratings',
-            csv_dir / 'video_ratings.csv',
-            f"UPDATE {keyspace}.video_ratings SET "
-            "rating_counter = rating_counter + :rating_counter, "
-            "rating_total = rating_total + :rating_total "
-            "WHERE videoid = :videoid"
-        )
-        total_loaded += loaded
-        total_failed += failed
+            loaded, failed = loader.load_counter_table(
+                'video_playback_stats',
+                csv_dir / 'video_playback_stats.csv',
+                f"UPDATE {keyspace}.video_playback_stats SET views = views + :views, "
+                "total_play_time = total_play_time + :total_play_time, "
+                "complete_views = complete_views + :complete_views, "
+                "unique_viewers = unique_viewers + :unique_viewers "
+                "WHERE videoid = :videoid"
+            )
+            total_loaded += loaded
+            total_failed += failed
 
-        log_section("LEVEL 4: Tables Depending on Users + Videos")
+            loaded, failed = loader.load_counter_table(
+                'video_ratings',
+                csv_dir / 'video_ratings.csv',
+                f"UPDATE {keyspace}.video_ratings SET "
+                "rating_counter = rating_counter + :rating_counter, "
+                "rating_total = rating_total + :rating_total "
+                "WHERE videoid = :videoid"
+            )
+            total_loaded += loaded
+            total_failed += failed
 
-        loaded, failed = loader.load_table_with_embeddings('comments', csv_dir / 'comments.csv')
-        total_loaded += loaded
-        total_failed += failed
+            log_section("LEVEL 4: Tables Depending on Users + Videos")
 
-        loaded, failed = loader.load_table_with_embeddings('comments_by_user', csv_dir / 'comments_by_user.csv')
-        total_loaded += loaded
-        total_failed += failed
+            loaded, failed = loader.load_table_with_embeddings('comments', csv_dir / 'comments.csv')
+            total_loaded += loaded
+            total_failed += failed
 
-        loaded, failed = loader.load_table_with_embeddings('video_ratings_by_user', csv_dir / 'video_ratings_by_user.csv')
-        total_loaded += loaded
-        total_failed += failed
+            loaded, failed = loader.load_table_with_embeddings('comments_by_user', csv_dir / 'comments_by_user.csv')
+            total_loaded += loaded
+            total_failed += failed
 
-        log_section("LEVEL 5: Tables Depending on Tags")
+            loaded, failed = loader.load_table_with_embeddings('video_ratings_by_user', csv_dir / 'video_ratings_by_user.csv')
+            total_loaded += loaded
+            total_failed += failed
 
-        loaded, failed = loader.load_counter_table(
-            'tag_counts',
-            csv_dir / 'tag_counts.csv',
-            f"UPDATE {keyspace}.tag_counts SET count = count + :count WHERE tag = :tag"
-        )
-        total_loaded += loaded
-        total_failed += failed
+            log_section("LEVEL 5: Tables Depending on Tags")
 
+            loaded, failed = loader.load_counter_table(
+                'tag_counts',
+                csv_dir / 'tag_counts.csv',
+                f"UPDATE {keyspace}.tag_counts SET count = count + :count WHERE tag = :tag"
+            )
+            total_loaded += loaded
+            total_failed += failed
+        elif table == "users":
+            loaded, failed = loader.load_table_with_embeddings('users', csv_dir / 'users.csv')
+            total_loaded += loaded
+            total_failed += failed
+        elif table == "tags":
+            loaded, failed = loader.load_table_with_embeddings('tags', csv_dir / 'tags.csv')
+            total_loaded += loaded
+            total_failed += failed
+        elif table == "user_credentials":
+            loaded, failed = loader.load_table_with_embeddings('user_credentials', csv_dir / 'user_credentials.csv')
+            total_loaded += loaded
+            total_failed += failed
+        elif table == "user_preferences":
+            loaded, failed = loader.load_table_with_embeddings('user_preferences', csv_dir / 'user_preferences.csv')
+            total_loaded += loaded
+            total_failed += failed
+        elif table == "videos":
+            loaded, failed = loader.load_table_with_embeddings('videos', csv_dir / 'videos.csv')
+            total_loaded += loaded
+            total_failed += failed
+        elif table == "latest_videos":
+            loaded, failed = loader.load_table_with_embeddings('latest_videos', csv_dir / 'latest_videos.csv')
+            total_loaded += loaded
+            total_failed += failed
+        elif table == "comments":
+            loaded, failed = loader.load_table_with_embeddings('comments', csv_dir / 'comments.csv')
+            total_loaded += loaded
+            total_failed += failed
+        elif table == "comments_by_user":
+            loaded, failed = loader.load_table_with_embeddings('comments_by_user', csv_dir / 'comments_by_user.csv')
+            total_loaded += loaded
+            total_failed += failed
+        elif table == "video_ratings_by_user":
+            loaded, failed = loader.load_table_with_embeddings('video_ratings_by_user', csv_dir / 'video_ratings_by_user.csv')
+            total_loaded += loaded
+            total_failed += failed
     finally:
         loader.close()
 
