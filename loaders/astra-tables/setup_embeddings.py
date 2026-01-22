@@ -180,17 +180,23 @@ def main():
     for target_dim in sorted(target_dimensions):
         log_info(f"Testing reduction to {target_dim} dimensions...")
 
-        if reduction_method == 'pca':
-            # Use PCA (requires multiple samples)
-            reduced = reduce_dimensions_pca(embeddings, target_dim)
-            sample = reduced[0]
-            log_success(f"  PCA reduction: {native_dim}D → {target_dim}D")
-            log_info(f"  Sample: [{sample[0]:.4f}, {sample[1]:.4f}, {sample[2]:.4f}, ...]")
-        else:
-            # Use truncation
-            sample = reduce_dimensions_truncate(embeddings[0].tolist(), target_dim)
-            log_success(f"  Truncate: {native_dim}D → {target_dim}D")
-            log_info(f"  Sample: [{sample[0]:.4f}, {sample[1]:.4f}, {sample[2]:.4f}, ...]")
+        try:
+            if reduction_method == 'pca':
+                # Use PCA (requires multiple samples)
+                reduced = reduce_dimensions_pca(embeddings, target_dim)
+                sample = reduced[0]
+                log_success(f"  PCA reduction: {native_dim}D → {target_dim}D")
+                log_info(f"  Sample: [{sample[0]:.4f}, {sample[1]:.4f}, {sample[2]:.4f}, ...]")
+            else:
+                # Use truncation
+                sample = reduce_dimensions_truncate(embeddings[0].tolist(), target_dim)
+                log_success(f"  Truncate: {native_dim}D → {target_dim}D")
+                log_info(f"  Sample: [{sample[0]:.4f}, {sample[1]:.4f}, {sample[2]:.4f}, ...]")
+
+        except Exception as e:
+            log_error(f"Failed to reduce dimensions: {e}")
+            return 1
+
 
         print()
 
