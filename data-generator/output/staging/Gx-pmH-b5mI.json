@@ -1,0 +1,2198 @@
+{
+  "video_id": "Gx-pmH-b5mI",
+  "title": "DS201.13 Consistency | Foundations of Apache Cassandra",
+  "description": "#DataStaxAcademy #DS201\nDS201.13 CONSISTENCY\nIn this unit we will learn about consistency, a fundamental concept when using Apache Cassandra. This is a challenging topic, so we'll break it down for you in this video.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-11T01:09:22Z",
+  "thumbnail": "https://i.ytimg.com/vi/Gx-pmH-b5mI/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "tutorial",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=Gx-pmH-b5mI",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] let's talk about consistency in apache cassandra now this is the other half of replication consistency so you need to have both of these working for you because when you replicate data you need to know if it's there or not and believe me this is a hard topic in a distributed system but apache cassandra has really got this nice combination of things that makes it work for you and you are in control of how it works so how does it work so let's just take a quick review the cap theorem is something that describes the distributed system in the trade-offs so consistency availability partition tolerance cassandra fits in that world of partition tolerance and availability now partition tolerance means that you can do something like have nodes not seeing each other the so-called split brain syndrome and in that world it is really hard to maintain your data and most systems will just stop accepting data if you're in a partition event and availability is what we pretty much want all the time when it comes to building large scale applications if you build an application that doesn't have high availability in mind now you're probably going to get trounced by your competitor so that's a good one to have as well consistency is the harder part in a distributed system and cassandra does not optimize for consistency it gives you flexibility you have tunable consistency and you could tune away from availability or partition tolerance based on how much consistency you need in your data but it is definitely optimized for availability and partition so how do you tune consistency very important topic consistency levels are a part of the right when you write data into the cluster you have to tell it what kind of consistency level you want it to write to when you read data you have to ask for a certain consistency level this is the control that you're given as a developer when we write data in to the cluster the coordinator is going to be looking at say an rf3 three replicas and understand that i have to write data to those three replicas the coordinator is thinking those three replicas as destinations for your data but how do you know if it got there or not well we've specified in this case a consistency level of one these are a couple of terms you need to get familiar with rf cl if you're talking to all the cool kids at a cassandra conference or you're talking about in an architecture meeting you start throwing out like what's our rf and what's our cl super important cl is really important when you're writing applications in this case a seal of one means that we only need one of the replicas to acknowledge the read or the right so in this case we get an acknowledgement from the first node it's good to go that doesn't mean that if we wrote data into the cluster that it doesn't write to those of the replicas it's just how fast it gets acknowledged now seal of one because we only need one replica to acknowledge that right you're gonna get a lot more speed so this is the fast consistency level the data is still written to those other nodes that is important to know it's not that when you say seal of one i only want my data on one node no it's going to all the nodes it's just how it gets acknowledged so let's upgrade this let's say let's go to quorum that means that there's 51 of the nodes that acknowledge the write or agree on the result of the read so in this example when we write data in i need two of the three nodes to acknowledge that that write has happened if i don't get that then i'm not satisfying core again that doesn't mean that third node doesn't get data it's just not included in the response back to satisfy quorum what if we can't stand any node down or any consistency violations meaning that every bit of data has to land on a node and be acknowledged this is where we go all the way up to cl of all meaning that every replica has to acknowledge the right or have a consistent read and this is not one that i really recommend because what you're doing essentially is you're turning off any of the partition tolerance or availability and going all the way to consistency now it may be that you have a use case for that but just think about what you're doing here is that you're creating a situation where those three nodes are pretty much one big node and everything that happens in your cluster will be totally tied up in the fact that you have everything in cl all quorum is a really good place to be it's the middle ground 51 is pretty good on read and on right you're gonna get consistent data it's known as strongly consistent when we write data at seal of all that means that all that data has to be acknowledged by every single node and go back to the client saying i got it it's good it's on every single node not only is it going to be consistent though it's going to be slow if you have a consistency level of all and three nodes you have to wait for three nodes to reply that could take a while so how do we get strong consistency in a large scale distributed system strong consistency means i'm reading the data that i just wrote into the cluster really important you don't want to get stale data so if i'm writing data into the cluster and i need strong consistency writing it as a seal of all means that i have acknowledged the write on every single replica great we know that the data is there and when i need to read the data the consistency level now at all at right gives us a little looser consistency requirements on the read in this case we're going to read at one since if we know the data got there at consistency level all reading at one means that any one of those replicas is going to be just fine it'll have the data we need it's not going to be stale so this is an example of strong consistency the data i wrote in is the data i read out awesome now in the example of using all to write and a one to read probably not the best production way to do things again consistency level of all is really restrictive you can't have an outage it will shut you down so how can you do this in a way that's a lot more flexible with regards to availability which we're going to try to optimize for looking at this example same cluster when we write data in we're going to write it in at quorum meaning that 51 of the nodes acknowledge the right but in the read case we're also going to read it quorum meaning that we're going to have to get a consistent read back this is how you maintain strong consistency without sacrificing availability which don't do that we do that too many times with our systems where we make really terrible sacrifices you don't need to do this in an apache cassandra cluster because of the way it works with the 51 read off a 51 right you will get strong consistency you will read the data that you wrote into the cluster and this is really important to understand when you need strong consistency in a production environment and this is what you need in your application to keep it online and your data consistent which is kind of the name of the game right now what about a cl of one when is that ever useful well surprisingly enough it's very useful because we can't say that every bit of data that you ever read or write is gonna need to be strongly consistent think about log data time series data iot eventually consistent meaning few milliseconds here or there not really a huge requirement but in this case we need really strong availability meaning that it's always online and most importantly we need the speed we don't need to burden the system with trying to manage quorum or alls or anything like that the client just needs to write data and move on in this example when we're writing data into the cluster when the client writes it says i want a consistency level of one that consistency level one just means that one node acknowledges the right and when i do a read i want one node to acknowledge the read that's it that doesn't mean that we have random data sitting on all these nodes now remember when we write it one all of those nodes get consistent data they're just not asking for the consistency so when i read my data i'm just saying i'm okay if the data is a little late in the case of like an iot or something like that that may not be a problem now keep in mind that a running cluster that's healthy you're looking at very low latency numbers maybe a millisecond or a microsecond between those so it's not that big of a deal it's not like next week it'll be available but just know what you get when you write it one and read it one that's the expectation so how about across data centers that's the tough one and there are some really specific consistency levels that are specifically for multi-data center remember cassandra was built on the idea of replicating data not only locally but across everything around the world across the country wherever you need your data strong replication with consistency that's the name of the game here but in multiple data centers let's look at how that works so in the case where we write we know that whenever we replicate the data we write it to the coordinator the coordinator's job is not only to write to the local data center but also to write to the other data center but if i do this and i want to make sure that i'm getting consistent data in the first data center and i use say quorum quorum is going to be a little heavy because that means that it's going to be looking at all the nodes across both data centers which means that i have to wait for the response maybe from west to east united states at 70 milliseconds of latency that's not going to work for me i don't want to wait 70 extra milliseconds for a quorum so there's this idea of local quorum local quorum means that whenever i write my data into the data center or i read my data that it's only looking at consistency in those nodes the replicas inside that data center the other data center is not considered in a local quorum and that doesn't mean that it won't write to that other data center it's just not in the calculation for the quorum and that is really how you keep your data model working in multiple data centers without sacrificing a lot of speed when you need that stronger consistency so how many different consistency levels are there well that's kind of funny part of cassandra there are a lot of them and most of them quite frankly are kind of useless but they've been added over the years in the project so that they have different use cases that they are applicable some of these aren't as useful and some of them got superseded by others but let's look at this table so all the consistency levels are listed here and if you look at this table they go from the weakest to the strongest now let's start at the very top consistency level of any let me just caution you the only reason it's listed here is because it exists and i don't want you walking through your life running into any and thinking this is amazing it's not it was put in there for a very interesting reason that never really worked and has never been taken out so any is not something you really want to use it means that you have no replicas available you're throwing data into your cluster and hoping for the best i don't think that's a good idea so just ignore it for now it exists moving on the one you should start at at the very lowest level is one and there's two and three two and three are also ones that i don't ever see in production one is the consistency level you see a lot along with quorum so those two are really the meat and potatoes of what we built here but there are other ones that you can consider for instance we have the local versions local means that there's consideration with other data centers so some of these operations occur only in one data center so they don't multiply the effect across multiple data centers each quorum is a kind of an exotic version of quorum meaning that each particular data center has its own version of quorum so there's 51 percent in each data center again very heavy rarely used just know why it exists and then finally all the most consistency you can get ever now with all you have absolutely no chance of maintaining uptime if you have a node failure this is it it's very strict you're saying i'm all in on consistency and i'm not in on availability not where you want to be probably so use that wisely but most likely you're just going to use one and quorum or local quorum if you're in a multi-data center situation and those are the ones you'll stick to mostly for your strong consistency or when your consistency needs a little less so just to wrap this up remember consistency is such an important part of the replication story they glue together i've said this so many times in the past if you want to understand how cassandra works you have to understand replication and consistency replicating your data around like a cowboy that's great but you are a developer who needs to understand where your data is and that's where consistency level comes in you get to know where your data is awesome so just think about the trade-offs that's really how you pick your consistency level if i need low latency and i'm not so concerned about steel data one if i have a lot more concern about consistency and maybe even up time for my data quorum but both of these things are things that are trade-offs and you can make a good decision now that you know how they work so let's try and exercise with consistency level and see how they work in practice",
+    "segments": [
+      {
+        "start": 1.47,
+        "duration": 7.33,
+        "text": "[Music]"
+      },
+      {
+        "start": 6.64,
+        "duration": 3.28,
+        "text": "let's talk about consistency in apache"
+      },
+      {
+        "start": 8.8,
+        "duration": 2.719,
+        "text": "cassandra"
+      },
+      {
+        "start": 9.92,
+        "duration": 3.92,
+        "text": "now this is the other half of"
+      },
+      {
+        "start": 11.519,
+        "duration": 3.761,
+        "text": "replication consistency"
+      },
+      {
+        "start": 13.84,
+        "duration": 3.12,
+        "text": "so you need to have both of these"
+      },
+      {
+        "start": 15.28,
+        "duration": 2.88,
+        "text": "working for you because when you"
+      },
+      {
+        "start": 16.96,
+        "duration": 3.04,
+        "text": "replicate data"
+      },
+      {
+        "start": 18.16,
+        "duration": 3.84,
+        "text": "you need to know if it's there or not"
+      },
+      {
+        "start": 20.0,
+        "duration": 3.439,
+        "text": "and believe me this is a hard topic in a"
+      },
+      {
+        "start": 22.0,
+        "duration": 3.199,
+        "text": "distributed system"
+      },
+      {
+        "start": 23.439,
+        "duration": 3.361,
+        "text": "but apache cassandra has really got this"
+      },
+      {
+        "start": 25.199,
+        "duration": 3.281,
+        "text": "nice combination of things"
+      },
+      {
+        "start": 26.8,
+        "duration": 3.84,
+        "text": "that makes it work for you and you are"
+      },
+      {
+        "start": 28.48,
+        "duration": 4.72,
+        "text": "in control of how it works"
+      },
+      {
+        "start": 30.64,
+        "duration": 3.36,
+        "text": "so how does it work so let's just take a"
+      },
+      {
+        "start": 33.2,
+        "duration": 3.359,
+        "text": "quick review"
+      },
+      {
+        "start": 34.0,
+        "duration": 4.48,
+        "text": "the cap theorem is something that"
+      },
+      {
+        "start": 36.559,
+        "duration": 2.801,
+        "text": "describes the distributed system in the"
+      },
+      {
+        "start": 38.48,
+        "duration": 3.12,
+        "text": "trade-offs"
+      },
+      {
+        "start": 39.36,
+        "duration": 3.359,
+        "text": "so consistency availability partition"
+      },
+      {
+        "start": 41.6,
+        "duration": 3.119,
+        "text": "tolerance"
+      },
+      {
+        "start": 42.719,
+        "duration": 4.32,
+        "text": "cassandra fits in that world of"
+      },
+      {
+        "start": 44.719,
+        "duration": 4.0,
+        "text": "partition tolerance and availability"
+      },
+      {
+        "start": 47.039,
+        "duration": 3.601,
+        "text": "now partition tolerance means that you"
+      },
+      {
+        "start": 48.719,
+        "duration": 2.801,
+        "text": "can do something like have nodes not"
+      },
+      {
+        "start": 50.64,
+        "duration": 3.68,
+        "text": "seeing each other"
+      },
+      {
+        "start": 51.52,
+        "duration": 4.8,
+        "text": "the so-called split brain syndrome and"
+      },
+      {
+        "start": 54.32,
+        "duration": 4.719,
+        "text": "in that world it is really hard"
+      },
+      {
+        "start": 56.32,
+        "duration": 3.6,
+        "text": "to maintain your data and most systems"
+      },
+      {
+        "start": 59.039,
+        "duration": 2.961,
+        "text": "will just stop"
+      },
+      {
+        "start": 59.92,
+        "duration": 3.439,
+        "text": "accepting data if you're in a partition"
+      },
+      {
+        "start": 62.0,
+        "duration": 3.28,
+        "text": "event"
+      },
+      {
+        "start": 63.359,
+        "duration": 3.12,
+        "text": "and availability is what we pretty much"
+      },
+      {
+        "start": 65.28,
+        "duration": 3.28,
+        "text": "want all the time"
+      },
+      {
+        "start": 66.479,
+        "duration": 3.201,
+        "text": "when it comes to building large scale"
+      },
+      {
+        "start": 68.56,
+        "duration": 2.72,
+        "text": "applications"
+      },
+      {
+        "start": 69.68,
+        "duration": 3.6,
+        "text": "if you build an application that doesn't"
+      },
+      {
+        "start": 71.28,
+        "duration": 3.28,
+        "text": "have high availability in mind now"
+      },
+      {
+        "start": 73.28,
+        "duration": 3.36,
+        "text": "you're probably going to get trounced by"
+      },
+      {
+        "start": 74.56,
+        "duration": 3.44,
+        "text": "your competitor so that's a good one to"
+      },
+      {
+        "start": 76.64,
+        "duration": 4.08,
+        "text": "have as well"
+      },
+      {
+        "start": 78.0,
+        "duration": 4.0,
+        "text": "consistency is the harder part in a"
+      },
+      {
+        "start": 80.72,
+        "duration": 3.68,
+        "text": "distributed system"
+      },
+      {
+        "start": 82.0,
+        "duration": 3.439,
+        "text": "and cassandra does not optimize for"
+      },
+      {
+        "start": 84.4,
+        "duration": 3.44,
+        "text": "consistency"
+      },
+      {
+        "start": 85.439,
+        "duration": 3.921,
+        "text": "it gives you flexibility you have"
+      },
+      {
+        "start": 87.84,
+        "duration": 2.72,
+        "text": "tunable consistency"
+      },
+      {
+        "start": 89.36,
+        "duration": 3.439,
+        "text": "and you could tune away from"
+      },
+      {
+        "start": 90.56,
+        "duration": 4.559,
+        "text": "availability or partition tolerance"
+      },
+      {
+        "start": 92.799,
+        "duration": 3.121,
+        "text": "based on how much consistency you need"
+      },
+      {
+        "start": 95.119,
+        "duration": 3.121,
+        "text": "in your data"
+      },
+      {
+        "start": 95.92,
+        "duration": 3.12,
+        "text": "but it is definitely optimized for"
+      },
+      {
+        "start": 98.24,
+        "duration": 2.96,
+        "text": "availability"
+      },
+      {
+        "start": 99.04,
+        "duration": 3.439,
+        "text": "and partition so how do you tune"
+      },
+      {
+        "start": 101.2,
+        "duration": 4.48,
+        "text": "consistency"
+      },
+      {
+        "start": 102.479,
+        "duration": 5.361,
+        "text": "very important topic consistency levels"
+      },
+      {
+        "start": 105.68,
+        "duration": 3.6,
+        "text": "are a part of the right when you write"
+      },
+      {
+        "start": 107.84,
+        "duration": 2.639,
+        "text": "data into the cluster"
+      },
+      {
+        "start": 109.28,
+        "duration": 3.04,
+        "text": "you have to tell it what kind of"
+      },
+      {
+        "start": 110.479,
+        "duration": 2.561,
+        "text": "consistency level you want it to write"
+      },
+      {
+        "start": 112.32,
+        "duration": 3.439,
+        "text": "to"
+      },
+      {
+        "start": 113.04,
+        "duration": 4.32,
+        "text": "when you read data you have to ask for a"
+      },
+      {
+        "start": 115.759,
+        "duration": 4.0,
+        "text": "certain consistency level"
+      },
+      {
+        "start": 117.36,
+        "duration": 3.28,
+        "text": "this is the control that you're given as"
+      },
+      {
+        "start": 119.759,
+        "duration": 3.601,
+        "text": "a developer"
+      },
+      {
+        "start": 120.64,
+        "duration": 3.519,
+        "text": "when we write data in to the cluster the"
+      },
+      {
+        "start": 123.36,
+        "duration": 3.2,
+        "text": "coordinator"
+      },
+      {
+        "start": 124.159,
+        "duration": 4.88,
+        "text": "is going to be looking at say an rf3"
+      },
+      {
+        "start": 126.56,
+        "duration": 3.6,
+        "text": "three replicas and understand that i"
+      },
+      {
+        "start": 129.039,
+        "duration": 2.881,
+        "text": "have to write"
+      },
+      {
+        "start": 130.16,
+        "duration": 3.04,
+        "text": "data to those three replicas the"
+      },
+      {
+        "start": 131.92,
+        "duration": 3.679,
+        "text": "coordinator is thinking those three"
+      },
+      {
+        "start": 133.2,
+        "duration": 3.84,
+        "text": "replicas as destinations for your data"
+      },
+      {
+        "start": 135.599,
+        "duration": 4.401,
+        "text": "but how do you know if it got there or"
+      },
+      {
+        "start": 137.04,
+        "duration": 5.36,
+        "text": "not well we've specified in this case"
+      },
+      {
+        "start": 140.0,
+        "duration": 4.0,
+        "text": "a consistency level of one these are a"
+      },
+      {
+        "start": 142.4,
+        "duration": 2.32,
+        "text": "couple of terms you need to get familiar"
+      },
+      {
+        "start": 144.0,
+        "duration": 3.44,
+        "text": "with"
+      },
+      {
+        "start": 144.72,
+        "duration": 4.4,
+        "text": "rf cl if you're talking to all the cool"
+      },
+      {
+        "start": 147.44,
+        "duration": 3.76,
+        "text": "kids at a cassandra conference or you're"
+      },
+      {
+        "start": 149.12,
+        "duration": 3.759,
+        "text": "talking about in an architecture meeting"
+      },
+      {
+        "start": 151.2,
+        "duration": 3.36,
+        "text": "you start throwing out like what's our"
+      },
+      {
+        "start": 152.879,
+        "duration": 3.841,
+        "text": "rf and what's our cl"
+      },
+      {
+        "start": 154.56,
+        "duration": 3.679,
+        "text": "super important cl is really important"
+      },
+      {
+        "start": 156.72,
+        "duration": 4.0,
+        "text": "when you're writing applications"
+      },
+      {
+        "start": 158.239,
+        "duration": 3.36,
+        "text": "in this case a seal of one means that we"
+      },
+      {
+        "start": 160.72,
+        "duration": 3.04,
+        "text": "only need"
+      },
+      {
+        "start": 161.599,
+        "duration": 3.201,
+        "text": "one of the replicas to acknowledge the"
+      },
+      {
+        "start": 163.76,
+        "duration": 2.96,
+        "text": "read or the right"
+      },
+      {
+        "start": 164.8,
+        "duration": 4.159,
+        "text": "so in this case we get an"
+      },
+      {
+        "start": 166.72,
+        "duration": 4.0,
+        "text": "acknowledgement from the first node"
+      },
+      {
+        "start": 168.959,
+        "duration": 3.601,
+        "text": "it's good to go that doesn't mean that"
+      },
+      {
+        "start": 170.72,
+        "duration": 3.12,
+        "text": "if we wrote data into the cluster that"
+      },
+      {
+        "start": 172.56,
+        "duration": 2.08,
+        "text": "it doesn't write to those of the"
+      },
+      {
+        "start": 173.84,
+        "duration": 3.119,
+        "text": "replicas"
+      },
+      {
+        "start": 174.64,
+        "duration": 4.48,
+        "text": "it's just how fast it gets acknowledged"
+      },
+      {
+        "start": 176.959,
+        "duration": 2.961,
+        "text": "now seal of one because we only need one"
+      },
+      {
+        "start": 179.12,
+        "duration": 2.64,
+        "text": "replica"
+      },
+      {
+        "start": 179.92,
+        "duration": 4.319,
+        "text": "to acknowledge that right you're gonna"
+      },
+      {
+        "start": 181.76,
+        "duration": 3.68,
+        "text": "get a lot more speed so this is the fast"
+      },
+      {
+        "start": 184.239,
+        "duration": 2.801,
+        "text": "consistency level"
+      },
+      {
+        "start": 185.44,
+        "duration": 3.84,
+        "text": "the data is still written to those other"
+      },
+      {
+        "start": 187.04,
+        "duration": 4.0,
+        "text": "nodes that is important to know it's not"
+      },
+      {
+        "start": 189.28,
+        "duration": 3.28,
+        "text": "that when you say seal of one i only"
+      },
+      {
+        "start": 191.04,
+        "duration": 3.279,
+        "text": "want my data on one node"
+      },
+      {
+        "start": 192.56,
+        "duration": 3.12,
+        "text": "no it's going to all the nodes it's just"
+      },
+      {
+        "start": 194.319,
+        "duration": 3.681,
+        "text": "how it gets"
+      },
+      {
+        "start": 195.68,
+        "duration": 3.919,
+        "text": "acknowledged so let's upgrade this let's"
+      },
+      {
+        "start": 198.0,
+        "duration": 3.92,
+        "text": "say let's go to quorum"
+      },
+      {
+        "start": 199.599,
+        "duration": 3.92,
+        "text": "that means that there's 51 of the nodes"
+      },
+      {
+        "start": 201.92,
+        "duration": 4.72,
+        "text": "that acknowledge the write"
+      },
+      {
+        "start": 203.519,
+        "duration": 4.08,
+        "text": "or agree on the result of the read so in"
+      },
+      {
+        "start": 206.64,
+        "duration": 3.76,
+        "text": "this example"
+      },
+      {
+        "start": 207.599,
+        "duration": 4.801,
+        "text": "when we write data in i need two of the"
+      },
+      {
+        "start": 210.4,
+        "duration": 3.919,
+        "text": "three nodes to acknowledge"
+      },
+      {
+        "start": 212.4,
+        "duration": 3.44,
+        "text": "that that write has happened if i don't"
+      },
+      {
+        "start": 214.319,
+        "duration": 4.241,
+        "text": "get that then i'm not"
+      },
+      {
+        "start": 215.84,
+        "duration": 4.56,
+        "text": "satisfying core again that doesn't mean"
+      },
+      {
+        "start": 218.56,
+        "duration": 4.319,
+        "text": "that third node doesn't get data"
+      },
+      {
+        "start": 220.4,
+        "duration": 4.479,
+        "text": "it's just not included in the response"
+      },
+      {
+        "start": 222.879,
+        "duration": 5.041,
+        "text": "back to satisfy quorum"
+      },
+      {
+        "start": 224.879,
+        "duration": 5.36,
+        "text": "what if we can't stand any node down or"
+      },
+      {
+        "start": 227.92,
+        "duration": 4.399,
+        "text": "any consistency violations meaning that"
+      },
+      {
+        "start": 230.239,
+        "duration": 3.681,
+        "text": "every bit of data has to land on a node"
+      },
+      {
+        "start": 232.319,
+        "duration": 3.681,
+        "text": "and be acknowledged"
+      },
+      {
+        "start": 233.92,
+        "duration": 4.8,
+        "text": "this is where we go all the way up to cl"
+      },
+      {
+        "start": 236.0,
+        "duration": 4.4,
+        "text": "of all meaning that every replica has to"
+      },
+      {
+        "start": 238.72,
+        "duration": 3.28,
+        "text": "acknowledge the right or have a"
+      },
+      {
+        "start": 240.4,
+        "duration": 3.44,
+        "text": "consistent read"
+      },
+      {
+        "start": 242.0,
+        "duration": 3.84,
+        "text": "and this is not one that i really"
+      },
+      {
+        "start": 243.84,
+        "duration": 3.92,
+        "text": "recommend because what you're doing"
+      },
+      {
+        "start": 245.84,
+        "duration": 4.08,
+        "text": "essentially is you're turning off any of"
+      },
+      {
+        "start": 247.76,
+        "duration": 4.96,
+        "text": "the partition tolerance or availability"
+      },
+      {
+        "start": 249.92,
+        "duration": 4.319,
+        "text": "and going all the way to consistency now"
+      },
+      {
+        "start": 252.72,
+        "duration": 2.0,
+        "text": "it may be that you have a use case for"
+      },
+      {
+        "start": 254.239,
+        "duration": 2.0,
+        "text": "that"
+      },
+      {
+        "start": 254.72,
+        "duration": 3.759,
+        "text": "but just think about what you're doing"
+      },
+      {
+        "start": 256.239,
+        "duration": 3.68,
+        "text": "here is that you're creating a situation"
+      },
+      {
+        "start": 258.479,
+        "duration": 3.6,
+        "text": "where those three nodes are pretty much"
+      },
+      {
+        "start": 259.919,
+        "duration": 3.041,
+        "text": "one big node and everything that happens"
+      },
+      {
+        "start": 262.079,
+        "duration": 2.721,
+        "text": "in your cluster"
+      },
+      {
+        "start": 262.96,
+        "duration": 3.12,
+        "text": "will be totally tied up in the fact that"
+      },
+      {
+        "start": 264.8,
+        "duration": 4.72,
+        "text": "you have everything in cl"
+      },
+      {
+        "start": 266.08,
+        "duration": 6.8,
+        "text": "all quorum is a really good place to be"
+      },
+      {
+        "start": 269.52,
+        "duration": 5.44,
+        "text": "it's the middle ground 51 is pretty good"
+      },
+      {
+        "start": 272.88,
+        "duration": 4.319,
+        "text": "on read and on right you're gonna get"
+      },
+      {
+        "start": 274.96,
+        "duration": 4.56,
+        "text": "consistent data it's known as"
+      },
+      {
+        "start": 277.199,
+        "duration": 3.681,
+        "text": "strongly consistent when we write data"
+      },
+      {
+        "start": 279.52,
+        "duration": 3.28,
+        "text": "at seal of all"
+      },
+      {
+        "start": 280.88,
+        "duration": 3.759,
+        "text": "that means that all that data has to be"
+      },
+      {
+        "start": 282.8,
+        "duration": 4.0,
+        "text": "acknowledged by every single node"
+      },
+      {
+        "start": 284.639,
+        "duration": 3.12,
+        "text": "and go back to the client saying i got"
+      },
+      {
+        "start": 286.8,
+        "duration": 3.119,
+        "text": "it it's good"
+      },
+      {
+        "start": 287.759,
+        "duration": 3.601,
+        "text": "it's on every single node not only is it"
+      },
+      {
+        "start": 289.919,
+        "duration": 2.641,
+        "text": "going to be consistent though it's going"
+      },
+      {
+        "start": 291.36,
+        "duration": 3.44,
+        "text": "to be slow"
+      },
+      {
+        "start": 292.56,
+        "duration": 3.68,
+        "text": "if you have a consistency level of all"
+      },
+      {
+        "start": 294.8,
+        "duration": 2.88,
+        "text": "and three nodes you have to wait for"
+      },
+      {
+        "start": 296.24,
+        "duration": 3.84,
+        "text": "three nodes to reply"
+      },
+      {
+        "start": 297.68,
+        "duration": 4.0,
+        "text": "that could take a while so how do we get"
+      },
+      {
+        "start": 300.08,
+        "duration": 3.92,
+        "text": "strong consistency"
+      },
+      {
+        "start": 301.68,
+        "duration": 4.0,
+        "text": "in a large scale distributed system"
+      },
+      {
+        "start": 304.0,
+        "duration": 4.08,
+        "text": "strong consistency means"
+      },
+      {
+        "start": 305.68,
+        "duration": 3.84,
+        "text": "i'm reading the data that i just wrote"
+      },
+      {
+        "start": 308.08,
+        "duration": 3.119,
+        "text": "into the cluster"
+      },
+      {
+        "start": 309.52,
+        "duration": 4.48,
+        "text": "really important you don't want to get"
+      },
+      {
+        "start": 311.199,
+        "duration": 4.161,
+        "text": "stale data so if i'm writing data into"
+      },
+      {
+        "start": 314.0,
+        "duration": 4.08,
+        "text": "the cluster and i need strong"
+      },
+      {
+        "start": 315.36,
+        "duration": 4.96,
+        "text": "consistency writing it as a seal of"
+      },
+      {
+        "start": 318.08,
+        "duration": 4.16,
+        "text": "all means that i have acknowledged the"
+      },
+      {
+        "start": 320.32,
+        "duration": 3.92,
+        "text": "write on every single replica"
+      },
+      {
+        "start": 322.24,
+        "duration": 3.76,
+        "text": "great we know that the data is there and"
+      },
+      {
+        "start": 324.24,
+        "duration": 4.0,
+        "text": "when i need to read the data"
+      },
+      {
+        "start": 326.0,
+        "duration": 3.84,
+        "text": "the consistency level now at all at"
+      },
+      {
+        "start": 328.24,
+        "duration": 4.48,
+        "text": "right gives us a little looser"
+      },
+      {
+        "start": 329.84,
+        "duration": 4.079,
+        "text": "consistency requirements on the read in"
+      },
+      {
+        "start": 332.72,
+        "duration": 4.16,
+        "text": "this case we're going to read"
+      },
+      {
+        "start": 333.919,
+        "duration": 5.761,
+        "text": "at one since if we know the data got"
+      },
+      {
+        "start": 336.88,
+        "duration": 4.48,
+        "text": "there at consistency level all"
+      },
+      {
+        "start": 339.68,
+        "duration": 3.68,
+        "text": "reading at one means that any one of"
+      },
+      {
+        "start": 341.36,
+        "duration": 3.44,
+        "text": "those replicas is going to be just fine"
+      },
+      {
+        "start": 343.36,
+        "duration": 3.76,
+        "text": "it'll have the data we need it's not"
+      },
+      {
+        "start": 344.8,
+        "duration": 2.88,
+        "text": "going to be stale so this is an example"
+      },
+      {
+        "start": 347.12,
+        "duration": 3.12,
+        "text": "of"
+      },
+      {
+        "start": 347.68,
+        "duration": 5.12,
+        "text": "strong consistency the data i wrote in"
+      },
+      {
+        "start": 350.24,
+        "duration": 5.12,
+        "text": "is the data i read out awesome"
+      },
+      {
+        "start": 352.8,
+        "duration": 4.32,
+        "text": "now in the example of using all to write"
+      },
+      {
+        "start": 355.36,
+        "duration": 4.0,
+        "text": "and a one to read"
+      },
+      {
+        "start": 357.12,
+        "duration": 4.48,
+        "text": "probably not the best production way to"
+      },
+      {
+        "start": 359.36,
+        "duration": 4.48,
+        "text": "do things again consistency level of"
+      },
+      {
+        "start": 361.6,
+        "duration": 3.28,
+        "text": "all is really restrictive you can't have"
+      },
+      {
+        "start": 363.84,
+        "duration": 3.6,
+        "text": "an outage"
+      },
+      {
+        "start": 364.88,
+        "duration": 4.8,
+        "text": "it will shut you down so how can you do"
+      },
+      {
+        "start": 367.44,
+        "duration": 4.4,
+        "text": "this in a way that's a lot more flexible"
+      },
+      {
+        "start": 369.68,
+        "duration": 3.68,
+        "text": "with regards to availability which we're"
+      },
+      {
+        "start": 371.84,
+        "duration": 4.32,
+        "text": "going to try to optimize for"
+      },
+      {
+        "start": 373.36,
+        "duration": 4.32,
+        "text": "looking at this example same cluster"
+      },
+      {
+        "start": 376.16,
+        "duration": 3.44,
+        "text": "when we write data in"
+      },
+      {
+        "start": 377.68,
+        "duration": 3.04,
+        "text": "we're going to write it in at quorum"
+      },
+      {
+        "start": 379.6,
+        "duration": 3.92,
+        "text": "meaning that"
+      },
+      {
+        "start": 380.72,
+        "duration": 4.72,
+        "text": "51 of the nodes acknowledge the right"
+      },
+      {
+        "start": 383.52,
+        "duration": 2.959,
+        "text": "but in the read case we're also going to"
+      },
+      {
+        "start": 385.44,
+        "duration": 2.319,
+        "text": "read it quorum"
+      },
+      {
+        "start": 386.479,
+        "duration": 3.361,
+        "text": "meaning that we're going to have to get"
+      },
+      {
+        "start": 387.759,
+        "duration": 4.0,
+        "text": "a consistent read back"
+      },
+      {
+        "start": 389.84,
+        "duration": 3.12,
+        "text": "this is how you maintain strong"
+      },
+      {
+        "start": 391.759,
+        "duration": 4.401,
+        "text": "consistency"
+      },
+      {
+        "start": 392.96,
+        "duration": 5.6,
+        "text": "without sacrificing availability which"
+      },
+      {
+        "start": 396.16,
+        "duration": 3.599,
+        "text": "don't do that we do that too many times"
+      },
+      {
+        "start": 398.56,
+        "duration": 3.759,
+        "text": "with our systems where we make"
+      },
+      {
+        "start": 399.759,
+        "duration": 4.321,
+        "text": "really terrible sacrifices you don't"
+      },
+      {
+        "start": 402.319,
+        "duration": 2.32,
+        "text": "need to do this in an apache cassandra"
+      },
+      {
+        "start": 404.08,
+        "duration": 2.399,
+        "text": "cluster"
+      },
+      {
+        "start": 404.639,
+        "duration": 3.201,
+        "text": "because of the way it works with the 51"
+      },
+      {
+        "start": 406.479,
+        "duration": 3.761,
+        "text": "read off a 51"
+      },
+      {
+        "start": 407.84,
+        "duration": 4.24,
+        "text": "right you will get strong consistency"
+      },
+      {
+        "start": 410.24,
+        "duration": 2.959,
+        "text": "you will read the data that you wrote"
+      },
+      {
+        "start": 412.08,
+        "duration": 3.28,
+        "text": "into the cluster"
+      },
+      {
+        "start": 413.199,
+        "duration": 3.601,
+        "text": "and this is really important to"
+      },
+      {
+        "start": 415.36,
+        "duration": 4.0,
+        "text": "understand when you need strong"
+      },
+      {
+        "start": 416.8,
+        "duration": 4.16,
+        "text": "consistency in a production environment"
+      },
+      {
+        "start": 419.36,
+        "duration": 2.64,
+        "text": "and this is what you need in your"
+      },
+      {
+        "start": 420.96,
+        "duration": 3.84,
+        "text": "application to keep it"
+      },
+      {
+        "start": 422.0,
+        "duration": 4.56,
+        "text": "online and your data consistent which is"
+      },
+      {
+        "start": 424.8,
+        "duration": 4.32,
+        "text": "kind of the name of the game right"
+      },
+      {
+        "start": 426.56,
+        "duration": 3.6,
+        "text": "now what about a cl of one when is that"
+      },
+      {
+        "start": 429.12,
+        "duration": 3.04,
+        "text": "ever useful"
+      },
+      {
+        "start": 430.16,
+        "duration": 4.24,
+        "text": "well surprisingly enough it's very"
+      },
+      {
+        "start": 432.16,
+        "duration": 4.159,
+        "text": "useful because we can't say that every"
+      },
+      {
+        "start": 434.4,
+        "duration": 5.04,
+        "text": "bit of data that you ever read or write"
+      },
+      {
+        "start": 436.319,
+        "duration": 5.521,
+        "text": "is gonna need to be strongly consistent"
+      },
+      {
+        "start": 439.44,
+        "duration": 3.759,
+        "text": "think about log data time series data"
+      },
+      {
+        "start": 441.84,
+        "duration": 3.28,
+        "text": "iot"
+      },
+      {
+        "start": 443.199,
+        "duration": 3.601,
+        "text": "eventually consistent meaning few"
+      },
+      {
+        "start": 445.12,
+        "duration": 3.919,
+        "text": "milliseconds here or there"
+      },
+      {
+        "start": 446.8,
+        "duration": 3.519,
+        "text": "not really a huge requirement but in"
+      },
+      {
+        "start": 449.039,
+        "duration": 3.201,
+        "text": "this case we need"
+      },
+      {
+        "start": 450.319,
+        "duration": 3.6,
+        "text": "really strong availability meaning that"
+      },
+      {
+        "start": 452.24,
+        "duration": 4.64,
+        "text": "it's always online"
+      },
+      {
+        "start": 453.919,
+        "duration": 4.881,
+        "text": "and most importantly we need the speed"
+      },
+      {
+        "start": 456.88,
+        "duration": 3.759,
+        "text": "we don't need to burden the system with"
+      },
+      {
+        "start": 458.8,
+        "duration": 2.64,
+        "text": "trying to manage quorum or alls or"
+      },
+      {
+        "start": 460.639,
+        "duration": 2.4,
+        "text": "anything like that"
+      },
+      {
+        "start": 461.44,
+        "duration": 3.439,
+        "text": "the client just needs to write data and"
+      },
+      {
+        "start": 463.039,
+        "duration": 3.28,
+        "text": "move on in this example when we're"
+      },
+      {
+        "start": 464.879,
+        "duration": 3.281,
+        "text": "writing data into the cluster"
+      },
+      {
+        "start": 466.319,
+        "duration": 3.841,
+        "text": "when the client writes it says i want a"
+      },
+      {
+        "start": 468.16,
+        "duration": 3.84,
+        "text": "consistency level of one"
+      },
+      {
+        "start": 470.16,
+        "duration": 4.08,
+        "text": "that consistency level one just means"
+      },
+      {
+        "start": 472.0,
+        "duration": 4.72,
+        "text": "that one node acknowledges the right"
+      },
+      {
+        "start": 474.24,
+        "duration": 3.84,
+        "text": "and when i do a read i want one node to"
+      },
+      {
+        "start": 476.72,
+        "duration": 3.919,
+        "text": "acknowledge the read"
+      },
+      {
+        "start": 478.08,
+        "duration": 4.72,
+        "text": "that's it that doesn't mean that we have"
+      },
+      {
+        "start": 480.639,
+        "duration": 4.96,
+        "text": "random data sitting on all these nodes"
+      },
+      {
+        "start": 482.8,
+        "duration": 4.72,
+        "text": "now remember when we write it one all of"
+      },
+      {
+        "start": 485.599,
+        "duration": 3.361,
+        "text": "those nodes get consistent data"
+      },
+      {
+        "start": 487.52,
+        "duration": 3.359,
+        "text": "they're just not asking for the"
+      },
+      {
+        "start": 488.96,
+        "duration": 4.959,
+        "text": "consistency so when i"
+      },
+      {
+        "start": 490.879,
+        "duration": 4.72,
+        "text": "read my data i'm just saying i'm okay if"
+      },
+      {
+        "start": 493.919,
+        "duration": 3.521,
+        "text": "the data is a little late"
+      },
+      {
+        "start": 495.599,
+        "duration": 3.921,
+        "text": "in the case of like an iot or something"
+      },
+      {
+        "start": 497.44,
+        "duration": 4.24,
+        "text": "like that that may not be a problem"
+      },
+      {
+        "start": 499.52,
+        "duration": 3.679,
+        "text": "now keep in mind that a running cluster"
+      },
+      {
+        "start": 501.68,
+        "duration": 3.44,
+        "text": "that's healthy you're looking at"
+      },
+      {
+        "start": 503.199,
+        "duration": 4.161,
+        "text": "very low latency numbers maybe a"
+      },
+      {
+        "start": 505.12,
+        "duration": 2.639,
+        "text": "millisecond or a microsecond between"
+      },
+      {
+        "start": 507.36,
+        "duration": 1.92,
+        "text": "those"
+      },
+      {
+        "start": 507.759,
+        "duration": 3.921,
+        "text": "so it's not that big of a deal it's not"
+      },
+      {
+        "start": 509.28,
+        "duration": 4.48,
+        "text": "like next week it'll be available"
+      },
+      {
+        "start": 511.68,
+        "duration": 3.839,
+        "text": "but just know what you get when you"
+      },
+      {
+        "start": 513.76,
+        "duration": 3.759,
+        "text": "write it one and read it one"
+      },
+      {
+        "start": 515.519,
+        "duration": 3.44,
+        "text": "that's the expectation so how about"
+      },
+      {
+        "start": 517.519,
+        "duration": 4.08,
+        "text": "across data centers"
+      },
+      {
+        "start": 518.959,
+        "duration": 4.88,
+        "text": "that's the tough one and there are some"
+      },
+      {
+        "start": 521.599,
+        "duration": 2.8,
+        "text": "really specific consistency levels that"
+      },
+      {
+        "start": 523.839,
+        "duration": 3.361,
+        "text": "are"
+      },
+      {
+        "start": 524.399,
+        "duration": 3.681,
+        "text": "specifically for multi-data center"
+      },
+      {
+        "start": 527.2,
+        "duration": 2.639,
+        "text": "remember"
+      },
+      {
+        "start": 528.08,
+        "duration": 3.04,
+        "text": "cassandra was built on the idea of"
+      },
+      {
+        "start": 529.839,
+        "duration": 4.481,
+        "text": "replicating data"
+      },
+      {
+        "start": 531.12,
+        "duration": 5.76,
+        "text": "not only locally but across everything"
+      },
+      {
+        "start": 534.32,
+        "duration": 4.32,
+        "text": "around the world across the country"
+      },
+      {
+        "start": 536.88,
+        "duration": 4.16,
+        "text": "wherever you need your data"
+      },
+      {
+        "start": 538.64,
+        "duration": 4.16,
+        "text": "strong replication with consistency"
+      },
+      {
+        "start": 541.04,
+        "duration": 3.76,
+        "text": "that's the name of the game here"
+      },
+      {
+        "start": 542.8,
+        "duration": 3.2,
+        "text": "but in multiple data centers let's look"
+      },
+      {
+        "start": 544.8,
+        "duration": 3.12,
+        "text": "at how that works"
+      },
+      {
+        "start": 546.0,
+        "duration": 3.839,
+        "text": "so in the case where we write we know"
+      },
+      {
+        "start": 547.92,
+        "duration": 3.44,
+        "text": "that whenever we replicate the data"
+      },
+      {
+        "start": 549.839,
+        "duration": 3.201,
+        "text": "we write it to the coordinator the"
+      },
+      {
+        "start": 551.36,
+        "duration": 3.36,
+        "text": "coordinator's job is not only to write"
+      },
+      {
+        "start": 553.04,
+        "duration": 3.52,
+        "text": "to the local data center"
+      },
+      {
+        "start": 554.72,
+        "duration": 3.76,
+        "text": "but also to write to the other data"
+      },
+      {
+        "start": 556.56,
+        "duration": 3.52,
+        "text": "center but if i do this and i want to"
+      },
+      {
+        "start": 558.48,
+        "duration": 3.6,
+        "text": "make sure that i'm getting consistent"
+      },
+      {
+        "start": 560.08,
+        "duration": 4.8,
+        "text": "data in the first data center"
+      },
+      {
+        "start": 562.08,
+        "duration": 3.92,
+        "text": "and i use say quorum quorum is going to"
+      },
+      {
+        "start": 564.88,
+        "duration": 2.24,
+        "text": "be a little heavy"
+      },
+      {
+        "start": 566.0,
+        "duration": 2.8,
+        "text": "because that means that it's going to be"
+      },
+      {
+        "start": 567.12,
+        "duration": 2.56,
+        "text": "looking at all the nodes across both"
+      },
+      {
+        "start": 568.8,
+        "duration": 3.039,
+        "text": "data centers"
+      },
+      {
+        "start": 569.68,
+        "duration": 3.279,
+        "text": "which means that i have to wait for the"
+      },
+      {
+        "start": 571.839,
+        "duration": 3.68,
+        "text": "response"
+      },
+      {
+        "start": 572.959,
+        "duration": 4.481,
+        "text": "maybe from west to east united states at"
+      },
+      {
+        "start": 575.519,
+        "duration": 3.44,
+        "text": "70 milliseconds of latency"
+      },
+      {
+        "start": 577.44,
+        "duration": 3.839,
+        "text": "that's not going to work for me i don't"
+      },
+      {
+        "start": 578.959,
+        "duration": 3.121,
+        "text": "want to wait 70 extra milliseconds for a"
+      },
+      {
+        "start": 581.279,
+        "duration": 3.521,
+        "text": "quorum"
+      },
+      {
+        "start": 582.08,
+        "duration": 4.56,
+        "text": "so there's this idea of local quorum"
+      },
+      {
+        "start": 584.8,
+        "duration": 3.28,
+        "text": "local quorum means that whenever i write"
+      },
+      {
+        "start": 586.64,
+        "duration": 4.08,
+        "text": "my data into the data center"
+      },
+      {
+        "start": 588.08,
+        "duration": 4.16,
+        "text": "or i read my data that it's only looking"
+      },
+      {
+        "start": 590.72,
+        "duration": 4.16,
+        "text": "at consistency"
+      },
+      {
+        "start": 592.24,
+        "duration": 3.36,
+        "text": "in those nodes the replicas inside that"
+      },
+      {
+        "start": 594.88,
+        "duration": 2.959,
+        "text": "data center"
+      },
+      {
+        "start": 595.6,
+        "duration": 3.6,
+        "text": "the other data center is not considered"
+      },
+      {
+        "start": 597.839,
+        "duration": 2.56,
+        "text": "in a local quorum"
+      },
+      {
+        "start": 599.2,
+        "duration": 2.879,
+        "text": "and that doesn't mean that it won't"
+      },
+      {
+        "start": 600.399,
+        "duration": 3.44,
+        "text": "write to that other data center it's"
+      },
+      {
+        "start": 602.079,
+        "duration": 2.641,
+        "text": "just not in the calculation for the"
+      },
+      {
+        "start": 603.839,
+        "duration": 2.481,
+        "text": "quorum"
+      },
+      {
+        "start": 604.72,
+        "duration": 3.04,
+        "text": "and that is really how you keep your"
+      },
+      {
+        "start": 606.32,
+        "duration": 3.44,
+        "text": "data model working"
+      },
+      {
+        "start": 607.76,
+        "duration": 4.079,
+        "text": "in multiple data centers without"
+      },
+      {
+        "start": 609.76,
+        "duration": 3.759,
+        "text": "sacrificing a lot of speed when you need"
+      },
+      {
+        "start": 611.839,
+        "duration": 4.081,
+        "text": "that stronger consistency"
+      },
+      {
+        "start": 613.519,
+        "duration": 3.361,
+        "text": "so how many different consistency levels"
+      },
+      {
+        "start": 615.92,
+        "duration": 2.88,
+        "text": "are there"
+      },
+      {
+        "start": 616.88,
+        "duration": 3.12,
+        "text": "well that's kind of funny part of"
+      },
+      {
+        "start": 618.8,
+        "duration": 3.52,
+        "text": "cassandra there are"
+      },
+      {
+        "start": 620.0,
+        "duration": 3.2,
+        "text": "a lot of them and most of them quite"
+      },
+      {
+        "start": 622.32,
+        "duration": 3.199,
+        "text": "frankly"
+      },
+      {
+        "start": 623.2,
+        "duration": 4.639,
+        "text": "are kind of useless but they've been"
+      },
+      {
+        "start": 625.519,
+        "duration": 4.161,
+        "text": "added over the years in the project"
+      },
+      {
+        "start": 627.839,
+        "duration": 3.601,
+        "text": "so that they have different use cases"
+      },
+      {
+        "start": 629.68,
+        "duration": 3.44,
+        "text": "that they are applicable some of these"
+      },
+      {
+        "start": 631.44,
+        "duration": 3.04,
+        "text": "aren't as useful and some of them got"
+      },
+      {
+        "start": 633.12,
+        "duration": 3.2,
+        "text": "superseded by others"
+      },
+      {
+        "start": 634.48,
+        "duration": 4.16,
+        "text": "but let's look at this table so all the"
+      },
+      {
+        "start": 636.32,
+        "duration": 4.56,
+        "text": "consistency levels are listed here"
+      },
+      {
+        "start": 638.64,
+        "duration": 3.52,
+        "text": "and if you look at this table they go"
+      },
+      {
+        "start": 640.88,
+        "duration": 3.68,
+        "text": "from the weakest"
+      },
+      {
+        "start": 642.16,
+        "duration": 3.919,
+        "text": "to the strongest now let's start at the"
+      },
+      {
+        "start": 644.56,
+        "duration": 4.48,
+        "text": "very top"
+      },
+      {
+        "start": 646.079,
+        "duration": 3.76,
+        "text": "consistency level of any let me just"
+      },
+      {
+        "start": 649.04,
+        "duration": 2.96,
+        "text": "caution you"
+      },
+      {
+        "start": 649.839,
+        "duration": 3.761,
+        "text": "the only reason it's listed here is"
+      },
+      {
+        "start": 652.0,
+        "duration": 4.16,
+        "text": "because it exists"
+      },
+      {
+        "start": 653.6,
+        "duration": 3.12,
+        "text": "and i don't want you walking through"
+      },
+      {
+        "start": 656.16,
+        "duration": 2.08,
+        "text": "your life"
+      },
+      {
+        "start": 656.72,
+        "duration": 3.359,
+        "text": "running into any and thinking this is"
+      },
+      {
+        "start": 658.24,
+        "duration": 3.68,
+        "text": "amazing it's not"
+      },
+      {
+        "start": 660.079,
+        "duration": 3.921,
+        "text": "it was put in there for a very"
+      },
+      {
+        "start": 661.92,
+        "duration": 4.0,
+        "text": "interesting reason that never really"
+      },
+      {
+        "start": 664.0,
+        "duration": 4.16,
+        "text": "worked and has never been taken out"
+      },
+      {
+        "start": 665.92,
+        "duration": 4.08,
+        "text": "so any is not something you really want"
+      },
+      {
+        "start": 668.16,
+        "duration": 3.2,
+        "text": "to use it means that you have no"
+      },
+      {
+        "start": 670.0,
+        "duration": 3.04,
+        "text": "replicas available"
+      },
+      {
+        "start": 671.36,
+        "duration": 3.36,
+        "text": "you're throwing data into your cluster"
+      },
+      {
+        "start": 673.04,
+        "duration": 4.16,
+        "text": "and hoping for the best"
+      },
+      {
+        "start": 674.72,
+        "duration": 3.359,
+        "text": "i don't think that's a good idea so just"
+      },
+      {
+        "start": 677.2,
+        "duration": 3.44,
+        "text": "ignore it for now"
+      },
+      {
+        "start": 678.079,
+        "duration": 3.281,
+        "text": "it exists moving on the one you should"
+      },
+      {
+        "start": 680.64,
+        "duration": 3.199,
+        "text": "start at"
+      },
+      {
+        "start": 681.36,
+        "duration": 3.76,
+        "text": "at the very lowest level is one and"
+      },
+      {
+        "start": 683.839,
+        "duration": 3.281,
+        "text": "there's two and three"
+      },
+      {
+        "start": 685.12,
+        "duration": 3.6,
+        "text": "two and three are also ones that i don't"
+      },
+      {
+        "start": 687.12,
+        "duration": 3.6,
+        "text": "ever see in production"
+      },
+      {
+        "start": 688.72,
+        "duration": 4.48,
+        "text": "one is the consistency level you see a"
+      },
+      {
+        "start": 690.72,
+        "duration": 4.08,
+        "text": "lot along with quorum so those two are"
+      },
+      {
+        "start": 693.2,
+        "duration": 4.16,
+        "text": "really the meat and potatoes"
+      },
+      {
+        "start": 694.8,
+        "duration": 4.24,
+        "text": "of what we built here but there are"
+      },
+      {
+        "start": 697.36,
+        "duration": 4.08,
+        "text": "other ones that you can consider"
+      },
+      {
+        "start": 699.04,
+        "duration": 4.64,
+        "text": "for instance we have the local versions"
+      },
+      {
+        "start": 701.44,
+        "duration": 4.48,
+        "text": "local means that there's consideration"
+      },
+      {
+        "start": 703.68,
+        "duration": 3.36,
+        "text": "with other data centers so some of these"
+      },
+      {
+        "start": 705.92,
+        "duration": 3.76,
+        "text": "operations occur"
+      },
+      {
+        "start": 707.04,
+        "duration": 4.799,
+        "text": "only in one data center so they don't"
+      },
+      {
+        "start": 709.68,
+        "duration": 2.719,
+        "text": "multiply the effect across multiple data"
+      },
+      {
+        "start": 711.839,
+        "duration": 2.881,
+        "text": "centers"
+      },
+      {
+        "start": 712.399,
+        "duration": 4.0,
+        "text": "each quorum is a kind of an exotic"
+      },
+      {
+        "start": 714.72,
+        "duration": 3.2,
+        "text": "version of quorum meaning that each"
+      },
+      {
+        "start": 716.399,
+        "duration": 3.841,
+        "text": "particular data center"
+      },
+      {
+        "start": 717.92,
+        "duration": 3.2,
+        "text": "has its own version of quorum so there's"
+      },
+      {
+        "start": 720.24,
+        "duration": 4.48,
+        "text": "51 percent"
+      },
+      {
+        "start": 721.12,
+        "duration": 6.64,
+        "text": "in each data center again very heavy"
+      },
+      {
+        "start": 724.72,
+        "duration": 3.919,
+        "text": "rarely used just know why it exists and"
+      },
+      {
+        "start": 727.76,
+        "duration": 4.0,
+        "text": "then finally"
+      },
+      {
+        "start": 728.639,
+        "duration": 6.561,
+        "text": "all the most consistency you can get"
+      },
+      {
+        "start": 731.76,
+        "duration": 5.199,
+        "text": "ever now with all you have absolutely no"
+      },
+      {
+        "start": 735.2,
+        "duration": 3.84,
+        "text": "chance of maintaining uptime"
+      },
+      {
+        "start": 736.959,
+        "duration": 3.761,
+        "text": "if you have a node failure this is it"
+      },
+      {
+        "start": 739.04,
+        "duration": 3.68,
+        "text": "it's very strict"
+      },
+      {
+        "start": 740.72,
+        "duration": 4.32,
+        "text": "you're saying i'm all in on consistency"
+      },
+      {
+        "start": 742.72,
+        "duration": 5.119,
+        "text": "and i'm not in on availability"
+      },
+      {
+        "start": 745.04,
+        "duration": 3.76,
+        "text": "not where you want to be probably so use"
+      },
+      {
+        "start": 747.839,
+        "duration": 2.961,
+        "text": "that wisely"
+      },
+      {
+        "start": 748.8,
+        "duration": 3.52,
+        "text": "but most likely you're just going to use"
+      },
+      {
+        "start": 750.8,
+        "duration": 3.44,
+        "text": "one and quorum"
+      },
+      {
+        "start": 752.32,
+        "duration": 3.84,
+        "text": "or local quorum if you're in a"
+      },
+      {
+        "start": 754.24,
+        "duration": 3.36,
+        "text": "multi-data center situation"
+      },
+      {
+        "start": 756.16,
+        "duration": 3.52,
+        "text": "and those are the ones you'll stick to"
+      },
+      {
+        "start": 757.6,
+        "duration": 3.919,
+        "text": "mostly for your strong consistency"
+      },
+      {
+        "start": 759.68,
+        "duration": 4.24,
+        "text": "or when your consistency needs a little"
+      },
+      {
+        "start": 761.519,
+        "duration": 4.161,
+        "text": "less so just to wrap this up"
+      },
+      {
+        "start": 763.92,
+        "duration": 4.08,
+        "text": "remember consistency is such an"
+      },
+      {
+        "start": 765.68,
+        "duration": 4.56,
+        "text": "important part of the replication story"
+      },
+      {
+        "start": 768.0,
+        "duration": 3.76,
+        "text": "they glue together i've said this so"
+      },
+      {
+        "start": 770.24,
+        "duration": 3.44,
+        "text": "many times in the past"
+      },
+      {
+        "start": 771.76,
+        "duration": 4.319,
+        "text": "if you want to understand how cassandra"
+      },
+      {
+        "start": 773.68,
+        "duration": 4.88,
+        "text": "works you have to understand replication"
+      },
+      {
+        "start": 776.079,
+        "duration": 4.081,
+        "text": "and consistency replicating your data"
+      },
+      {
+        "start": 778.56,
+        "duration": 3.76,
+        "text": "around like a cowboy"
+      },
+      {
+        "start": 780.16,
+        "duration": 4.32,
+        "text": "that's great but you are a developer who"
+      },
+      {
+        "start": 782.32,
+        "duration": 4.4,
+        "text": "needs to understand where your data is"
+      },
+      {
+        "start": 784.48,
+        "duration": 3.28,
+        "text": "and that's where consistency level comes"
+      },
+      {
+        "start": 786.72,
+        "duration": 3.76,
+        "text": "in you get"
+      },
+      {
+        "start": 787.76,
+        "duration": 4.079,
+        "text": "to know where your data is awesome so"
+      },
+      {
+        "start": 790.48,
+        "duration": 2.72,
+        "text": "just think about the trade-offs"
+      },
+      {
+        "start": 791.839,
+        "duration": 3.521,
+        "text": "that's really how you pick your"
+      },
+      {
+        "start": 793.2,
+        "duration": 4.56,
+        "text": "consistency level if i need"
+      },
+      {
+        "start": 795.36,
+        "duration": 3.599,
+        "text": "low latency and i'm not so concerned"
+      },
+      {
+        "start": 797.76,
+        "duration": 4.0,
+        "text": "about steel data"
+      },
+      {
+        "start": 798.959,
+        "duration": 3.921,
+        "text": "one if i have a lot more concern about"
+      },
+      {
+        "start": 801.76,
+        "duration": 3.84,
+        "text": "consistency"
+      },
+      {
+        "start": 802.88,
+        "duration": 3.68,
+        "text": "and maybe even up time for my data"
+      },
+      {
+        "start": 805.6,
+        "duration": 2.96,
+        "text": "quorum"
+      },
+      {
+        "start": 806.56,
+        "duration": 3.92,
+        "text": "but both of these things are things that"
+      },
+      {
+        "start": 808.56,
+        "duration": 3.279,
+        "text": "are trade-offs and you can make a good"
+      },
+      {
+        "start": 810.48,
+        "duration": 4.159,
+        "text": "decision now that you know"
+      },
+      {
+        "start": 811.839,
+        "duration": 4.24,
+        "text": "how they work so let's try and exercise"
+      },
+      {
+        "start": 814.639,
+        "duration": 8.081,
+        "text": "with consistency level"
+      },
+      {
+        "start": 816.079,
+        "duration": 6.641,
+        "text": "and see how they work in practice"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T01:57:42.979860+00:00"
+}

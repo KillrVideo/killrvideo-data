@@ -1,0 +1,2712 @@
+{
+  "video_id": "vN7X1SpMFss",
+  "title": "The Power of Lightweight Transactions by Eric Zietlow | DatStax Presents",
+  "description": "Lightweight transactions are extremely powerful when used correctly. They not only enable you to use a highly durable distributed system in an ACID like way but they allow you to do it with ease. In this talk we will explore the application of lightweight transactions and when they should be used.\n\nABOUT DATASTAX ENTERPRISE 6\nDataStax  powers  the  Right-Now  Enterprise  with  the  always-on,  distributed  cloud  database  built  on  Apache  Cassandra™  and designed for hybrid cloud. DataStax Enterprise 6 (DSE 6) includes industry-leading performance, self-driving operational simplicity, and robust analytics.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://www.datastax.com/products/datastax-enterprise-6\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax | https://twitter.com/datastax-academy\nLinkedin: https://www.linkedin.com/company/datastax\nhttp://feeds.feedburner.com/datastax \nhttps://github.com/datastax \n\nABOUT DATASTAX ACADEMY\nOn the DataStax Academy YouTube channel, you can find tutorials, webinars and much more to help you learn and stay updated with the latest information on DataStax Enterprise©.  Create an account on https://academy.datastax.com to watch our free online courses, tutorials, and more.",
+  "published_at": "2019-05-01T13:00:25Z",
+  "thumbnail": "https://i.ytimg.com/vi/vN7X1SpMFss/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "tutorial",
+    "database",
+    "performance",
+    "talk",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=vN7X1SpMFss",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "all right well hello everyone I am gonna be doing a talk on lightweight transactions here so I am a developer advocate for data stacks that basically means I get to travel around talking doing cool things and just generally goofing off for work which is kind of awesome they basically pay me to do what I would be doing anyway so right now I'll get into it so we are working for the empire today we're the bad guys we like being the bad guys my Star Trek presentation is actually for the board because there's a lot of good parallels between Kassandra distributed systems and Borg but for the couple Trekkie nerds out there so basically as the Empire we have some issues with data storage you know we have a big fleet and this big fleet has a lot of different pieces of data coming for a lot of different places they need it all to be consistent you know they're using it to actually make some pretty big strategic decisions it all needs to be current and we can't really have any errors so kind of a big undertaking a big task here and you know much much bigger than probably almost anything else we've done it today so failure is not really an option on there's some pretty stiff penalties here so we really got to make sure we're choosing the right solutions for fit our problems so some of the specific challenges there's many updates from many sources we can't have any downtime you know down time equals really bad things especially when there's you know lasers flying and that kind of thing data needs to be accurate obviously like I said it's being used for decision-making and some of it is you know pretty pretty important stuff and then fast SLA is we can't be sitting there waiting for a year for a job to complete that we really need the info now from so we did get some contractors in there and it kind of resulted in some outages downtime you know generally wasn't a good experience so we're not really into this whole you know sequel world anymore we're kind of thinking outside the box so enter Cassandra Cassandra as we all know is distributed database linearly linearly scalable will kind of get into it a little bit here I'm gonna cover some basic terminology I assume most people in the room probably know how this all works but just as a quick refresher and then we'll kind of get into the crazy specifics that you know are pretty good in if there are any questions at any point here feel free to raise your hand and you know grill me and if you know something I don't you might need a t-shirt or something so all right so terminology we have nodes nodes are individual actors within a Cassandra cluster it's a single instance or install of Cassandra each node is part of a data center a data center is a logical grouping of nodes it's not necessarily a physical data center somewhere it can be AWS could be anywhere to cloud like we really don't care we're agnostic to that it's just our logical grouping of nodes each cluster then it can have multiple data centers in it so each yeah this is a single cluster this is a single database but we're spread out over two separate locations in this case we're kind of looking for the fleet to each have their own data center on each of the ships and you know have one cluster across the entire Empire so as you can see we're fairly spread out basically everything you see there that has names filled in is you know where where we're working so geolocation is very important we have a lot of issues around yeah we don't need all of this minor system data from this planet to be on all of our planets so things like key space replication factor actually become very key and that's why Cassandra is really a good fit for what we're doing now a senator being multi data center means that we actually have the ability to be active active this is probably the biggest selling point in this situation mainly because as I showed you we're really spread out and we actually need to do reads rights from anywhere against arcs and/or cluster so we're not you know inputting and then only reading from one location or we're very it frees us up to consume this data that we're generating how we see fit so very important linearly scalable is also a really big important thing as we're building out the empire building on our fleet obviously the sensor data the you know data from different worlds as we take over in more worlds becomes much much greater and it grows so we need the solution to scale with us so again Cassandra is perfect and then fault tolerance things don't always go as planned and as we saw from you know those previous sequel contractors who came in there you know outages happen and we want to be able to stay up even when they do so we have an issue here though so for our decision-making processes we need to be able to provide some guarantees and these guarantees are the the you know TIE fighters we think we're launching are being launched they aren't actually blown up that we need to be able to you know figure out what storm troopers are available what ones are alive ones maybe you know ran into a group of Ewoks or something like we need to know these things and we needed to be fairly accurate so we need to provide some guarantees and Cassandra out of the box can't absolutely guarantee it is good consistency I mean we're not we're not sitting there going oh no like we're having to wait seconds for updates between data centers we're not we're not dealing with that problem but we still need some guarantees against some of this stuff so and as we we talked about four bad decision making results in bad things for us so what this means is Cassandra if it's in the AP part of the cap theorem and cap theorem is basically the the concept that you can pick two of any of these for any database solution so you're gonna live with Cassandra you're basically stuck in AP now you see up there we've got BigTable HBase Redis those are all CP which is consistent and partition tolerant which consistency is what we're obviously lacking that we need more of so enter the Cassandra lightweight transaction that actually shifts us we're giving up some availability for better consistency so Sandra lightweight transactions actually acid like no they aren't acid like you for thinking oh this is a relational database acid transaction no not exactly it's actually more of a compare set sort of thing and and we don't actually offer like the rollback or any of those features that you get in the relational database world but they do provide us with certain guarantees when writing and we will kind of get into some of the caveats there so I have a terrible time actually pronouncing these whenever I'm up on stage so I'm just going to let you guys read them oh this is basically the acronym for acid this is what it means we'll jump into it a little bit so lightweight transactions don't really change the Optima city I think is how it's pronounced um of the transaction so this isn't really where the focus is of our efforts here but it is part of acid so I did want to put it up there that where we're not just skipping over parts let's see we've got consistency now this is the one we're chasing after right we're trying to provide guarantees in consistency that what we wrote will be written and in a distributed system things won't be out of sync and we'll get into a couple scenarios where things can be out of sync with normal read writes there is actually an interesting thing with this you can provide pretty close to a lightweight transaction guarantee without a lightweight transaction by messing with your consistency level but you're never quite gonna get all the way there you can do you pretty close though isolation so basically this is where that that comparin set value comes in we're actually able to test for existing values it's kind of the if clause and cover that but this is actually where lightweight transactions provide a unique capability that you don't have otherwise in Cassandra and lastly we have durability basically this is this is one of the reasons you would use Cassandra this is commit log hints you know these are all mechanisms to actually help with durability so all right so in a relational world where you have a single box it's actually pretty easy to make some guarantees on things you don't have to go out and get a whole bunch of different instances pure instances to agree on something to write something you basically write and you say yes it wrote no it didn't and you're kind of done in a distributed world though it becomes way more complex because you're not just talking to a single object anymore you're talking to potentially hundreds and hundreds of instances and they all need to be able to provide the right information to each other so that you don't end up with overwrites if say something was trying to hit the same row and so that's where Paxos comes in Paxos is basically the kind of the easy way to make these guarantees and it requires four different major steps basically a preparation at a promise a read results proposal accept and commit acknowledge and then once all of those steps pass you actually end up with a yes this wrote no this didn't and in life moves on that slows you down though as you saw there are four steps and there's actually a latency cost to that so when you're actually using these transactions your lightweight versus non lightweight is gonna have three to four times the latency because you know you got your network you've got some decision-making that's going on you've got on that whole compare operation we talked about earlier that all has to happen that wouldn't under a normal you know Cassandra transaction normally if you do a insert in a Sandra world it just doesn't upset if there's something already there or like we just don't care we just throw things at it it goes super super fast lightweight transactions actually takes a lot more into consideration before it finishes so consistency levels there is we're all familiar with quorum and local quorum you know the 51-percent kind of rule within a data center or as a whole probably everyone here or most everyone here using local quorum for what they're doing if they have a cluster if not I'd actually be very interested to hear why on what your use cases let we transactions however have to roughly equivalent consistency levels that serial and local serial and those basically say this transaction will be handled under the construct of the lightweight transaction so it's gonna be handled slightly differently but the 51% rule still applies so you still need you know that number of nodes the fifty-one percent if you have like RF three still need two replies for a success and and everything as you would expect alright so insert and update they require use of the if clause and that's will actually show you a little more on that in a second on the if Clause Forces Operational uniqueness basically this is that compare and set we're actually going to test for a value if that value is there we will succeed if that will fail operators we have a lot of the operators it should be used to you know the greater than greater than equal to all that stuff is usable the only one that always trips me up and it's always the one with that I go and look at the docks after I've you know been banging my head against my keyboard is the end clause because I'm always thinking equal but it's always ends up being in but essentially it would function the same as what you'd think an equal would alright so here's where it gets kind of juicy so what we're doing here we've got an insert into our death star data system metrics table we've got our idea of the system we've got it's our super laser and its operational you also see the if not exists at the end there that is your ax statement that's basically what says hey I'm gonna a transaction process me like a lightweight transaction and then the really cool one is update where we're doing update desk our data tie fighter status and we're setting a status to active on that particular tie fighter if it's status is fuel that it active now if that status was destroyed or maybe unfilled in a or anything else we don't want to set that to active because that's not going to be an operational tie-fighter and if something were to happen like you know some rebel scum were to creep in and blow that TIE fighter up at the exact time we were trying to put is set it to active and so we have a conflicting piece of information hitting our database saying oh this is actually an inactive TIE fighter or a destroyed TIE fighter we would want that to be taken into account so whichever message gets there first will be the one that gets written all right now this gets into the big caveat the big gotcha in light-weight transactions I've seen a lot of people misusing them in this way and it results in some really bad stuff basically if you use normal transactions and lightwei transactions on the same table you are essentially sabotaging yourself because the normal transactions will not respect any of the blocking they don't respect any of the process or procedure that the lightweight transactions have in place what that means is if I do a normal transaction that's writing to a row and I have a lightweight transaction that's in the process of writing to a row it's just gonna do its normal transaction and we have to live with the consequences so you can end up with some really bad anti pattern stuff going on here if if you end up you know writing them against the same tables so kind of best rule of thumb and a lot of Doc's says blog posts on this out there there's white papers on this and everyone's in agreement lightweight transaction tables are for lightweight transactions and make a normal table for normal transactions and just keep them very very separate okay so in summary here cap theorem we're basically moving from that a P to a CP making it giving up our availability for a stronger consistency we still get all the other benefits from having Cassandra we get the data center we get the tolerance we get everything we would choose Cassandra for we're just having to give up a slight bit of availability in those increased Layton sees the you know slightly slower system but we end up with a much more consistent result the lightweight transactions are not acid but they offer acid like guarantees they use the packs it's protocol to achieve that they're three to four times slower than your normal non lightweight operations they have their own consistency levels which are those serial levels I showed you and just don't mix them with normal transactions just a good idea not to do it that went way faster than it did last time I presented this so there's more resources here of datas get Stax Academy I've always got a plug it that was my first exposure before I ever got hired at data stacks to Cassandra a really good resource I know a lot of people who use it who you know have no affiliation with data text at all if you want to reach me or connect with me on LinkedIn there's my info we did start a data stacks Academy twitch stream if anyone's interested in like live coding stuff we have educational sessions where I get to go on and ask all my stupid questions to the senior programmers who get to tell me why I'm wrong um so there's those resources and join the Empire today we're hiring so any questions yeah limitations like a batch yes yes so I believe let me see if I get this straight I believe you can do a batch Canton with light we transaction but I think you're limited to a single light weight transaction per batch statement and it still will fail or succeed as a whole so if your light weight transaction were to fail then all of your normal transactions against all your other tables would fail as well that is a if memory serves answer though [Music] yeah so there's a scoring system and the scoring system is something I've read through many times and still can't tell you exactly how it works but basically there there's a number that each of them get gets that's their score and one of them will win over the other I believe the other one just gets an error back because it is essentially a block oh yeah failed if Clause like the TIE fighter was destroyed and I was trying to do that update yeah I believe it let's see actually you probably know the answer to this one oh yeah you're trying to trick me yeah yeah I thought it was committed or it wasn't basically yeah we'll do is like in order to know what the quick madness clocks and even know what the do they exist already is okay I made this change did it actually can apply yeah yeah oh yeah that's fair right right yeah there's a solution looks like confused by because I'm you can still see the reason why they call right it's not the heavy transaction I think is a relational world equivalents right everything you do requires extra network hops basically yeah yeah the tax house yeah it basically respects your normal batch like in Cassandra they're both worrying about the same object at the same time this one has done the Lightwave transaction whatever and says if it's not dead yet and this one commits one there since that query at the same time if it's not dead yet this one makes it okay it's not dead it happens it starts getting fueled up this one doesn't know yet that this one got destroyed while it's being filled up my my question is as we start querying okay who's alive now cursor of TIE fighters or whatever whatever that was that are currently alive and this one dad is in the middle of iterating over those cursors poems take for this one like latency on the wire sort of thing yes so that's actually kind of one of the I guess keys of why to use a lightweight transaction right there so with the prepare promise right there we initiate a file or a not a file lock that's alright we initiate a lock and so when that second request that was like nearly concurrent you know they they it might have hit that note over there first but then this these two of have-not right they're both asking at the same time no one's written at that point we have to get to the whole commit step right there at the end before anyone actually goes okay this is the data I'm writing it's written so at that point with the prepare and promise that there's a conflict where you know two different ones are in the in the works that's where that's scoring mechanism I was talking about will determine which one wins and which one fails so you got one that fails one that wins and then the the node that had the failing one will then receive the info for the the winning one so it'll bring that whole thing through and then then the rest of it just goes through normally you know the read results pros accept all that happens normally and the the actual commit happens at the end [Music] [Music] yeah that when to play but this is also kind of a key thing to note that big warning slide I had if you ran one of those is a light weight one of those is not suddenly you'd be in yeah you'd be in big trouble because they're like I said the normal transaction wouldn't respect the lock and it would just go up okay done and who knows depending on where that was in the process you could end up with all sorts of stuff so yeah yeah just don't mix um you know this actually does bring up an interesting thing I haven't thought of before and you might know the answer so there's me asking you question if you have to local cereal against the same table same row different data centers and different pieces of information how does that actually justify because I can tell you in the just pure cereal world that's that's really easy but in a local cereal world you'd end up with normal Kassandra replication happening but then is it just timestamps then that would be respected or how does that actually play out active right yeah that's an interesting sharp edge it just like braids but any other ones cool well thank you you",
+    "segments": [
+      {
+        "start": 1.42,
+        "duration": 5.129,
+        "text": "all right well hello everyone I am gonna"
+      },
+      {
+        "start": 5.319,
+        "duration": 4.801,
+        "text": "be doing a talk on lightweight"
+      },
+      {
+        "start": 6.549,
+        "duration": 5.881,
+        "text": "transactions here so I am a developer"
+      },
+      {
+        "start": 10.12,
+        "duration": 4.14,
+        "text": "advocate for data stacks that basically"
+      },
+      {
+        "start": 12.43,
+        "duration": 4.23,
+        "text": "means I get to travel around talking"
+      },
+      {
+        "start": 14.26,
+        "duration": 4.47,
+        "text": "doing cool things and just generally"
+      },
+      {
+        "start": 16.66,
+        "duration": 3.599,
+        "text": "goofing off for work which is kind of"
+      },
+      {
+        "start": 18.73,
+        "duration": 3.449,
+        "text": "awesome"
+      },
+      {
+        "start": 20.259,
+        "duration": 8.94,
+        "text": "they basically pay me to do what I would"
+      },
+      {
+        "start": 22.179,
+        "duration": 10.021,
+        "text": "be doing anyway so right now I'll get"
+      },
+      {
+        "start": 29.199,
+        "duration": 5.16,
+        "text": "into it so we are working for the empire"
+      },
+      {
+        "start": 32.2,
+        "duration": 3.99,
+        "text": "today we're the bad guys we like being"
+      },
+      {
+        "start": 34.359,
+        "duration": 3.811,
+        "text": "the bad guys my Star Trek presentation"
+      },
+      {
+        "start": 36.19,
+        "duration": 3.119,
+        "text": "is actually for the board because"
+      },
+      {
+        "start": 38.17,
+        "duration": 3.0,
+        "text": "there's a lot of good parallels between"
+      },
+      {
+        "start": 39.309,
+        "duration": 4.32,
+        "text": "Kassandra distributed systems and Borg"
+      },
+      {
+        "start": 41.17,
+        "duration": 7.619,
+        "text": "but for the couple Trekkie nerds out"
+      },
+      {
+        "start": 43.629,
+        "duration": 6.601,
+        "text": "there so basically as the Empire we have"
+      },
+      {
+        "start": 48.789,
+        "duration": 3.75,
+        "text": "some issues with data storage you know"
+      },
+      {
+        "start": 50.23,
+        "duration": 4.68,
+        "text": "we have a big fleet and this big fleet"
+      },
+      {
+        "start": 52.539,
+        "duration": 3.421,
+        "text": "has a lot of different pieces of data"
+      },
+      {
+        "start": 54.91,
+        "duration": 3.0,
+        "text": "coming for a lot of different places"
+      },
+      {
+        "start": 55.96,
+        "duration": 3.75,
+        "text": "they need it all to be consistent you"
+      },
+      {
+        "start": 57.91,
+        "duration": 3.78,
+        "text": "know they're using it to actually make"
+      },
+      {
+        "start": 59.71,
+        "duration": 3.36,
+        "text": "some pretty big strategic decisions it"
+      },
+      {
+        "start": 61.69,
+        "duration": 4.56,
+        "text": "all needs to be current and we can't"
+      },
+      {
+        "start": 63.07,
+        "duration": 5.31,
+        "text": "really have any errors so kind of a big"
+      },
+      {
+        "start": 66.25,
+        "duration": 6.329,
+        "text": "undertaking a big task here and you know"
+      },
+      {
+        "start": 68.38,
+        "duration": 6.75,
+        "text": "much much bigger than probably almost"
+      },
+      {
+        "start": 72.579,
+        "duration": 4.08,
+        "text": "anything else we've done it today so"
+      },
+      {
+        "start": 75.13,
+        "duration": 3.15,
+        "text": "failure is not really an option on"
+      },
+      {
+        "start": 76.659,
+        "duration": 3.361,
+        "text": "there's some pretty stiff penalties here"
+      },
+      {
+        "start": 78.28,
+        "duration": 3.54,
+        "text": "so we really got to make sure we're"
+      },
+      {
+        "start": 80.02,
+        "duration": 5.34,
+        "text": "choosing the right solutions for fit our"
+      },
+      {
+        "start": 81.82,
+        "duration": 5.67,
+        "text": "problems so some of the specific"
+      },
+      {
+        "start": 85.36,
+        "duration": 5.13,
+        "text": "challenges there's many updates from"
+      },
+      {
+        "start": 87.49,
+        "duration": 4.89,
+        "text": "many sources we can't have any downtime"
+      },
+      {
+        "start": 90.49,
+        "duration": 3.36,
+        "text": "you know down time equals really bad"
+      },
+      {
+        "start": 92.38,
+        "duration": 3.87,
+        "text": "things especially when there's you know"
+      },
+      {
+        "start": 93.85,
+        "duration": 4.14,
+        "text": "lasers flying and that kind of thing"
+      },
+      {
+        "start": 96.25,
+        "duration": 2.82,
+        "text": "data needs to be accurate obviously like"
+      },
+      {
+        "start": 97.99,
+        "duration": 3.54,
+        "text": "I said it's being used for"
+      },
+      {
+        "start": 99.07,
+        "duration": 4.38,
+        "text": "decision-making and some of it is you"
+      },
+      {
+        "start": 101.53,
+        "duration": 4.11,
+        "text": "know pretty pretty important stuff and"
+      },
+      {
+        "start": 103.45,
+        "duration": 4.529,
+        "text": "then fast SLA is we can't be sitting"
+      },
+      {
+        "start": 105.64,
+        "duration": 3.659,
+        "text": "there waiting for a year for a job to"
+      },
+      {
+        "start": 107.979,
+        "duration": 5.131,
+        "text": "complete that we really need the info"
+      },
+      {
+        "start": 109.299,
+        "duration": 8.041,
+        "text": "now from so we did get some contractors"
+      },
+      {
+        "start": 113.11,
+        "duration": 6.359,
+        "text": "in there and it kind of resulted in some"
+      },
+      {
+        "start": 117.34,
+        "duration": 4.62,
+        "text": "outages downtime you know generally"
+      },
+      {
+        "start": 119.469,
+        "duration": 5.281,
+        "text": "wasn't a good experience so we're not"
+      },
+      {
+        "start": 121.96,
+        "duration": 4.079,
+        "text": "really into this whole you know sequel"
+      },
+      {
+        "start": 124.75,
+        "duration": 4.759,
+        "text": "world anymore we're kind of thinking"
+      },
+      {
+        "start": 126.039,
+        "duration": 7.351,
+        "text": "outside the box so enter Cassandra"
+      },
+      {
+        "start": 129.509,
+        "duration": 5.331,
+        "text": "Cassandra as we all know is distributed"
+      },
+      {
+        "start": 133.39,
+        "duration": 6.26,
+        "text": "database"
+      },
+      {
+        "start": 134.84,
+        "duration": 6.7,
+        "text": "linearly linearly scalable will kind of"
+      },
+      {
+        "start": 139.65,
+        "duration": 3.839,
+        "text": "get into it a little bit here I'm gonna"
+      },
+      {
+        "start": 141.54,
+        "duration": 3.51,
+        "text": "cover some basic terminology I assume"
+      },
+      {
+        "start": 143.489,
+        "duration": 3.72,
+        "text": "most people in the room probably know"
+      },
+      {
+        "start": 145.05,
+        "duration": 3.33,
+        "text": "how this all works but just as a quick"
+      },
+      {
+        "start": 147.209,
+        "duration": 4.261,
+        "text": "refresher and then we'll kind of get"
+      },
+      {
+        "start": 148.38,
+        "duration": 4.26,
+        "text": "into the crazy specifics that you know"
+      },
+      {
+        "start": 151.47,
+        "duration": 2.61,
+        "text": "are pretty good in if there are any"
+      },
+      {
+        "start": 152.64,
+        "duration": 3.569,
+        "text": "questions at any point here feel free to"
+      },
+      {
+        "start": 154.08,
+        "duration": 3.45,
+        "text": "raise your hand and you know grill me"
+      },
+      {
+        "start": 156.209,
+        "duration": 4.141,
+        "text": "and if you know something I don't you"
+      },
+      {
+        "start": 157.53,
+        "duration": 5.4,
+        "text": "might need a t-shirt or something so all"
+      },
+      {
+        "start": 160.35,
+        "duration": 4.62,
+        "text": "right so terminology we have nodes nodes"
+      },
+      {
+        "start": 162.93,
+        "duration": 3.96,
+        "text": "are individual actors within a Cassandra"
+      },
+      {
+        "start": 164.97,
+        "duration": 5.88,
+        "text": "cluster it's a single instance or"
+      },
+      {
+        "start": 166.89,
+        "duration": 6.36,
+        "text": "install of Cassandra each node is part"
+      },
+      {
+        "start": 170.85,
+        "duration": 4.29,
+        "text": "of a data center a data center is a"
+      },
+      {
+        "start": 173.25,
+        "duration": 4.62,
+        "text": "logical grouping of nodes it's not"
+      },
+      {
+        "start": 175.14,
+        "duration": 4.47,
+        "text": "necessarily a physical data center"
+      },
+      {
+        "start": 177.87,
+        "duration": 3.899,
+        "text": "somewhere it can be AWS could be"
+      },
+      {
+        "start": 179.61,
+        "duration": 4.32,
+        "text": "anywhere to cloud like we really don't"
+      },
+      {
+        "start": 181.769,
+        "duration": 5.521,
+        "text": "care we're agnostic to that it's just"
+      },
+      {
+        "start": 183.93,
+        "duration": 6.27,
+        "text": "our logical grouping of nodes each"
+      },
+      {
+        "start": 187.29,
+        "duration": 6.12,
+        "text": "cluster then it can have multiple data"
+      },
+      {
+        "start": 190.2,
+        "duration": 4.65,
+        "text": "centers in it so each yeah this is a"
+      },
+      {
+        "start": 193.41,
+        "duration": 4.579,
+        "text": "single cluster this is a single database"
+      },
+      {
+        "start": 194.85,
+        "duration": 5.91,
+        "text": "but we're spread out over two separate"
+      },
+      {
+        "start": 197.989,
+        "duration": 4.451,
+        "text": "locations in this case we're kind of"
+      },
+      {
+        "start": 200.76,
+        "duration": 4.069,
+        "text": "looking for the fleet to each have their"
+      },
+      {
+        "start": 202.44,
+        "duration": 5.07,
+        "text": "own data center on each of the ships and"
+      },
+      {
+        "start": 204.829,
+        "duration": 5.591,
+        "text": "you know have one cluster across the"
+      },
+      {
+        "start": 207.51,
+        "duration": 5.25,
+        "text": "entire Empire so as you can see we're"
+      },
+      {
+        "start": 210.42,
+        "duration": 4.77,
+        "text": "fairly spread out basically everything"
+      },
+      {
+        "start": 212.76,
+        "duration": 5.789,
+        "text": "you see there that has names filled in"
+      },
+      {
+        "start": 215.19,
+        "duration": 5.97,
+        "text": "is you know where where we're working so"
+      },
+      {
+        "start": 218.549,
+        "duration": 5.521,
+        "text": "geolocation is very important we have a"
+      },
+      {
+        "start": 221.16,
+        "duration": 6.06,
+        "text": "lot of issues around yeah we don't need"
+      },
+      {
+        "start": 224.07,
+        "duration": 5.55,
+        "text": "all of this minor system data from this"
+      },
+      {
+        "start": 227.22,
+        "duration": 4.56,
+        "text": "planet to be on all of our planets so"
+      },
+      {
+        "start": 229.62,
+        "duration": 4.5,
+        "text": "things like key space replication factor"
+      },
+      {
+        "start": 231.78,
+        "duration": 3.6,
+        "text": "actually become very key and that's why"
+      },
+      {
+        "start": 234.12,
+        "duration": 5.85,
+        "text": "Cassandra is really a good fit for what"
+      },
+      {
+        "start": 235.38,
+        "duration": 7.889,
+        "text": "we're doing now a senator being multi"
+      },
+      {
+        "start": 239.97,
+        "duration": 6.75,
+        "text": "data center means that we actually have"
+      },
+      {
+        "start": 243.269,
+        "duration": 5.431,
+        "text": "the ability to be active active this is"
+      },
+      {
+        "start": 246.72,
+        "duration": 2.9,
+        "text": "probably the biggest selling point in"
+      },
+      {
+        "start": 248.7,
+        "duration": 3.539,
+        "text": "this situation"
+      },
+      {
+        "start": 249.62,
+        "duration": 4.72,
+        "text": "mainly because as I showed you we're"
+      },
+      {
+        "start": 252.239,
+        "duration": 5.791,
+        "text": "really spread out and we actually need"
+      },
+      {
+        "start": 254.34,
+        "duration": 5.88,
+        "text": "to do reads rights from anywhere against"
+      },
+      {
+        "start": 258.03,
+        "duration": 4.65,
+        "text": "arcs and/or cluster so we're not you"
+      },
+      {
+        "start": 260.22,
+        "duration": 5.64,
+        "text": "know inputting and then only reading"
+      },
+      {
+        "start": 262.68,
+        "duration": 5.04,
+        "text": "from one location or we're very it frees"
+      },
+      {
+        "start": 265.86,
+        "duration": 4.32,
+        "text": "us up to consume this data"
+      },
+      {
+        "start": 267.72,
+        "duration": 6.21,
+        "text": "that we're generating how we see fit so"
+      },
+      {
+        "start": 270.18,
+        "duration": 6.24,
+        "text": "very important linearly scalable is also"
+      },
+      {
+        "start": 273.93,
+        "duration": 3.9,
+        "text": "a really big important thing as we're"
+      },
+      {
+        "start": 276.42,
+        "duration": 4.35,
+        "text": "building out the empire building on our"
+      },
+      {
+        "start": 277.83,
+        "duration": 4.2,
+        "text": "fleet obviously the sensor data the you"
+      },
+      {
+        "start": 280.77,
+        "duration": 4.38,
+        "text": "know data from different worlds as we"
+      },
+      {
+        "start": 282.03,
+        "duration": 4.56,
+        "text": "take over in more worlds becomes much"
+      },
+      {
+        "start": 285.15,
+        "duration": 2.7,
+        "text": "much greater and it grows so we need the"
+      },
+      {
+        "start": 286.59,
+        "duration": 3.57,
+        "text": "solution to scale with us so again"
+      },
+      {
+        "start": 287.85,
+        "duration": 4.5,
+        "text": "Cassandra is perfect and then fault"
+      },
+      {
+        "start": 290.16,
+        "duration": 4.44,
+        "text": "tolerance things don't always go as"
+      },
+      {
+        "start": 292.35,
+        "duration": 4.68,
+        "text": "planned and as we saw from you know"
+      },
+      {
+        "start": 294.6,
+        "duration": 6.12,
+        "text": "those previous sequel contractors who"
+      },
+      {
+        "start": 297.03,
+        "duration": 6.99,
+        "text": "came in there you know outages happen"
+      },
+      {
+        "start": 300.72,
+        "duration": 6.57,
+        "text": "and we want to be able to stay up even"
+      },
+      {
+        "start": 304.02,
+        "duration": 4.92,
+        "text": "when they do so we have an issue here"
+      },
+      {
+        "start": 307.29,
+        "duration": 3.69,
+        "text": "though so for our decision-making"
+      },
+      {
+        "start": 308.94,
+        "duration": 4.56,
+        "text": "processes we need to be able to provide"
+      },
+      {
+        "start": 310.98,
+        "duration": 4.89,
+        "text": "some guarantees and these guarantees are"
+      },
+      {
+        "start": 313.5,
+        "duration": 4.11,
+        "text": "the the you know TIE fighters we think"
+      },
+      {
+        "start": 315.87,
+        "duration": 3.78,
+        "text": "we're launching are being launched they"
+      },
+      {
+        "start": 317.61,
+        "duration": 3.6,
+        "text": "aren't actually blown up that we need to"
+      },
+      {
+        "start": 319.65,
+        "duration": 3.69,
+        "text": "be able to you know figure out what"
+      },
+      {
+        "start": 321.21,
+        "duration": 4.62,
+        "text": "storm troopers are available what ones"
+      },
+      {
+        "start": 323.34,
+        "duration": 5.04,
+        "text": "are alive ones maybe you know ran into a"
+      },
+      {
+        "start": 325.83,
+        "duration": 3.75,
+        "text": "group of Ewoks or something like we need"
+      },
+      {
+        "start": 328.38,
+        "duration": 2.94,
+        "text": "to know these things and we needed to be"
+      },
+      {
+        "start": 329.58,
+        "duration": 3.48,
+        "text": "fairly accurate so we need to provide"
+      },
+      {
+        "start": 331.32,
+        "duration": 5.46,
+        "text": "some guarantees and Cassandra out of the"
+      },
+      {
+        "start": 333.06,
+        "duration": 6.69,
+        "text": "box can't absolutely guarantee it is"
+      },
+      {
+        "start": 336.78,
+        "duration": 6.36,
+        "text": "good consistency I mean we're not we're"
+      },
+      {
+        "start": 339.75,
+        "duration": 4.919,
+        "text": "not sitting there going oh no like we're"
+      },
+      {
+        "start": 343.14,
+        "duration": 3.81,
+        "text": "having to wait seconds for updates"
+      },
+      {
+        "start": 344.669,
+        "duration": 4.201,
+        "text": "between data centers we're not we're not"
+      },
+      {
+        "start": 346.95,
+        "duration": 3.12,
+        "text": "dealing with that problem but we still"
+      },
+      {
+        "start": 348.87,
+        "duration": 5.25,
+        "text": "need some guarantees against some of"
+      },
+      {
+        "start": 350.07,
+        "duration": 5.79,
+        "text": "this stuff so and as we we talked about"
+      },
+      {
+        "start": 354.12,
+        "duration": 5.24,
+        "text": "four bad decision making results in bad"
+      },
+      {
+        "start": 355.86,
+        "duration": 7.86,
+        "text": "things for us so what this means is"
+      },
+      {
+        "start": 359.36,
+        "duration": 6.13,
+        "text": "Cassandra if it's in the AP part of the"
+      },
+      {
+        "start": 363.72,
+        "duration": 5.64,
+        "text": "cap theorem and cap theorem is basically"
+      },
+      {
+        "start": 365.49,
+        "duration": 6.03,
+        "text": "the the concept that you can pick two of"
+      },
+      {
+        "start": 369.36,
+        "duration": 5.04,
+        "text": "any of these for any database solution"
+      },
+      {
+        "start": 371.52,
+        "duration": 4.95,
+        "text": "so you're gonna live with Cassandra"
+      },
+      {
+        "start": 374.4,
+        "duration": 4.59,
+        "text": "you're basically stuck in AP now you see"
+      },
+      {
+        "start": 376.47,
+        "duration": 5.12,
+        "text": "up there we've got BigTable HBase"
+      },
+      {
+        "start": 378.99,
+        "duration": 6.27,
+        "text": "Redis those are all CP which is"
+      },
+      {
+        "start": 381.59,
+        "duration": 5.59,
+        "text": "consistent and partition tolerant which"
+      },
+      {
+        "start": 385.26,
+        "duration": 4.35,
+        "text": "consistency is what we're obviously"
+      },
+      {
+        "start": 387.18,
+        "duration": 4.5,
+        "text": "lacking that we need more of so enter"
+      },
+      {
+        "start": 389.61,
+        "duration": 4.02,
+        "text": "the Cassandra lightweight transaction"
+      },
+      {
+        "start": 391.68,
+        "duration": 6.71,
+        "text": "that actually shifts us we're giving up"
+      },
+      {
+        "start": 393.63,
+        "duration": 7.86,
+        "text": "some availability for better consistency"
+      },
+      {
+        "start": 398.39,
+        "duration": 5.529,
+        "text": "so Sandra lightweight transactions"
+      },
+      {
+        "start": 401.49,
+        "duration": 4.26,
+        "text": "actually acid like no they aren't acid"
+      },
+      {
+        "start": 403.919,
+        "duration": 3.81,
+        "text": "like you for thinking oh this is a"
+      },
+      {
+        "start": 405.75,
+        "duration": 3.599,
+        "text": "relational database acid transaction no"
+      },
+      {
+        "start": 407.729,
+        "duration": 4.921,
+        "text": "not exactly it's actually more of a"
+      },
+      {
+        "start": 409.349,
+        "duration": 6.841,
+        "text": "compare set sort of thing and and we"
+      },
+      {
+        "start": 412.65,
+        "duration": 5.519,
+        "text": "don't actually offer like the rollback"
+      },
+      {
+        "start": 416.19,
+        "duration": 4.259,
+        "text": "or any of those features that you get in"
+      },
+      {
+        "start": 418.169,
+        "duration": 4.5,
+        "text": "the relational database world but they"
+      },
+      {
+        "start": 420.449,
+        "duration": 4.021,
+        "text": "do provide us with certain guarantees"
+      },
+      {
+        "start": 422.669,
+        "duration": 5.31,
+        "text": "when writing and we will kind of get"
+      },
+      {
+        "start": 424.47,
+        "duration": 5.37,
+        "text": "into some of the caveats there so I have"
+      },
+      {
+        "start": 427.979,
+        "duration": 3.541,
+        "text": "a terrible time actually pronouncing"
+      },
+      {
+        "start": 429.84,
+        "duration": 4.009,
+        "text": "these whenever I'm up on stage so I'm"
+      },
+      {
+        "start": 431.52,
+        "duration": 6.45,
+        "text": "just going to let you guys read them oh"
+      },
+      {
+        "start": 433.849,
+        "duration": 6.371,
+        "text": "this is basically the acronym for acid"
+      },
+      {
+        "start": 437.97,
+        "duration": 6.66,
+        "text": "this is what it means we'll jump into it"
+      },
+      {
+        "start": 440.22,
+        "duration": 9.18,
+        "text": "a little bit so lightweight transactions"
+      },
+      {
+        "start": 444.63,
+        "duration": 10.08,
+        "text": "don't really change the Optima city I"
+      },
+      {
+        "start": 449.4,
+        "duration": 7.47,
+        "text": "think is how it's pronounced um of the"
+      },
+      {
+        "start": 454.71,
+        "duration": 6.06,
+        "text": "transaction so this isn't really where"
+      },
+      {
+        "start": 456.87,
+        "duration": 6.419,
+        "text": "the focus is of our efforts here but it"
+      },
+      {
+        "start": 460.77,
+        "duration": 3.48,
+        "text": "is part of acid so I did want to put it"
+      },
+      {
+        "start": 463.289,
+        "duration": 6.021,
+        "text": "up there that where we're not just"
+      },
+      {
+        "start": 464.25,
+        "duration": 7.199,
+        "text": "skipping over parts let's see we've got"
+      },
+      {
+        "start": 469.31,
+        "duration": 4.03,
+        "text": "consistency now this is the one we're"
+      },
+      {
+        "start": 471.449,
+        "duration": 4.621,
+        "text": "chasing after right we're trying to"
+      },
+      {
+        "start": 473.34,
+        "duration": 5.759,
+        "text": "provide guarantees in consistency that"
+      },
+      {
+        "start": 476.07,
+        "duration": 5.099,
+        "text": "what we wrote will be written and in a"
+      },
+      {
+        "start": 479.099,
+        "duration": 4.141,
+        "text": "distributed system things won't be out"
+      },
+      {
+        "start": 481.169,
+        "duration": 3.84,
+        "text": "of sync and we'll get into a couple"
+      },
+      {
+        "start": 483.24,
+        "duration": 5.25,
+        "text": "scenarios where things can be out of"
+      },
+      {
+        "start": 485.009,
+        "duration": 4.891,
+        "text": "sync with normal read writes there is"
+      },
+      {
+        "start": 488.49,
+        "duration": 3.72,
+        "text": "actually an interesting thing with this"
+      },
+      {
+        "start": 489.9,
+        "duration": 3.48,
+        "text": "you can provide pretty close to a"
+      },
+      {
+        "start": 492.21,
+        "duration": 3.03,
+        "text": "lightweight transaction guarantee"
+      },
+      {
+        "start": 493.38,
+        "duration": 4.02,
+        "text": "without a lightweight transaction by"
+      },
+      {
+        "start": 495.24,
+        "duration": 3.899,
+        "text": "messing with your consistency level but"
+      },
+      {
+        "start": 497.4,
+        "duration": 6.38,
+        "text": "you're never quite gonna get all the way"
+      },
+      {
+        "start": 499.139,
+        "duration": 10.261,
+        "text": "there you can do you pretty close though"
+      },
+      {
+        "start": 503.78,
+        "duration": 8.199,
+        "text": "isolation so basically this is where"
+      },
+      {
+        "start": 509.4,
+        "duration": 4.92,
+        "text": "that that comparin set value comes in"
+      },
+      {
+        "start": 511.979,
+        "duration": 4.56,
+        "text": "we're actually able to test for existing"
+      },
+      {
+        "start": 514.32,
+        "duration": 5.279,
+        "text": "values it's kind of the if clause and"
+      },
+      {
+        "start": 516.539,
+        "duration": 4.68,
+        "text": "cover that but this is actually where"
+      },
+      {
+        "start": 519.599,
+        "duration": 3.721,
+        "text": "lightweight transactions provide a"
+      },
+      {
+        "start": 521.219,
+        "duration": 7.201,
+        "text": "unique capability that you don't have"
+      },
+      {
+        "start": 523.32,
+        "duration": 9.12,
+        "text": "otherwise in Cassandra and lastly we"
+      },
+      {
+        "start": 528.42,
+        "duration": 5.13,
+        "text": "have durability basically this is this"
+      },
+      {
+        "start": 532.44,
+        "duration": 2.38,
+        "text": "is one of the reasons you would use"
+      },
+      {
+        "start": 533.55,
+        "duration": 4.63,
+        "text": "Cassandra this is"
+      },
+      {
+        "start": 534.82,
+        "duration": 4.8,
+        "text": "commit log hints you know these are all"
+      },
+      {
+        "start": 538.18,
+        "duration": 7.65,
+        "text": "mechanisms to actually help with"
+      },
+      {
+        "start": 539.62,
+        "duration": 8.7,
+        "text": "durability so all right so in a"
+      },
+      {
+        "start": 545.83,
+        "duration": 5.1,
+        "text": "relational world where you have a single"
+      },
+      {
+        "start": 548.32,
+        "duration": 4.29,
+        "text": "box it's actually pretty easy to make"
+      },
+      {
+        "start": 550.93,
+        "duration": 3.69,
+        "text": "some guarantees on things you don't have"
+      },
+      {
+        "start": 552.61,
+        "duration": 4.44,
+        "text": "to go out and get a whole bunch of"
+      },
+      {
+        "start": 554.62,
+        "duration": 5.07,
+        "text": "different instances pure instances to"
+      },
+      {
+        "start": 557.05,
+        "duration": 4.74,
+        "text": "agree on something to write something"
+      },
+      {
+        "start": 559.69,
+        "duration": 4.71,
+        "text": "you basically write and you say yes it"
+      },
+      {
+        "start": 561.79,
+        "duration": 6.36,
+        "text": "wrote no it didn't and you're kind of"
+      },
+      {
+        "start": 564.4,
+        "duration": 5.46,
+        "text": "done in a distributed world though it"
+      },
+      {
+        "start": 568.15,
+        "duration": 3.36,
+        "text": "becomes way more complex because you're"
+      },
+      {
+        "start": 569.86,
+        "duration": 3.42,
+        "text": "not just talking to a single object"
+      },
+      {
+        "start": 571.51,
+        "duration": 3.93,
+        "text": "anymore you're talking to potentially"
+      },
+      {
+        "start": 573.28,
+        "duration": 5.01,
+        "text": "hundreds and hundreds of instances and"
+      },
+      {
+        "start": 575.44,
+        "duration": 5.1,
+        "text": "they all need to be able to provide the"
+      },
+      {
+        "start": 578.29,
+        "duration": 4.2,
+        "text": "right information to each other so that"
+      },
+      {
+        "start": 580.54,
+        "duration": 3.47,
+        "text": "you don't end up with overwrites if say"
+      },
+      {
+        "start": 582.49,
+        "duration": 5.76,
+        "text": "something was trying to hit the same row"
+      },
+      {
+        "start": 584.01,
+        "duration": 8.86,
+        "text": "and so that's where Paxos comes in Paxos"
+      },
+      {
+        "start": 588.25,
+        "duration": 7.14,
+        "text": "is basically the kind of the easy way to"
+      },
+      {
+        "start": 592.87,
+        "duration": 7.35,
+        "text": "make these guarantees and it requires"
+      },
+      {
+        "start": 595.39,
+        "duration": 8.28,
+        "text": "four different major steps basically a"
+      },
+      {
+        "start": 600.22,
+        "duration": 5.46,
+        "text": "preparation at a promise a read results"
+      },
+      {
+        "start": 603.67,
+        "duration": 3.99,
+        "text": "proposal accept and commit acknowledge"
+      },
+      {
+        "start": 605.68,
+        "duration": 3.81,
+        "text": "and then once all of those steps pass"
+      },
+      {
+        "start": 607.66,
+        "duration": 4.59,
+        "text": "you actually end up with a yes this"
+      },
+      {
+        "start": 609.49,
+        "duration": 6.6,
+        "text": "wrote no this didn't and in life moves"
+      },
+      {
+        "start": 612.25,
+        "duration": 5.4,
+        "text": "on that slows you down though as you saw"
+      },
+      {
+        "start": 616.09,
+        "duration": 4.14,
+        "text": "there are four steps and there's"
+      },
+      {
+        "start": 617.65,
+        "duration": 4.55,
+        "text": "actually a latency cost to that so when"
+      },
+      {
+        "start": 620.23,
+        "duration": 4.38,
+        "text": "you're actually using these transactions"
+      },
+      {
+        "start": 622.2,
+        "duration": 4.33,
+        "text": "your lightweight versus non lightweight"
+      },
+      {
+        "start": 624.61,
+        "duration": 3.63,
+        "text": "is gonna have three to four times the"
+      },
+      {
+        "start": 626.53,
+        "duration": 3.6,
+        "text": "latency because you know you got your"
+      },
+      {
+        "start": 628.24,
+        "duration": 3.84,
+        "text": "network you've got some decision-making"
+      },
+      {
+        "start": 630.13,
+        "duration": 3.06,
+        "text": "that's going on you've got on that whole"
+      },
+      {
+        "start": 632.08,
+        "duration": 3.78,
+        "text": "compare operation we talked about"
+      },
+      {
+        "start": 633.19,
+        "duration": 5.01,
+        "text": "earlier that all has to happen that"
+      },
+      {
+        "start": 635.86,
+        "duration": 4.77,
+        "text": "wouldn't under a normal you know"
+      },
+      {
+        "start": 638.2,
+        "duration": 6.0,
+        "text": "Cassandra transaction normally if you do"
+      },
+      {
+        "start": 640.63,
+        "duration": 4.65,
+        "text": "a insert in a Sandra world it just"
+      },
+      {
+        "start": 644.2,
+        "duration": 2.58,
+        "text": "doesn't upset if there's something"
+      },
+      {
+        "start": 645.28,
+        "duration": 3.6,
+        "text": "already there or like we just don't care"
+      },
+      {
+        "start": 646.78,
+        "duration": 3.99,
+        "text": "we just throw things at it it goes super"
+      },
+      {
+        "start": 648.88,
+        "duration": 3.84,
+        "text": "super fast lightweight transactions"
+      },
+      {
+        "start": 650.77,
+        "duration": 6.12,
+        "text": "actually takes a lot more into"
+      },
+      {
+        "start": 652.72,
+        "duration": 6.63,
+        "text": "consideration before it finishes so"
+      },
+      {
+        "start": 656.89,
+        "duration": 3.93,
+        "text": "consistency levels there is we're all"
+      },
+      {
+        "start": 659.35,
+        "duration": 3.0,
+        "text": "familiar with quorum and local quorum"
+      },
+      {
+        "start": 660.82,
+        "duration": 4.73,
+        "text": "you know the 51-percent kind of rule"
+      },
+      {
+        "start": 662.35,
+        "duration": 5.58,
+        "text": "within a data center or as a whole"
+      },
+      {
+        "start": 665.55,
+        "duration": 4.42,
+        "text": "probably everyone here or most"
+      },
+      {
+        "start": 667.93,
+        "duration": 3.75,
+        "text": "everyone here using local quorum for"
+      },
+      {
+        "start": 669.97,
+        "duration": 4.05,
+        "text": "what they're doing if they have a"
+      },
+      {
+        "start": 671.68,
+        "duration": 3.99,
+        "text": "cluster if not I'd actually be very"
+      },
+      {
+        "start": 674.02,
+        "duration": 5.97,
+        "text": "interested to hear why on what your use"
+      },
+      {
+        "start": 675.67,
+        "duration": 8.43,
+        "text": "cases let we transactions however have"
+      },
+      {
+        "start": 679.99,
+        "duration": 6.3,
+        "text": "to roughly equivalent consistency levels"
+      },
+      {
+        "start": 684.1,
+        "duration": 4.71,
+        "text": "that serial and local serial and those"
+      },
+      {
+        "start": 686.29,
+        "duration": 5.13,
+        "text": "basically say this transaction will be"
+      },
+      {
+        "start": 688.81,
+        "duration": 3.96,
+        "text": "handled under the construct of the"
+      },
+      {
+        "start": 691.42,
+        "duration": 3.89,
+        "text": "lightweight transaction so it's gonna be"
+      },
+      {
+        "start": 692.77,
+        "duration": 5.939,
+        "text": "handled slightly differently but the 51%"
+      },
+      {
+        "start": 695.31,
+        "duration": 5.02,
+        "text": "rule still applies so you still need you"
+      },
+      {
+        "start": 698.709,
+        "duration": 3.271,
+        "text": "know that number of nodes the fifty-one"
+      },
+      {
+        "start": 700.33,
+        "duration": 3.99,
+        "text": "percent if you have like RF three still"
+      },
+      {
+        "start": 701.98,
+        "duration": 4.49,
+        "text": "need two replies for a success and and"
+      },
+      {
+        "start": 704.32,
+        "duration": 7.2,
+        "text": "everything as you would expect"
+      },
+      {
+        "start": 706.47,
+        "duration": 9.179,
+        "text": "alright so insert and update they"
+      },
+      {
+        "start": 711.52,
+        "duration": 6.33,
+        "text": "require use of the if clause and that's"
+      },
+      {
+        "start": 715.649,
+        "duration": 4.69,
+        "text": "will actually show you a little more on"
+      },
+      {
+        "start": 717.85,
+        "duration": 6.0,
+        "text": "that in a second on the if Clause Forces"
+      },
+      {
+        "start": 720.339,
+        "duration": 5.431,
+        "text": "Operational uniqueness basically this is"
+      },
+      {
+        "start": 723.85,
+        "duration": 5.16,
+        "text": "that compare and set we're actually"
+      },
+      {
+        "start": 725.77,
+        "duration": 5.1,
+        "text": "going to test for a value if that value"
+      },
+      {
+        "start": 729.01,
+        "duration": 5.64,
+        "text": "is there we will succeed if that will"
+      },
+      {
+        "start": 730.87,
+        "duration": 5.85,
+        "text": "fail operators we have a lot of the"
+      },
+      {
+        "start": 734.65,
+        "duration": 3.15,
+        "text": "operators it should be used to you know"
+      },
+      {
+        "start": 736.72,
+        "duration": 3.66,
+        "text": "the greater than greater than equal to"
+      },
+      {
+        "start": 737.8,
+        "duration": 4.38,
+        "text": "all that stuff is usable the only one"
+      },
+      {
+        "start": 740.38,
+        "duration": 3.209,
+        "text": "that always trips me up and it's always"
+      },
+      {
+        "start": 742.18,
+        "duration": 3.3,
+        "text": "the one with that I go and look at the"
+      },
+      {
+        "start": 743.589,
+        "duration": 3.931,
+        "text": "docks after I've you know been banging"
+      },
+      {
+        "start": 745.48,
+        "duration": 3.81,
+        "text": "my head against my keyboard is the end"
+      },
+      {
+        "start": 747.52,
+        "duration": 4.53,
+        "text": "clause because I'm always thinking equal"
+      },
+      {
+        "start": 749.29,
+        "duration": 4.89,
+        "text": "but it's always ends up being in but"
+      },
+      {
+        "start": 752.05,
+        "duration": 5.57,
+        "text": "essentially it would function the same"
+      },
+      {
+        "start": 754.18,
+        "duration": 3.44,
+        "text": "as what you'd think an equal would"
+      },
+      {
+        "start": 757.8,
+        "duration": 4.87,
+        "text": "alright so here's where it gets kind of"
+      },
+      {
+        "start": 759.79,
+        "duration": 6.12,
+        "text": "juicy so what we're doing here we've got"
+      },
+      {
+        "start": 762.67,
+        "duration": 6.419,
+        "text": "an insert into our death star data"
+      },
+      {
+        "start": 765.91,
+        "duration": 5.61,
+        "text": "system metrics table we've got our idea"
+      },
+      {
+        "start": 769.089,
+        "duration": 5.041,
+        "text": "of the system we've got it's our super"
+      },
+      {
+        "start": 771.52,
+        "duration": 4.319,
+        "text": "laser and its operational you also see"
+      },
+      {
+        "start": 774.13,
+        "duration": 4.14,
+        "text": "the if not exists at the end there that"
+      },
+      {
+        "start": 775.839,
+        "duration": 3.841,
+        "text": "is your ax statement that's basically"
+      },
+      {
+        "start": 778.27,
+        "duration": 2.58,
+        "text": "what says hey I'm gonna a transaction"
+      },
+      {
+        "start": 779.68,
+        "duration": 4.86,
+        "text": "process me like a lightweight"
+      },
+      {
+        "start": 780.85,
+        "duration": 6.72,
+        "text": "transaction and then the really cool one"
+      },
+      {
+        "start": 784.54,
+        "duration": 5.46,
+        "text": "is update where we're doing update desk"
+      },
+      {
+        "start": 787.57,
+        "duration": 4.53,
+        "text": "our data tie fighter status and we're"
+      },
+      {
+        "start": 790.0,
+        "duration": 5.16,
+        "text": "setting a status to active on that"
+      },
+      {
+        "start": 792.1,
+        "duration": 5.1,
+        "text": "particular tie fighter if it's status is"
+      },
+      {
+        "start": 795.16,
+        "duration": 6.44,
+        "text": "fuel that it active now if that status"
+      },
+      {
+        "start": 797.2,
+        "duration": 6.14,
+        "text": "was destroyed or maybe unfilled in a"
+      },
+      {
+        "start": 801.6,
+        "duration": 2.97,
+        "text": "or anything else we don't want to set"
+      },
+      {
+        "start": 803.34,
+        "duration": 3.27,
+        "text": "that to active because that's not going"
+      },
+      {
+        "start": 804.57,
+        "duration": 3.57,
+        "text": "to be an operational tie-fighter and if"
+      },
+      {
+        "start": 806.61,
+        "duration": 3.36,
+        "text": "something were to happen like you know"
+      },
+      {
+        "start": 808.14,
+        "duration": 3.54,
+        "text": "some rebel scum were to creep in and"
+      },
+      {
+        "start": 809.97,
+        "duration": 3.81,
+        "text": "blow that TIE fighter up at the exact"
+      },
+      {
+        "start": 811.68,
+        "duration": 5.24,
+        "text": "time we were trying to put is set it to"
+      },
+      {
+        "start": 813.78,
+        "duration": 5.22,
+        "text": "active and so we have a conflicting"
+      },
+      {
+        "start": 816.92,
+        "duration": 4.51,
+        "text": "piece of information hitting our"
+      },
+      {
+        "start": 819.0,
+        "duration": 5.34,
+        "text": "database saying oh this is actually an"
+      },
+      {
+        "start": 821.43,
+        "duration": 5.46,
+        "text": "inactive TIE fighter or a destroyed TIE"
+      },
+      {
+        "start": 824.34,
+        "duration": 4.35,
+        "text": "fighter we would want that to be taken"
+      },
+      {
+        "start": 826.89,
+        "duration": 4.56,
+        "text": "into account so whichever message gets"
+      },
+      {
+        "start": 828.69,
+        "duration": 8.1,
+        "text": "there first will be the one that gets"
+      },
+      {
+        "start": 831.45,
+        "duration": 7.56,
+        "text": "written all right now this gets into the"
+      },
+      {
+        "start": 836.79,
+        "duration": 4.62,
+        "text": "big caveat the big gotcha in"
+      },
+      {
+        "start": 839.01,
+        "duration": 5.37,
+        "text": "light-weight transactions I've seen a"
+      },
+      {
+        "start": 841.41,
+        "duration": 5.6,
+        "text": "lot of people misusing them in this way"
+      },
+      {
+        "start": 844.38,
+        "duration": 5.7,
+        "text": "and it results in some really bad stuff"
+      },
+      {
+        "start": 847.01,
+        "duration": 4.6,
+        "text": "basically if you use normal transactions"
+      },
+      {
+        "start": 850.08,
+        "duration": 4.71,
+        "text": "and lightwei transactions on the same"
+      },
+      {
+        "start": 851.61,
+        "duration": 4.86,
+        "text": "table you are essentially sabotaging"
+      },
+      {
+        "start": 854.79,
+        "duration": 3.57,
+        "text": "yourself because the normal transactions"
+      },
+      {
+        "start": 856.47,
+        "duration": 3.63,
+        "text": "will not respect any of the blocking"
+      },
+      {
+        "start": 858.36,
+        "duration": 3.27,
+        "text": "they don't respect any of the process or"
+      },
+      {
+        "start": 860.1,
+        "duration": 4.14,
+        "text": "procedure that the lightweight"
+      },
+      {
+        "start": 861.63,
+        "duration": 5.16,
+        "text": "transactions have in place what that"
+      },
+      {
+        "start": 864.24,
+        "duration": 4.56,
+        "text": "means is if I do a normal transaction"
+      },
+      {
+        "start": 866.79,
+        "duration": 3.39,
+        "text": "that's writing to a row and I have a"
+      },
+      {
+        "start": 868.8,
+        "duration": 3.9,
+        "text": "lightweight transaction that's in the"
+      },
+      {
+        "start": 870.18,
+        "duration": 6.48,
+        "text": "process of writing to a row it's just"
+      },
+      {
+        "start": 872.7,
+        "duration": 5.55,
+        "text": "gonna do its normal transaction and we"
+      },
+      {
+        "start": 876.66,
+        "duration": 3.75,
+        "text": "have to live with the consequences so"
+      },
+      {
+        "start": 878.25,
+        "duration": 3.96,
+        "text": "you can end up with some really bad anti"
+      },
+      {
+        "start": 880.41,
+        "duration": 4.59,
+        "text": "pattern stuff going on here if if you"
+      },
+      {
+        "start": 882.21,
+        "duration": 4.95,
+        "text": "end up you know writing them against the"
+      },
+      {
+        "start": 885.0,
+        "duration": 4.56,
+        "text": "same tables so kind of best rule of"
+      },
+      {
+        "start": 887.16,
+        "duration": 4.05,
+        "text": "thumb and a lot of Doc's says blog posts"
+      },
+      {
+        "start": 889.56,
+        "duration": 4.19,
+        "text": "on this out there there's white papers"
+      },
+      {
+        "start": 891.21,
+        "duration": 4.95,
+        "text": "on this and everyone's in agreement"
+      },
+      {
+        "start": 893.75,
+        "duration": 4.12,
+        "text": "lightweight transaction tables are for"
+      },
+      {
+        "start": 896.16,
+        "duration": 4.5,
+        "text": "lightweight transactions and make a"
+      },
+      {
+        "start": 897.87,
+        "duration": 6.12,
+        "text": "normal table for normal transactions and"
+      },
+      {
+        "start": 900.66,
+        "duration": 7.74,
+        "text": "just keep them very very separate okay"
+      },
+      {
+        "start": 903.99,
+        "duration": 6.72,
+        "text": "so in summary here"
+      },
+      {
+        "start": 908.4,
+        "duration": 7.56,
+        "text": "cap theorem we're basically moving from"
+      },
+      {
+        "start": 910.71,
+        "duration": 7.59,
+        "text": "that a P to a CP making it giving up our"
+      },
+      {
+        "start": 915.96,
+        "duration": 4.02,
+        "text": "availability for a stronger consistency"
+      },
+      {
+        "start": 918.3,
+        "duration": 3.39,
+        "text": "we still get all the other benefits from"
+      },
+      {
+        "start": 919.98,
+        "duration": 3.75,
+        "text": "having Cassandra we get the data center"
+      },
+      {
+        "start": 921.69,
+        "duration": 4.89,
+        "text": "we get the tolerance we get everything"
+      },
+      {
+        "start": 923.73,
+        "duration": 4.32,
+        "text": "we would choose Cassandra for we're just"
+      },
+      {
+        "start": 926.58,
+        "duration": 3.27,
+        "text": "having to give up a slight bit of"
+      },
+      {
+        "start": 928.05,
+        "duration": 4.73,
+        "text": "availability in those increased Layton"
+      },
+      {
+        "start": 929.85,
+        "duration": 5.52,
+        "text": "sees the you know slightly slower system"
+      },
+      {
+        "start": 932.78,
+        "duration": 5.95,
+        "text": "but we end up with a much more"
+      },
+      {
+        "start": 935.37,
+        "duration": 5.28,
+        "text": "consistent result the lightweight"
+      },
+      {
+        "start": 938.73,
+        "duration": 5.16,
+        "text": "transactions are not acid but they offer"
+      },
+      {
+        "start": 940.65,
+        "duration": 5.13,
+        "text": "acid like guarantees they use the packs"
+      },
+      {
+        "start": 943.89,
+        "duration": 3.84,
+        "text": "it's protocol to achieve that they're"
+      },
+      {
+        "start": 945.78,
+        "duration": 5.16,
+        "text": "three to four times slower than your"
+      },
+      {
+        "start": 947.73,
+        "duration": 5.4,
+        "text": "normal non lightweight operations they"
+      },
+      {
+        "start": 950.94,
+        "duration": 4.19,
+        "text": "have their own consistency levels which"
+      },
+      {
+        "start": 953.13,
+        "duration": 3.99,
+        "text": "are those serial levels I showed you and"
+      },
+      {
+        "start": 955.13,
+        "duration": 4.21,
+        "text": "just don't mix them with normal"
+      },
+      {
+        "start": 957.12,
+        "duration": 3.54,
+        "text": "transactions just a good idea not to do"
+      },
+      {
+        "start": 959.34,
+        "duration": 3.72,
+        "text": "it"
+      },
+      {
+        "start": 960.66,
+        "duration": 6.9,
+        "text": "that went way faster than it did last"
+      },
+      {
+        "start": 963.06,
+        "duration": 6.87,
+        "text": "time I presented this so there's more"
+      },
+      {
+        "start": 967.56,
+        "duration": 4.32,
+        "text": "resources here of datas get Stax Academy"
+      },
+      {
+        "start": 969.93,
+        "duration": 3.57,
+        "text": "I've always got a plug it that was my"
+      },
+      {
+        "start": 971.88,
+        "duration": 4.08,
+        "text": "first exposure before I ever got hired"
+      },
+      {
+        "start": 973.5,
+        "duration": 5.25,
+        "text": "at data stacks to Cassandra a really"
+      },
+      {
+        "start": 975.96,
+        "duration": 4.53,
+        "text": "good resource I know a lot of people who"
+      },
+      {
+        "start": 978.75,
+        "duration": 4.26,
+        "text": "use it who you know have no affiliation"
+      },
+      {
+        "start": 980.49,
+        "duration": 5.01,
+        "text": "with data text at all if you want to"
+      },
+      {
+        "start": 983.01,
+        "duration": 5.19,
+        "text": "reach me or connect with me on LinkedIn"
+      },
+      {
+        "start": 985.5,
+        "duration": 4.23,
+        "text": "there's my info we did start a data"
+      },
+      {
+        "start": 988.2,
+        "duration": 3.42,
+        "text": "stacks Academy twitch stream if anyone's"
+      },
+      {
+        "start": 989.73,
+        "duration": 3.72,
+        "text": "interested in like live coding stuff we"
+      },
+      {
+        "start": 991.62,
+        "duration": 4.38,
+        "text": "have educational sessions where I get to"
+      },
+      {
+        "start": 993.45,
+        "duration": 4.5,
+        "text": "go on and ask all my stupid questions to"
+      },
+      {
+        "start": 996.0,
+        "duration": 6.27,
+        "text": "the senior programmers who get to tell"
+      },
+      {
+        "start": 997.95,
+        "duration": 7.05,
+        "text": "me why I'm wrong um so there's those"
+      },
+      {
+        "start": 1002.27,
+        "duration": 10.79,
+        "text": "resources and join the Empire today"
+      },
+      {
+        "start": 1005.0,
+        "duration": 8.06,
+        "text": "we're hiring so any questions yeah"
+      },
+      {
+        "start": 1027.89,
+        "duration": 10.779,
+        "text": "limitations like a batch yes yes so I"
+      },
+      {
+        "start": 1036.99,
+        "duration": 5.04,
+        "text": "believe let me see if I get this"
+      },
+      {
+        "start": 1038.669,
+        "duration": 4.77,
+        "text": "straight I believe you can do a batch"
+      },
+      {
+        "start": 1042.03,
+        "duration": 3.929,
+        "text": "Canton with light we transaction but I"
+      },
+      {
+        "start": 1043.439,
+        "duration": 3.961,
+        "text": "think you're limited to a single light"
+      },
+      {
+        "start": 1045.959,
+        "duration": 3.691,
+        "text": "weight transaction per batch statement"
+      },
+      {
+        "start": 1047.4,
+        "duration": 3.12,
+        "text": "and it still will fail or succeed as a"
+      },
+      {
+        "start": 1049.65,
+        "duration": 3.36,
+        "text": "whole so if your light weight"
+      },
+      {
+        "start": 1050.52,
+        "duration": 3.87,
+        "text": "transaction were to fail then all of"
+      },
+      {
+        "start": 1053.01,
+        "duration": 3.74,
+        "text": "your normal transactions against all"
+      },
+      {
+        "start": 1054.39,
+        "duration": 7.01,
+        "text": "your other tables would fail as well"
+      },
+      {
+        "start": 1056.75,
+        "duration": 4.65,
+        "text": "that is a if memory serves answer though"
+      },
+      {
+        "start": 1063.16,
+        "duration": 3.109,
+        "text": "[Music]"
+      },
+      {
+        "start": 1083.21,
+        "duration": 4.48,
+        "text": "yeah so there's a scoring system and the"
+      },
+      {
+        "start": 1086.28,
+        "duration": 3.33,
+        "text": "scoring system is something I've read"
+      },
+      {
+        "start": 1087.69,
+        "duration": 3.03,
+        "text": "through many times and still can't tell"
+      },
+      {
+        "start": 1089.61,
+        "duration": 3.87,
+        "text": "you exactly how it works but basically"
+      },
+      {
+        "start": 1090.72,
+        "duration": 5.43,
+        "text": "there there's a number that each of them"
+      },
+      {
+        "start": 1093.48,
+        "duration": 4.62,
+        "text": "get gets that's their score and one of"
+      },
+      {
+        "start": 1096.15,
+        "duration": 4.43,
+        "text": "them will win over the other I believe"
+      },
+      {
+        "start": 1098.1,
+        "duration": 7.309,
+        "text": "the other one just gets an error back"
+      },
+      {
+        "start": 1100.58,
+        "duration": 4.829,
+        "text": "because it is essentially a block oh"
+      },
+      {
+        "start": 1110.09,
+        "duration": 4.54,
+        "text": "yeah failed if Clause like the TIE"
+      },
+      {
+        "start": 1112.77,
+        "duration": 4.22,
+        "text": "fighter was destroyed and I was trying"
+      },
+      {
+        "start": 1114.63,
+        "duration": 4.77,
+        "text": "to do that update yeah I believe it"
+      },
+      {
+        "start": 1116.99,
+        "duration": 3.669,
+        "text": "let's see actually you probably know the"
+      },
+      {
+        "start": 1119.4,
+        "duration": 14.159,
+        "text": "answer to this one oh yeah"
+      },
+      {
+        "start": 1120.659,
+        "duration": 14.731,
+        "text": "you're trying to trick me yeah yeah I"
+      },
+      {
+        "start": 1133.559,
+        "duration": 3.83,
+        "text": "thought it was committed or it wasn't"
+      },
+      {
+        "start": 1135.39,
+        "duration": 3.769,
+        "text": "basically yeah"
+      },
+      {
+        "start": 1137.389,
+        "duration": 3.36,
+        "text": "we'll do is like in order to know what"
+      },
+      {
+        "start": 1139.159,
+        "duration": 6.93,
+        "text": "the quick madness clocks and even know"
+      },
+      {
+        "start": 1140.749,
+        "duration": 7.201,
+        "text": "what the do they exist already is okay I"
+      },
+      {
+        "start": 1146.089,
+        "duration": 22.49,
+        "text": "made this change did it actually can"
+      },
+      {
+        "start": 1147.95,
+        "duration": 20.629,
+        "text": "apply yeah yeah oh yeah that's fair"
+      },
+      {
+        "start": 1177.429,
+        "duration": 7.32,
+        "text": "right right"
+      },
+      {
+        "start": 1187.57,
+        "duration": 3.0,
+        "text": "yeah"
+      },
+      {
+        "start": 1191.82,
+        "duration": 20.039,
+        "text": "there's a solution looks like confused"
+      },
+      {
+        "start": 1197.82,
+        "duration": 18.15,
+        "text": "by because I'm you can still see the"
+      },
+      {
+        "start": 1211.859,
+        "duration": 5.52,
+        "text": "reason why they call right it's not the"
+      },
+      {
+        "start": 1215.97,
+        "duration": 13.559,
+        "text": "heavy transaction I think is a"
+      },
+      {
+        "start": 1217.379,
+        "duration": 14.04,
+        "text": "relational world equivalents right"
+      },
+      {
+        "start": 1229.529,
+        "duration": 7.58,
+        "text": "everything you do requires extra network"
+      },
+      {
+        "start": 1231.419,
+        "duration": 5.69,
+        "text": "hops basically yeah"
+      },
+      {
+        "start": 1259.72,
+        "duration": 3.66,
+        "text": "yeah the tax house"
+      },
+      {
+        "start": 1269.33,
+        "duration": 23.89,
+        "text": "yeah it basically respects your normal"
+      },
+      {
+        "start": 1272.04,
+        "duration": 23.43,
+        "text": "batch like in Cassandra they're both"
+      },
+      {
+        "start": 1293.22,
+        "duration": 3.99,
+        "text": "worrying about the same object at the"
+      },
+      {
+        "start": 1295.47,
+        "duration": 5.07,
+        "text": "same time this one has done the"
+      },
+      {
+        "start": 1297.21,
+        "duration": 5.37,
+        "text": "Lightwave transaction whatever and says"
+      },
+      {
+        "start": 1300.54,
+        "duration": 4.5,
+        "text": "if it's not dead yet and this one"
+      },
+      {
+        "start": 1302.58,
+        "duration": 5.16,
+        "text": "commits one there since that query at"
+      },
+      {
+        "start": 1305.04,
+        "duration": 5.52,
+        "text": "the same time if it's not dead yet this"
+      },
+      {
+        "start": 1307.74,
+        "duration": 6.69,
+        "text": "one makes it okay it's not dead it"
+      },
+      {
+        "start": 1310.56,
+        "duration": 5.67,
+        "text": "happens it starts getting fueled up this"
+      },
+      {
+        "start": 1314.43,
+        "duration": 5.72,
+        "text": "one doesn't know yet that this one got"
+      },
+      {
+        "start": 1316.23,
+        "duration": 3.92,
+        "text": "destroyed while it's being filled up my"
+      },
+      {
+        "start": 1321.2,
+        "duration": 3.69,
+        "text": "my question is"
+      },
+      {
+        "start": 1326.35,
+        "duration": 15.51,
+        "text": "as we start querying okay who's alive"
+      },
+      {
+        "start": 1328.72,
+        "duration": 15.089,
+        "text": "now cursor of TIE fighters or whatever"
+      },
+      {
+        "start": 1341.86,
+        "duration": 4.439,
+        "text": "whatever that was that are currently"
+      },
+      {
+        "start": 1343.809,
+        "duration": 4.801,
+        "text": "alive and this one dad is in the middle"
+      },
+      {
+        "start": 1346.299,
+        "duration": 7.941,
+        "text": "of iterating over those cursors poems"
+      },
+      {
+        "start": 1348.61,
+        "duration": 5.63,
+        "text": "take for this one"
+      },
+      {
+        "start": 1354.88,
+        "duration": 4.009,
+        "text": "like latency on the wire sort of thing"
+      },
+      {
+        "start": 1364.529,
+        "duration": 5.591,
+        "text": "yes so that's actually kind of one of"
+      },
+      {
+        "start": 1367.12,
+        "duration": 5.399,
+        "text": "the I guess keys of why to use a"
+      },
+      {
+        "start": 1370.12,
+        "duration": 5.309,
+        "text": "lightweight transaction right there so"
+      },
+      {
+        "start": 1372.519,
+        "duration": 5.37,
+        "text": "with the prepare promise right there"
+      },
+      {
+        "start": 1375.429,
+        "duration": 5.671,
+        "text": "we initiate a file or a not a file lock"
+      },
+      {
+        "start": 1377.889,
+        "duration": 5.551,
+        "text": "that's alright we initiate a lock and so"
+      },
+      {
+        "start": 1381.1,
+        "duration": 4.47,
+        "text": "when that second request that was like"
+      },
+      {
+        "start": 1383.44,
+        "duration": 3.39,
+        "text": "nearly concurrent you know they they it"
+      },
+      {
+        "start": 1385.57,
+        "duration": 4.5,
+        "text": "might have hit that note over there"
+      },
+      {
+        "start": 1386.83,
+        "duration": 5.849,
+        "text": "first but then this these two of"
+      },
+      {
+        "start": 1390.07,
+        "duration": 4.469,
+        "text": "have-not right they're both asking at"
+      },
+      {
+        "start": 1392.679,
+        "duration": 4.021,
+        "text": "the same time no one's written at that"
+      },
+      {
+        "start": 1394.539,
+        "duration": 3.84,
+        "text": "point we have to get to the whole commit"
+      },
+      {
+        "start": 1396.7,
+        "duration": 3.479,
+        "text": "step right there at the end before"
+      },
+      {
+        "start": 1398.379,
+        "duration": 4.29,
+        "text": "anyone actually goes okay this is the"
+      },
+      {
+        "start": 1400.179,
+        "duration": 4.38,
+        "text": "data I'm writing it's written so at that"
+      },
+      {
+        "start": 1402.669,
+        "duration": 4.561,
+        "text": "point with the prepare and promise that"
+      },
+      {
+        "start": 1404.559,
+        "duration": 5.641,
+        "text": "there's a conflict where you know two"
+      },
+      {
+        "start": 1407.23,
+        "duration": 5.22,
+        "text": "different ones are in the in the works"
+      },
+      {
+        "start": 1410.2,
+        "duration": 4.65,
+        "text": "that's where that's scoring mechanism I"
+      },
+      {
+        "start": 1412.45,
+        "duration": 4.469,
+        "text": "was talking about will determine which"
+      },
+      {
+        "start": 1414.85,
+        "duration": 3.99,
+        "text": "one wins and which one fails so you got"
+      },
+      {
+        "start": 1416.919,
+        "duration": 4.561,
+        "text": "one that fails one that wins and then"
+      },
+      {
+        "start": 1418.84,
+        "duration": 5.4,
+        "text": "the the node that had the failing one"
+      },
+      {
+        "start": 1421.48,
+        "duration": 4.71,
+        "text": "will then receive the info for the the"
+      },
+      {
+        "start": 1424.24,
+        "duration": 3.36,
+        "text": "winning one so it'll bring that whole"
+      },
+      {
+        "start": 1426.19,
+        "duration": 3.3,
+        "text": "thing through and then then the rest of"
+      },
+      {
+        "start": 1427.6,
+        "duration": 4.069,
+        "text": "it just goes through normally you know"
+      },
+      {
+        "start": 1429.49,
+        "duration": 5.7,
+        "text": "the read results pros accept all that"
+      },
+      {
+        "start": 1431.669,
+        "duration": 5.141,
+        "text": "happens normally and the the actual"
+      },
+      {
+        "start": 1435.19,
+        "duration": 4.7,
+        "text": "commit happens at the end"
+      },
+      {
+        "start": 1436.81,
+        "duration": 3.08,
+        "text": "[Music]"
+      },
+      {
+        "start": 1467.9,
+        "duration": 3.069,
+        "text": "[Music]"
+      },
+      {
+        "start": 1489.73,
+        "duration": 4.24,
+        "text": "yeah that when to play but this is also"
+      },
+      {
+        "start": 1492.08,
+        "duration": 4.2,
+        "text": "kind of a key thing to note that big"
+      },
+      {
+        "start": 1493.97,
+        "duration": 3.63,
+        "text": "warning slide I had if you ran one of"
+      },
+      {
+        "start": 1496.28,
+        "duration": 3.9,
+        "text": "those is a light weight one of those is"
+      },
+      {
+        "start": 1497.6,
+        "duration": 4.32,
+        "text": "not suddenly you'd be in yeah you'd be"
+      },
+      {
+        "start": 1500.18,
+        "duration": 3.03,
+        "text": "in big trouble because they're like I"
+      },
+      {
+        "start": 1501.92,
+        "duration": 3.33,
+        "text": "said the normal transaction wouldn't"
+      },
+      {
+        "start": 1503.21,
+        "duration": 6.63,
+        "text": "respect the lock and it would just go up"
+      },
+      {
+        "start": 1505.25,
+        "duration": 5.94,
+        "text": "okay done and who knows depending on"
+      },
+      {
+        "start": 1509.84,
+        "duration": 5.0,
+        "text": "where that was in the process you could"
+      },
+      {
+        "start": 1511.19,
+        "duration": 3.65,
+        "text": "end up with all sorts of stuff so"
+      },
+      {
+        "start": 1532.19,
+        "duration": 46.27,
+        "text": "yeah yeah just don't mix um you know"
+      },
+      {
+        "start": 1577.38,
+        "duration": 2.07,
+        "text": "this actually does bring up an"
+      },
+      {
+        "start": 1578.46,
+        "duration": 3.66,
+        "text": "interesting thing I haven't thought of"
+      },
+      {
+        "start": 1579.45,
+        "duration": 5.01,
+        "text": "before and you might know the answer so"
+      },
+      {
+        "start": 1582.12,
+        "duration": 5.189,
+        "text": "there's me asking you question if you"
+      },
+      {
+        "start": 1584.46,
+        "duration": 5.37,
+        "text": "have to local cereal against the same"
+      },
+      {
+        "start": 1587.309,
+        "duration": 6.931,
+        "text": "table same row different data centers"
+      },
+      {
+        "start": 1589.83,
+        "duration": 6.03,
+        "text": "and different pieces of information how"
+      },
+      {
+        "start": 1594.24,
+        "duration": 3.45,
+        "text": "does that actually justify because I can"
+      },
+      {
+        "start": 1595.86,
+        "duration": 3.87,
+        "text": "tell you in the just pure cereal world"
+      },
+      {
+        "start": 1597.69,
+        "duration": 4.41,
+        "text": "that's that's really easy but in a local"
+      },
+      {
+        "start": 1599.73,
+        "duration": 5.61,
+        "text": "cereal world you'd end up with normal"
+      },
+      {
+        "start": 1602.1,
+        "duration": 5.16,
+        "text": "Kassandra replication happening but then"
+      },
+      {
+        "start": 1605.34,
+        "duration": 5.01,
+        "text": "is it just timestamps then that would be"
+      },
+      {
+        "start": 1607.26,
+        "duration": 33.51,
+        "text": "respected or how does that actually play"
+      },
+      {
+        "start": 1610.35,
+        "duration": 32.209,
+        "text": "out active right yeah that's an"
+      },
+      {
+        "start": 1640.77,
+        "duration": 8.07,
+        "text": "interesting sharp edge it just like"
+      },
+      {
+        "start": 1642.559,
+        "duration": 8.641,
+        "text": "braids but any other ones cool well"
+      },
+      {
+        "start": 1648.84,
+        "duration": 2.36,
+        "text": "thank you"
+      },
+      {
+        "start": 1651.45,
+        "duration": 2.06,
+        "text": "you"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T04:59:53.457938+00:00"
+}

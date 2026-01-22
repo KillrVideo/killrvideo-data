@@ -1,0 +1,3574 @@
+{
+  "video_id": "e1UOss0rRZ8",
+  "title": "Distributed Data Show Episode 67: The Developer Is Always Right with Jonathan Ellis",
+  "description": "Jonathan Ellis recounts several attempts in the history of Apache Cassandra to coerce developers into specific behaviors around issues such as sequential scans, tombstones, and joins. We discuss why these attempts didn’t work, and how to respond to developer feedback more effectively.\n\nHighlights! \n0:15 - Welcoming Jonathan back to the show and summarizing the great happenings at the Distributed Data Summit (http://distributeddatasummit.com/).\n1:30 - Attempts Jonathan was a part of making in the Cassandra community to guide developer behavior. \n2:25 - Example 1: the “ALLOW FILTERING” keyword. This keyword was added to the CQL SELECT statement to prevent developers from accidentally asking for too much data and suffering timeouts or running nodes out of memory. (This wasn’t a problem with the original Thrift API.)\n6:21 - The initial solution to this problem was to reject sequential scans and provide a warning message, which the client could override with the ALLOW FILTERING keyword. This didn’t work because developers just added the keyword and kept going. \n9:07 - The better solution was to introduce paging. Another proposed option of trying to predict which queries would result in reading too much data would not have scaled well. However, an estimation of work was key to solving another challenge...\n10:46 - Example 2: tombstone warning threshold. Tombstones are a mechanism for representing what data has been deleted, which is required in a system in which nodes can go online/online, so that data doesn’t get accidentally resurrected. For tables with clustering columns, it’s possible that a large number of tombstones will be included in the result set provided from a given node to the coordinator node for a given query.\n12:41 - Paging the tombstone records would have made things too slow. Instead, a warning threshold was configured on the server, and a log statement would be generated when the threshold was triggered. The problem with this solution was that we were bu",
+  "published_at": "2018-10-02T15:00:03Z",
+  "thumbnail": "https://i.ytimg.com/vi/e1UOss0rRZ8/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cql",
+    "query",
+    "cassandra",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=e1UOss0rRZ8",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems tributed data summit is not named after the distributive dam show although you might think that actually it's a great conference put on about Apache Cassandra and Friends related technologies by the global data geeks great time here a lot of heavy hitters in the community are here even talks today what have been your impressions so far you know it it's kind of getting the band back together kind of feel to it you've got the you'll get the great speakers from data stacks from the last pickle from Netflix you've got some new faces you've got Family Search you've got Yahoo Japan so really a really good conference so far yeah I'm enjoying just like all the it's it's definitely a very varied community with a lot of different interests no nobody has the same use case as anybody else no it's gonna go like a little bit different angles that they're trying to explore we've got like transient replication and sidecars and all sorts of fun stuff happening and people trying to see what's gonna get into for ATO just a lot going on yeah cool okay so I I wanted to talk with you about specifically a talk that you gave today and we're not gonna like rehash the whole talk or anything but I want to pull out one little bit of it that really caught my attention you know on distributed data show we're all about developers we're all about being successful with the technology on and so one of the things that you were really hitting on in your talk is about different ways over the years that in Cassandra that maybe we tried to steer the development community and try to get them to act in a certain way or use the technology a certain way and you were saying like hey the customer is always right and maybe we should listen a little bit more so I'm I'm gonna reword that slightly to the developer is always right I like my formulations yeah you like that okay so I want to go through a few of these points and kind of bomb talk them through a little bit with you so one of the things that you were talking about is the the very famous introduction of the allow filtering keyword you talked about a little bit about the genesis of that and like how that ended up in there no we were trying to you know like prevent sequential or large range scans like what how did that come to be and and why do you think that it wasn't a mistake or some of the you would do different yeah so so kind of the the genesis of this section is you know I was project chair of Apache Cassandra for six years and now I'm a vice president of product development for data stacks and so I end a lot of time thinking about how the database should be used it should be used and so you know I think that one of the things that I've learned is is that you know as those of us who are building the database we we need a little bit more humility in terms of when we're saying you know this is the right way to do things and so one of the examples I gave was this allow filtering example where so back in back in 2012 we started getting bug reports and this was just after we introduced cql right so yes before you were you were using thrift and you would call a get slice our PC endpoint and and so we moved to cql and now you have select you have select from where and so times were good times we're we're good so so Nate McCullough who is yeah nicknamed McCall who worked on in fact he was one of the authors of an early thrift client called Hector and he's he's right yeah he's currently project chair of Apache Cassandra and so in his keynote this morning he said you know I I liked one thing about thrift which was that it was very isomorphic to the engine the database engine and so thrift exposed things that the engine that could do well and if it couldn't do well it didn't expose it right and so when we introduced CQ well it it says we're gonna try to be more like sequel and give people that more familiarity but that does obscure a little bit like what is a good idea and what is a bad idea didn't match the underlying engine is yeah yeah yeah so in particular one of the things that that we did in thrift was if you asked me for you know a slice of Rose Mattel me how many rows you wanted and I'd give them back to you and so I would pull those rows into memory on the replica yeah send them over to the coordinator and the coordinator would send them to the clam and so but nobody would say give me a hundred million rows because that's obviously a bad idea right you don't want to have a list in your app server of a hundred million you know objects yeah but in no one when we moved to cql and now you can do these massive sequential scans without kind of thinking about it you can just say select star from purchases and you get back 100 million rows right wait so could you could you out of memory om your nodes before the introduction of CQL yeah you definitely could but they kind of have to do it deliberately because you know all of the calls said what's the limit on how many objects you want so I'd have to say give me a hundred million objects and then it's like okay I blew my foot off but that's what I asked for I explicitly yeah yeah so what I mean it wasn't a great designer grip but it was less problematic because it was clear what you were doing okay so now when I say select star from purchases you know you you get that behavior without without kind of opting into yeah yeah you don't know you know how many how many is that so so as Cassandra developers we said you know this is this is not a good way to use the database and we're going to help users understand this by we will reject any sequential scan any select query that in a sequential scan and unless you give us this keyword of allow filtering and that says okay I understand the risk let me do it anyway right and and what we what we saw was people would just they'd see the error and say oh this stupid database is getting in my way right so ok it's and it tells me that the solution is to play allow filtering all right you're making me jump through these extra hubs but hoops but I'll just paste that in and I'll do it anyway okay I can totally validate this yeah yeah add an instance of this made it into production on a project that I was involved in as an architect where despite an explicit order not to do so there was an allow filtering that made it into a production system in it it worked fine until it didn't Yeah right actually it wasn't a cliff sort of situation it was a this service is getting progressively slower and slower and slower yeah until it's time then it started timing out and then I got brought into the conversation when we were talking about extending the timeout and I was like ok no I'm gonna call timeout on this whole conversation what did you do yeah right yeah so this is what we're this is this is why we were trying to kind of trying to educate users about this because you know it is a situation where it'll work fine with a tiny data set and then it doesn't scale that's kind of the nature of sequential scans worked on my machine yeah exactly so but does this allow filtering of you know slapping the users on the wrist and saying don't do that it does it didn't say a problem didn't help educate people the way we were hoping so what should you have done differently so whoa so what we did so a year after we introduced to allow filtering yeah we added what we call paging to the cql protocol right and so now if you ask for a really large result set it'll give you back the first few rows and the plan says okay I've processed those I want the next rows and it'll give you them giving you those back incremental e rather than materializing a massive result set in memory I love that the driver does that natively I mean most people are I don't know who knows or thinks about this but the driver just kind of natively handles that for you which is what it should do yeah yeah so unfortunately not all of the places where we'd like to provide that kind of solution not all of them are that simple right right okay gotcha okay so is there is there anything else that you you okay paging was okay so we put in a solution there that paging was the solution yeah is there anything else that like would have been done is that is that really it uh well so paging solves the problem okay let me tell you what I'm thinking I think yeah like who would there have been a way to know how many rows that you were asking for up front could we have told people and only in some instances said I like hey I the database know that there's actually 10 million rows there behind that query that you just did without it without ever even been possible to know or with a bit there have been a way to do that I'm just curious I mean so where are you going with this because you know hypothetically I know that there that this results that's going to be you know too large to fit in memory where I fail the results set or I fail the query you know has that solved the users problem well I mean if there's only a hundred rows then they could why not give them give it all to them without a warning I don't like that because I'm still in the situation of my my design works and until it doesn't and and I don't really have clarity on where that thresholds gonna be okay so it's unpredictable to the user they don't that's gonna lead to some sort of unpredictable behavior you're not intuitive like what do you mean why am I getting this morning now right yeah okay that makes sense and that's so I I say that as you know that's that's not a great solution right but that's actually the solution we went with for for another subject which was tombstones okay okay so so ask me how I know that it's not a great solution right so so how much detail should we go in - on what two moons are and and why they are a problem and so forth here okay we'll give me the nutshell we can go with the how the high level description of tombstone let's just say instead of actually physically deleting data in Cassandra we mark data as having been deleted and that's because we have multiple nodes and they all have to kind of agree that the data is not there and if a node is asleep and then comes back online it syncs it it has the data and if the other nodes don't know that the data is deleted then it could be resurrected there's my two and a half sentence description of tombstones so you want to take it from there fantastic yeah so so when you're doing this this is totally not a problem if you're querying for ten rows and you know there's no particular collation going on yeah it's just a simple partition key on the table I've never heard of somebody getting into tombstone trouble in that scenario but when you have a sort column in your primary key definition yeah and you're asking for sorted rows out of a partition then we actually if you have if you're asking for ten rows and you have ten rows but you've also got ten thousand deleted rows we have to include those ten thousand tombstones in the result set for the ten rows so I've made the result set like three orders of magnitude larger and the reason I need to do that is that's you know like you said I'm I don't want to resurrect data that's been deleted and I'm combining results from different replicas yeah so I need those tombstones to tell me which are the valid rows and this is another case where we're materializing those into memory we could apply a paging to this but that that would make things really slow and that would happen between the nodes in the Cassandra cluster and so what we did was we said we're going to create a warning threshold will log a warning if your query scans more than a thousand tombstones by default and will add an error threshold where we'll kill the query completely and just drop it if it exceeds more than 10,000 tombstones okay so this is another this is a second instance the second instance in our conversation of where you're trying to guide or sort of train the developer in the direction instead of assuming that they're in the right or that they know what they're doing we're saying whoa you don't know what you're doing yeah because you have all these tombstones we're gonna help you out here so was that right I mean I made a right waiting it is on the one hand the system will not handle what you're asking it to do the way you think it will okay and so so in the one sense no we need to we need to show you how to solve that problem in a way that that sympathizes with the system that you have but you know this solution is terrible because you know first for the reason I gave you earlier way it works until it doesn't yeah but also because we're logging a server-side warning for a client-side request yes okay and I've seen this I've definitely monitored or kind of looked over the shoulder of ops team that's monitoring Cassandra nodes in production and then you know like hey come over here have a look at this what does this mean and had that sort of that similar reaction like should we do something about the fact that the team warned the the tombstone warning has been triggered and I wasn't even sure what to say myself at that point then yeah I'm gonna go back and talk to the application developer and see what they're doing but there was it wasn't as if there was a real concrete action for us to take at that point yeah I didn't know what to do yeah so know if if we bring in a good data sex consultant he's going to go through the data model he's gonna it's not so in the data model yeah it's not something you can just fix it the server right right no that's right so what he's gonna do is he's going to look at things to say you know if you're lucky you can do a quick fix and add an inequality to the where clause that says you know we're object is newer than new a certain date range and if you're if you've got a pattern where you're inserting things and then deleting them in roughly chronological order then if you're saying give me stuff that's within the past week then all the tombstones older than that then I don't need to care about those anymore so that that's if you're lucky if you're not lucky then you then you need to okay right and a large number of usages of Cassandra are sort of that time based data or maybe you could get away with something like that that's not everyone's use case right right so it can it can get complicated and it can get to the point of well you're going to have to know instead of using these two tables you're going to need to use these three tables and that's going to let you do a scan that's not going to you know pull in so many tombstones so so it can be it can be major surgery on so that's why we reached for this right solution that you know this is something that's a problem but it's not a great solution certainly not from the developers perspective in in retrospect do you have an idea of what you could have done more so so this isn't as simple as the paging problem right exactly right with the pill thing is like a lot of children was the wrong idea paging was the right idea and paging was relatively simple for us to implement I mean it still required a major release to both the protocol on the server and on the driver right so it's you know it's definitely not as easy as five lines to add that allow filtering warning but it's something that we could solve in a single release basically okay with the the tombstones what we're what we need to do is we need to fundamentally redesign how Cassandra handles deletes to make this problem go away and so I you know I think there's three phases to that to that so tombstones are closely tied to what we call GC GRA seconds which is a little settings right yeah okay so so that setting says after this many seconds has elapsed it defaults to ten days worth after this many second assume that all the two streams have been propagated to all the replicas everybody knows by now everybody knows by now and we can garbage collect them we can throw them away the next time we compact those SS tables right which is you ha I mean you have to have some threshold like that otherwise you can you know write other way or or you have no deletion to ever write well what what that is is it's a simplifying assumption for what we really want to do is throw away the tombstones once all the replicas know about a deletion right and so it says it's just about getting better compaction or it's really more about getting better repair actually okay so yeah if we know that a certain token range has been repaired by date X then we can throw a whale tombstones prior to that okay now so the first step is to keep track so right now repairs a manual operation well in Apache Cassandra right not in that essentially a surprise Oh Touche but but what we need to do is we need to track for which ranges for which token range now when was that repair completed and so so we have that indented sex enterprise now we have that data the next step is use that and ya know basically get rid of GC grey seconds and start evicting tombstones based on the repair time rather than based on this no kind of arbitrary right assumption and by the way GC grace threat threshold or GC grace seconds can be both too long and too short like if your repair takes significantly longer than you expected GC grace seconds of 10 days might not be long enough right and then you the news then you actually do have problems about resurrected rose suddenly appearing so it's it works until it doesn't right it's funny so many of these things come back to repair yeah well it's kind of like the B central high reliability or data consistency mechanism like that's the backstop yeah and then how many things end up running into that backstop yeah yeah so those are the first the first two steps so we've done one in India see step two is relatively simple of replacing DC gray seconds step three is the hard part step three is make repair much faster right because if I'm if I'm doing this automatically but it still takes me ten days I haven't really improved the situation in terms of you know pulling in thousands of tombstones on the request so we need to get repair down to hours instead of days and we've got some ideas of how to do that but that's that's that's that's an exercise that hasn't been completed yet okay all right I want to ask you about one more and this is the one that always seems to come up at least in conversations that I've had with developers especially introducing new developers to Cassandra and it is of course the question of joins why does Cassandra not have joins and we say well silly developer you know right maybe maybe we're not always so condescending about that but it's like do you realize what you're actually asking for when you ask for a distributed join okay well what do I do well why don't you on either design everything your choices are right design everything so that it's all on one table together you get it all your data is in a single partition so you can get it in one chord or I guess you could do an application side joy right I guess what they pick most of the time they pick application side joins yeah and this is a loop this is really frustrating Jimmy okay because you know it's I spent a lot of effort creating tools for people to do that option number one is putting that into a single partition you know we created collections you did user defined types right we even did materialized views yeah and you know developers are voting with their code and saying actually no I'd really rather just do the join right well okay so let me let me play devil's advocate here for a minute so this is an example that I kind of use in my talk earlier today about I wanted to have this well partitioned domain-driven kind of design approach to micro-service architecture so I said for a system that I was building okay hotel data hotel descriptive data is owned by a hotel service and inventory data is owned by a hotel service and rate data is owned by an inventory I'm sorry I rate service right so when I do when I want to shop for hotel rooms I need to actually have a combination of Hotel data and rate data and inventory data around can I quote you know organize around certain dates that for which the customer is shopping for hotel rooms because I have that data owned by a different services those those underlying tables might all be Cassandra tables but it's it's really a material because by virtue of how I design my my core service architecture that I've already foreclosed I guess on myself the opportunity for to do that so in that case I'm doing an application side joy yeah because of Mike micro service architecture yeah and this segment is called the developer is right yeah yeah this isn't like you know how dare you not denormalize but I could act it all back into one table yeah yeah but then I would have violated my service boundaries right right so when i say i'm chagrined that people aren't using these these denormalization tools you know this is not that that's not me getting back into the mode of saying you're doing it wrong but rather to say that no no after after putting this effort into it people are still doing these client-side joins for good reasons yeah and then now now I know we need to now we need to pay attention or you know we should have been paying attention perhaps even earlier but now we're definitely paying attention so I think that I think the Cassandra role adjoins eventually well yeah I'm not gonna it's not gonna be in for dotto what I've got a feature free zone for that Oh what about consistency so here's the thing right so if you're if you're doing the what okay so backing up one of the reasons that we didn't had joints in the first place is joins are you know it's very straightforward in a relational database because you've got referential integrity you've got yes foreign key constraints you can even do things like on delete cascade that are really useful you know when the the parent key gets deleted the child roads get deleted as well I've already enforced some things at right time yeah yeah so so yeah you know you can do joins without violating any of the expectations in a relational database and that's not the same in Cassandra but on the other hand now if people are saying I'm totally fine with eventually consistent joins and I'm so fine with it that I'm gonna do it in my application then no we're right we're not making things worse by offering joins in the server well you buddy are shifting your shifting work to your database yes yeah so now we get into the the situation of no it's that that sequential scan of select star from purchases it's not necessarily obvious you know if I do a join from data in partition X versus data that's also in partition X right the performance characteristics are very different from joining partition eggs with partition y know because now I'm involving multiple machines so what kind of join do you want so this is this is one of the things that I also tension in my talk today then we don't have time to go into but you know how much magic is too much magic right if I'm gonna hide that implementation detail that those live on different partitions and now you don't have to care anymore and you just do your join like how much magic is too much magic and when do I obscure you know whenever I obscured the performance characteristics to the point where it starts biting people from a different direction so if and when joins were to get added it sounds like there would be some sort of framing around what joints exactly nice I think there's there's there's a relatively low barrier to adding join single partition joints got it I I don't think many people would complain about the right and you can actually have remember you can have atomic rights to a single partition the across multiple tables right so there's your consistency so you're not even violating consistency and expectation yeah so I yeah I think if somebody came to Apache Cassandra and said you're here I know I've spent six months and here's the work to add single partition joins to CQL I think that would be accepted fairly quickly I think there would be very little debate over that okay I think it's just a matter of you know getting the work done right and somebody got to do it all right so let's let's zoom back out for a second here I think that I would say in the main kind of as a as a non committee route somewhat outside observer of the Cassandra Project and sometime lover of the tech I would say that overall their their husbands some responsiveness to their needs and desires of developers you know kind of within certain limits but how can we do better would say moving forward at saying that the developer is right and kind of being responsive to that how do we go about doing that as a community the change you look for is within you deaf how to I mean I know there's kind of like the evangelism within the community you know I'm trying to get out there and and put up my hand and say you know I was one of the voices saying you know stop that you're doing it wrong yeah and I'm repenting and I'm listening to the developer and saying the developer is always right right so I you know it's just kind of a mindset change right and I don't really have a shortcut for that I'm afraid no that's good and I I you know I didn't share with you before that I appreciate the humility and kind of being able to share like here's what I wish I had done differently be technical decisions or even like you had a slide that was great it was like things that I wish that I had done differently in starting data stacks and that's that's really good and helpful and yes to your point it's it is my job and the job of all the developer advocates said Dana sacks would be out there listening to what people have to say in the community and taking that back in whether it be to data stocks to improve data sacks enterprise or back to the Cassandra community to improve the open-source project so yes job accepted all right thank you all right well I love how we always meet up like this at these conferences look forward to the next one thanks Jeff wait to be back on the show all right until next time all right thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data Stax Academy and tell us what you think you can also find us on the data stacks Academy YouTube channel or find our podcast on itunes google play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.03,
+        "duration": 4.17,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.37,
+        "duration": 4.11,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.48,
+        "duration": 4.17,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 14.22,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 13.83,
+        "text": "large-scale distributed systems tributed"
+      },
+      {
+        "start": 22.68,
+        "duration": 4.259,
+        "text": "data summit is not named after the"
+      },
+      {
+        "start": 24.48,
+        "duration": 3.78,
+        "text": "distributive dam show although you might"
+      },
+      {
+        "start": 26.939,
+        "duration": 4.561,
+        "text": "think that actually it's a great"
+      },
+      {
+        "start": 28.26,
+        "duration": 7.049,
+        "text": "conference put on about Apache Cassandra"
+      },
+      {
+        "start": 31.5,
+        "duration": 6.69,
+        "text": "and Friends related technologies by the"
+      },
+      {
+        "start": 35.309,
+        "duration": 5.281,
+        "text": "global data geeks great time here a lot"
+      },
+      {
+        "start": 38.19,
+        "duration": 4.41,
+        "text": "of heavy hitters in the community are"
+      },
+      {
+        "start": 40.59,
+        "duration": 5.73,
+        "text": "here even talks today what have been"
+      },
+      {
+        "start": 42.6,
+        "duration": 5.43,
+        "text": "your impressions so far you know it it's"
+      },
+      {
+        "start": 46.32,
+        "duration": 4.38,
+        "text": "kind of getting the band back together"
+      },
+      {
+        "start": 48.03,
+        "duration": 4.5,
+        "text": "kind of feel to it you've got the you'll"
+      },
+      {
+        "start": 50.7,
+        "duration": 5.28,
+        "text": "get the great speakers from data stacks"
+      },
+      {
+        "start": 52.53,
+        "duration": 5.31,
+        "text": "from the last pickle from Netflix you've"
+      },
+      {
+        "start": 55.98,
+        "duration": 5.009,
+        "text": "got some new faces you've got Family"
+      },
+      {
+        "start": 57.84,
+        "duration": 5.28,
+        "text": "Search you've got Yahoo Japan so really"
+      },
+      {
+        "start": 60.989,
+        "duration": 4.111,
+        "text": "a really good conference so far yeah I'm"
+      },
+      {
+        "start": 63.12,
+        "duration": 4.71,
+        "text": "enjoying just like all the it's it's"
+      },
+      {
+        "start": 65.1,
+        "duration": 5.46,
+        "text": "definitely a very varied community with"
+      },
+      {
+        "start": 67.83,
+        "duration": 4.89,
+        "text": "a lot of different interests no nobody"
+      },
+      {
+        "start": 70.56,
+        "duration": 3.87,
+        "text": "has the same use case as anybody else"
+      },
+      {
+        "start": 72.72,
+        "duration": 2.64,
+        "text": "no it's gonna go like a little bit"
+      },
+      {
+        "start": 74.43,
+        "duration": 3.24,
+        "text": "different angles that they're trying to"
+      },
+      {
+        "start": 75.36,
+        "duration": 6.0,
+        "text": "explore we've got like transient"
+      },
+      {
+        "start": 77.67,
+        "duration": 5.37,
+        "text": "replication and sidecars and all sorts"
+      },
+      {
+        "start": 81.36,
+        "duration": 3.59,
+        "text": "of fun stuff happening and people trying"
+      },
+      {
+        "start": 83.04,
+        "duration": 6.119,
+        "text": "to see what's gonna get into for ATO"
+      },
+      {
+        "start": 84.95,
+        "duration": 6.12,
+        "text": "just a lot going on yeah cool okay so I"
+      },
+      {
+        "start": 89.159,
+        "duration": 4.71,
+        "text": "I wanted to talk with you about"
+      },
+      {
+        "start": 91.07,
+        "duration": 4.36,
+        "text": "specifically a talk that you gave today"
+      },
+      {
+        "start": 93.869,
+        "duration": 2.941,
+        "text": "and we're not gonna like rehash the"
+      },
+      {
+        "start": 95.43,
+        "duration": 2.579,
+        "text": "whole talk or anything but I want to"
+      },
+      {
+        "start": 96.81,
+        "duration": 4.37,
+        "text": "pull out one little bit of it that"
+      },
+      {
+        "start": 98.009,
+        "duration": 5.671,
+        "text": "really caught my attention you know on"
+      },
+      {
+        "start": 101.18,
+        "duration": 4.06,
+        "text": "distributed data show we're all about"
+      },
+      {
+        "start": 103.68,
+        "duration": 5.119,
+        "text": "developers we're all about being"
+      },
+      {
+        "start": 105.24,
+        "duration": 5.79,
+        "text": "successful with the technology on and so"
+      },
+      {
+        "start": 108.799,
+        "duration": 4.421,
+        "text": "one of the things that you were really"
+      },
+      {
+        "start": 111.03,
+        "duration": 4.199,
+        "text": "hitting on in your talk is about"
+      },
+      {
+        "start": 113.22,
+        "duration": 5.759,
+        "text": "different ways over the years that in"
+      },
+      {
+        "start": 115.229,
+        "duration": 6.151,
+        "text": "Cassandra that maybe we tried to steer"
+      },
+      {
+        "start": 118.979,
+        "duration": 4.261,
+        "text": "the development community and try to get"
+      },
+      {
+        "start": 121.38,
+        "duration": 4.47,
+        "text": "them to act in a certain way or use the"
+      },
+      {
+        "start": 123.24,
+        "duration": 4.589,
+        "text": "technology a certain way and you were"
+      },
+      {
+        "start": 125.85,
+        "duration": 3.48,
+        "text": "saying like hey the customer is always"
+      },
+      {
+        "start": 127.829,
+        "duration": 2.581,
+        "text": "right and maybe we should listen a"
+      },
+      {
+        "start": 129.33,
+        "duration": 3.27,
+        "text": "little bit more so I'm"
+      },
+      {
+        "start": 130.41,
+        "duration": 4.95,
+        "text": "I'm gonna reword that slightly to the"
+      },
+      {
+        "start": 132.6,
+        "duration": 5.55,
+        "text": "developer is always right I like my"
+      },
+      {
+        "start": 135.36,
+        "duration": 4.26,
+        "text": "formulations yeah you like that okay so"
+      },
+      {
+        "start": 138.15,
+        "duration": 4.02,
+        "text": "I want to go through a few of these"
+      },
+      {
+        "start": 139.62,
+        "duration": 6.21,
+        "text": "points and kind of bomb talk them"
+      },
+      {
+        "start": 142.17,
+        "duration": 4.5,
+        "text": "through a little bit with you so one of"
+      },
+      {
+        "start": 145.83,
+        "duration": 3.42,
+        "text": "the things that you were talking about"
+      },
+      {
+        "start": 146.67,
+        "duration": 6.0,
+        "text": "is the the very famous introduction of"
+      },
+      {
+        "start": 149.25,
+        "duration": 5.01,
+        "text": "the allow filtering keyword you talked"
+      },
+      {
+        "start": 152.67,
+        "duration": 3.75,
+        "text": "about a little bit about the genesis of"
+      },
+      {
+        "start": 154.26,
+        "duration": 3.54,
+        "text": "that and like how that ended up in there"
+      },
+      {
+        "start": 156.42,
+        "duration": 5.01,
+        "text": "no we were trying to you know like"
+      },
+      {
+        "start": 157.8,
+        "duration": 5.94,
+        "text": "prevent sequential or large range scans"
+      },
+      {
+        "start": 161.43,
+        "duration": 5.01,
+        "text": "like what how did that come to be and"
+      },
+      {
+        "start": 163.74,
+        "duration": 5.43,
+        "text": "and why do you think that it wasn't a"
+      },
+      {
+        "start": 166.44,
+        "duration": 5.01,
+        "text": "mistake or some of the you would do"
+      },
+      {
+        "start": 169.17,
+        "duration": 4.26,
+        "text": "different yeah so so kind of the the"
+      },
+      {
+        "start": 171.45,
+        "duration": 4.26,
+        "text": "genesis of this section is you know I"
+      },
+      {
+        "start": 173.43,
+        "duration": 6.21,
+        "text": "was project chair of Apache Cassandra"
+      },
+      {
+        "start": 175.71,
+        "duration": 5.97,
+        "text": "for six years and now I'm a vice"
+      },
+      {
+        "start": 179.64,
+        "duration": 8.01,
+        "text": "president of product development for"
+      },
+      {
+        "start": 181.68,
+        "duration": 8.4,
+        "text": "data stacks and so I end a lot of time"
+      },
+      {
+        "start": 187.65,
+        "duration": 6.21,
+        "text": "thinking about how the database should"
+      },
+      {
+        "start": 190.08,
+        "duration": 6.78,
+        "text": "be used it should be used and so you"
+      },
+      {
+        "start": 193.86,
+        "duration": 6.08,
+        "text": "know I think that one of the things that"
+      },
+      {
+        "start": 196.86,
+        "duration": 4.95,
+        "text": "I've learned is is that you know as"
+      },
+      {
+        "start": 199.94,
+        "duration": 4.69,
+        "text": "those of us who are building the"
+      },
+      {
+        "start": 201.81,
+        "duration": 5.85,
+        "text": "database we we need a little bit more"
+      },
+      {
+        "start": 204.63,
+        "duration": 4.5,
+        "text": "humility in terms of when we're saying"
+      },
+      {
+        "start": 207.66,
+        "duration": 3.63,
+        "text": "you know this is the right way to do"
+      },
+      {
+        "start": 209.13,
+        "duration": 4.1,
+        "text": "things and so one of the examples I gave"
+      },
+      {
+        "start": 211.29,
+        "duration": 7.2,
+        "text": "was this allow filtering example where"
+      },
+      {
+        "start": 213.23,
+        "duration": 7.479,
+        "text": "so back in back in 2012 we started"
+      },
+      {
+        "start": 218.49,
+        "duration": 4.86,
+        "text": "getting bug reports and this was just"
+      },
+      {
+        "start": 220.709,
+        "duration": 5.701,
+        "text": "after we introduced cql right so yes"
+      },
+      {
+        "start": 223.35,
+        "duration": 8.19,
+        "text": "before you were you were using thrift"
+      },
+      {
+        "start": 226.41,
+        "duration": 9.06,
+        "text": "and you would call a get slice our PC"
+      },
+      {
+        "start": 231.54,
+        "duration": 5.88,
+        "text": "endpoint and and so we moved to cql and"
+      },
+      {
+        "start": 235.47,
+        "duration": 5.58,
+        "text": "now you have select you have select from"
+      },
+      {
+        "start": 237.42,
+        "duration": 7.41,
+        "text": "where and so times were good times we're"
+      },
+      {
+        "start": 241.05,
+        "duration": 8.31,
+        "text": "we're good so so Nate McCullough who is"
+      },
+      {
+        "start": 244.83,
+        "duration": 6.24,
+        "text": "yeah nicknamed McCall who worked on in"
+      },
+      {
+        "start": 249.36,
+        "duration": 4.23,
+        "text": "fact he was one of the authors of an"
+      },
+      {
+        "start": 251.07,
+        "duration": 4.8,
+        "text": "early thrift client called Hector and"
+      },
+      {
+        "start": 253.59,
+        "duration": 5.22,
+        "text": "he's he's right yeah he's currently"
+      },
+      {
+        "start": 255.87,
+        "duration": 5.64,
+        "text": "project chair of Apache Cassandra and so"
+      },
+      {
+        "start": 258.81,
+        "duration": 5.7,
+        "text": "in his keynote this morning he said"
+      },
+      {
+        "start": 261.51,
+        "duration": 5.45,
+        "text": "you know I I liked one thing about"
+      },
+      {
+        "start": 264.51,
+        "duration": 5.01,
+        "text": "thrift which was that it was very"
+      },
+      {
+        "start": 266.96,
+        "duration": 5.35,
+        "text": "isomorphic to the engine the database"
+      },
+      {
+        "start": 269.52,
+        "duration": 5.07,
+        "text": "engine and so thrift exposed things that"
+      },
+      {
+        "start": 272.31,
+        "duration": 3.66,
+        "text": "the engine that could do well and if it"
+      },
+      {
+        "start": 274.59,
+        "duration": 3.69,
+        "text": "couldn't do well it didn't expose it"
+      },
+      {
+        "start": 275.97,
+        "duration": 4.62,
+        "text": "right and so when we introduced CQ well"
+      },
+      {
+        "start": 278.28,
+        "duration": 4.98,
+        "text": "it it says we're gonna try to be more"
+      },
+      {
+        "start": 280.59,
+        "duration": 5.28,
+        "text": "like sequel and give people that more"
+      },
+      {
+        "start": 283.26,
+        "duration": 5.22,
+        "text": "familiarity but that does obscure a"
+      },
+      {
+        "start": 285.87,
+        "duration": 4.32,
+        "text": "little bit like what is a good idea and"
+      },
+      {
+        "start": 288.48,
+        "duration": 4.29,
+        "text": "what is a bad idea didn't match the"
+      },
+      {
+        "start": 290.19,
+        "duration": 4.29,
+        "text": "underlying engine is yeah yeah yeah so"
+      },
+      {
+        "start": 292.77,
+        "duration": 4.17,
+        "text": "in particular one of the things that"
+      },
+      {
+        "start": 294.48,
+        "duration": 7.47,
+        "text": "that we did in thrift was if you asked"
+      },
+      {
+        "start": 296.94,
+        "duration": 6.87,
+        "text": "me for you know a slice of Rose Mattel"
+      },
+      {
+        "start": 301.95,
+        "duration": 3.87,
+        "text": "me how many rows you wanted and I'd give"
+      },
+      {
+        "start": 303.81,
+        "duration": 3.57,
+        "text": "them back to you and so I would pull"
+      },
+      {
+        "start": 305.82,
+        "duration": 3.57,
+        "text": "those rows into memory on the replica"
+      },
+      {
+        "start": 307.38,
+        "duration": 3.66,
+        "text": "yeah send them over to the coordinator"
+      },
+      {
+        "start": 309.39,
+        "duration": 5.25,
+        "text": "and the coordinator would send them to"
+      },
+      {
+        "start": 311.04,
+        "duration": 6.15,
+        "text": "the clam and so but nobody would say"
+      },
+      {
+        "start": 314.64,
+        "duration": 4.17,
+        "text": "give me a hundred million rows because"
+      },
+      {
+        "start": 317.19,
+        "duration": 4.59,
+        "text": "that's obviously a bad idea right you"
+      },
+      {
+        "start": 318.81,
+        "duration": 5.22,
+        "text": "don't want to have a list in your app"
+      },
+      {
+        "start": 321.78,
+        "duration": 7.02,
+        "text": "server of a hundred million"
+      },
+      {
+        "start": 324.03,
+        "duration": 7.11,
+        "text": "you know objects yeah but in no one when"
+      },
+      {
+        "start": 328.8,
+        "duration": 5.25,
+        "text": "we moved to cql and now you can do these"
+      },
+      {
+        "start": 331.14,
+        "duration": 3.84,
+        "text": "massive sequential scans without kind of"
+      },
+      {
+        "start": 334.05,
+        "duration": 3.72,
+        "text": "thinking about it you can just say"
+      },
+      {
+        "start": 334.98,
+        "duration": 4.77,
+        "text": "select star from purchases and you get"
+      },
+      {
+        "start": 337.77,
+        "duration": 4.29,
+        "text": "back 100 million rows right wait so"
+      },
+      {
+        "start": 339.75,
+        "duration": 4.98,
+        "text": "could you could you out of memory om"
+      },
+      {
+        "start": 342.06,
+        "duration": 4.71,
+        "text": "your nodes before the introduction of"
+      },
+      {
+        "start": 344.73,
+        "duration": 3.51,
+        "text": "CQL yeah you definitely could but they"
+      },
+      {
+        "start": 346.77,
+        "duration": 3.75,
+        "text": "kind of have to do it deliberately"
+      },
+      {
+        "start": 348.24,
+        "duration": 4.98,
+        "text": "because you know all of the calls said"
+      },
+      {
+        "start": 350.52,
+        "duration": 4.47,
+        "text": "what's the limit on how many objects you"
+      },
+      {
+        "start": 353.22,
+        "duration": 3.24,
+        "text": "want so I'd have to say give me a"
+      },
+      {
+        "start": 354.99,
+        "duration": 3.96,
+        "text": "hundred million objects and then it's"
+      },
+      {
+        "start": 356.46,
+        "duration": 4.5,
+        "text": "like okay I blew my foot off but that's"
+      },
+      {
+        "start": 358.95,
+        "duration": 5.07,
+        "text": "what I asked for I explicitly"
+      },
+      {
+        "start": 360.96,
+        "duration": 5.55,
+        "text": "yeah yeah so what I mean it wasn't a"
+      },
+      {
+        "start": 364.02,
+        "duration": 4.17,
+        "text": "great designer grip but it was less"
+      },
+      {
+        "start": 366.51,
+        "duration": 3.6,
+        "text": "problematic because it was clear what"
+      },
+      {
+        "start": 368.19,
+        "duration": 6.45,
+        "text": "you were doing okay so now when I say"
+      },
+      {
+        "start": 370.11,
+        "duration": 6.42,
+        "text": "select star from purchases you know you"
+      },
+      {
+        "start": 374.64,
+        "duration": 3.48,
+        "text": "you get that behavior without without"
+      },
+      {
+        "start": 376.53,
+        "duration": 3.27,
+        "text": "kind of opting into yeah yeah you don't"
+      },
+      {
+        "start": 378.12,
+        "duration": 4.8,
+        "text": "know you know how many how many is that"
+      },
+      {
+        "start": 379.8,
+        "duration": 4.47,
+        "text": "so so as Cassandra developers we said"
+      },
+      {
+        "start": 382.92,
+        "duration": 3.39,
+        "text": "you know this is this is not a good way"
+      },
+      {
+        "start": 384.27,
+        "duration": 5.28,
+        "text": "to use the database and we're going to"
+      },
+      {
+        "start": 386.31,
+        "duration": 6.12,
+        "text": "help users understand this by we will"
+      },
+      {
+        "start": 389.55,
+        "duration": 3.87,
+        "text": "reject any sequential scan any select"
+      },
+      {
+        "start": 392.43,
+        "duration": 4.2,
+        "text": "query that"
+      },
+      {
+        "start": 393.42,
+        "duration": 5.49,
+        "text": "in a sequential scan and unless you give"
+      },
+      {
+        "start": 396.63,
+        "duration": 4.29,
+        "text": "us this keyword of allow filtering and"
+      },
+      {
+        "start": 398.91,
+        "duration": 4.47,
+        "text": "that says okay I understand the risk let"
+      },
+      {
+        "start": 400.92,
+        "duration": 6.12,
+        "text": "me do it anyway right and and what we"
+      },
+      {
+        "start": 403.38,
+        "duration": 5.16,
+        "text": "what we saw was people would just they'd"
+      },
+      {
+        "start": 407.04,
+        "duration": 4.02,
+        "text": "see the error and say oh this stupid"
+      },
+      {
+        "start": 408.54,
+        "duration": 4.62,
+        "text": "database is getting in my way right so"
+      },
+      {
+        "start": 411.06,
+        "duration": 4.14,
+        "text": "ok it's and it tells me that the"
+      },
+      {
+        "start": 413.16,
+        "duration": 3.21,
+        "text": "solution is to play allow filtering all"
+      },
+      {
+        "start": 415.2,
+        "duration": 3.39,
+        "text": "right you're making me jump through"
+      },
+      {
+        "start": 416.37,
+        "duration": 4.56,
+        "text": "these extra hubs but hoops but I'll just"
+      },
+      {
+        "start": 418.59,
+        "duration": 4.23,
+        "text": "paste that in and I'll do it anyway okay"
+      },
+      {
+        "start": 420.93,
+        "duration": 5.16,
+        "text": "I can totally validate this yeah yeah"
+      },
+      {
+        "start": 422.82,
+        "duration": 4.83,
+        "text": "add an instance of this made it into"
+      },
+      {
+        "start": 426.09,
+        "duration": 3.5,
+        "text": "production on a project that I was"
+      },
+      {
+        "start": 427.65,
+        "duration": 6.87,
+        "text": "involved in as an architect where"
+      },
+      {
+        "start": 429.59,
+        "duration": 6.76,
+        "text": "despite an explicit order not to do so"
+      },
+      {
+        "start": 434.52,
+        "duration": 3.96,
+        "text": "there was an allow filtering that made"
+      },
+      {
+        "start": 436.35,
+        "duration": 5.13,
+        "text": "it into a production system in it it"
+      },
+      {
+        "start": 438.48,
+        "duration": 5.22,
+        "text": "worked fine until it didn't Yeah right"
+      },
+      {
+        "start": 441.48,
+        "duration": 5.58,
+        "text": "actually it wasn't a cliff sort of"
+      },
+      {
+        "start": 443.7,
+        "duration": 6.24,
+        "text": "situation it was a this service is"
+      },
+      {
+        "start": 447.06,
+        "duration": 7.02,
+        "text": "getting progressively slower and slower"
+      },
+      {
+        "start": 449.94,
+        "duration": 6.21,
+        "text": "and slower yeah until it's time then it"
+      },
+      {
+        "start": 454.08,
+        "duration": 3.78,
+        "text": "started timing out and then I got"
+      },
+      {
+        "start": 456.15,
+        "duration": 3.39,
+        "text": "brought into the conversation when we"
+      },
+      {
+        "start": 457.86,
+        "duration": 4.41,
+        "text": "were talking about extending the timeout"
+      },
+      {
+        "start": 459.54,
+        "duration": 5.25,
+        "text": "and I was like ok no I'm gonna call"
+      },
+      {
+        "start": 462.27,
+        "duration": 5.04,
+        "text": "timeout on this whole conversation what"
+      },
+      {
+        "start": 464.79,
+        "duration": 4.98,
+        "text": "did you do yeah right yeah so this is"
+      },
+      {
+        "start": 467.31,
+        "duration": 5.67,
+        "text": "what we're this is this is why we were"
+      },
+      {
+        "start": 469.77,
+        "duration": 6.3,
+        "text": "trying to kind of trying to educate"
+      },
+      {
+        "start": 472.98,
+        "duration": 5.22,
+        "text": "users about this because you know it is"
+      },
+      {
+        "start": 476.07,
+        "duration": 4.32,
+        "text": "a situation where it'll work fine with a"
+      },
+      {
+        "start": 478.2,
+        "duration": 3.75,
+        "text": "tiny data set and then it doesn't scale"
+      },
+      {
+        "start": 480.39,
+        "duration": 5.0,
+        "text": "that's kind of the nature of sequential"
+      },
+      {
+        "start": 481.95,
+        "duration": 9.24,
+        "text": "scans worked on my machine yeah exactly"
+      },
+      {
+        "start": 485.39,
+        "duration": 7.09,
+        "text": "so but does this allow filtering of you"
+      },
+      {
+        "start": 491.19,
+        "duration": 2.94,
+        "text": "know slapping the users on the wrist and"
+      },
+      {
+        "start": 492.48,
+        "duration": 3.87,
+        "text": "saying don't do that it does it didn't"
+      },
+      {
+        "start": 494.13,
+        "duration": 4.62,
+        "text": "say a problem didn't help educate people"
+      },
+      {
+        "start": 496.35,
+        "duration": 4.26,
+        "text": "the way we were hoping so what should"
+      },
+      {
+        "start": 498.75,
+        "duration": 4.2,
+        "text": "you have done differently so whoa so"
+      },
+      {
+        "start": 500.61,
+        "duration": 4.44,
+        "text": "what we did so a year after we"
+      },
+      {
+        "start": 502.95,
+        "duration": 5.25,
+        "text": "introduced to allow filtering yeah we"
+      },
+      {
+        "start": 505.05,
+        "duration": 5.49,
+        "text": "added what we call paging to the cql"
+      },
+      {
+        "start": 508.2,
+        "duration": 4.2,
+        "text": "protocol right and so now if you ask for"
+      },
+      {
+        "start": 510.54,
+        "duration": 3.45,
+        "text": "a really large result set it'll give you"
+      },
+      {
+        "start": 512.4,
+        "duration": 3.24,
+        "text": "back the first few rows and the plan"
+      },
+      {
+        "start": 513.99,
+        "duration": 3.51,
+        "text": "says okay I've processed those I want"
+      },
+      {
+        "start": 515.64,
+        "duration": 4.2,
+        "text": "the next rows and it'll give you them"
+      },
+      {
+        "start": 517.5,
+        "duration": 4.29,
+        "text": "giving you those back incremental e"
+      },
+      {
+        "start": 519.84,
+        "duration": 3.15,
+        "text": "rather than materializing a massive"
+      },
+      {
+        "start": 521.79,
+        "duration": 2.85,
+        "text": "result set in memory"
+      },
+      {
+        "start": 522.99,
+        "duration": 3.99,
+        "text": "I love that the driver does that"
+      },
+      {
+        "start": 524.64,
+        "duration": 3.93,
+        "text": "natively I mean most people are I don't"
+      },
+      {
+        "start": 526.98,
+        "duration": 3.57,
+        "text": "know who knows or thinks about this but"
+      },
+      {
+        "start": 528.57,
+        "duration": 3.3,
+        "text": "the driver just kind of natively handles"
+      },
+      {
+        "start": 530.55,
+        "duration": 6.69,
+        "text": "that for you which is what it should do"
+      },
+      {
+        "start": 531.87,
+        "duration": 10.35,
+        "text": "yeah yeah so unfortunately not all of"
+      },
+      {
+        "start": 537.24,
+        "duration": 7.05,
+        "text": "the places where we'd like to provide"
+      },
+      {
+        "start": 542.22,
+        "duration": 2.85,
+        "text": "that kind of solution not all of them"
+      },
+      {
+        "start": 544.29,
+        "duration": 3.84,
+        "text": "are that simple"
+      },
+      {
+        "start": 545.07,
+        "duration": 7.829,
+        "text": "right right okay gotcha okay so is there"
+      },
+      {
+        "start": 548.13,
+        "duration": 6.39,
+        "text": "is there anything else that you you okay"
+      },
+      {
+        "start": 552.899,
+        "duration": 3.661,
+        "text": "paging was okay so we put in a solution"
+      },
+      {
+        "start": 554.52,
+        "duration": 3.96,
+        "text": "there that paging was the solution yeah"
+      },
+      {
+        "start": 556.56,
+        "duration": 3.649,
+        "text": "is there anything else that like would"
+      },
+      {
+        "start": 558.48,
+        "duration": 5.13,
+        "text": "have been done is that is that really it"
+      },
+      {
+        "start": 560.209,
+        "duration": 5.261,
+        "text": "uh well so paging solves the problem"
+      },
+      {
+        "start": 563.61,
+        "duration": 3.93,
+        "text": "okay let me tell you what I'm thinking I"
+      },
+      {
+        "start": 565.47,
+        "duration": 4.2,
+        "text": "think yeah like who would there have"
+      },
+      {
+        "start": 567.54,
+        "duration": 4.32,
+        "text": "been a way to know how many rows that"
+      },
+      {
+        "start": 569.67,
+        "duration": 4.41,
+        "text": "you were asking for up front"
+      },
+      {
+        "start": 571.86,
+        "duration": 6.18,
+        "text": "could we have told people and only in"
+      },
+      {
+        "start": 574.08,
+        "duration": 6.449,
+        "text": "some instances said I like hey I the"
+      },
+      {
+        "start": 578.04,
+        "duration": 4.38,
+        "text": "database know that there's actually 10"
+      },
+      {
+        "start": 580.529,
+        "duration": 3.601,
+        "text": "million rows there behind that query"
+      },
+      {
+        "start": 582.42,
+        "duration": 4.05,
+        "text": "that you just did without it without"
+      },
+      {
+        "start": 584.13,
+        "duration": 3.81,
+        "text": "ever even been possible to know or with"
+      },
+      {
+        "start": 586.47,
+        "duration": 4.26,
+        "text": "a bit there have been a way to do that"
+      },
+      {
+        "start": 587.94,
+        "duration": 4.98,
+        "text": "I'm just curious I mean so where are you"
+      },
+      {
+        "start": 590.73,
+        "duration": 3.84,
+        "text": "going with this because you know"
+      },
+      {
+        "start": 592.92,
+        "duration": 3.63,
+        "text": "hypothetically I know that there that"
+      },
+      {
+        "start": 594.57,
+        "duration": 4.44,
+        "text": "this results that's going to be you know"
+      },
+      {
+        "start": 596.55,
+        "duration": 5.789,
+        "text": "too large to fit in memory where I fail"
+      },
+      {
+        "start": 599.01,
+        "duration": 6.769,
+        "text": "the results set or I fail the query you"
+      },
+      {
+        "start": 602.339,
+        "duration": 5.31,
+        "text": "know has that solved the users problem"
+      },
+      {
+        "start": 605.779,
+        "duration": 3.731,
+        "text": "well I mean if there's only a hundred"
+      },
+      {
+        "start": 607.649,
+        "duration": 5.241,
+        "text": "rows then they could why not give them"
+      },
+      {
+        "start": 609.51,
+        "duration": 6.06,
+        "text": "give it all to them without a warning I"
+      },
+      {
+        "start": 612.89,
+        "duration": 5.97,
+        "text": "don't like that because I'm still in the"
+      },
+      {
+        "start": 615.57,
+        "duration": 6.87,
+        "text": "situation of my my design works and"
+      },
+      {
+        "start": 618.86,
+        "duration": 5.74,
+        "text": "until it doesn't and and I don't really"
+      },
+      {
+        "start": 622.44,
+        "duration": 4.139,
+        "text": "have clarity on where that thresholds"
+      },
+      {
+        "start": 624.6,
+        "duration": 3.54,
+        "text": "gonna be okay so it's unpredictable to"
+      },
+      {
+        "start": 626.579,
+        "duration": 3.691,
+        "text": "the user they don't that's gonna lead to"
+      },
+      {
+        "start": 628.14,
+        "duration": 4.47,
+        "text": "some sort of unpredictable behavior"
+      },
+      {
+        "start": 630.27,
+        "duration": 3.93,
+        "text": "you're not intuitive like what do you"
+      },
+      {
+        "start": 632.61,
+        "duration": 5.37,
+        "text": "mean why am I getting this morning now"
+      },
+      {
+        "start": 634.2,
+        "duration": 7.17,
+        "text": "right yeah okay that makes sense and"
+      },
+      {
+        "start": 637.98,
+        "duration": 5.18,
+        "text": "that's so I I say that as you know"
+      },
+      {
+        "start": 641.37,
+        "duration": 4.14,
+        "text": "that's that's not a great solution right"
+      },
+      {
+        "start": 643.16,
+        "duration": 5.77,
+        "text": "but that's actually the solution we went"
+      },
+      {
+        "start": 645.51,
+        "duration": 5.91,
+        "text": "with for for another subject which was"
+      },
+      {
+        "start": 648.93,
+        "duration": 5.22,
+        "text": "tombstones okay"
+      },
+      {
+        "start": 651.42,
+        "duration": 7.17,
+        "text": "okay so so ask me how I know that it's"
+      },
+      {
+        "start": 654.15,
+        "duration": 6.3,
+        "text": "not a great solution right so so how"
+      },
+      {
+        "start": 658.59,
+        "duration": 4.47,
+        "text": "much detail should we go in - on what"
+      },
+      {
+        "start": 660.45,
+        "duration": 4.56,
+        "text": "two moons are and and why they are a"
+      },
+      {
+        "start": 663.06,
+        "duration": 3.84,
+        "text": "problem and so forth here okay we'll"
+      },
+      {
+        "start": 665.01,
+        "duration": 3.3,
+        "text": "give me the nutshell we can go with the"
+      },
+      {
+        "start": 666.9,
+        "duration": 4.44,
+        "text": "how the high level description of"
+      },
+      {
+        "start": 668.31,
+        "duration": 5.31,
+        "text": "tombstone let's just say instead of"
+      },
+      {
+        "start": 671.34,
+        "duration": 4.65,
+        "text": "actually physically deleting data in"
+      },
+      {
+        "start": 673.62,
+        "duration": 4.23,
+        "text": "Cassandra we mark data as having been"
+      },
+      {
+        "start": 675.99,
+        "duration": 3.42,
+        "text": "deleted and that's because we have"
+      },
+      {
+        "start": 677.85,
+        "duration": 3.66,
+        "text": "multiple nodes and they all have to kind"
+      },
+      {
+        "start": 679.41,
+        "duration": 3.84,
+        "text": "of agree that the data is not there and"
+      },
+      {
+        "start": 681.51,
+        "duration": 4.29,
+        "text": "if a node is asleep and then comes back"
+      },
+      {
+        "start": 683.25,
+        "duration": 4.2,
+        "text": "online it syncs it it has the data and"
+      },
+      {
+        "start": 685.8,
+        "duration": 2.91,
+        "text": "if the other nodes don't know that the"
+      },
+      {
+        "start": 687.45,
+        "duration": 3.78,
+        "text": "data is deleted then it could be"
+      },
+      {
+        "start": 688.71,
+        "duration": 4.58,
+        "text": "resurrected there's my two and a half"
+      },
+      {
+        "start": 691.23,
+        "duration": 4.41,
+        "text": "sentence description of tombstones so"
+      },
+      {
+        "start": 693.29,
+        "duration": 6.1,
+        "text": "you want to take it from there fantastic"
+      },
+      {
+        "start": 695.64,
+        "duration": 6.3,
+        "text": "yeah so so when you're doing this this"
+      },
+      {
+        "start": 699.39,
+        "duration": 6.78,
+        "text": "is totally not a problem if you're"
+      },
+      {
+        "start": 701.94,
+        "duration": 6.63,
+        "text": "querying for ten rows and you know"
+      },
+      {
+        "start": 706.17,
+        "duration": 5.28,
+        "text": "there's no particular collation going on"
+      },
+      {
+        "start": 708.57,
+        "duration": 5.31,
+        "text": "yeah it's just a simple partition key on"
+      },
+      {
+        "start": 711.45,
+        "duration": 3.72,
+        "text": "the table I've never heard of somebody"
+      },
+      {
+        "start": 713.88,
+        "duration": 5.13,
+        "text": "getting into tombstone trouble in that"
+      },
+      {
+        "start": 715.17,
+        "duration": 6.69,
+        "text": "scenario but when you have a sort column"
+      },
+      {
+        "start": 719.01,
+        "duration": 6.9,
+        "text": "in your primary key definition yeah and"
+      },
+      {
+        "start": 721.86,
+        "duration": 7.05,
+        "text": "you're asking for sorted rows out of a"
+      },
+      {
+        "start": 725.91,
+        "duration": 5.13,
+        "text": "partition then we actually if you have"
+      },
+      {
+        "start": 728.91,
+        "duration": 3.87,
+        "text": "if you're asking for ten rows and you"
+      },
+      {
+        "start": 731.04,
+        "duration": 4.32,
+        "text": "have ten rows but you've also got ten"
+      },
+      {
+        "start": 732.78,
+        "duration": 4.92,
+        "text": "thousand deleted rows we have to include"
+      },
+      {
+        "start": 735.36,
+        "duration": 4.71,
+        "text": "those ten thousand tombstones in the"
+      },
+      {
+        "start": 737.7,
+        "duration": 4.98,
+        "text": "result set for the ten rows so I've made"
+      },
+      {
+        "start": 740.07,
+        "duration": 4.89,
+        "text": "the result set like three orders of"
+      },
+      {
+        "start": 742.68,
+        "duration": 4.8,
+        "text": "magnitude larger and the reason I need"
+      },
+      {
+        "start": 744.96,
+        "duration": 5.01,
+        "text": "to do that is that's you know like you"
+      },
+      {
+        "start": 747.48,
+        "duration": 5.57,
+        "text": "said I'm I don't want to resurrect data"
+      },
+      {
+        "start": 749.97,
+        "duration": 5.55,
+        "text": "that's been deleted and I'm combining"
+      },
+      {
+        "start": 753.05,
+        "duration": 4.15,
+        "text": "results from different replicas yeah so"
+      },
+      {
+        "start": 755.52,
+        "duration": 6.33,
+        "text": "I need those tombstones to tell me which"
+      },
+      {
+        "start": 757.2,
+        "duration": 6.72,
+        "text": "are the valid rows and this is another"
+      },
+      {
+        "start": 761.85,
+        "duration": 4.77,
+        "text": "case where we're materializing those"
+      },
+      {
+        "start": 763.92,
+        "duration": 5.13,
+        "text": "into memory we could apply a paging to"
+      },
+      {
+        "start": 766.62,
+        "duration": 5.82,
+        "text": "this but that that would make things"
+      },
+      {
+        "start": 769.05,
+        "duration": 6.09,
+        "text": "really slow and that would happen"
+      },
+      {
+        "start": 772.44,
+        "duration": 5.46,
+        "text": "between the nodes in the Cassandra"
+      },
+      {
+        "start": 775.14,
+        "duration": 4.11,
+        "text": "cluster and so what we did was we said"
+      },
+      {
+        "start": 777.9,
+        "duration": 4.32,
+        "text": "we're going to create a warning"
+      },
+      {
+        "start": 779.25,
+        "duration": 5.07,
+        "text": "threshold will log a warning if your"
+      },
+      {
+        "start": 782.22,
+        "duration": 4.049,
+        "text": "query scans more than"
+      },
+      {
+        "start": 784.32,
+        "duration": 4.709,
+        "text": "a thousand tombstones by default and"
+      },
+      {
+        "start": 786.269,
+        "duration": 4.771,
+        "text": "will add an error threshold where we'll"
+      },
+      {
+        "start": 789.029,
+        "duration": 4.711,
+        "text": "kill the query completely and just drop"
+      },
+      {
+        "start": 791.04,
+        "duration": 5.25,
+        "text": "it if it exceeds more than 10,000"
+      },
+      {
+        "start": 793.74,
+        "duration": 4.56,
+        "text": "tombstones okay so this is another this"
+      },
+      {
+        "start": 796.29,
+        "duration": 4.109,
+        "text": "is a second instance the second instance"
+      },
+      {
+        "start": 798.3,
+        "duration": 5.07,
+        "text": "in our conversation of where you're"
+      },
+      {
+        "start": 800.399,
+        "duration": 6.481,
+        "text": "trying to guide or sort of train the"
+      },
+      {
+        "start": 803.37,
+        "duration": 4.949,
+        "text": "developer in the direction instead of"
+      },
+      {
+        "start": 806.88,
+        "duration": 2.61,
+        "text": "assuming that they're in the right or"
+      },
+      {
+        "start": 808.319,
+        "duration": 3.39,
+        "text": "that they know what they're doing"
+      },
+      {
+        "start": 809.49,
+        "duration": 3.659,
+        "text": "we're saying whoa you don't know what"
+      },
+      {
+        "start": 811.709,
+        "duration": 3.24,
+        "text": "you're doing yeah because you have all"
+      },
+      {
+        "start": 813.149,
+        "duration": 4.771,
+        "text": "these tombstones we're gonna help you"
+      },
+      {
+        "start": 814.949,
+        "duration": 5.601,
+        "text": "out here so was that right I mean I made"
+      },
+      {
+        "start": 817.92,
+        "duration": 6.3,
+        "text": "a right waiting it is on the one hand"
+      },
+      {
+        "start": 820.55,
+        "duration": 7.479,
+        "text": "the system will not handle what you're"
+      },
+      {
+        "start": 824.22,
+        "duration": 7.44,
+        "text": "asking it to do the way you think it"
+      },
+      {
+        "start": 828.029,
+        "duration": 6.031,
+        "text": "will okay and so so in the one sense no"
+      },
+      {
+        "start": 831.66,
+        "duration": 5.75,
+        "text": "we need to we need to show you how to"
+      },
+      {
+        "start": 834.06,
+        "duration": 5.73,
+        "text": "solve that problem in a way that that"
+      },
+      {
+        "start": 837.41,
+        "duration": 6.01,
+        "text": "sympathizes with the system that you"
+      },
+      {
+        "start": 839.79,
+        "duration": 6.27,
+        "text": "have but you know this solution is"
+      },
+      {
+        "start": 843.42,
+        "duration": 4.08,
+        "text": "terrible because you know first for the"
+      },
+      {
+        "start": 846.06,
+        "duration": 2.339,
+        "text": "reason I gave you earlier way it works"
+      },
+      {
+        "start": 847.5,
+        "duration": 4.019,
+        "text": "until it doesn't"
+      },
+      {
+        "start": 848.399,
+        "duration": 5.911,
+        "text": "yeah but also because we're logging a"
+      },
+      {
+        "start": 851.519,
+        "duration": 6.12,
+        "text": "server-side warning for a client-side"
+      },
+      {
+        "start": 854.31,
+        "duration": 6.0,
+        "text": "request yes okay and I've seen this I've"
+      },
+      {
+        "start": 857.639,
+        "duration": 4.921,
+        "text": "definitely monitored or kind of looked"
+      },
+      {
+        "start": 860.31,
+        "duration": 4.529,
+        "text": "over the shoulder of ops team that's"
+      },
+      {
+        "start": 862.56,
+        "duration": 3.839,
+        "text": "monitoring Cassandra nodes in production"
+      },
+      {
+        "start": 864.839,
+        "duration": 3.81,
+        "text": "and then you know like hey come over"
+      },
+      {
+        "start": 866.399,
+        "duration": 5.221,
+        "text": "here have a look at this what does this"
+      },
+      {
+        "start": 868.649,
+        "duration": 6.391,
+        "text": "mean and had that sort of that similar"
+      },
+      {
+        "start": 871.62,
+        "duration": 6.149,
+        "text": "reaction like should we do something"
+      },
+      {
+        "start": 875.04,
+        "duration": 4.859,
+        "text": "about the fact that the team warned the"
+      },
+      {
+        "start": 877.769,
+        "duration": 4.711,
+        "text": "the tombstone warning has been triggered"
+      },
+      {
+        "start": 879.899,
+        "duration": 5.641,
+        "text": "and I wasn't even sure what to say"
+      },
+      {
+        "start": 882.48,
+        "duration": 4.409,
+        "text": "myself at that point then yeah I'm gonna"
+      },
+      {
+        "start": 885.54,
+        "duration": 3.659,
+        "text": "go back and talk to the application"
+      },
+      {
+        "start": 886.889,
+        "duration": 4.111,
+        "text": "developer and see what they're doing but"
+      },
+      {
+        "start": 889.199,
+        "duration": 3.481,
+        "text": "there was it wasn't as if there was a"
+      },
+      {
+        "start": 891.0,
+        "duration": 3.18,
+        "text": "real concrete action for us to take at"
+      },
+      {
+        "start": 892.68,
+        "duration": 6.57,
+        "text": "that point yeah I didn't know what to do"
+      },
+      {
+        "start": 894.18,
+        "duration": 7.139,
+        "text": "yeah so know if if we bring in a good"
+      },
+      {
+        "start": 899.25,
+        "duration": 3.899,
+        "text": "data sex consultant he's going to go"
+      },
+      {
+        "start": 901.319,
+        "duration": 3.811,
+        "text": "through the data model he's gonna it's"
+      },
+      {
+        "start": 903.149,
+        "duration": 3.36,
+        "text": "not so in the data model yeah it's not"
+      },
+      {
+        "start": 905.13,
+        "duration": 3.449,
+        "text": "something you can just fix it the server"
+      },
+      {
+        "start": 906.509,
+        "duration": 3.27,
+        "text": "right right no that's right so what he's"
+      },
+      {
+        "start": 908.579,
+        "duration": 3.331,
+        "text": "gonna do is he's going to look at things"
+      },
+      {
+        "start": 909.779,
+        "duration": 5.31,
+        "text": "to say you know if you're lucky you can"
+      },
+      {
+        "start": 911.91,
+        "duration": 5.01,
+        "text": "do a quick fix and add an inequality to"
+      },
+      {
+        "start": 915.089,
+        "duration": 5.461,
+        "text": "the where clause that says you know"
+      },
+      {
+        "start": 916.92,
+        "duration": 6.0,
+        "text": "we're object is newer than new a certain"
+      },
+      {
+        "start": 920.55,
+        "duration": 3.75,
+        "text": "date range and if you're if you've got a"
+      },
+      {
+        "start": 922.92,
+        "duration": 3.33,
+        "text": "pattern where you're inserting things"
+      },
+      {
+        "start": 924.3,
+        "duration": 4.2,
+        "text": "and then deleting them in roughly"
+      },
+      {
+        "start": 926.25,
+        "duration": 3.81,
+        "text": "chronological order then if you're"
+      },
+      {
+        "start": 928.5,
+        "duration": 4.05,
+        "text": "saying give me stuff that's within the"
+      },
+      {
+        "start": 930.06,
+        "duration": 3.69,
+        "text": "past week then all the tombstones older"
+      },
+      {
+        "start": 932.55,
+        "duration": 3.479,
+        "text": "than that then I don't need to care"
+      },
+      {
+        "start": 933.75,
+        "duration": 3.839,
+        "text": "about those anymore so that that's if"
+      },
+      {
+        "start": 936.029,
+        "duration": 4.651,
+        "text": "you're lucky if you're not lucky then"
+      },
+      {
+        "start": 937.589,
+        "duration": 5.25,
+        "text": "you then you need to okay right and a"
+      },
+      {
+        "start": 940.68,
+        "duration": 3.899,
+        "text": "large number of usages of Cassandra are"
+      },
+      {
+        "start": 942.839,
+        "duration": 3.511,
+        "text": "sort of that time based data or maybe"
+      },
+      {
+        "start": 944.579,
+        "duration": 3.12,
+        "text": "you could get away with something like"
+      },
+      {
+        "start": 946.35,
+        "duration": 3.84,
+        "text": "that that's not everyone's use case"
+      },
+      {
+        "start": 947.699,
+        "duration": 4.5,
+        "text": "right right so it can it can get"
+      },
+      {
+        "start": 950.19,
+        "duration": 4.05,
+        "text": "complicated and it can get to the point"
+      },
+      {
+        "start": 952.199,
+        "duration": 3.871,
+        "text": "of well you're going to have to know"
+      },
+      {
+        "start": 954.24,
+        "duration": 3.029,
+        "text": "instead of using these two tables you're"
+      },
+      {
+        "start": 956.07,
+        "duration": 4.199,
+        "text": "going to need to use these three tables"
+      },
+      {
+        "start": 957.269,
+        "duration": 6.06,
+        "text": "and that's going to let you do a scan"
+      },
+      {
+        "start": 960.269,
+        "duration": 5.671,
+        "text": "that's not going to you know pull in so"
+      },
+      {
+        "start": 963.329,
+        "duration": 8.01,
+        "text": "many tombstones so so it can be it can"
+      },
+      {
+        "start": 965.94,
+        "duration": 8.19,
+        "text": "be major surgery on so that's why we"
+      },
+      {
+        "start": 971.339,
+        "duration": 4.56,
+        "text": "reached for this right solution that you"
+      },
+      {
+        "start": 974.13,
+        "duration": 5.069,
+        "text": "know this is something that's a problem"
+      },
+      {
+        "start": 975.899,
+        "duration": 5.13,
+        "text": "but it's not a great solution certainly"
+      },
+      {
+        "start": 979.199,
+        "duration": 4.38,
+        "text": "not from the developers perspective in"
+      },
+      {
+        "start": 981.029,
+        "duration": 9.961,
+        "text": "in retrospect do you have an idea of"
+      },
+      {
+        "start": 983.579,
+        "duration": 9.0,
+        "text": "what you could have done more so so this"
+      },
+      {
+        "start": 990.99,
+        "duration": 3.51,
+        "text": "isn't as simple as the paging problem"
+      },
+      {
+        "start": 992.579,
+        "duration": 3.961,
+        "text": "right exactly right with the pill thing"
+      },
+      {
+        "start": 994.5,
+        "duration": 4.29,
+        "text": "is like a lot of children was the wrong"
+      },
+      {
+        "start": 996.54,
+        "duration": 4.859,
+        "text": "idea paging was the right idea and"
+      },
+      {
+        "start": 998.79,
+        "duration": 4.89,
+        "text": "paging was relatively simple for us to"
+      },
+      {
+        "start": 1001.399,
+        "duration": 4.44,
+        "text": "implement I mean it still required a"
+      },
+      {
+        "start": 1003.68,
+        "duration": 4.17,
+        "text": "major release to both the protocol on"
+      },
+      {
+        "start": 1005.839,
+        "duration": 3.69,
+        "text": "the server and on the driver right so"
+      },
+      {
+        "start": 1007.85,
+        "duration": 3.87,
+        "text": "it's you know it's definitely not as"
+      },
+      {
+        "start": 1009.529,
+        "duration": 4.411,
+        "text": "easy as five lines to add that allow"
+      },
+      {
+        "start": 1011.72,
+        "duration": 3.63,
+        "text": "filtering warning but it's something"
+      },
+      {
+        "start": 1013.94,
+        "duration": 3.72,
+        "text": "that we could solve in a single release"
+      },
+      {
+        "start": 1015.35,
+        "duration": 4.739,
+        "text": "basically okay with the the tombstones"
+      },
+      {
+        "start": 1017.66,
+        "duration": 4.83,
+        "text": "what we're what we need to do is we need"
+      },
+      {
+        "start": 1020.089,
+        "duration": 6.24,
+        "text": "to fundamentally redesign how Cassandra"
+      },
+      {
+        "start": 1022.49,
+        "duration": 6.63,
+        "text": "handles deletes to make this problem go"
+      },
+      {
+        "start": 1026.329,
+        "duration": 4.641,
+        "text": "away and so I you know I think there's"
+      },
+      {
+        "start": 1029.12,
+        "duration": 4.92,
+        "text": "three phases to that to that so"
+      },
+      {
+        "start": 1030.97,
+        "duration": 6.01,
+        "text": "tombstones are closely tied to what we"
+      },
+      {
+        "start": 1034.04,
+        "duration": 6.12,
+        "text": "call GC GRA seconds which is a little"
+      },
+      {
+        "start": 1036.98,
+        "duration": 6.18,
+        "text": "settings right yeah okay so so that"
+      },
+      {
+        "start": 1040.16,
+        "duration": 5.6,
+        "text": "setting says after this many seconds has"
+      },
+      {
+        "start": 1043.16,
+        "duration": 4.54,
+        "text": "elapsed it defaults to ten days worth"
+      },
+      {
+        "start": 1045.76,
+        "duration": 5.33,
+        "text": "after this many second"
+      },
+      {
+        "start": 1047.7,
+        "duration": 5.07,
+        "text": "assume that all the two streams have"
+      },
+      {
+        "start": 1051.09,
+        "duration": 3.66,
+        "text": "been propagated to all the replicas"
+      },
+      {
+        "start": 1052.77,
+        "duration": 4.35,
+        "text": "everybody knows by now everybody knows"
+      },
+      {
+        "start": 1054.75,
+        "duration": 4.08,
+        "text": "by now and we can garbage collect them"
+      },
+      {
+        "start": 1057.12,
+        "duration": 4.17,
+        "text": "we can throw them away the next time we"
+      },
+      {
+        "start": 1058.83,
+        "duration": 3.93,
+        "text": "compact those SS tables right which is"
+      },
+      {
+        "start": 1061.29,
+        "duration": 3.63,
+        "text": "you ha I mean you have to have some"
+      },
+      {
+        "start": 1062.76,
+        "duration": 6.03,
+        "text": "threshold like that otherwise you can"
+      },
+      {
+        "start": 1064.92,
+        "duration": 6.39,
+        "text": "you know write other way or or you have"
+      },
+      {
+        "start": 1068.79,
+        "duration": 5.43,
+        "text": "no deletion to ever write well what what"
+      },
+      {
+        "start": 1071.31,
+        "duration": 5.94,
+        "text": "that is is it's a simplifying assumption"
+      },
+      {
+        "start": 1074.22,
+        "duration": 4.5,
+        "text": "for what we really want to do is throw"
+      },
+      {
+        "start": 1077.25,
+        "duration": 3.66,
+        "text": "away the tombstones once all the"
+      },
+      {
+        "start": 1078.72,
+        "duration": 4.5,
+        "text": "replicas know about a deletion right and"
+      },
+      {
+        "start": 1080.91,
+        "duration": 5.13,
+        "text": "so it says it's just about getting"
+      },
+      {
+        "start": 1083.22,
+        "duration": 4.59,
+        "text": "better compaction or it's really more"
+      },
+      {
+        "start": 1086.04,
+        "duration": 4.32,
+        "text": "about getting better repair actually"
+      },
+      {
+        "start": 1087.81,
+        "duration": 5.61,
+        "text": "okay so yeah if we know that a certain"
+      },
+      {
+        "start": 1090.36,
+        "duration": 5.28,
+        "text": "token range has been repaired by date X"
+      },
+      {
+        "start": 1093.42,
+        "duration": 6.03,
+        "text": "then we can throw a whale tombstones"
+      },
+      {
+        "start": 1095.64,
+        "duration": 7.08,
+        "text": "prior to that okay now so the first step"
+      },
+      {
+        "start": 1099.45,
+        "duration": 7.95,
+        "text": "is to keep track so right now repairs a"
+      },
+      {
+        "start": 1102.72,
+        "duration": 6.54,
+        "text": "manual operation well in Apache"
+      },
+      {
+        "start": 1107.4,
+        "duration": 5.43,
+        "text": "Cassandra right not in that essentially"
+      },
+      {
+        "start": 1109.26,
+        "duration": 5.91,
+        "text": "a surprise Oh Touche but but what we"
+      },
+      {
+        "start": 1112.83,
+        "duration": 4.65,
+        "text": "need to do is we need to track for which"
+      },
+      {
+        "start": 1115.17,
+        "duration": 6.51,
+        "text": "ranges for which token range now when"
+      },
+      {
+        "start": 1117.48,
+        "duration": 5.91,
+        "text": "was that repair completed and so so we"
+      },
+      {
+        "start": 1121.68,
+        "duration": 5.37,
+        "text": "have that indented sex enterprise now we"
+      },
+      {
+        "start": 1123.39,
+        "duration": 6.27,
+        "text": "have that data the next step is use that"
+      },
+      {
+        "start": 1127.05,
+        "duration": 5.46,
+        "text": "and ya know basically get rid of GC grey"
+      },
+      {
+        "start": 1129.66,
+        "duration": 5.34,
+        "text": "seconds and start evicting tombstones"
+      },
+      {
+        "start": 1132.51,
+        "duration": 4.89,
+        "text": "based on the repair time rather than"
+      },
+      {
+        "start": 1135.0,
+        "duration": 5.31,
+        "text": "based on this no kind of arbitrary right"
+      },
+      {
+        "start": 1137.4,
+        "duration": 5.7,
+        "text": "assumption and by the way GC grace"
+      },
+      {
+        "start": 1140.31,
+        "duration": 6.03,
+        "text": "threat threshold or GC grace seconds can"
+      },
+      {
+        "start": 1143.1,
+        "duration": 5.49,
+        "text": "be both too long and too short like if"
+      },
+      {
+        "start": 1146.34,
+        "duration": 3.3,
+        "text": "your repair takes significantly longer"
+      },
+      {
+        "start": 1148.59,
+        "duration": 3.72,
+        "text": "than you expected"
+      },
+      {
+        "start": 1149.64,
+        "duration": 4.95,
+        "text": "GC grace seconds of 10 days might not be"
+      },
+      {
+        "start": 1152.31,
+        "duration": 4.05,
+        "text": "long enough right and then you the news"
+      },
+      {
+        "start": 1154.59,
+        "duration": 5.01,
+        "text": "then you actually do have problems about"
+      },
+      {
+        "start": 1156.36,
+        "duration": 6.78,
+        "text": "resurrected rose suddenly appearing so"
+      },
+      {
+        "start": 1159.6,
+        "duration": 5.16,
+        "text": "it's it works until it doesn't right"
+      },
+      {
+        "start": 1163.14,
+        "duration": 3.69,
+        "text": "it's funny so many of these things come"
+      },
+      {
+        "start": 1164.76,
+        "duration": 6.69,
+        "text": "back to repair yeah well it's kind of"
+      },
+      {
+        "start": 1166.83,
+        "duration": 6.96,
+        "text": "like the B central high reliability or"
+      },
+      {
+        "start": 1171.45,
+        "duration": 3.96,
+        "text": "data consistency mechanism like that's"
+      },
+      {
+        "start": 1173.79,
+        "duration": 3.09,
+        "text": "the backstop yeah and then how many"
+      },
+      {
+        "start": 1175.41,
+        "duration": 4.2,
+        "text": "things end up running into that backstop"
+      },
+      {
+        "start": 1176.88,
+        "duration": 4.169,
+        "text": "yeah yeah so those are the first the"
+      },
+      {
+        "start": 1179.61,
+        "duration": 4.62,
+        "text": "first two steps so we've done"
+      },
+      {
+        "start": 1181.049,
+        "duration": 7.141,
+        "text": "one in India see step two is relatively"
+      },
+      {
+        "start": 1184.23,
+        "duration": 5.429,
+        "text": "simple of replacing DC gray seconds step"
+      },
+      {
+        "start": 1188.19,
+        "duration": 4.859,
+        "text": "three is the hard part step three is"
+      },
+      {
+        "start": 1189.659,
+        "duration": 5.97,
+        "text": "make repair much faster right because if"
+      },
+      {
+        "start": 1193.049,
+        "duration": 5.641,
+        "text": "I'm if I'm doing this automatically but"
+      },
+      {
+        "start": 1195.629,
+        "duration": 5.52,
+        "text": "it still takes me ten days I haven't"
+      },
+      {
+        "start": 1198.69,
+        "duration": 5.069,
+        "text": "really improved the situation in terms"
+      },
+      {
+        "start": 1201.149,
+        "duration": 4.681,
+        "text": "of you know pulling in thousands of"
+      },
+      {
+        "start": 1203.759,
+        "duration": 4.581,
+        "text": "tombstones on the request so we need to"
+      },
+      {
+        "start": 1205.83,
+        "duration": 5.61,
+        "text": "get repair down to hours instead of days"
+      },
+      {
+        "start": 1208.34,
+        "duration": 7.99,
+        "text": "and we've got some ideas of how to do"
+      },
+      {
+        "start": 1211.44,
+        "duration": 7.38,
+        "text": "that but that's that's that's that's an"
+      },
+      {
+        "start": 1216.33,
+        "duration": 5.039,
+        "text": "exercise that hasn't been completed yet"
+      },
+      {
+        "start": 1218.82,
+        "duration": 6.63,
+        "text": "okay all right I want to ask you about"
+      },
+      {
+        "start": 1221.369,
+        "duration": 6.841,
+        "text": "one more and this is the one that always"
+      },
+      {
+        "start": 1225.45,
+        "duration": 3.99,
+        "text": "seems to come up at least in"
+      },
+      {
+        "start": 1228.21,
+        "duration": 3.689,
+        "text": "conversations that I've had with"
+      },
+      {
+        "start": 1229.44,
+        "duration": 5.549,
+        "text": "developers especially introducing new"
+      },
+      {
+        "start": 1231.899,
+        "duration": 5.071,
+        "text": "developers to Cassandra and it is of"
+      },
+      {
+        "start": 1234.989,
+        "duration": 5.461,
+        "text": "course the question of joins why does"
+      },
+      {
+        "start": 1236.97,
+        "duration": 6.99,
+        "text": "Cassandra not have joins and we say well"
+      },
+      {
+        "start": 1240.45,
+        "duration": 5.309,
+        "text": "silly developer you know right maybe"
+      },
+      {
+        "start": 1243.96,
+        "duration": 3.39,
+        "text": "maybe we're not always so condescending"
+      },
+      {
+        "start": 1245.759,
+        "duration": 3.39,
+        "text": "about that but it's like do you realize"
+      },
+      {
+        "start": 1247.35,
+        "duration": 4.259,
+        "text": "what you're actually asking for when you"
+      },
+      {
+        "start": 1249.149,
+        "duration": 4.71,
+        "text": "ask for a distributed join okay"
+      },
+      {
+        "start": 1251.609,
+        "duration": 5.101,
+        "text": "well what do I do well why don't you on"
+      },
+      {
+        "start": 1253.859,
+        "duration": 4.77,
+        "text": "either design everything your choices"
+      },
+      {
+        "start": 1256.71,
+        "duration": 3.75,
+        "text": "are right design everything so that it's"
+      },
+      {
+        "start": 1258.629,
+        "duration": 4.201,
+        "text": "all on one table together you get it all"
+      },
+      {
+        "start": 1260.46,
+        "duration": 4.5,
+        "text": "your data is in a single partition so"
+      },
+      {
+        "start": 1262.83,
+        "duration": 3.63,
+        "text": "you can get it in one chord or I guess"
+      },
+      {
+        "start": 1264.96,
+        "duration": 4.199,
+        "text": "you could do an application side joy"
+      },
+      {
+        "start": 1266.46,
+        "duration": 4.5,
+        "text": "right I guess what they pick most of the"
+      },
+      {
+        "start": 1269.159,
+        "duration": 4.47,
+        "text": "time they pick application side joins"
+      },
+      {
+        "start": 1270.96,
+        "duration": 5.819,
+        "text": "yeah and this is a loop this is really"
+      },
+      {
+        "start": 1273.629,
+        "duration": 6.3,
+        "text": "frustrating Jimmy okay because you know"
+      },
+      {
+        "start": 1276.779,
+        "duration": 6.12,
+        "text": "it's I spent a lot of effort creating"
+      },
+      {
+        "start": 1279.929,
+        "duration": 5.19,
+        "text": "tools for people to do that option"
+      },
+      {
+        "start": 1282.899,
+        "duration": 3.931,
+        "text": "number one is putting that into a single"
+      },
+      {
+        "start": 1285.119,
+        "duration": 4.081,
+        "text": "partition you know we created"
+      },
+      {
+        "start": 1286.83,
+        "duration": 4.38,
+        "text": "collections you did user defined types"
+      },
+      {
+        "start": 1289.2,
+        "duration": 5.28,
+        "text": "right we even did materialized views"
+      },
+      {
+        "start": 1291.21,
+        "duration": 7.469,
+        "text": "yeah and you know developers are voting"
+      },
+      {
+        "start": 1294.48,
+        "duration": 6.269,
+        "text": "with their code and saying actually no"
+      },
+      {
+        "start": 1298.679,
+        "duration": 3.57,
+        "text": "I'd really rather just do the join right"
+      },
+      {
+        "start": 1300.749,
+        "duration": 3.401,
+        "text": "well okay so let me let me play devil's"
+      },
+      {
+        "start": 1302.249,
+        "duration": 5.18,
+        "text": "advocate here for a minute"
+      },
+      {
+        "start": 1304.15,
+        "duration": 7.33,
+        "text": "so this is an example that I kind of use"
+      },
+      {
+        "start": 1307.429,
+        "duration": 4.891,
+        "text": "in my talk earlier today about I wanted"
+      },
+      {
+        "start": 1311.48,
+        "duration": 4.319,
+        "text": "to have this"
+      },
+      {
+        "start": 1312.32,
+        "duration": 4.83,
+        "text": "well partitioned domain-driven kind of"
+      },
+      {
+        "start": 1315.799,
+        "duration": 4.951,
+        "text": "design approach to micro-service"
+      },
+      {
+        "start": 1317.15,
+        "duration": 6.51,
+        "text": "architecture so I said for a system that"
+      },
+      {
+        "start": 1320.75,
+        "duration": 4.41,
+        "text": "I was building okay hotel data hotel"
+      },
+      {
+        "start": 1323.66,
+        "duration": 4.889,
+        "text": "descriptive data is owned by a hotel"
+      },
+      {
+        "start": 1325.16,
+        "duration": 6.3,
+        "text": "service and inventory data is owned by a"
+      },
+      {
+        "start": 1328.549,
+        "duration": 5.431,
+        "text": "hotel service and rate data is owned by"
+      },
+      {
+        "start": 1331.46,
+        "duration": 5.64,
+        "text": "an inventory I'm sorry I rate service"
+      },
+      {
+        "start": 1333.98,
+        "duration": 6.27,
+        "text": "right so when I do when I want to shop"
+      },
+      {
+        "start": 1337.1,
+        "duration": 6.6,
+        "text": "for hotel rooms I need to actually have"
+      },
+      {
+        "start": 1340.25,
+        "duration": 6.15,
+        "text": "a combination of Hotel data and rate"
+      },
+      {
+        "start": 1343.7,
+        "duration": 4.56,
+        "text": "data and inventory data around can I"
+      },
+      {
+        "start": 1346.4,
+        "duration": 3.42,
+        "text": "quote you know organize around certain"
+      },
+      {
+        "start": 1348.26,
+        "duration": 4.08,
+        "text": "dates that for which the customer is"
+      },
+      {
+        "start": 1349.82,
+        "duration": 4.38,
+        "text": "shopping for hotel rooms because I have"
+      },
+      {
+        "start": 1352.34,
+        "duration": 3.75,
+        "text": "that data owned by a different services"
+      },
+      {
+        "start": 1354.2,
+        "duration": 4.53,
+        "text": "those those underlying tables might all"
+      },
+      {
+        "start": 1356.09,
+        "duration": 5.85,
+        "text": "be Cassandra tables but it's it's really"
+      },
+      {
+        "start": 1358.73,
+        "duration": 5.03,
+        "text": "a material because by virtue of how I"
+      },
+      {
+        "start": 1361.94,
+        "duration": 4.47,
+        "text": "design my my core service architecture"
+      },
+      {
+        "start": 1363.76,
+        "duration": 5.95,
+        "text": "that I've already foreclosed I guess on"
+      },
+      {
+        "start": 1366.41,
+        "duration": 5.37,
+        "text": "myself the opportunity for to do that so"
+      },
+      {
+        "start": 1369.71,
+        "duration": 4.62,
+        "text": "in that case I'm doing an application"
+      },
+      {
+        "start": 1371.78,
+        "duration": 4.38,
+        "text": "side joy yeah because of Mike micro"
+      },
+      {
+        "start": 1374.33,
+        "duration": 3.42,
+        "text": "service architecture yeah and this"
+      },
+      {
+        "start": 1376.16,
+        "duration": 4.139,
+        "text": "segment is called the developer is right"
+      },
+      {
+        "start": 1377.75,
+        "duration": 6.809,
+        "text": "yeah yeah this isn't like you know how"
+      },
+      {
+        "start": 1380.299,
+        "duration": 7.741,
+        "text": "dare you not denormalize but I could act"
+      },
+      {
+        "start": 1384.559,
+        "duration": 4.681,
+        "text": "it all back into one table yeah yeah but"
+      },
+      {
+        "start": 1388.04,
+        "duration": 3.0,
+        "text": "then I would have violated my service"
+      },
+      {
+        "start": 1389.24,
+        "duration": 3.45,
+        "text": "boundaries right right so when i say i'm"
+      },
+      {
+        "start": 1391.04,
+        "duration": 3.72,
+        "text": "chagrined that people aren't using these"
+      },
+      {
+        "start": 1392.69,
+        "duration": 3.869,
+        "text": "these denormalization tools you know"
+      },
+      {
+        "start": 1394.76,
+        "duration": 3.03,
+        "text": "this is not that that's not me getting"
+      },
+      {
+        "start": 1396.559,
+        "duration": 5.901,
+        "text": "back into the mode of saying you're"
+      },
+      {
+        "start": 1397.79,
+        "duration": 7.71,
+        "text": "doing it wrong but rather to say that no"
+      },
+      {
+        "start": 1402.46,
+        "duration": 4.27,
+        "text": "no after after putting this effort into"
+      },
+      {
+        "start": 1405.5,
+        "duration": 3.69,
+        "text": "it people are still doing these"
+      },
+      {
+        "start": 1406.73,
+        "duration": 4.74,
+        "text": "client-side joins for good reasons"
+      },
+      {
+        "start": 1409.19,
+        "duration": 4.739,
+        "text": "yeah and then now now I know we need to"
+      },
+      {
+        "start": 1411.47,
+        "duration": 3.709,
+        "text": "now we need to pay attention or you know"
+      },
+      {
+        "start": 1413.929,
+        "duration": 3.931,
+        "text": "we should have been paying attention"
+      },
+      {
+        "start": 1415.179,
+        "duration": 7.841,
+        "text": "perhaps even earlier but now we're"
+      },
+      {
+        "start": 1417.86,
+        "duration": 7.58,
+        "text": "definitely paying attention so I think"
+      },
+      {
+        "start": 1423.02,
+        "duration": 4.98,
+        "text": "that I think the Cassandra role adjoins"
+      },
+      {
+        "start": 1425.44,
+        "duration": 3.58,
+        "text": "eventually well yeah I'm not gonna it's"
+      },
+      {
+        "start": 1428.0,
+        "duration": 3.14,
+        "text": "not gonna be in for dotto"
+      },
+      {
+        "start": 1429.02,
+        "duration": 4.15,
+        "text": "what"
+      },
+      {
+        "start": 1431.14,
+        "duration": 5.64,
+        "text": "I've got a feature free zone for that Oh"
+      },
+      {
+        "start": 1433.17,
+        "duration": 6.22,
+        "text": "what about consistency so here's the"
+      },
+      {
+        "start": 1436.78,
+        "duration": 6.0,
+        "text": "thing right so if you're if you're doing"
+      },
+      {
+        "start": 1439.39,
+        "duration": 5.07,
+        "text": "the what okay so backing up one of the"
+      },
+      {
+        "start": 1442.78,
+        "duration": 4.68,
+        "text": "reasons that we didn't had joints in the"
+      },
+      {
+        "start": 1444.46,
+        "duration": 4.8,
+        "text": "first place is joins are you know it's"
+      },
+      {
+        "start": 1447.46,
+        "duration": 3.75,
+        "text": "very straightforward in a relational"
+      },
+      {
+        "start": 1449.26,
+        "duration": 4.26,
+        "text": "database because you've got referential"
+      },
+      {
+        "start": 1451.21,
+        "duration": 3.99,
+        "text": "integrity you've got yes foreign key"
+      },
+      {
+        "start": 1453.52,
+        "duration": 4.11,
+        "text": "constraints you can even do things like"
+      },
+      {
+        "start": 1455.2,
+        "duration": 4.05,
+        "text": "on delete cascade that are really useful"
+      },
+      {
+        "start": 1457.63,
+        "duration": 3.78,
+        "text": "you know when the the parent key gets"
+      },
+      {
+        "start": 1459.25,
+        "duration": 3.66,
+        "text": "deleted the child roads get deleted as"
+      },
+      {
+        "start": 1461.41,
+        "duration": 7.89,
+        "text": "well I've already enforced some things"
+      },
+      {
+        "start": 1462.91,
+        "duration": 8.519,
+        "text": "at right time yeah yeah so so yeah you"
+      },
+      {
+        "start": 1469.3,
+        "duration": 4.259,
+        "text": "know you can do joins without violating"
+      },
+      {
+        "start": 1471.429,
+        "duration": 4.111,
+        "text": "any of the expectations in a relational"
+      },
+      {
+        "start": 1473.559,
+        "duration": 4.861,
+        "text": "database and that's not the same in"
+      },
+      {
+        "start": 1475.54,
+        "duration": 4.5,
+        "text": "Cassandra but on the other hand now if"
+      },
+      {
+        "start": 1478.42,
+        "duration": 4.32,
+        "text": "people are saying I'm totally fine with"
+      },
+      {
+        "start": 1480.04,
+        "duration": 4.2,
+        "text": "eventually consistent joins and I'm so"
+      },
+      {
+        "start": 1482.74,
+        "duration": 4.59,
+        "text": "fine with it that I'm gonna do it in my"
+      },
+      {
+        "start": 1484.24,
+        "duration": 4.98,
+        "text": "application then no we're right we're"
+      },
+      {
+        "start": 1487.33,
+        "duration": 3.12,
+        "text": "not making things worse by offering"
+      },
+      {
+        "start": 1489.22,
+        "duration": 3.45,
+        "text": "joins in the server"
+      },
+      {
+        "start": 1490.45,
+        "duration": 4.83,
+        "text": "well you buddy are shifting your"
+      },
+      {
+        "start": 1492.67,
+        "duration": 4.74,
+        "text": "shifting work to your database yes yeah"
+      },
+      {
+        "start": 1495.28,
+        "duration": 4.83,
+        "text": "so now we get into the the situation of"
+      },
+      {
+        "start": 1497.41,
+        "duration": 6.3,
+        "text": "no it's that that sequential scan of"
+      },
+      {
+        "start": 1500.11,
+        "duration": 5.819,
+        "text": "select star from purchases it's not"
+      },
+      {
+        "start": 1503.71,
+        "duration": 6.599,
+        "text": "necessarily obvious you know if I do a"
+      },
+      {
+        "start": 1505.929,
+        "duration": 6.241,
+        "text": "join from data in partition X versus"
+      },
+      {
+        "start": 1510.309,
+        "duration": 3.75,
+        "text": "data that's also in partition X right"
+      },
+      {
+        "start": 1512.17,
+        "duration": 3.87,
+        "text": "the performance characteristics are very"
+      },
+      {
+        "start": 1514.059,
+        "duration": 4.141,
+        "text": "different from joining partition eggs"
+      },
+      {
+        "start": 1516.04,
+        "duration": 4.08,
+        "text": "with partition y know because now I'm"
+      },
+      {
+        "start": 1518.2,
+        "duration": 3.6,
+        "text": "involving multiple machines so what kind"
+      },
+      {
+        "start": 1520.12,
+        "duration": 3.66,
+        "text": "of join do you want so this is this is"
+      },
+      {
+        "start": 1521.8,
+        "duration": 3.96,
+        "text": "one of the things that I also tension in"
+      },
+      {
+        "start": 1523.78,
+        "duration": 4.35,
+        "text": "my talk today then we don't have time to"
+      },
+      {
+        "start": 1525.76,
+        "duration": 4.65,
+        "text": "go into but you know how much magic is"
+      },
+      {
+        "start": 1528.13,
+        "duration": 4.47,
+        "text": "too much magic right if I'm gonna hide"
+      },
+      {
+        "start": 1530.41,
+        "duration": 4.14,
+        "text": "that implementation detail that those"
+      },
+      {
+        "start": 1532.6,
+        "duration": 3.45,
+        "text": "live on different partitions and now you"
+      },
+      {
+        "start": 1534.55,
+        "duration": 4.2,
+        "text": "don't have to care anymore and you just"
+      },
+      {
+        "start": 1536.05,
+        "duration": 5.58,
+        "text": "do your join like how much magic is too"
+      },
+      {
+        "start": 1538.75,
+        "duration": 5.37,
+        "text": "much magic and when do I obscure you"
+      },
+      {
+        "start": 1541.63,
+        "duration": 4.32,
+        "text": "know whenever I obscured the performance"
+      },
+      {
+        "start": 1544.12,
+        "duration": 3.48,
+        "text": "characteristics to the point where it"
+      },
+      {
+        "start": 1545.95,
+        "duration": 4.92,
+        "text": "starts biting people from a different"
+      },
+      {
+        "start": 1547.6,
+        "duration": 5.84,
+        "text": "direction so if and when joins were to"
+      },
+      {
+        "start": 1550.87,
+        "duration": 7.23,
+        "text": "get added it sounds like there would be"
+      },
+      {
+        "start": 1553.44,
+        "duration": 7.62,
+        "text": "some sort of framing around what joints"
+      },
+      {
+        "start": 1558.1,
+        "duration": 5.46,
+        "text": "exactly nice I think there's there's"
+      },
+      {
+        "start": 1561.06,
+        "duration": 5.23,
+        "text": "there's a relatively low barrier to"
+      },
+      {
+        "start": 1563.56,
+        "duration": 4.56,
+        "text": "adding join single partition joints got"
+      },
+      {
+        "start": 1566.29,
+        "duration": 3.42,
+        "text": "it I I don't think many people would"
+      },
+      {
+        "start": 1568.12,
+        "duration": 6.08,
+        "text": "complain about the right and you can"
+      },
+      {
+        "start": 1569.71,
+        "duration": 7.98,
+        "text": "actually have remember you can have"
+      },
+      {
+        "start": 1574.2,
+        "duration": 6.19,
+        "text": "atomic rights to a single partition the"
+      },
+      {
+        "start": 1577.69,
+        "duration": 4.32,
+        "text": "across multiple tables right so there's"
+      },
+      {
+        "start": 1580.39,
+        "duration": 3.45,
+        "text": "your consistency so you're not even"
+      },
+      {
+        "start": 1582.01,
+        "duration": 5.85,
+        "text": "violating consistency and expectation"
+      },
+      {
+        "start": 1583.84,
+        "duration": 7.44,
+        "text": "yeah so I yeah I think if somebody came"
+      },
+      {
+        "start": 1587.86,
+        "duration": 5.55,
+        "text": "to Apache Cassandra and said you're here"
+      },
+      {
+        "start": 1591.28,
+        "duration": 4.41,
+        "text": "I know I've spent six months and here's"
+      },
+      {
+        "start": 1593.41,
+        "duration": 4.74,
+        "text": "the work to add single partition joins"
+      },
+      {
+        "start": 1595.69,
+        "duration": 3.63,
+        "text": "to CQL I think that would be accepted"
+      },
+      {
+        "start": 1598.15,
+        "duration": 3.0,
+        "text": "fairly quickly I think there would be"
+      },
+      {
+        "start": 1599.32,
+        "duration": 3.72,
+        "text": "very little debate over that okay I"
+      },
+      {
+        "start": 1601.15,
+        "duration": 4.23,
+        "text": "think it's just a matter of you know"
+      },
+      {
+        "start": 1603.04,
+        "duration": 4.83,
+        "text": "getting the work done right and somebody"
+      },
+      {
+        "start": 1605.38,
+        "duration": 6.48,
+        "text": "got to do it all right so let's let's"
+      },
+      {
+        "start": 1607.87,
+        "duration": 6.93,
+        "text": "zoom back out for a second here I think"
+      },
+      {
+        "start": 1611.86,
+        "duration": 5.16,
+        "text": "that I would say in the main kind of as"
+      },
+      {
+        "start": 1614.8,
+        "duration": 4.26,
+        "text": "a as a non committee route somewhat"
+      },
+      {
+        "start": 1617.02,
+        "duration": 5.36,
+        "text": "outside observer of the Cassandra"
+      },
+      {
+        "start": 1619.06,
+        "duration": 5.7,
+        "text": "Project and sometime lover of the tech I"
+      },
+      {
+        "start": 1622.38,
+        "duration": 4.66,
+        "text": "would say that overall their their"
+      },
+      {
+        "start": 1624.76,
+        "duration": 4.71,
+        "text": "husbands some responsiveness to their"
+      },
+      {
+        "start": 1627.04,
+        "duration": 3.87,
+        "text": "needs and desires of developers you know"
+      },
+      {
+        "start": 1629.47,
+        "duration": 4.08,
+        "text": "kind of within certain limits but how"
+      },
+      {
+        "start": 1630.91,
+        "duration": 5.31,
+        "text": "can we do better would say moving"
+      },
+      {
+        "start": 1633.55,
+        "duration": 4.35,
+        "text": "forward at saying that the developer is"
+      },
+      {
+        "start": 1636.22,
+        "duration": 4.02,
+        "text": "right and kind of being responsive to"
+      },
+      {
+        "start": 1637.9,
+        "duration": 7.5,
+        "text": "that how do we go about doing that as a"
+      },
+      {
+        "start": 1640.24,
+        "duration": 13.38,
+        "text": "community the change you look for is"
+      },
+      {
+        "start": 1645.4,
+        "duration": 9.96,
+        "text": "within you deaf how to I mean I know"
+      },
+      {
+        "start": 1653.62,
+        "duration": 4.08,
+        "text": "there's kind of like the evangelism"
+      },
+      {
+        "start": 1655.36,
+        "duration": 4.32,
+        "text": "within the community you know I'm trying"
+      },
+      {
+        "start": 1657.7,
+        "duration": 3.39,
+        "text": "to get out there and and put up my hand"
+      },
+      {
+        "start": 1659.68,
+        "duration": 3.15,
+        "text": "and say you know I was one of the voices"
+      },
+      {
+        "start": 1661.09,
+        "duration": 4.29,
+        "text": "saying you know stop that you're doing"
+      },
+      {
+        "start": 1662.83,
+        "duration": 4.05,
+        "text": "it wrong yeah and I'm repenting and I'm"
+      },
+      {
+        "start": 1665.38,
+        "duration": 3.93,
+        "text": "listening to the developer and saying"
+      },
+      {
+        "start": 1666.88,
+        "duration": 4.62,
+        "text": "the developer is always right right"
+      },
+      {
+        "start": 1669.31,
+        "duration": 6.0,
+        "text": "so I you know it's just kind of a"
+      },
+      {
+        "start": 1671.5,
+        "duration": 5.67,
+        "text": "mindset change right and I don't really"
+      },
+      {
+        "start": 1675.31,
+        "duration": 3.72,
+        "text": "have a shortcut for that I'm afraid no"
+      },
+      {
+        "start": 1677.17,
+        "duration": 3.27,
+        "text": "that's good and I I you know I didn't"
+      },
+      {
+        "start": 1679.03,
+        "duration": 3.45,
+        "text": "share with you before that I appreciate"
+      },
+      {
+        "start": 1680.44,
+        "duration": 4.2,
+        "text": "the humility and kind of being able to"
+      },
+      {
+        "start": 1682.48,
+        "duration": 2.829,
+        "text": "share like here's what I wish I had done"
+      },
+      {
+        "start": 1684.64,
+        "duration": 3.55,
+        "text": "differently"
+      },
+      {
+        "start": 1685.309,
+        "duration": 4.08,
+        "text": "be technical decisions or even like you"
+      },
+      {
+        "start": 1688.19,
+        "duration": 2.699,
+        "text": "had a slide that was great it was like"
+      },
+      {
+        "start": 1689.389,
+        "duration": 3.481,
+        "text": "things that I wish that I had done"
+      },
+      {
+        "start": 1690.889,
+        "duration": 4.02,
+        "text": "differently in starting data stacks and"
+      },
+      {
+        "start": 1692.87,
+        "duration": 5.7,
+        "text": "that's that's really good and helpful"
+      },
+      {
+        "start": 1694.909,
+        "duration": 6.15,
+        "text": "and yes to your point it's it is my job"
+      },
+      {
+        "start": 1698.57,
+        "duration": 4.29,
+        "text": "and the job of all the developer"
+      },
+      {
+        "start": 1701.059,
+        "duration": 3.661,
+        "text": "advocates said Dana sacks would be out"
+      },
+      {
+        "start": 1702.86,
+        "duration": 3.33,
+        "text": "there listening to what people have to"
+      },
+      {
+        "start": 1704.72,
+        "duration": 3.99,
+        "text": "say in the community and taking that"
+      },
+      {
+        "start": 1706.19,
+        "duration": 5.489,
+        "text": "back in whether it be to data stocks to"
+      },
+      {
+        "start": 1708.71,
+        "duration": 5.309,
+        "text": "improve data sacks enterprise or back to"
+      },
+      {
+        "start": 1711.679,
+        "duration": 6.09,
+        "text": "the Cassandra community to improve the"
+      },
+      {
+        "start": 1714.019,
+        "duration": 5.971,
+        "text": "open-source project so yes job accepted"
+      },
+      {
+        "start": 1717.769,
+        "duration": 4.441,
+        "text": "all right thank you all right well I"
+      },
+      {
+        "start": 1719.99,
+        "duration": 5.039,
+        "text": "love how we always meet up like this at"
+      },
+      {
+        "start": 1722.21,
+        "duration": 5.429,
+        "text": "these conferences look forward to the"
+      },
+      {
+        "start": 1725.029,
+        "duration": 3.39,
+        "text": "next one thanks Jeff wait to be back on"
+      },
+      {
+        "start": 1727.639,
+        "duration": 4.65,
+        "text": "the show all right"
+      },
+      {
+        "start": 1728.419,
+        "duration": 5.281,
+        "text": "until next time all right thank you for"
+      },
+      {
+        "start": 1732.289,
+        "duration": 3.72,
+        "text": "joining us again for the distributed"
+      },
+      {
+        "start": 1733.7,
+        "duration": 4.14,
+        "text": "data show we love your feedback so go to"
+      },
+      {
+        "start": 1736.009,
+        "duration": 3.39,
+        "text": "the distributed data show page on data"
+      },
+      {
+        "start": 1737.84,
+        "duration": 3.569,
+        "text": "Stax Academy and tell us what you think"
+      },
+      {
+        "start": 1739.399,
+        "duration": 4.41,
+        "text": "you can also find us on the data stacks"
+      },
+      {
+        "start": 1741.409,
+        "duration": 4.26,
+        "text": "Academy YouTube channel or find our"
+      },
+      {
+        "start": 1743.809,
+        "duration": 4.35,
+        "text": "podcast on itunes google play or"
+      },
+      {
+        "start": 1745.669,
+        "duration": 4.441,
+        "text": "wherever you get great podcast while"
+      },
+      {
+        "start": 1748.159,
+        "duration": 4.821,
+        "text": "you're there make sure and subscribe so"
+      },
+      {
+        "start": 1750.11,
+        "duration": 5.979,
+        "text": "you don't miss a single episode"
+      },
+      {
+        "start": 1752.98,
+        "duration": 3.109,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T05:56:22.389364+00:00"
+}

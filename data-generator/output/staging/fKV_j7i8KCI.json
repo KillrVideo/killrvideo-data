@@ -1,0 +1,4323 @@
+{
+  "video_id": "fKV_j7i8KCI",
+  "title": "DataStax Presents: Running Apache Cassandra on Docker with Jim Hatcher",
+  "description": "Containers area a lightweight alternative to Virtual Machines for isolating applications within a single host machine. They are widely used in the web- and application-tiers of systems, but are they really appropriate for the stateful data tier? In this talk, we will explore that subject and walk through how to get Cassandra running using Docker.\n\nSlides: https://www.slideshare.net/JimHatcher/running-apache-cassandra-on-docker\n\nJoin us at DataStax Accelerate learn how Apache Cassandra and DataStax can help you succeed to building large scale applications. For tickets go to datastax.com/accelerate and use discount code ADVOCATE20. \n\nABOUT DATASTAX ENTERPRISE 6\nDataStax  powers  the  Right-Now  Enterprise  with  the  always-on,  distributed  cloud  database  built  on  Apache  Cassandra™  and designed for hybrid cloud. DataStax Enterprise 6 (DSE 6) includes industry-leading performance, self-driving operational simplicity, and robust analytics.\n\nLearn more at http://www.datastax.com/products/datastax-enterprise and https://www.datastax.com/products/datastax-enterprise-6\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastax?sub_confirmation=1 \nSite: http://datastax.com \nFacebook: https://facebook.com/datastax \nTwitter: https://twitter.com/datastax | https://twitter.com/datastax-academy\nLinkedin: https://www.linkedin.com/company/datastax\nhttp://feeds.feedburner.com/datastax \nhttps://github.com/datastax \n\nABOUT DATASTAX ACADEMY\nOn the DataStax Academy YouTube channel, you can find tutorials, webinars and much more to help you learn and stay updated with the latest information on DataStax Enterprise©.  Create an account on https://academy.datastax.com to watch our free online courses, tutorials, and more.",
+  "published_at": "2019-02-13T14:00:10Z",
+  "thumbnail": "https://i.ytimg.com/vi/fKV_j7i8KCI/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "database",
+    "apache_cassandra",
+    "tutorial",
+    "performance",
+    "talk",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=fKV_j7i8KCI",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome everyone my name is Jim Hatcher I work for data stacks I'm a solution architect which means I you know work with clients they you know they buy our software and when I want to do something with it I help them so I wanted to talk today about running Apache Cassandra on docker and there we go quick quick agenda I'm gonna talk about Cassandra and I'm not gonna talk about all the details of what Cassandra is but I want to talk about some of the implications of Cassandra that kind of make it interesting to run in a virtualized environment or a containerized environment and then we'll talk about docker just kind of give you an intro to what dr is won't spend too much time there cuz there's been a couple talks about today so maybe you've already heard some of that but and then I'm gonna do a demo which might crash and burn but hopefully the internet will stay up and we'll be able to do that and and then we'll talk about you know you know based on what we what we know do we think that using Cassandra and docker together is a good match so I'll mention I work for data stacks and there are some data stacks images and docker but I chose to do this presentation using pure Apache Cassandra and so but a lot of the you know the the takeaways from this talk you know would apply to both so alright so what is it Cassandra what is this magical unicorn database that we all love I guess so the the parts I want to focus on for this talk or you know what are the things that you can do in Cassandra that that are very different than what you could do in a relational database like Oracle or something so to me that the two capabilities of Sandra that really stand out are the fact that is it's a it's made to be distributed across many servers and so that that scale out scale out ability has some really neat implications so you know one of the reasons that we scale out of Cassandra cluster is just for pure data size so if you've got a cluster that's holding ten terabytes of data and you need it to hold 20 well you can double the size of your cluster and it handle that and so the you know the scale ceiling that we sometimes sit in relational databases you know Cassander is a good option for that so sometimes we scale out to data size but sometimes we scale out because we need to hit higher throughput numbers or high concurrency numbers but it has a lot of neat neat capabilities around the way that it scales out or the way that it scales in if you you know can I need to go the other way and another one of the the great great capabilities of Cassandras the the idea that hey I've got a data center in Europe and I've got a data center in North America I've got a data center in Asia and I want to have applications writing to those data centers but I want that data to replicate all over the world that's very difficult to do in a relational database but it's just built into the DNA of cassandra and so these are these are the reasons we we love cassandra these are the things that it solves for us or at least in my mind these are two the two of the big ones why it's a it's a great choice so so but one of the one of the things about relational or cassandra that's a little different than relational is that it's a very i/o intensive database so you know we think about the typical read and write path you know we know that cassandra is very fast for writes because it appends data that's an append-only structure and the read paths very fast because we do lookups by by keys but there's a lot of you know to make that read path and write path very fast we do a lot of stuff in the background and so just you know we talk about the impacts of compaction so you know as as we're writing data into Cassandra we're creating these SS tables they're getting flushed and as compactions happened in the background and make sure that we we we have a reasonable manageable amount of tables so that's a very I I owe intensive process we also have repaired going in the background and that's constantly going out there and building Merkle trees and passing data around and streaming you know mismatched data and then any any type of operation that that of all streaming with your bootstrapping a node or rebuilding a node that that that streaming causes a lot of i/o so you know so so lots of i/o and so best practices for Cassandra that this is kind of a list of things that's often a little paradigm shattering if you come from the relational database world you know one of the things we say about running Apache Cassandra is that we don't want to use shared storage we don't want to use that expensive sand you've got we don't want to use that nasty you've got you know we want locally attached storage on each node preferably SSD and so that's kind of a mind shift for a lot of people when I come from the relational relational world you know the idea that well what if what if a disk goes out you know well you know in the Cassandra world if it this goes out then the servers out and you need to go back and replace that server and there's mechanisms to handle that so you know we don't you know we typically like to run on locally attached storage and we do things like we disable swap because we don't we don't you know if you if you having disk issues or something we just want to take that server down and fix it and get it get it back so and then typically we we don't recommend running on virtual virtualized environments like you know VMware or something like that where there's a hypervisor because there's just some overhead involved that we don't necessarily need so but in terms of the cardinal sin that you know don't use shared storage that's a big one if you're going to use virtualization that's that's kind of a no-no but with that one's less that one's not so bad but anyway so you know these are some implications of Cassandra that I think are interesting to think about when we're looking at you know do we want to run run in a containerized environment so so one just want to talk about oh wait a minute if you're telling me we don't want to run Cassandra on shared storage and we don't want to run it in a virtual environment what about the cloud isn't the cloud typically shared storage and in virtualized environments and the answer is yes you're you're right and Cassandra runs very well in the cloud so I think it's interesting to look at a couple couple points here so you know if you're running in in AWS and you're running a cassandra you can't have the option do I want to run instances and put my data on EBS volumes or do I want to run like on some of the newer instance types that have locally attached and vme mounts and which are but they're ephemeral and so you know we we see people doing both so that if you go the EBS route you're using shared storage and if Amazon EBS goes down while you're you know that's a single point of failure and your your cluster is going down you know so you know and so there's a little bit of performance hit but in some ways it's nice because you can say I'm going to take this note down I'm gonna bring it up somewhere else I'm gonna reattach that that EBS mount and you know I still have my data so in the other end of the spectrum you can run on ephemeral and ephemeral SSD which you get a lot of performance for that but you have to be careful because if you stop that node stop that instance and bring it back up your your data is gone so you know I think when people first hear that that's a little scary for them like huh what do you mean I could stop my node and my data's going that's that's not a good that's not a good way to operate but it's really not that different than how we operate on bare metal we say how you're gonna have this nine node cluster and if this one server goes down you know because we the motherboard fries or whatever we're you know we're basically gonna bring that node back on line and we're gonna rebuild it from the other nodes anyway you know so so in some ways that's really not that different than how we run on bare metal so it's kind of a comfort comfort level thing they're saying hey I can I can really get the benefit of using the performance of you know locally attached SSD but you know and you need to kind of be careful so I think I think some of the lessons we've learned in running in the cloud can kind of be interesting in this world of running a container so so they've got some tips here about you know if you're going to run you know using a ephemeral and ephemeral disk you know what what are what are some ways you want to go about that so one one thing one lesson there is like you you know know how to do you know backups and restores and test that and then I know how long it takes to bootstrap a note or to replace a note you know if you have a note go down and you totally rebuild it from other other nodes in the cluster or from another data center you really ought to have a sense of is that gonna take me eight hours to rebuild or I gotta take me four days to rebuild and you know so you really need to do some failure testing around that to say okay I'm gonna wipe that's node and rebuild it and if you find it man it's taking me to two days to rebuild a node because of the streaming you know you may need to reduce your note densities on your on your on your cluster to get that down to a reasonable time and then you know there's just some cloud specific stuff like if you set up availability zones properly and Amazon goes through and does maintenance on all of its stuff in u.s. East and all your notes get down unexpectedly you know if you've aligned Cassandra to have racks that that go to that availability zone you know your you'll be in much better shape anyway so some more tips there but so those are the things about Cassandra that I think are interesting and then docker I think most folks are kind of generally aware about docker but you know conceptually docker similar to like a virtual machine or you know virtualization but instead of me in VMs docker uses containers and I could containers a little bit like a lightweight VM as a there's a YouTube video go where a guy kind of uses the analogy of a VM as a house and doctor is an apartment they both kind of give you isolation from the outside world but you know the house has some price some overhead that maybe you don't need if you're a single guy and you just need a one-bedroom apartment or something you know but anyway so but but the building blocks of containers are technology called namespaces which gives you like price process isolation so if you know if you run into to docker containers on a node and you type PS at the Linux command you're not going to see the processes running on that other container you know it's all it's all namespace to that one instance and then control groups is is the mechanism that that limits you know CPU memory and so that and then you know there's like you need an F s I think is what's what's used by default so this is kind of the building blocks of containers and then you guys are probably seen you know diagrams like this you know just to kind of you know reiterate the point that the containers are like lighter weight VM so you you still have you know several processes running inside one one physical host but in the vm world you also have kind of the overhead of a note the guest OS whereas in the container container world things are just a little lighter weight so you know I think containers have really become popular in the last a few years doot-doot-doot in part to the rise of microservices and the idea that we want to be able to take you know big monolithic api layers or service layers we're gonna break them down into lots of little pieces and how can I run those pieces and in lots of discrete ways and so they work really well on stateless services like you know web web servers and app servers and but there's it's a little bit of a different story when we're getting a stateful services so that's what we're talking about today all right so I'm gonna I'm gonna try to do a little demo here all right so a spun up a a node imager and I'm gonna connect to it here you can see that let me make that bigger ya see that in the back okay alright okay so so this is a just a boon to instance it's running the balloon to 18 and it's got really nothing on it right now I just launched it in Azure this is a it's got 16 cores and about 64 gigs in memory so what I want to do the first thing I want to do is I want to get docker installed on this this host machine so I'm gonna this is a boon to so I'm going to do that through apt and so up these are some commands that I just I just googled set up a docker on a boon to 18 and these are the commands I found so I'm just going to use apt-get to pull down some of the some of the docker libraries I want to explain this too much but I'll get this stuff going okay all right there's the the main step where we're telling I've been to that we want to install docker see oh I think I'm on the wrong VM sorry about that I don't think I've duck hurt ya kid on a duck or installed here sorry I had docker on that other one yeah [Music] here's the stuff we're actually pulling down the docker application let that finish okay then we're gonna tell docker to run as a service and then we're gonna add ourselves to the docker group and then make sure that we're we got docker okay so I gonna run docker info here and okay so yeah so we're on machine here were 16 16 CPUs 63 gigs of memory okay so now we've got we've got we got docker installed on our host machine alright so the next thing we want to do is we want to pull down a Cassandra image and so an image and doctor is basically all the dependencies that are built around you know providing certain functionality so you can actually search like you could say docker search Cassandra and see see all the the things that on like docker hub that that matched that so this Cassandra one is like the official one but there's other ones here bitNami and the last pickle and others but but what I want to do here is just pull the Cassandra image it's if I do that what you'll notice is it's pulling several images and these images are like layers so if I were to install some other container it might have some of the same images in its dependency tree and it doesn't have to to reestablish them so but to pull down the Cassandra image it's really not that much data it didn't take that long when I say duck or pool Cassandra it just pulls the latest which is in this case Cassandra well I think you could from this image you can run Cassandra 311 or Cassandra 300 or Cassandra to 2 and then we can run this command to see what what images are installed in this container so we have the Cassandra latest and then I'm gonna run a couple commands here to create some directories on this machine and then one time I guess so I'm gonna create a directory here of our lib container data and then get Sandra nodes one through six and I'll explain why I'm doing that in a second okay I already got six alright alright so we've got docker running on our host machine and now we've pulled down that cassandra image and then what we need to do is we need to actually run one of these images and so this is the basic syntax we say docker run and we give a name to what this instance is going to be called this D option tells it to go ahead and kick off the the container in the background start start it up and then all these - eopt I'm specifying environment variables so in this Cassandra image these various variables are exposed to me so I can say oh you know when I spent at this thing it's going to join this cluster it's gonna have this number our tokens this kind of thing so I'm gonna have these these machines being dc1 I'm gonna have some of them in rack one some in rack to some rack three and then the this option I'm telling it when I create that instance I want to use a directory on the on the host machine and I want to map it to a directory on the container and that's like that gives me transparency of the data back at the host machine layer and then I have to tell it what what image to use so let me just demo this real quick I'm gonna spin up my my first node to get likes my copying pasting I did this differently earlier that's what I get for demoing okay what's right yeah earlier I was based on I'm in yeah yeah I was using a uh see how this goes okay so so what I've done here is created went one node and thank you for that and now I can run a command docker I could say when I exec - IT says I want to make it an interactive and then I can say Cassandra node one and I can run bash I think that's right okay so now I've I'm inside of the container and I can run like a node tool status here and I can see that my container my cluster has a one node in the in the DC one data center in rack one and it contains all of the data what they tokens so now I can get back out so so the second command it's almost identical to the first one except instead of saying cuz internode one I'm going to say Cassandra node two here and then I'm going to supply the IP address of the first node as the seeds for the second node so it'll know to connect to that one I have the same problem here okay well you know what I've got them over here so this is the second node we'll give that one a second to bootstrap and then here's the third node and we'll let that go okay now I should be able to run docker container get a list of containers that are running and so I have three three containers running Cassandra node one just ended up two and three and if I go back into standard node one and doing node tool status now I should say that these other I'll hear the we can see this the first guys up in normal second guys up and joining now he's normal and another third guy yet let's give him a minute okay so I think I added him too quickly so what I can do is I can say docker logs Cassandra node oh three and it tells me yeah could we get we got an exception here other bootstrapping nodes were detected can I bootstrap okay so let's let's stop him three and then let's start him back up okay and then let's go back in and see if we can see him bootstrapping so so I want to talk about the fact that that I mounted the the data points of these these different containers to the to the host and I wanted to shift wonder interesting thing that lets me do is that if I needed to like wipe out one of these containers and like bring it back later I do have the data actually stored in the local host so I can get to it you know you don't have to set it up that way you could say hey I'm gonna let the data live on that container and it just lives there and that's kind of more like if the ephemeral you know AWS kind of method where if I lose my container you know when I comes back up it's gonna reboot strap or I could do like a replace operation and it's just gonna get its data from the other nodes in the cluster you know by by mounting it to the host machine I could say okay bring this node back up don't auto bootstrap let it find its data that's sitting on the host machine of course if I lost the host machine then you know same kind of situation exists there but I said how we're looking here okay we got our we got a three node cluster up we'll get a node sitting in Iraq one rack two rack three you know I'm doing okay so just to kind of demonstrate that I'm going to bring up cql shell and let's create a key space called test this network topology strategy this is DC one whoops so we have a test key space that's going to replicate three times across our DC so I'll go through and I got three nodes so I should have data on one node one two and three now let's use test key space and let's create a table called user with user ID your primary primary key first name last name okay and then let's insert some data to this guy okay you know we should be able to query our data and there it is okay so we got a basic key space set up we got a table we inserted one record in there now if we come back out to node one here and do a flush we're telling Cassander take any data that's written into memory and flush it to disk and then if I exit out of this container and go back to the host machine I should be able to go to where that where that data lives and there's our test key space so I'll change to the kiss test and then I have a user table in there and then we can see that we have an SS table written and that's back on we have access to that in our host machine so if I were to shut down that container at that point you know I still have access to the data so that's that's kind of an interesting thing you can do so I hope like it kind of gives you a sense of how I can interact with these things you know some other things you can do when when you're spinning up go back to my presentation when you're running this docker run step is that you know I'm specifying some environment variables I'm specifying a volume you can also specify ports you can say okay there's there's some process that's running inside of the container that I want to expose back on the host machine so if there's some like website running something like Prometheus or up Center or that kind of thing you could say I want to expose that thing to my host machine so that's really helpful like when I'm running docker on my on my Mac I just want to have an instance you know with like instance of something running and maybe it's running op Center which is the monitoring tool using biggest X Enterprise I just want to expose that you know to my to my Mac so I can go up to a browser and say when I get to that OP Center and go through to it so that's one of the things you can do there's other other options you can specify here is you can give it some resource constraints you could say I'm going to create these three containers on this machine and the containers really can't I don't want this container to exceed more than two CPU you know at any given point in time so you can you kind of leverage some of the cgroups stuff and really kind of lock down the resources so there's some things you can do so you know do we have a match you know I think my take on it is that it's it's a really neat option for for dev test training you know I have some little scenario on a test let me spit up a three node cluster you know run a stress test tool against it or something and play with some settings shut it down that's really great for that kind of stuff you know I in terms of running something in production I have to say I've never tried it I've never worked with a customer who was like you know raring to go ready to try it but I think these are some of the questions that out that I would that I would think about and you know one question that comes to mind is the safety factor you know I think one one of the reasons people let you know looking at this kind of containerization thing or virtualization is that you know you've got you got a machine you get this big fat physical host with 32 cores on it and 200 fix 256 Meg's of RAM and you know you want to you want to put a bunch of virtual machines on there and you kind of over over provision resources you know because at any given point in time not all of those servers are going to be using things at once so you can do that same kind of thing in a container container containerized environment you can say I've got 32 CPUs and I'm gonna let you know all these containers you know I'm gonna have eight containers there and I'm not going to restrict how much CPU they can use and that you know it's one of the advantages you know you can get better efficiency better use of your of your investment in hardware but you know there's a there's this trade-off I think you know if you if you weigh over provision your stuff and you know you get an out of memory area here and your you know you're aiming everywhere that's that's not good but in if you go too far the other way and you don't give it any safety factor why are you running in containers you know so I think the you know you need for your use case for your the profile of your application I think you need to find that that middle ground where where you know you're getting the advantages but you're not putting yourself at risk so I think kind of find that what I'm calling a safety factor here and then I think you really need to understand your operational procedures you know in working with people that are run in large Cassander instances and in my job I find that a lot of people test the happy path they say hey I'm expected in my production load to be you know X TPS and so many writes in so many reads and they set up stress tools and I and they and they make sure that their production load can handle that you know their production of Armant can handle that and they might even you know do 2x testing to see can I handle twice the load you know but what a lot of customers don't do is failure testing so you know what happens if if I lose the whole data center you know what happens to my application those reads and writes you know dude did my latency spike all of a sudden what happens when I start rebuilding the data center from an from another data center what happens if I lose a whole rack you know what happens to my application and and how long does it take me to recover you know I think that's a big question that a lot of a lot of folks can't answer and that makes me nervous like when you say you know what if we lost the node we had to replace it you know especially in this kind of a world where we're using ephemeral drives in the cloud or we're using containers with you know that aren't on some shared storage we can remount you know we know that cassandra has mechanisms in it to help us you know to give us the availability guarantees we want but does does that come out of latency cost to our application and you know is it take a week to rebuild the nodes there's a ticket half a day to rebuild the nodes so you know I would want to understand those things really well have some really well documented procedures have a DBA group or sysadmin group that really knows how to do that well outside a docker and and then take take those learnings and kind of put docker into the mix you know and along those same lines to me like when something goes wrong and you're saying I got Cassandra in the mix I got Linux in the mix I've got some storage mechanism in the mix and now I've got docker in the mix you know I you know do my people have visibility into all these layers to do people know how to look at the logs at all these layers do it can I trace through you know and it's just one more area of complexity on top of that that I think you need you need to make sure you're aware of so you know and then I think I heard Ben Brom had talked earlier about kubernetes and Jeff carpenter just talking in this last talk he talked about using kubernetes in a multi cloud environment so you know kubernetes to me you know some of you simplify some of this gives you some some orchestration on top of containers but to me to me it takes away I don't think it helps that much because to me the whole benefit of using kubernetes is that you're saying okay I've got these containers now I've got kubernetes on top of that that that says hey you know you've got I don't know 50 physical hosts and I don't want to think about where does this container go where's this container go Cooper Nettie's just kind of says oh and I move around for you and and you know take care all that for you but as soon as so you know when people talk about running Cassandra and kubernetes they always say you're gonna use stateful sets and says that state has to live in that pod so all of a sudden if you put kubernetes on top of it the you know you say okay i've got i've got state if I lose a container I still got to state there but now that that container is pinned to that pod so to me that that kind of loses a lot of value of why you did kubernetes in the first place so it's a really interesting space and you know I think I mean kind of my predictions of what we'll see is we'll see somebody go into production and they'll know and they'll dial that safety factor way back they'll say I got this physical host it's got 32 cores I'm gonna put you know two big containers on it and limit them to use I don't know 16 cores and that so have a pretty tight safety factor and start running in it in that kind of a world maybe use shared storage so you could remount thing and then once you get comfortable with that then you change one variable you fake and now I'm gonna over-provision my server a little bit I'm gonna you know maybe put three three containers on there and and you know let them use a little bit more of the elastic resource and so you know if I was going to approach you somebody said to me we got to run in in in production with Cassandra docker kubernetes stuff like that I think that's how it approached I would start off super safe I would get really comfortable with my operations and I would just start adding one thing at a time you know so I have a couple of slides here with some resources that if you want to look at the the slides later you can look at them but leave some resources the data stacks puts out about docker images there is a you know in the demo op hold down that Cassandra image but there are some images with data stack puts out and then here's some some resources that that I pulled from and putting this together so I'm not actually sure how long I'm going here but I think I have time for questions any any questions yeah you know how people say if yes the same question about virtual machines I hear people saying oh it's like a 10% hit or something and docker they say it's very little like it's like a Ben Bromhead some I asked him that question earlier he said it's nothing you know there was the idea that there's you know that they're very quick to spin up there like a minimum of resources it's not like another it's not another host of us on top of it's just yeah it's it's it's cgroups and it's namespaces you know on your existing thing so you know it seems like there's you know maybe one person saying it's nothing seems like a little little bold but I mean I think it's free compared to VMs it's it's much less so mr. P would you say there that you're saying that the containers are all gonna host like one physical Nick and so some of that yeah it's like in this demo I did everything on one physical machine so if I just said I'm gonna have two physical machines that are hosting three three containers each then you know you'd have to you'd have to use a little bit different networking yeah hey yeah yeah idea isolate the disk IO yeah so I think you do that all through through through C groups and when you when you say doc a run you know I gave you some commands there where you know we're saying environment variables so there's commands here where you can say I want to limit the number of CPUs that you can that you can use you know that this container can only use two and a half CPUs of those 16 and I want to limit the amount of memory that this guy can use I want to limit the amount of memory that can be swapped a disk and you can also put some constraints on there around this disk IO so it's it set up you do it at a per per container level yeah so like in this example I'm I'm taking one one directory from the local container and I'm mounting it there so you're asking like how do you control the mounts like where it's running [Music] yeah I think you could well let me you could say I'm gonna create some shared storage you know I've got this mount point that goes up to my NFS mount or something and I'm gonna sign that each one of those to a container or if you erase you had local disks on your host machine and you had like maybe four of them you could yeah you could r80 them together and and let them all right to one spot or you you mean I think there's a lot of ways you can do is I think it's very flexible I'm not sure I know what the answer is in terms of a best practice but yeah yeah sorry any other questions all right well that's that's what I got a B at the data sex booth hanging about and I'm if anybody's here to for tomorrow for graft day I'm doing a talk on data frames and graph frames and so but some some some neat stuff like I'm looking forward to sharing some of that so I think thanks for attending [Applause]",
+    "segments": [
+      {
+        "start": 1.59,
+        "duration": 6.16,
+        "text": "welcome everyone my name is Jim Hatcher"
+      },
+      {
+        "start": 4.0,
+        "duration": 6.27,
+        "text": "I work for data stacks I'm a solution"
+      },
+      {
+        "start": 7.75,
+        "duration": 4.98,
+        "text": "architect which means I you know work"
+      },
+      {
+        "start": 10.27,
+        "duration": 3.99,
+        "text": "with clients they you know they buy our"
+      },
+      {
+        "start": 12.73,
+        "duration": 4.619,
+        "text": "software and when I want to do something"
+      },
+      {
+        "start": 14.26,
+        "duration": 5.1,
+        "text": "with it I help them so I wanted to talk"
+      },
+      {
+        "start": 17.349,
+        "duration": 8.341,
+        "text": "today about running Apache Cassandra on"
+      },
+      {
+        "start": 19.36,
+        "duration": 8.009,
+        "text": "docker and there we go"
+      },
+      {
+        "start": 25.69,
+        "duration": 3.33,
+        "text": "quick quick agenda I'm gonna talk about"
+      },
+      {
+        "start": 27.369,
+        "duration": 3.901,
+        "text": "Cassandra and I'm not gonna talk about"
+      },
+      {
+        "start": 29.02,
+        "duration": 3.48,
+        "text": "all the details of what Cassandra is but"
+      },
+      {
+        "start": 31.27,
+        "duration": 3.449,
+        "text": "I want to talk about some of the"
+      },
+      {
+        "start": 32.5,
+        "duration": 4.71,
+        "text": "implications of Cassandra that kind of"
+      },
+      {
+        "start": 34.719,
+        "duration": 3.901,
+        "text": "make it interesting to run in a"
+      },
+      {
+        "start": 37.21,
+        "duration": 4.469,
+        "text": "virtualized environment or a"
+      },
+      {
+        "start": 38.62,
+        "duration": 4.829,
+        "text": "containerized environment and then we'll"
+      },
+      {
+        "start": 41.679,
+        "duration": 4.831,
+        "text": "talk about docker just kind of give you"
+      },
+      {
+        "start": 43.449,
+        "duration": 4.41,
+        "text": "an intro to what dr is won't spend too"
+      },
+      {
+        "start": 46.51,
+        "duration": 3.0,
+        "text": "much time there cuz there's been a"
+      },
+      {
+        "start": 47.859,
+        "duration": 3.57,
+        "text": "couple talks about today so maybe you've"
+      },
+      {
+        "start": 49.51,
+        "duration": 4.86,
+        "text": "already heard some of that but and then"
+      },
+      {
+        "start": 51.429,
+        "duration": 5.79,
+        "text": "I'm gonna do a demo which might crash"
+      },
+      {
+        "start": 54.37,
+        "duration": 4.529,
+        "text": "and burn but hopefully the internet will"
+      },
+      {
+        "start": 57.219,
+        "duration": 5.041,
+        "text": "stay up and we'll be able to do that and"
+      },
+      {
+        "start": 58.899,
+        "duration": 5.19,
+        "text": "and then we'll talk about you know you"
+      },
+      {
+        "start": 62.26,
+        "duration": 3.45,
+        "text": "know based on what we what we know do we"
+      },
+      {
+        "start": 64.089,
+        "duration": 7.291,
+        "text": "think that using Cassandra and docker"
+      },
+      {
+        "start": 65.71,
+        "duration": 7.11,
+        "text": "together is a good match so I'll mention"
+      },
+      {
+        "start": 71.38,
+        "duration": 4.26,
+        "text": "I work for data stacks and there are"
+      },
+      {
+        "start": 72.82,
+        "duration": 4.71,
+        "text": "some data stacks images and docker but I"
+      },
+      {
+        "start": 75.64,
+        "duration": 5.64,
+        "text": "chose to do this presentation using pure"
+      },
+      {
+        "start": 77.53,
+        "duration": 7.38,
+        "text": "Apache Cassandra and so but a lot of the"
+      },
+      {
+        "start": 81.28,
+        "duration": 6.71,
+        "text": "you know the the takeaways from this"
+      },
+      {
+        "start": 84.91,
+        "duration": 5.4,
+        "text": "talk you know would apply to both so"
+      },
+      {
+        "start": 87.99,
+        "duration": 4.78,
+        "text": "alright so what is it Cassandra what is"
+      },
+      {
+        "start": 90.31,
+        "duration": 7.89,
+        "text": "this magical unicorn database that we"
+      },
+      {
+        "start": 92.77,
+        "duration": 7.2,
+        "text": "all love I guess so the the parts I want"
+      },
+      {
+        "start": 98.2,
+        "duration": 2.85,
+        "text": "to focus on for this talk or you know"
+      },
+      {
+        "start": 99.97,
+        "duration": 2.91,
+        "text": "what are the things that you can do in"
+      },
+      {
+        "start": 101.05,
+        "duration": 3.359,
+        "text": "Cassandra that that are very different"
+      },
+      {
+        "start": 102.88,
+        "duration": 3.87,
+        "text": "than what you could do in a relational"
+      },
+      {
+        "start": 104.409,
+        "duration": 4.681,
+        "text": "database like Oracle or something so to"
+      },
+      {
+        "start": 106.75,
+        "duration": 4.5,
+        "text": "me that the two capabilities of Sandra"
+      },
+      {
+        "start": 109.09,
+        "duration": 4.26,
+        "text": "that really stand out are the fact that"
+      },
+      {
+        "start": 111.25,
+        "duration": 5.31,
+        "text": "is it's a it's made to be distributed"
+      },
+      {
+        "start": 113.35,
+        "duration": 6.36,
+        "text": "across many servers and so that that"
+      },
+      {
+        "start": 116.56,
+        "duration": 5.849,
+        "text": "scale out scale out ability has some"
+      },
+      {
+        "start": 119.71,
+        "duration": 4.019,
+        "text": "really neat implications so you know one"
+      },
+      {
+        "start": 122.409,
+        "duration": 4.381,
+        "text": "of the reasons that we scale out of"
+      },
+      {
+        "start": 123.729,
+        "duration": 5.25,
+        "text": "Cassandra cluster is just for pure data"
+      },
+      {
+        "start": 126.79,
+        "duration": 3.99,
+        "text": "size so if you've got a cluster that's"
+      },
+      {
+        "start": 128.979,
+        "duration": 3.331,
+        "text": "holding ten terabytes of data and you"
+      },
+      {
+        "start": 130.78,
+        "duration": 2.7,
+        "text": "need it to hold 20 well you can double"
+      },
+      {
+        "start": 132.31,
+        "duration": 3.84,
+        "text": "the size of your cluster and it"
+      },
+      {
+        "start": 133.48,
+        "duration": 4.289,
+        "text": "handle that and so the you know the"
+      },
+      {
+        "start": 136.15,
+        "duration": 2.58,
+        "text": "scale ceiling that we sometimes sit in"
+      },
+      {
+        "start": 137.769,
+        "duration": 2.341,
+        "text": "relational databases"
+      },
+      {
+        "start": 138.73,
+        "duration": 3.75,
+        "text": "you know Cassander is a good option for"
+      },
+      {
+        "start": 140.11,
+        "duration": 4.86,
+        "text": "that so sometimes we scale out to data"
+      },
+      {
+        "start": 142.48,
+        "duration": 3.899,
+        "text": "size but sometimes we scale out because"
+      },
+      {
+        "start": 144.97,
+        "duration": 3.48,
+        "text": "we need to hit higher throughput numbers"
+      },
+      {
+        "start": 146.379,
+        "duration": 4.08,
+        "text": "or high concurrency numbers but it has a"
+      },
+      {
+        "start": 148.45,
+        "duration": 3.899,
+        "text": "lot of neat neat capabilities around the"
+      },
+      {
+        "start": 150.459,
+        "duration": 3.991,
+        "text": "way that it scales out or the way that"
+      },
+      {
+        "start": 152.349,
+        "duration": 4.951,
+        "text": "it scales in if you you know can I need"
+      },
+      {
+        "start": 154.45,
+        "duration": 4.77,
+        "text": "to go the other way and another one of"
+      },
+      {
+        "start": 157.3,
+        "duration": 4.62,
+        "text": "the the great great capabilities of"
+      },
+      {
+        "start": 159.22,
+        "duration": 4.32,
+        "text": "Cassandras the the idea that hey I've"
+      },
+      {
+        "start": 161.92,
+        "duration": 3.33,
+        "text": "got a data center in Europe and I've got"
+      },
+      {
+        "start": 163.54,
+        "duration": 3.93,
+        "text": "a data center in North America I've got"
+      },
+      {
+        "start": 165.25,
+        "duration": 4.44,
+        "text": "a data center in Asia and I want to have"
+      },
+      {
+        "start": 167.47,
+        "duration": 3.629,
+        "text": "applications writing to those data"
+      },
+      {
+        "start": 169.69,
+        "duration": 4.29,
+        "text": "centers but I want that data to"
+      },
+      {
+        "start": 171.099,
+        "duration": 4.551,
+        "text": "replicate all over the world that's very"
+      },
+      {
+        "start": 173.98,
+        "duration": 4.02,
+        "text": "difficult to do in a relational database"
+      },
+      {
+        "start": 175.65,
+        "duration": 5.38,
+        "text": "but it's just built into the DNA of"
+      },
+      {
+        "start": 178.0,
+        "duration": 4.769,
+        "text": "cassandra and so these are these are the"
+      },
+      {
+        "start": 181.03,
+        "duration": 3.78,
+        "text": "reasons we we love cassandra these are"
+      },
+      {
+        "start": 182.769,
+        "duration": 3.931,
+        "text": "the things that it solves for us or at"
+      },
+      {
+        "start": 184.81,
+        "duration": 3.75,
+        "text": "least in my mind these are two the two"
+      },
+      {
+        "start": 186.7,
+        "duration": 9.81,
+        "text": "of the big ones why it's a it's a great"
+      },
+      {
+        "start": 188.56,
+        "duration": 9.66,
+        "text": "choice so so but one of the one of the"
+      },
+      {
+        "start": 196.51,
+        "duration": 2.4,
+        "text": "things about relational or cassandra"
+      },
+      {
+        "start": 198.22,
+        "duration": 2.46,
+        "text": "that's a little different than"
+      },
+      {
+        "start": 198.91,
+        "duration": 4.53,
+        "text": "relational is that it's a very i/o"
+      },
+      {
+        "start": 200.68,
+        "duration": 3.99,
+        "text": "intensive database so you know we think"
+      },
+      {
+        "start": 203.44,
+        "duration": 3.03,
+        "text": "about the typical read and write path"
+      },
+      {
+        "start": 204.67,
+        "duration": 3.96,
+        "text": "you know we know that cassandra is very"
+      },
+      {
+        "start": 206.47,
+        "duration": 4.98,
+        "text": "fast for writes because it appends data"
+      },
+      {
+        "start": 208.63,
+        "duration": 4.169,
+        "text": "that's an append-only structure and the"
+      },
+      {
+        "start": 211.45,
+        "duration": 5.099,
+        "text": "read paths very fast because we do"
+      },
+      {
+        "start": 212.799,
+        "duration": 5.671,
+        "text": "lookups by by keys but there's a lot of"
+      },
+      {
+        "start": 216.549,
+        "duration": 3.511,
+        "text": "you know to make that read path and"
+      },
+      {
+        "start": 218.47,
+        "duration": 4.919,
+        "text": "write path very fast we do a lot of"
+      },
+      {
+        "start": 220.06,
+        "duration": 5.64,
+        "text": "stuff in the background and so just you"
+      },
+      {
+        "start": 223.389,
+        "duration": 5.1,
+        "text": "know we talk about the impacts of"
+      },
+      {
+        "start": 225.7,
+        "duration": 4.86,
+        "text": "compaction so you know as as we're"
+      },
+      {
+        "start": 228.489,
+        "duration": 3.451,
+        "text": "writing data into Cassandra we're"
+      },
+      {
+        "start": 230.56,
+        "duration": 3.84,
+        "text": "creating these SS tables they're getting"
+      },
+      {
+        "start": 231.94,
+        "duration": 3.78,
+        "text": "flushed and as compactions happened in"
+      },
+      {
+        "start": 234.4,
+        "duration": 3.089,
+        "text": "the background and make sure that we we"
+      },
+      {
+        "start": 235.72,
+        "duration": 4.109,
+        "text": "we have a reasonable manageable amount"
+      },
+      {
+        "start": 237.489,
+        "duration": 4.981,
+        "text": "of tables so that's a very I I owe"
+      },
+      {
+        "start": 239.829,
+        "duration": 5.011,
+        "text": "intensive process we also have repaired"
+      },
+      {
+        "start": 242.47,
+        "duration": 3.75,
+        "text": "going in the background and that's"
+      },
+      {
+        "start": 244.84,
+        "duration": 3.509,
+        "text": "constantly going out there and building"
+      },
+      {
+        "start": 246.22,
+        "duration": 5.43,
+        "text": "Merkle trees and passing data around and"
+      },
+      {
+        "start": 248.349,
+        "duration": 6.601,
+        "text": "streaming you know mismatched data and"
+      },
+      {
+        "start": 251.65,
+        "duration": 4.889,
+        "text": "then any any type of operation that that"
+      },
+      {
+        "start": 254.95,
+        "duration": 4.259,
+        "text": "of all streaming with your bootstrapping"
+      },
+      {
+        "start": 256.539,
+        "duration": 4.561,
+        "text": "a node or rebuilding a node"
+      },
+      {
+        "start": 259.209,
+        "duration": 9.261,
+        "text": "that that that streaming causes a lot of"
+      },
+      {
+        "start": 261.1,
+        "duration": 9.96,
+        "text": "i/o so you know so so lots of i/o and so"
+      },
+      {
+        "start": 268.47,
+        "duration": 4.21,
+        "text": "best practices for Cassandra"
+      },
+      {
+        "start": 271.06,
+        "duration": 4.229,
+        "text": "that this is kind of a list of things"
+      },
+      {
+        "start": 272.68,
+        "duration": 3.87,
+        "text": "that's often a little paradigm"
+      },
+      {
+        "start": 275.289,
+        "duration": 3.781,
+        "text": "shattering if you come from the"
+      },
+      {
+        "start": 276.55,
+        "duration": 3.6,
+        "text": "relational database world you know one"
+      },
+      {
+        "start": 279.07,
+        "duration": 2.819,
+        "text": "of the things we say about running"
+      },
+      {
+        "start": 280.15,
+        "duration": 3.72,
+        "text": "Apache Cassandra is that we don't want"
+      },
+      {
+        "start": 281.889,
+        "duration": 3.661,
+        "text": "to use shared storage we don't want to"
+      },
+      {
+        "start": 283.87,
+        "duration": 2.93,
+        "text": "use that expensive sand you've got we"
+      },
+      {
+        "start": 285.55,
+        "duration": 3.39,
+        "text": "don't want to use that nasty you've got"
+      },
+      {
+        "start": 286.8,
+        "duration": 8.489,
+        "text": "you know we want locally attached"
+      },
+      {
+        "start": 288.94,
+        "duration": 9.479,
+        "text": "storage on each node preferably SSD and"
+      },
+      {
+        "start": 295.289,
+        "duration": 3.88,
+        "text": "so that's kind of a mind shift for a lot"
+      },
+      {
+        "start": 298.419,
+        "duration": 3.991,
+        "text": "of people when I come from the"
+      },
+      {
+        "start": 299.169,
+        "duration": 5.071,
+        "text": "relational relational world you know the"
+      },
+      {
+        "start": 302.41,
+        "duration": 5.22,
+        "text": "idea that well what if what if a disk"
+      },
+      {
+        "start": 304.24,
+        "duration": 6.06,
+        "text": "goes out you know well you know in the"
+      },
+      {
+        "start": 307.63,
+        "duration": 4.71,
+        "text": "Cassandra world if it this goes out then"
+      },
+      {
+        "start": 310.3,
+        "duration": 3.209,
+        "text": "the servers out and you need to go back"
+      },
+      {
+        "start": 312.34,
+        "duration": 4.829,
+        "text": "and replace that server and there's"
+      },
+      {
+        "start": 313.509,
+        "duration": 5.611,
+        "text": "mechanisms to handle that so you know we"
+      },
+      {
+        "start": 317.169,
+        "duration": 5.851,
+        "text": "don't you know we typically like to run"
+      },
+      {
+        "start": 319.12,
+        "duration": 5.94,
+        "text": "on locally attached storage and we do"
+      },
+      {
+        "start": 323.02,
+        "duration": 4.2,
+        "text": "things like we disable swap because we"
+      },
+      {
+        "start": 325.06,
+        "duration": 3.599,
+        "text": "don't we don't you know if you if you"
+      },
+      {
+        "start": 327.22,
+        "duration": 2.699,
+        "text": "having disk issues or something we just"
+      },
+      {
+        "start": 328.659,
+        "duration": 3.301,
+        "text": "want to take that server down and fix it"
+      },
+      {
+        "start": 329.919,
+        "duration": 3.901,
+        "text": "and get it get it back so and then"
+      },
+      {
+        "start": 331.96,
+        "duration": 4.47,
+        "text": "typically we we don't recommend running"
+      },
+      {
+        "start": 333.82,
+        "duration": 4.589,
+        "text": "on virtual virtualized environments like"
+      },
+      {
+        "start": 336.43,
+        "duration": 3.87,
+        "text": "you know VMware or something like that"
+      },
+      {
+        "start": 338.409,
+        "duration": 3.54,
+        "text": "where there's a hypervisor because"
+      },
+      {
+        "start": 340.3,
+        "duration": 6.899,
+        "text": "there's just some overhead involved that"
+      },
+      {
+        "start": 341.949,
+        "duration": 6.78,
+        "text": "we don't necessarily need so but in"
+      },
+      {
+        "start": 347.199,
+        "duration": 3.361,
+        "text": "terms of the cardinal sin that you know"
+      },
+      {
+        "start": 348.729,
+        "duration": 3.091,
+        "text": "don't use shared storage that's a big"
+      },
+      {
+        "start": 350.56,
+        "duration": 2.97,
+        "text": "one if you're going to use"
+      },
+      {
+        "start": 351.82,
+        "duration": 4.02,
+        "text": "virtualization that's that's kind of a"
+      },
+      {
+        "start": 353.53,
+        "duration": 6.0,
+        "text": "no-no but with that one's less that"
+      },
+      {
+        "start": 355.84,
+        "duration": 5.49,
+        "text": "one's not so bad but anyway so you know"
+      },
+      {
+        "start": 359.53,
+        "duration": 2.94,
+        "text": "these are some implications of Cassandra"
+      },
+      {
+        "start": 361.33,
+        "duration": 3.089,
+        "text": "that I think are interesting to think"
+      },
+      {
+        "start": 362.47,
+        "duration": 3.3,
+        "text": "about when we're looking at you know do"
+      },
+      {
+        "start": 364.419,
+        "duration": 6.84,
+        "text": "we want to run run in a containerized"
+      },
+      {
+        "start": 365.77,
+        "duration": 7.019,
+        "text": "environment so so one just want to talk"
+      },
+      {
+        "start": 371.259,
+        "duration": 3.0,
+        "text": "about oh wait a minute if you're telling"
+      },
+      {
+        "start": 372.789,
+        "duration": 3.181,
+        "text": "me we don't want to run Cassandra on"
+      },
+      {
+        "start": 374.259,
+        "duration": 3.9,
+        "text": "shared storage and we don't want to run"
+      },
+      {
+        "start": 375.97,
+        "duration": 3.99,
+        "text": "it in a virtual environment what about"
+      },
+      {
+        "start": 378.159,
+        "duration": 4.32,
+        "text": "the cloud isn't the cloud typically"
+      },
+      {
+        "start": 379.96,
+        "duration": 4.139,
+        "text": "shared storage and in virtualized"
+      },
+      {
+        "start": 382.479,
+        "duration": 4.291,
+        "text": "environments and the answer is yes"
+      },
+      {
+        "start": 384.099,
+        "duration": 5.101,
+        "text": "you're you're right and Cassandra runs"
+      },
+      {
+        "start": 386.77,
+        "duration": 4.38,
+        "text": "very well in the cloud so I think it's"
+      },
+      {
+        "start": 389.2,
+        "duration": 3.05,
+        "text": "interesting to look at a couple couple"
+      },
+      {
+        "start": 391.15,
+        "duration": 4.63,
+        "text": "points here"
+      },
+      {
+        "start": 392.25,
+        "duration": 5.61,
+        "text": "so you know if you're running in in AWS"
+      },
+      {
+        "start": 395.78,
+        "duration": 4.8,
+        "text": "and you're running a cassandra you can't"
+      },
+      {
+        "start": 397.86,
+        "duration": 6.6,
+        "text": "have the option do I want to run"
+      },
+      {
+        "start": 400.58,
+        "duration": 6.28,
+        "text": "instances and put my data on EBS volumes"
+      },
+      {
+        "start": 404.46,
+        "duration": 4.23,
+        "text": "or do I want to run like on some of the"
+      },
+      {
+        "start": 406.86,
+        "duration": 6.66,
+        "text": "newer instance types that have locally"
+      },
+      {
+        "start": 408.69,
+        "duration": 8.1,
+        "text": "attached and vme mounts and which are"
+      },
+      {
+        "start": 413.52,
+        "duration": 5.91,
+        "text": "but they're ephemeral and so you know we"
+      },
+      {
+        "start": 416.79,
+        "duration": 4.26,
+        "text": "we see people doing both so that if you"
+      },
+      {
+        "start": 419.43,
+        "duration": 4.5,
+        "text": "go the EBS route you're using shared"
+      },
+      {
+        "start": 421.05,
+        "duration": 4.5,
+        "text": "storage and if Amazon EBS goes down"
+      },
+      {
+        "start": 423.93,
+        "duration": 3.51,
+        "text": "while you're you know that's a single"
+      },
+      {
+        "start": 425.55,
+        "duration": 5.4,
+        "text": "point of failure and your your cluster"
+      },
+      {
+        "start": 427.44,
+        "duration": 4.77,
+        "text": "is going down you know so you know and"
+      },
+      {
+        "start": 430.95,
+        "duration": 2.79,
+        "text": "so there's a little bit of performance"
+      },
+      {
+        "start": 432.21,
+        "duration": 2.76,
+        "text": "hit but in some ways it's nice because"
+      },
+      {
+        "start": 433.74,
+        "duration": 2.88,
+        "text": "you can say I'm going to take this note"
+      },
+      {
+        "start": 434.97,
+        "duration": 4.05,
+        "text": "down I'm gonna bring it up somewhere"
+      },
+      {
+        "start": 436.62,
+        "duration": 5.12,
+        "text": "else I'm gonna reattach that that EBS"
+      },
+      {
+        "start": 439.02,
+        "duration": 5.31,
+        "text": "mount and you know I still have my data"
+      },
+      {
+        "start": 441.74,
+        "duration": 6.21,
+        "text": "so in the other end of the spectrum you"
+      },
+      {
+        "start": 444.33,
+        "duration": 5.79,
+        "text": "can run on ephemeral and ephemeral SSD"
+      },
+      {
+        "start": 447.95,
+        "duration": 3.88,
+        "text": "which you get a lot of performance for"
+      },
+      {
+        "start": 450.12,
+        "duration": 4.17,
+        "text": "that but you have to be careful because"
+      },
+      {
+        "start": 451.83,
+        "duration": 4.08,
+        "text": "if you stop that node stop that instance"
+      },
+      {
+        "start": 454.29,
+        "duration": 4.5,
+        "text": "and bring it back up your your data is"
+      },
+      {
+        "start": 455.91,
+        "duration": 4.95,
+        "text": "gone so you know I think when people"
+      },
+      {
+        "start": 458.79,
+        "duration": 3.45,
+        "text": "first hear that that's a little scary"
+      },
+      {
+        "start": 460.86,
+        "duration": 3.09,
+        "text": "for them like huh what do you mean I"
+      },
+      {
+        "start": 462.24,
+        "duration": 3.45,
+        "text": "could stop my node and my data's going"
+      },
+      {
+        "start": 463.95,
+        "duration": 4.35,
+        "text": "that's that's not a good that's not a"
+      },
+      {
+        "start": 465.69,
+        "duration": 3.96,
+        "text": "good way to operate but it's really not"
+      },
+      {
+        "start": 468.3,
+        "duration": 2.85,
+        "text": "that different than how we operate on"
+      },
+      {
+        "start": 469.65,
+        "duration": 3.54,
+        "text": "bare metal we say how you're gonna have"
+      },
+      {
+        "start": 471.15,
+        "duration": 5.97,
+        "text": "this nine node cluster and if this one"
+      },
+      {
+        "start": 473.19,
+        "duration": 7.41,
+        "text": "server goes down you know because we the"
+      },
+      {
+        "start": 477.12,
+        "duration": 4.89,
+        "text": "motherboard fries or whatever we're you"
+      },
+      {
+        "start": 480.6,
+        "duration": 2.43,
+        "text": "know we're basically gonna bring that"
+      },
+      {
+        "start": 482.01,
+        "duration": 2.88,
+        "text": "node back on line and we're gonna"
+      },
+      {
+        "start": 483.03,
+        "duration": 3.84,
+        "text": "rebuild it from the other nodes anyway"
+      },
+      {
+        "start": 484.89,
+        "duration": 2.97,
+        "text": "you know so so in some ways that's"
+      },
+      {
+        "start": 486.87,
+        "duration": 2.97,
+        "text": "really not that different than how we"
+      },
+      {
+        "start": 487.86,
+        "duration": 4.08,
+        "text": "run on bare metal so it's kind of a"
+      },
+      {
+        "start": 489.84,
+        "duration": 5.01,
+        "text": "comfort comfort level thing they're"
+      },
+      {
+        "start": 491.94,
+        "duration": 5.67,
+        "text": "saying hey I can I can really get the"
+      },
+      {
+        "start": 494.85,
+        "duration": 5.97,
+        "text": "benefit of using the performance of you"
+      },
+      {
+        "start": 497.61,
+        "duration": 5.1,
+        "text": "know locally attached SSD but you know"
+      },
+      {
+        "start": 500.82,
+        "duration": 3.18,
+        "text": "and you need to kind of be careful so I"
+      },
+      {
+        "start": 502.71,
+        "duration": 3.57,
+        "text": "think I think some of the lessons we've"
+      },
+      {
+        "start": 504.0,
+        "duration": 4.26,
+        "text": "learned in running in the cloud can kind"
+      },
+      {
+        "start": 506.28,
+        "duration": 5.28,
+        "text": "of be interesting in this world of"
+      },
+      {
+        "start": 508.26,
+        "duration": 5.13,
+        "text": "running a container so so they've got"
+      },
+      {
+        "start": 511.56,
+        "duration": 4.71,
+        "text": "some tips here about you know if you're"
+      },
+      {
+        "start": 513.39,
+        "duration": 5.01,
+        "text": "going to run you know using a ephemeral"
+      },
+      {
+        "start": 516.27,
+        "duration": 4.14,
+        "text": "and ephemeral disk you know what what"
+      },
+      {
+        "start": 518.4,
+        "duration": 5.46,
+        "text": "are what are some ways you want to go"
+      },
+      {
+        "start": 520.41,
+        "duration": 4.77,
+        "text": "about that so one one thing one lesson"
+      },
+      {
+        "start": 523.86,
+        "duration": 3.51,
+        "text": "there is like you you know"
+      },
+      {
+        "start": 525.18,
+        "duration": 6.54,
+        "text": "know how to do you know backups and"
+      },
+      {
+        "start": 527.37,
+        "duration": 6.18,
+        "text": "restores and test that and then I know"
+      },
+      {
+        "start": 531.72,
+        "duration": 5.85,
+        "text": "how long it takes to bootstrap a note or"
+      },
+      {
+        "start": 533.55,
+        "duration": 6.18,
+        "text": "to replace a note you know if you have a"
+      },
+      {
+        "start": 537.57,
+        "duration": 4.32,
+        "text": "note go down and you totally rebuild it"
+      },
+      {
+        "start": 539.73,
+        "duration": 4.68,
+        "text": "from other other nodes in the cluster or"
+      },
+      {
+        "start": 541.89,
+        "duration": 3.72,
+        "text": "from another data center you really"
+      },
+      {
+        "start": 544.41,
+        "duration": 2.91,
+        "text": "ought to have a sense of is that gonna"
+      },
+      {
+        "start": 545.61,
+        "duration": 4.64,
+        "text": "take me eight hours to rebuild or I"
+      },
+      {
+        "start": 547.32,
+        "duration": 5.16,
+        "text": "gotta take me four days to rebuild and"
+      },
+      {
+        "start": 550.25,
+        "duration": 3.88,
+        "text": "you know so you really need to do some"
+      },
+      {
+        "start": 552.48,
+        "duration": 3.0,
+        "text": "failure testing around that to say okay"
+      },
+      {
+        "start": 554.13,
+        "duration": 4.29,
+        "text": "I'm gonna wipe that's node and rebuild"
+      },
+      {
+        "start": 555.48,
+        "duration": 5.85,
+        "text": "it and if you find it man it's taking me"
+      },
+      {
+        "start": 558.42,
+        "duration": 4.68,
+        "text": "to two days to rebuild a node because of"
+      },
+      {
+        "start": 561.33,
+        "duration": 3.6,
+        "text": "the streaming you know you may need to"
+      },
+      {
+        "start": 563.1,
+        "duration": 4.44,
+        "text": "reduce your note densities on your on"
+      },
+      {
+        "start": 564.93,
+        "duration": 6.39,
+        "text": "your on your cluster to get that down to"
+      },
+      {
+        "start": 567.54,
+        "duration": 5.13,
+        "text": "a reasonable time and then you know"
+      },
+      {
+        "start": 571.32,
+        "duration": 3.18,
+        "text": "there's just some cloud specific stuff"
+      },
+      {
+        "start": 572.67,
+        "duration": 4.11,
+        "text": "like if you set up availability zones"
+      },
+      {
+        "start": 574.5,
+        "duration": 4.59,
+        "text": "properly and Amazon goes through and"
+      },
+      {
+        "start": 576.78,
+        "duration": 4.47,
+        "text": "does maintenance on all of its stuff in"
+      },
+      {
+        "start": 579.09,
+        "duration": 5.1,
+        "text": "u.s. East and all your notes get down"
+      },
+      {
+        "start": 581.25,
+        "duration": 6.03,
+        "text": "unexpectedly you know if you've aligned"
+      },
+      {
+        "start": 584.19,
+        "duration": 5.34,
+        "text": "Cassandra to have racks that that go to"
+      },
+      {
+        "start": 587.28,
+        "duration": 6.06,
+        "text": "that availability zone you know your"
+      },
+      {
+        "start": 589.53,
+        "duration": 6.93,
+        "text": "you'll be in much better shape anyway so"
+      },
+      {
+        "start": 593.34,
+        "duration": 4.35,
+        "text": "some more tips there but so those are"
+      },
+      {
+        "start": 596.46,
+        "duration": 5.46,
+        "text": "the things about Cassandra that I think"
+      },
+      {
+        "start": 597.69,
+        "duration": 5.85,
+        "text": "are interesting and then docker I think"
+      },
+      {
+        "start": 601.92,
+        "duration": 4.38,
+        "text": "most folks are kind of generally aware"
+      },
+      {
+        "start": 603.54,
+        "duration": 4.74,
+        "text": "about docker but you know conceptually"
+      },
+      {
+        "start": 606.3,
+        "duration": 6.36,
+        "text": "docker similar to like a virtual machine"
+      },
+      {
+        "start": 608.28,
+        "duration": 7.26,
+        "text": "or you know virtualization but instead"
+      },
+      {
+        "start": 612.66,
+        "duration": 5.01,
+        "text": "of me in VMs docker uses containers and"
+      },
+      {
+        "start": 615.54,
+        "duration": 2.9,
+        "text": "I could containers a little bit like a"
+      },
+      {
+        "start": 617.67,
+        "duration": 4.89,
+        "text": "lightweight"
+      },
+      {
+        "start": 618.44,
+        "duration": 8.05,
+        "text": "VM as a there's a YouTube video go where"
+      },
+      {
+        "start": 622.56,
+        "duration": 5.85,
+        "text": "a guy kind of uses the analogy of a VM"
+      },
+      {
+        "start": 626.49,
+        "duration": 4.17,
+        "text": "as a house and doctor is an apartment"
+      },
+      {
+        "start": 628.41,
+        "duration": 6.15,
+        "text": "they both kind of give you isolation"
+      },
+      {
+        "start": 630.66,
+        "duration": 6.15,
+        "text": "from the outside world but you know the"
+      },
+      {
+        "start": 634.56,
+        "duration": 4.5,
+        "text": "house has some price some overhead that"
+      },
+      {
+        "start": 636.81,
+        "duration": 3.69,
+        "text": "maybe you don't need if you're a single"
+      },
+      {
+        "start": 639.06,
+        "duration": 3.11,
+        "text": "guy and you just need a one-bedroom"
+      },
+      {
+        "start": 640.5,
+        "duration": 5.1,
+        "text": "apartment or something you know but"
+      },
+      {
+        "start": 642.17,
+        "duration": 5.89,
+        "text": "anyway so but but the building blocks of"
+      },
+      {
+        "start": 645.6,
+        "duration": 4.11,
+        "text": "containers are technology called"
+      },
+      {
+        "start": 648.06,
+        "duration": 4.77,
+        "text": "namespaces which gives you like price"
+      },
+      {
+        "start": 649.71,
+        "duration": 5.31,
+        "text": "process isolation so if you know if you"
+      },
+      {
+        "start": 652.83,
+        "duration": 4.69,
+        "text": "run into to docker containers on a node"
+      },
+      {
+        "start": 655.02,
+        "duration": 3.79,
+        "text": "and you type PS at the Linux command"
+      },
+      {
+        "start": 657.52,
+        "duration": 2.61,
+        "text": "you're not going to see the processes"
+      },
+      {
+        "start": 658.81,
+        "duration": 2.82,
+        "text": "running on that other container you know"
+      },
+      {
+        "start": 660.13,
+        "duration": 5.13,
+        "text": "it's all it's all namespace to that one"
+      },
+      {
+        "start": 661.63,
+        "duration": 6.06,
+        "text": "instance and then control groups is is"
+      },
+      {
+        "start": 665.26,
+        "duration": 6.78,
+        "text": "the mechanism that that limits you know"
+      },
+      {
+        "start": 667.69,
+        "duration": 6.21,
+        "text": "CPU memory and so that and then you know"
+      },
+      {
+        "start": 672.04,
+        "duration": 4.89,
+        "text": "there's like you need an F s I think is"
+      },
+      {
+        "start": 673.9,
+        "duration": 4.29,
+        "text": "what's what's used by default so this is"
+      },
+      {
+        "start": 676.93,
+        "duration": 5.04,
+        "text": "kind of the building blocks of"
+      },
+      {
+        "start": 678.19,
+        "duration": 6.54,
+        "text": "containers and then you guys are"
+      },
+      {
+        "start": 681.97,
+        "duration": 5.34,
+        "text": "probably seen you know diagrams like"
+      },
+      {
+        "start": 684.73,
+        "duration": 4.5,
+        "text": "this you know just to kind of you know"
+      },
+      {
+        "start": 687.31,
+        "duration": 4.56,
+        "text": "reiterate the point that the containers"
+      },
+      {
+        "start": 689.23,
+        "duration": 4.92,
+        "text": "are like lighter weight VM so you you"
+      },
+      {
+        "start": 691.87,
+        "duration": 4.44,
+        "text": "still have you know several processes"
+      },
+      {
+        "start": 694.15,
+        "duration": 4.77,
+        "text": "running inside one one physical host but"
+      },
+      {
+        "start": 696.31,
+        "duration": 4.05,
+        "text": "in the vm world you also have kind of"
+      },
+      {
+        "start": 698.92,
+        "duration": 4.05,
+        "text": "the overhead of a note the guest OS"
+      },
+      {
+        "start": 700.36,
+        "duration": 3.78,
+        "text": "whereas in the container container world"
+      },
+      {
+        "start": 702.97,
+        "duration": 5.19,
+        "text": "things are just a little lighter weight"
+      },
+      {
+        "start": 704.14,
+        "duration": 7.53,
+        "text": "so you know I think containers have"
+      },
+      {
+        "start": 708.16,
+        "duration": 4.67,
+        "text": "really become popular in the last a few"
+      },
+      {
+        "start": 711.67,
+        "duration": 3.27,
+        "text": "years"
+      },
+      {
+        "start": 712.83,
+        "duration": 4.75,
+        "text": "doot-doot-doot in part to the rise of"
+      },
+      {
+        "start": 714.94,
+        "duration": 3.99,
+        "text": "microservices and the idea that we want"
+      },
+      {
+        "start": 717.58,
+        "duration": 3.6,
+        "text": "to be able to take you know big"
+      },
+      {
+        "start": 718.93,
+        "duration": 4.11,
+        "text": "monolithic api layers or service layers"
+      },
+      {
+        "start": 721.18,
+        "duration": 3.39,
+        "text": "we're gonna break them down into lots of"
+      },
+      {
+        "start": 723.04,
+        "duration": 5.34,
+        "text": "little pieces and how can I run those"
+      },
+      {
+        "start": 724.57,
+        "duration": 6.72,
+        "text": "pieces and in lots of discrete ways and"
+      },
+      {
+        "start": 728.38,
+        "duration": 5.61,
+        "text": "so they work really well on stateless"
+      },
+      {
+        "start": 731.29,
+        "duration": 5.97,
+        "text": "services like you know web web servers"
+      },
+      {
+        "start": 733.99,
+        "duration": 4.38,
+        "text": "and app servers and but there's it's a"
+      },
+      {
+        "start": 737.26,
+        "duration": 2.46,
+        "text": "little bit of a different story when"
+      },
+      {
+        "start": 738.37,
+        "duration": 4.52,
+        "text": "we're getting a stateful services so"
+      },
+      {
+        "start": 739.72,
+        "duration": 5.43,
+        "text": "that's what we're talking about today"
+      },
+      {
+        "start": 742.89,
+        "duration": 3.79,
+        "text": "all right so I'm gonna I'm gonna try to"
+      },
+      {
+        "start": 745.15,
+        "duration": 7.11,
+        "text": "do a little demo here all right so a"
+      },
+      {
+        "start": 746.68,
+        "duration": 10.02,
+        "text": "spun up a a node imager and I'm gonna"
+      },
+      {
+        "start": 752.26,
+        "duration": 7.04,
+        "text": "connect to it here you can see that let"
+      },
+      {
+        "start": 756.7,
+        "duration": 2.6,
+        "text": "me make that bigger"
+      },
+      {
+        "start": 762.14,
+        "duration": 8.68,
+        "text": "ya see that in the back okay alright"
+      },
+      {
+        "start": 766.43,
+        "duration": 6.34,
+        "text": "okay so so this is a just a boon to"
+      },
+      {
+        "start": 770.82,
+        "duration": 3.93,
+        "text": "instance it's running the balloon to 18"
+      },
+      {
+        "start": 772.77,
+        "duration": 4.71,
+        "text": "and it's got really nothing on it right"
+      },
+      {
+        "start": 774.75,
+        "duration": 8.82,
+        "text": "now I just launched it in Azure this is"
+      },
+      {
+        "start": 777.48,
+        "duration": 9.96,
+        "text": "a it's got 16 cores and about 64 gigs in"
+      },
+      {
+        "start": 783.57,
+        "duration": 7.31,
+        "text": "memory so what I want to do the first"
+      },
+      {
+        "start": 787.44,
+        "duration": 5.85,
+        "text": "thing I want to do is I want to get"
+      },
+      {
+        "start": 790.88,
+        "duration": 5.5,
+        "text": "docker installed on this this host"
+      },
+      {
+        "start": 793.29,
+        "duration": 7.7,
+        "text": "machine so I'm gonna this is a boon to"
+      },
+      {
+        "start": 796.38,
+        "duration": 7.8,
+        "text": "so I'm going to do that through apt and"
+      },
+      {
+        "start": 800.99,
+        "duration": 7.21,
+        "text": "so up these are some commands that I"
+      },
+      {
+        "start": 804.18,
+        "duration": 8.13,
+        "text": "just I just googled set up a docker on a"
+      },
+      {
+        "start": 808.2,
+        "duration": 8.49,
+        "text": "boon to 18 and these are the commands I"
+      },
+      {
+        "start": 812.31,
+        "duration": 6.48,
+        "text": "found so I'm just going to use apt-get"
+      },
+      {
+        "start": 816.69,
+        "duration": 5.88,
+        "text": "to pull down some of the some of the"
+      },
+      {
+        "start": 818.79,
+        "duration": 7.88,
+        "text": "docker libraries I want to explain this"
+      },
+      {
+        "start": 822.57,
+        "duration": 4.1,
+        "text": "too much but I'll get this stuff going"
+      },
+      {
+        "start": 831.52,
+        "duration": 6.87,
+        "text": "okay all right there's the the main step"
+      },
+      {
+        "start": 836.35,
+        "duration": 5.27,
+        "text": "where we're telling I've been to that we"
+      },
+      {
+        "start": 838.39,
+        "duration": 3.23,
+        "text": "want to install docker see"
+      },
+      {
+        "start": 851.67,
+        "duration": 3.65,
+        "text": "oh I think I'm on the wrong VM"
+      },
+      {
+        "start": 866.13,
+        "duration": 7.8,
+        "text": "sorry about that I don't think I've duck"
+      },
+      {
+        "start": 871.5,
+        "duration": 7.13,
+        "text": "hurt ya kid on a duck or installed here"
+      },
+      {
+        "start": 873.93,
+        "duration": 4.7,
+        "text": "sorry I had docker on that other one"
+      },
+      {
+        "start": 884.18,
+        "duration": 2.6,
+        "text": "yeah"
+      },
+      {
+        "start": 920.84,
+        "duration": 5.19,
+        "text": "[Music]"
+      },
+      {
+        "start": 923.95,
+        "duration": 8.19,
+        "text": "here's the stuff we're actually pulling"
+      },
+      {
+        "start": 926.03,
+        "duration": 6.11,
+        "text": "down the docker application"
+      },
+      {
+        "start": 940.8,
+        "duration": 11.7,
+        "text": "let that finish okay then we're gonna"
+      },
+      {
+        "start": 946.77,
+        "duration": 9.54,
+        "text": "tell docker to run as a service and then"
+      },
+      {
+        "start": 952.5,
+        "duration": 11.22,
+        "text": "we're gonna add ourselves to the docker"
+      },
+      {
+        "start": 956.31,
+        "duration": 8.88,
+        "text": "group and then make sure that we're we"
+      },
+      {
+        "start": 963.72,
+        "duration": 11.88,
+        "text": "got docker okay so I gonna run docker"
+      },
+      {
+        "start": 965.19,
+        "duration": 14.49,
+        "text": "info here and okay so yeah so we're on"
+      },
+      {
+        "start": 975.6,
+        "duration": 6.89,
+        "text": "machine here were 16 16 CPUs 63 gigs of"
+      },
+      {
+        "start": 979.68,
+        "duration": 5.13,
+        "text": "memory okay so now we've got we've got"
+      },
+      {
+        "start": 982.49,
+        "duration": 5.11,
+        "text": "we got docker installed on our host"
+      },
+      {
+        "start": 984.81,
+        "duration": 4.56,
+        "text": "machine alright so the next thing we"
+      },
+      {
+        "start": 987.6,
+        "duration": 3.9,
+        "text": "want to do is we want to pull down a"
+      },
+      {
+        "start": 989.37,
+        "duration": 4.44,
+        "text": "Cassandra image and so an image and"
+      },
+      {
+        "start": 991.5,
+        "duration": 6.06,
+        "text": "doctor is basically all the dependencies"
+      },
+      {
+        "start": 993.81,
+        "duration": 6.089,
+        "text": "that are built around you know providing"
+      },
+      {
+        "start": 997.56,
+        "duration": 4.92,
+        "text": "certain functionality so you can"
+      },
+      {
+        "start": 999.899,
+        "duration": 6.661,
+        "text": "actually search like you could say"
+      },
+      {
+        "start": 1002.48,
+        "duration": 5.76,
+        "text": "docker search Cassandra and see see all"
+      },
+      {
+        "start": 1006.56,
+        "duration": 5.339,
+        "text": "the the things that on like docker hub"
+      },
+      {
+        "start": 1008.24,
+        "duration": 6.3,
+        "text": "that that matched that so this Cassandra"
+      },
+      {
+        "start": 1011.899,
+        "duration": 5.011,
+        "text": "one is like the official one but there's"
+      },
+      {
+        "start": 1014.54,
+        "duration": 5.789,
+        "text": "other ones here bitNami and the last"
+      },
+      {
+        "start": 1016.91,
+        "duration": 6.47,
+        "text": "pickle and others but but what I want to"
+      },
+      {
+        "start": 1020.329,
+        "duration": 6.0,
+        "text": "do here is just pull the Cassandra image"
+      },
+      {
+        "start": 1023.38,
+        "duration": 5.38,
+        "text": "it's if I do that what you'll notice is"
+      },
+      {
+        "start": 1026.329,
+        "duration": 4.921,
+        "text": "it's pulling several images and these"
+      },
+      {
+        "start": 1028.76,
+        "duration": 5.069,
+        "text": "images are like layers so if I were to"
+      },
+      {
+        "start": 1031.25,
+        "duration": 4.079,
+        "text": "install some other container it might"
+      },
+      {
+        "start": 1033.829,
+        "duration": 3.51,
+        "text": "have some of the same images in its"
+      },
+      {
+        "start": 1035.329,
+        "duration": 5.341,
+        "text": "dependency tree and it doesn't have to"
+      },
+      {
+        "start": 1037.339,
+        "duration": 5.22,
+        "text": "to reestablish them so but to pull down"
+      },
+      {
+        "start": 1040.67,
+        "duration": 6.0,
+        "text": "the Cassandra image it's really not that"
+      },
+      {
+        "start": 1042.559,
+        "duration": 5.851,
+        "text": "much data it didn't take that long when"
+      },
+      {
+        "start": 1046.67,
+        "duration": 3.72,
+        "text": "I say duck or pool Cassandra it just"
+      },
+      {
+        "start": 1048.41,
+        "duration": 4.17,
+        "text": "pulls the latest which is in this case"
+      },
+      {
+        "start": 1050.39,
+        "duration": 3.96,
+        "text": "Cassandra well I think you could from"
+      },
+      {
+        "start": 1052.58,
+        "duration": 6.12,
+        "text": "this image you can run Cassandra 311 or"
+      },
+      {
+        "start": 1054.35,
+        "duration": 6.15,
+        "text": "Cassandra 300 or Cassandra to 2 and then"
+      },
+      {
+        "start": 1058.7,
+        "duration": 3.66,
+        "text": "we can run this command to see what what"
+      },
+      {
+        "start": 1060.5,
+        "duration": 7.2,
+        "text": "images are installed in this container"
+      },
+      {
+        "start": 1062.36,
+        "duration": 7.62,
+        "text": "so we have the Cassandra latest and then"
+      },
+      {
+        "start": 1067.7,
+        "duration": 6.979,
+        "text": "I'm gonna run a couple commands here to"
+      },
+      {
+        "start": 1069.98,
+        "duration": 4.699,
+        "text": "create some directories on this machine"
+      },
+      {
+        "start": 1075.679,
+        "duration": 4.11,
+        "text": "and then one time I guess"
+      },
+      {
+        "start": 1089.19,
+        "duration": 5.489,
+        "text": "so I'm gonna create a directory here of"
+      },
+      {
+        "start": 1092.489,
+        "duration": 5.4,
+        "text": "our lib container data and then get"
+      },
+      {
+        "start": 1094.679,
+        "duration": 6.62,
+        "text": "Sandra nodes one through six and I'll"
+      },
+      {
+        "start": 1097.889,
+        "duration": 3.41,
+        "text": "explain why I'm doing that in a second"
+      },
+      {
+        "start": 1112.37,
+        "duration": 4.14,
+        "text": "okay I already got six alright alright"
+      },
+      {
+        "start": 1115.01,
+        "duration": 2.7,
+        "text": "so we've got docker running on our host"
+      },
+      {
+        "start": 1116.51,
+        "duration": 3.539,
+        "text": "machine and now we've pulled down that"
+      },
+      {
+        "start": 1117.71,
+        "duration": 3.66,
+        "text": "cassandra image and then what we need to"
+      },
+      {
+        "start": 1120.049,
+        "duration": 4.98,
+        "text": "do is we need to actually run one of"
+      },
+      {
+        "start": 1121.37,
+        "duration": 9.0,
+        "text": "these images and so this is the basic"
+      },
+      {
+        "start": 1125.029,
+        "duration": 9.15,
+        "text": "syntax we say docker run and we give a"
+      },
+      {
+        "start": 1130.37,
+        "duration": 7.53,
+        "text": "name to what this instance is going to"
+      },
+      {
+        "start": 1134.179,
+        "duration": 6.421,
+        "text": "be called this D option tells it to go"
+      },
+      {
+        "start": 1137.9,
+        "duration": 4.259,
+        "text": "ahead and kick off the the container in"
+      },
+      {
+        "start": 1140.6,
+        "duration": 5.959,
+        "text": "the background start start it up and"
+      },
+      {
+        "start": 1142.159,
+        "duration": 7.291,
+        "text": "then all these - eopt I'm specifying"
+      },
+      {
+        "start": 1146.559,
+        "duration": 5.381,
+        "text": "environment variables so in this"
+      },
+      {
+        "start": 1149.45,
+        "duration": 6.24,
+        "text": "Cassandra image these various variables"
+      },
+      {
+        "start": 1151.94,
+        "duration": 5.7,
+        "text": "are exposed to me so I can say oh you"
+      },
+      {
+        "start": 1155.69,
+        "duration": 3.42,
+        "text": "know when I spent at this thing it's"
+      },
+      {
+        "start": 1157.64,
+        "duration": 3.509,
+        "text": "going to join this cluster it's gonna"
+      },
+      {
+        "start": 1159.11,
+        "duration": 5.61,
+        "text": "have this number our tokens this kind of"
+      },
+      {
+        "start": 1161.149,
+        "duration": 6.51,
+        "text": "thing so I'm gonna have these these"
+      },
+      {
+        "start": 1164.72,
+        "duration": 4.65,
+        "text": "machines being dc1 I'm gonna have some"
+      },
+      {
+        "start": 1167.659,
+        "duration": 6.451,
+        "text": "of them in rack one some in rack to some"
+      },
+      {
+        "start": 1169.37,
+        "duration": 8.13,
+        "text": "rack three and then the this option I'm"
+      },
+      {
+        "start": 1174.11,
+        "duration": 6.179,
+        "text": "telling it when I create that instance I"
+      },
+      {
+        "start": 1177.5,
+        "duration": 4.74,
+        "text": "want to use a directory on the on the"
+      },
+      {
+        "start": 1180.289,
+        "duration": 4.681,
+        "text": "host machine and I want to map it to a"
+      },
+      {
+        "start": 1182.24,
+        "duration": 4.35,
+        "text": "directory on the container and that's"
+      },
+      {
+        "start": 1184.97,
+        "duration": 3.449,
+        "text": "like that gives me transparency of the"
+      },
+      {
+        "start": 1186.59,
+        "duration": 3.9,
+        "text": "data back at the host machine layer and"
+      },
+      {
+        "start": 1188.419,
+        "duration": 5.161,
+        "text": "then I have to tell it what what image"
+      },
+      {
+        "start": 1190.49,
+        "duration": 7.76,
+        "text": "to use so let me just demo this real"
+      },
+      {
+        "start": 1193.58,
+        "duration": 4.67,
+        "text": "quick I'm gonna spin up my my first node"
+      },
+      {
+        "start": 1201.73,
+        "duration": 7.049,
+        "text": "to get likes my copying pasting"
+      },
+      {
+        "start": 1226.22,
+        "duration": 25.71,
+        "text": "I did this differently earlier that's"
+      },
+      {
+        "start": 1230.88,
+        "duration": 21.05,
+        "text": "what I get for demoing okay what's right"
+      },
+      {
+        "start": 1252.35,
+        "duration": 12.12,
+        "text": "yeah earlier I was based on I'm in yeah"
+      },
+      {
+        "start": 1264.86,
+        "duration": 7.84,
+        "text": "yeah I was using a uh see how this goes"
+      },
+      {
+        "start": 1269.45,
+        "duration": 7.9,
+        "text": "okay so so what I've done here is"
+      },
+      {
+        "start": 1272.7,
+        "duration": 12.99,
+        "text": "created went one node and thank you for"
+      },
+      {
+        "start": 1277.35,
+        "duration": 12.84,
+        "text": "that and now I can run a command docker"
+      },
+      {
+        "start": 1285.69,
+        "duration": 7.08,
+        "text": "I could say when I exec - IT says I want"
+      },
+      {
+        "start": 1290.19,
+        "duration": 5.88,
+        "text": "to make it an interactive and then I can"
+      },
+      {
+        "start": 1292.77,
+        "duration": 6.12,
+        "text": "say Cassandra node one and I can run"
+      },
+      {
+        "start": 1296.07,
+        "duration": 5.43,
+        "text": "bash I think that's right"
+      },
+      {
+        "start": 1298.89,
+        "duration": 5.16,
+        "text": "okay so now I've I'm inside of the"
+      },
+      {
+        "start": 1301.5,
+        "duration": 6.45,
+        "text": "container and I can run like a node tool"
+      },
+      {
+        "start": 1304.05,
+        "duration": 6.84,
+        "text": "status here and I can see that my"
+      },
+      {
+        "start": 1307.95,
+        "duration": 5.88,
+        "text": "container my cluster has a one node in"
+      },
+      {
+        "start": 1310.89,
+        "duration": 5.76,
+        "text": "the in the DC one data center in rack"
+      },
+      {
+        "start": 1313.83,
+        "duration": 10.8,
+        "text": "one and it contains all of the data what"
+      },
+      {
+        "start": 1316.65,
+        "duration": 9.99,
+        "text": "they tokens so now I can get back out so"
+      },
+      {
+        "start": 1324.63,
+        "duration": 3.39,
+        "text": "so the second command it's almost"
+      },
+      {
+        "start": 1326.64,
+        "duration": 2.91,
+        "text": "identical to the first one except"
+      },
+      {
+        "start": 1328.02,
+        "duration": 2.94,
+        "text": "instead of saying cuz internode one I'm"
+      },
+      {
+        "start": 1329.55,
+        "duration": 4.32,
+        "text": "going to say Cassandra node two here and"
+      },
+      {
+        "start": 1330.96,
+        "duration": 5.19,
+        "text": "then I'm going to supply the IP address"
+      },
+      {
+        "start": 1333.87,
+        "duration": 3.99,
+        "text": "of the first node as the seeds for the"
+      },
+      {
+        "start": 1336.15,
+        "duration": 10.34,
+        "text": "second node so it'll know to connect to"
+      },
+      {
+        "start": 1337.86,
+        "duration": 8.63,
+        "text": "that one I have the same problem here"
+      },
+      {
+        "start": 1346.87,
+        "duration": 3.0,
+        "text": "okay"
+      },
+      {
+        "start": 1352.44,
+        "duration": 11.95,
+        "text": "well you know what I've got them over"
+      },
+      {
+        "start": 1354.16,
+        "duration": 12.899,
+        "text": "here so this is the second node we'll"
+      },
+      {
+        "start": 1364.39,
+        "duration": 8.01,
+        "text": "give that one a second to bootstrap and"
+      },
+      {
+        "start": 1367.059,
+        "duration": 8.461,
+        "text": "then here's the third node and we'll let"
+      },
+      {
+        "start": 1372.4,
+        "duration": 6.899,
+        "text": "that go okay now I should be able to run"
+      },
+      {
+        "start": 1375.52,
+        "duration": 6.69,
+        "text": "docker container get a list of"
+      },
+      {
+        "start": 1379.299,
+        "duration": 4.221,
+        "text": "containers that are running and so I"
+      },
+      {
+        "start": 1382.21,
+        "duration": 4.2,
+        "text": "have three three containers running"
+      },
+      {
+        "start": 1383.52,
+        "duration": 7.72,
+        "text": "Cassandra node one just ended up two and"
+      },
+      {
+        "start": 1386.41,
+        "duration": 7.74,
+        "text": "three and if I go back into standard"
+      },
+      {
+        "start": 1391.24,
+        "duration": 9.27,
+        "text": "node one and doing node tool status now"
+      },
+      {
+        "start": 1394.15,
+        "duration": 8.37,
+        "text": "I should say that these other I'll hear"
+      },
+      {
+        "start": 1400.51,
+        "duration": 6.96,
+        "text": "the we can see this the first guys up in"
+      },
+      {
+        "start": 1402.52,
+        "duration": 10.529,
+        "text": "normal second guys up and joining now"
+      },
+      {
+        "start": 1407.47,
+        "duration": 10.709,
+        "text": "he's normal and another third guy yet"
+      },
+      {
+        "start": 1413.049,
+        "duration": 6.991,
+        "text": "let's give him a minute okay"
+      },
+      {
+        "start": 1418.179,
+        "duration": 5.99,
+        "text": "so I think I added him too quickly so"
+      },
+      {
+        "start": 1420.04,
+        "duration": 9.259,
+        "text": "what I can do is I can say docker logs"
+      },
+      {
+        "start": 1424.169,
+        "duration": 8.171,
+        "text": "Cassandra node oh three and it tells me"
+      },
+      {
+        "start": 1429.299,
+        "duration": 6.221,
+        "text": "yeah could we get we got an exception"
+      },
+      {
+        "start": 1432.34,
+        "duration": 6.95,
+        "text": "here other bootstrapping nodes were"
+      },
+      {
+        "start": 1435.52,
+        "duration": 9.69,
+        "text": "detected can I bootstrap okay so let's"
+      },
+      {
+        "start": 1439.29,
+        "duration": 8.73,
+        "text": "let's stop him three and then let's"
+      },
+      {
+        "start": 1445.21,
+        "duration": 2.81,
+        "text": "start him back up"
+      },
+      {
+        "start": 1452.43,
+        "duration": 17.29,
+        "text": "okay and then let's go back in and see"
+      },
+      {
+        "start": 1457.72,
+        "duration": 13.44,
+        "text": "if we can see him bootstrapping so so I"
+      },
+      {
+        "start": 1469.72,
+        "duration": 3.81,
+        "text": "want to talk about the fact that that I"
+      },
+      {
+        "start": 1471.16,
+        "duration": 5.28,
+        "text": "mounted the the data points of these"
+      },
+      {
+        "start": 1473.53,
+        "duration": 5.13,
+        "text": "these different containers to the to the"
+      },
+      {
+        "start": 1476.44,
+        "duration": 3.3,
+        "text": "host and I wanted to shift wonder"
+      },
+      {
+        "start": 1478.66,
+        "duration": 3.0,
+        "text": "interesting thing that lets me do is"
+      },
+      {
+        "start": 1479.74,
+        "duration": 3.24,
+        "text": "that if I needed to like wipe out one of"
+      },
+      {
+        "start": 1481.66,
+        "duration": 3.75,
+        "text": "these containers and like bring it back"
+      },
+      {
+        "start": 1482.98,
+        "duration": 4.95,
+        "text": "later I do have the data actually stored"
+      },
+      {
+        "start": 1485.41,
+        "duration": 3.9,
+        "text": "in the local host so I can get to it"
+      },
+      {
+        "start": 1487.93,
+        "duration": 2.94,
+        "text": "you know you don't have to set it up"
+      },
+      {
+        "start": 1489.31,
+        "duration": 4.02,
+        "text": "that way you could say hey I'm gonna let"
+      },
+      {
+        "start": 1490.87,
+        "duration": 3.96,
+        "text": "the data live on that container and it"
+      },
+      {
+        "start": 1493.33,
+        "duration": 4.89,
+        "text": "just lives there and that's kind of more"
+      },
+      {
+        "start": 1494.83,
+        "duration": 5.28,
+        "text": "like if the ephemeral you know AWS kind"
+      },
+      {
+        "start": 1498.22,
+        "duration": 3.96,
+        "text": "of method where if I lose my container"
+      },
+      {
+        "start": 1500.11,
+        "duration": 3.81,
+        "text": "you know when I comes back up it's gonna"
+      },
+      {
+        "start": 1502.18,
+        "duration": 3.9,
+        "text": "reboot strap or I could do like a"
+      },
+      {
+        "start": 1503.92,
+        "duration": 3.9,
+        "text": "replace operation and it's just gonna"
+      },
+      {
+        "start": 1506.08,
+        "duration": 5.13,
+        "text": "get its data from the other nodes in the"
+      },
+      {
+        "start": 1507.82,
+        "duration": 5.16,
+        "text": "cluster you know by by mounting it to"
+      },
+      {
+        "start": 1511.21,
+        "duration": 3.81,
+        "text": "the host machine I could say okay bring"
+      },
+      {
+        "start": 1512.98,
+        "duration": 4.02,
+        "text": "this node back up don't auto bootstrap"
+      },
+      {
+        "start": 1515.02,
+        "duration": 4.35,
+        "text": "let it find its data that's sitting on"
+      },
+      {
+        "start": 1517.0,
+        "duration": 4.83,
+        "text": "the host machine of course if I lost the"
+      },
+      {
+        "start": 1519.37,
+        "duration": 5.64,
+        "text": "host machine then you know same kind of"
+      },
+      {
+        "start": 1521.83,
+        "duration": 5.4,
+        "text": "situation exists there but I said how"
+      },
+      {
+        "start": 1525.01,
+        "duration": 4.23,
+        "text": "we're looking here okay we got our we"
+      },
+      {
+        "start": 1527.23,
+        "duration": 3.69,
+        "text": "got a three node cluster up we'll get a"
+      },
+      {
+        "start": 1529.24,
+        "duration": 7.95,
+        "text": "node sitting in Iraq one rack two rack"
+      },
+      {
+        "start": 1530.92,
+        "duration": 7.74,
+        "text": "three you know I'm doing okay so just to"
+      },
+      {
+        "start": 1537.19,
+        "duration": 5.67,
+        "text": "kind of demonstrate that I'm going to"
+      },
+      {
+        "start": 1538.66,
+        "duration": 9.18,
+        "text": "bring up cql shell and let's create a"
+      },
+      {
+        "start": 1542.86,
+        "duration": 13.43,
+        "text": "key space called test this network"
+      },
+      {
+        "start": 1547.84,
+        "duration": 8.45,
+        "text": "topology strategy this is DC one whoops"
+      },
+      {
+        "start": 1557.1,
+        "duration": 5.44,
+        "text": "so we have a test key space that's going"
+      },
+      {
+        "start": 1560.08,
+        "duration": 3.96,
+        "text": "to replicate three times across our DC"
+      },
+      {
+        "start": 1562.54,
+        "duration": 3.27,
+        "text": "so I'll go through and I got three nodes"
+      },
+      {
+        "start": 1564.04,
+        "duration": 3.69,
+        "text": "so I should have data on one node one"
+      },
+      {
+        "start": 1565.81,
+        "duration": 5.49,
+        "text": "two and three"
+      },
+      {
+        "start": 1567.73,
+        "duration": 10.34,
+        "text": "now let's use test key space and let's"
+      },
+      {
+        "start": 1571.3,
+        "duration": 6.77,
+        "text": "create a table called user with user ID"
+      },
+      {
+        "start": 1578.08,
+        "duration": 13.65,
+        "text": "your primary primary key first name last"
+      },
+      {
+        "start": 1583.69,
+        "duration": 11.989,
+        "text": "name okay and then let's insert some"
+      },
+      {
+        "start": 1591.73,
+        "duration": 3.949,
+        "text": "data to this guy"
+      },
+      {
+        "start": 1606.95,
+        "duration": 8.37,
+        "text": "okay you know we should be able to query"
+      },
+      {
+        "start": 1611.33,
+        "duration": 5.579,
+        "text": "our data and there it is okay so we got"
+      },
+      {
+        "start": 1615.32,
+        "duration": 4.77,
+        "text": "a basic key space set up we got a table"
+      },
+      {
+        "start": 1616.909,
+        "duration": 8.071,
+        "text": "we inserted one record in there now if"
+      },
+      {
+        "start": 1620.09,
+        "duration": 5.64,
+        "text": "we come back out to node one here and do"
+      },
+      {
+        "start": 1624.98,
+        "duration": 2.399,
+        "text": "a flush"
+      },
+      {
+        "start": 1625.73,
+        "duration": 3.149,
+        "text": "we're telling Cassander take any data"
+      },
+      {
+        "start": 1627.379,
+        "duration": 6.12,
+        "text": "that's written into memory and flush it"
+      },
+      {
+        "start": 1628.879,
+        "duration": 5.79,
+        "text": "to disk and then if I exit out of this"
+      },
+      {
+        "start": 1633.499,
+        "duration": 6.451,
+        "text": "container and go back to the host"
+      },
+      {
+        "start": 1634.669,
+        "duration": 10.23,
+        "text": "machine I should be able to go to where"
+      },
+      {
+        "start": 1639.95,
+        "duration": 7.859,
+        "text": "that where that data lives and there's"
+      },
+      {
+        "start": 1644.899,
+        "duration": 6.66,
+        "text": "our test key space so I'll change to the"
+      },
+      {
+        "start": 1647.809,
+        "duration": 8.521,
+        "text": "kiss test and then I have a user table"
+      },
+      {
+        "start": 1651.559,
+        "duration": 8.73,
+        "text": "in there and then we can see that we"
+      },
+      {
+        "start": 1656.33,
+        "duration": 5.279,
+        "text": "have an SS table written and that's back"
+      },
+      {
+        "start": 1660.289,
+        "duration": 2.401,
+        "text": "on we have access to that in our host"
+      },
+      {
+        "start": 1661.609,
+        "duration": 3.69,
+        "text": "machine so if I were to shut down that"
+      },
+      {
+        "start": 1662.69,
+        "duration": 4.26,
+        "text": "container at that point you know I still"
+      },
+      {
+        "start": 1665.299,
+        "duration": 5.06,
+        "text": "have access to the data so that's that's"
+      },
+      {
+        "start": 1666.95,
+        "duration": 3.409,
+        "text": "kind of an interesting thing you can do"
+      },
+      {
+        "start": 1670.57,
+        "duration": 4.689,
+        "text": "so I hope like it kind of gives you a"
+      },
+      {
+        "start": 1673.159,
+        "duration": 4.62,
+        "text": "sense of how I can interact with these"
+      },
+      {
+        "start": 1675.259,
+        "duration": 4.951,
+        "text": "things you know some other things you"
+      },
+      {
+        "start": 1677.779,
+        "duration": 10.441,
+        "text": "can do when when you're spinning up go"
+      },
+      {
+        "start": 1680.21,
+        "duration": 13.89,
+        "text": "back to my presentation when you're"
+      },
+      {
+        "start": 1688.22,
+        "duration": 8.159,
+        "text": "running this docker run step is that you"
+      },
+      {
+        "start": 1694.1,
+        "duration": 4.259,
+        "text": "know I'm specifying some environment"
+      },
+      {
+        "start": 1696.379,
+        "duration": 4.62,
+        "text": "variables I'm specifying a volume you"
+      },
+      {
+        "start": 1698.359,
+        "duration": 3.721,
+        "text": "can also specify ports you can say okay"
+      },
+      {
+        "start": 1700.999,
+        "duration": 2.79,
+        "text": "there's there's some process that's"
+      },
+      {
+        "start": 1702.08,
+        "duration": 3.299,
+        "text": "running inside of the container that I"
+      },
+      {
+        "start": 1703.789,
+        "duration": 3.181,
+        "text": "want to expose back on the host machine"
+      },
+      {
+        "start": 1705.379,
+        "duration": 4.86,
+        "text": "so if there's some like website running"
+      },
+      {
+        "start": 1706.97,
+        "duration": 5.339,
+        "text": "something like Prometheus or up Center"
+      },
+      {
+        "start": 1710.239,
+        "duration": 3.78,
+        "text": "or that kind of thing you could say I"
+      },
+      {
+        "start": 1712.309,
+        "duration": 3.421,
+        "text": "want to expose that thing to my host"
+      },
+      {
+        "start": 1714.019,
+        "duration": 3.75,
+        "text": "machine so that's really helpful like"
+      },
+      {
+        "start": 1715.73,
+        "duration": 4.379,
+        "text": "when I'm running docker on my on my Mac"
+      },
+      {
+        "start": 1717.769,
+        "duration": 3.691,
+        "text": "I just want to have an instance you know"
+      },
+      {
+        "start": 1720.109,
+        "duration": 4.26,
+        "text": "with like instance of something running"
+      },
+      {
+        "start": 1721.46,
+        "duration": 4.77,
+        "text": "and maybe it's running op Center which"
+      },
+      {
+        "start": 1724.369,
+        "duration": 2.55,
+        "text": "is the monitoring tool using biggest X"
+      },
+      {
+        "start": 1726.23,
+        "duration": 3.629,
+        "text": "Enterprise"
+      },
+      {
+        "start": 1726.919,
+        "duration": 5.82,
+        "text": "I just want to expose that you know to"
+      },
+      {
+        "start": 1729.859,
+        "duration": 4.38,
+        "text": "my to my Mac so I can go up to a browser"
+      },
+      {
+        "start": 1732.739,
+        "duration": 1.891,
+        "text": "and say when I get to that OP Center and"
+      },
+      {
+        "start": 1734.239,
+        "duration": 2.941,
+        "text": "go through"
+      },
+      {
+        "start": 1734.63,
+        "duration": 4.11,
+        "text": "to it so that's one of the things you"
+      },
+      {
+        "start": 1737.18,
+        "duration": 3.12,
+        "text": "can do there's other other options you"
+      },
+      {
+        "start": 1738.74,
+        "duration": 3.66,
+        "text": "can specify here is you can give it some"
+      },
+      {
+        "start": 1740.3,
+        "duration": 3.15,
+        "text": "resource constraints you could say I'm"
+      },
+      {
+        "start": 1742.4,
+        "duration": 3.63,
+        "text": "going to create these three containers"
+      },
+      {
+        "start": 1743.45,
+        "duration": 5.1,
+        "text": "on this machine and the containers"
+      },
+      {
+        "start": 1746.03,
+        "duration": 5.52,
+        "text": "really can't I don't want this container"
+      },
+      {
+        "start": 1748.55,
+        "duration": 4.65,
+        "text": "to exceed more than two CPU you know at"
+      },
+      {
+        "start": 1751.55,
+        "duration": 2.97,
+        "text": "any given point in time so you can you"
+      },
+      {
+        "start": 1753.2,
+        "duration": 4.89,
+        "text": "kind of leverage some of the cgroups"
+      },
+      {
+        "start": 1754.52,
+        "duration": 5.58,
+        "text": "stuff and really kind of lock down the"
+      },
+      {
+        "start": 1758.09,
+        "duration": 7.02,
+        "text": "resources so there's some things you can"
+      },
+      {
+        "start": 1760.1,
+        "duration": 6.72,
+        "text": "do so you know do we have a match you"
+      },
+      {
+        "start": 1765.11,
+        "duration": 4.74,
+        "text": "know I think my take on it is that it's"
+      },
+      {
+        "start": 1766.82,
+        "duration": 5.43,
+        "text": "it's a really neat option for for dev"
+      },
+      {
+        "start": 1769.85,
+        "duration": 4.89,
+        "text": "test training you know I have some"
+      },
+      {
+        "start": 1772.25,
+        "duration": 5.82,
+        "text": "little scenario on a test let me spit up"
+      },
+      {
+        "start": 1774.74,
+        "duration": 5.13,
+        "text": "a three node cluster you know run a"
+      },
+      {
+        "start": 1778.07,
+        "duration": 3.66,
+        "text": "stress test tool against it or something"
+      },
+      {
+        "start": 1779.87,
+        "duration": 3.39,
+        "text": "and play with some settings shut it down"
+      },
+      {
+        "start": 1781.73,
+        "duration": 5.85,
+        "text": "that's really great for that kind of"
+      },
+      {
+        "start": 1783.26,
+        "duration": 6.51,
+        "text": "stuff you know I in terms of running"
+      },
+      {
+        "start": 1787.58,
+        "duration": 3.69,
+        "text": "something in production I have to say"
+      },
+      {
+        "start": 1789.77,
+        "duration": 4.05,
+        "text": "I've never tried it I've never worked"
+      },
+      {
+        "start": 1791.27,
+        "duration": 5.4,
+        "text": "with a customer who was like you know"
+      },
+      {
+        "start": 1793.82,
+        "duration": 4.2,
+        "text": "raring to go ready to try it but I think"
+      },
+      {
+        "start": 1796.67,
+        "duration": 2.67,
+        "text": "these are some of the questions that out"
+      },
+      {
+        "start": 1798.02,
+        "duration": 4.83,
+        "text": "that I would that I would think about"
+      },
+      {
+        "start": 1799.34,
+        "duration": 5.55,
+        "text": "and you know one question that comes to"
+      },
+      {
+        "start": 1802.85,
+        "duration": 3.99,
+        "text": "mind is the safety factor you know I"
+      },
+      {
+        "start": 1804.89,
+        "duration": 2.97,
+        "text": "think one one of the reasons people let"
+      },
+      {
+        "start": 1806.84,
+        "duration": 4.05,
+        "text": "you know looking at this kind of"
+      },
+      {
+        "start": 1807.86,
+        "duration": 4.86,
+        "text": "containerization thing or virtualization"
+      },
+      {
+        "start": 1810.89,
+        "duration": 3.9,
+        "text": "is that you know you've got you got a"
+      },
+      {
+        "start": 1812.72,
+        "duration": 4.8,
+        "text": "machine you get this big fat physical"
+      },
+      {
+        "start": 1814.79,
+        "duration": 5.73,
+        "text": "host with 32 cores on it and 200 fix 256"
+      },
+      {
+        "start": 1817.52,
+        "duration": 4.14,
+        "text": "Meg's of RAM and you know you want to"
+      },
+      {
+        "start": 1820.52,
+        "duration": 3.54,
+        "text": "you want to put a bunch of virtual"
+      },
+      {
+        "start": 1821.66,
+        "duration": 4.5,
+        "text": "machines on there and you kind of over"
+      },
+      {
+        "start": 1824.06,
+        "duration": 3.9,
+        "text": "over provision resources you know"
+      },
+      {
+        "start": 1826.16,
+        "duration": 2.82,
+        "text": "because at any given point in time not"
+      },
+      {
+        "start": 1827.96,
+        "duration": 3.6,
+        "text": "all of those servers are going to be"
+      },
+      {
+        "start": 1828.98,
+        "duration": 4.17,
+        "text": "using things at once so you can do that"
+      },
+      {
+        "start": 1831.56,
+        "duration": 4.89,
+        "text": "same kind of thing in a container"
+      },
+      {
+        "start": 1833.15,
+        "duration": 5.67,
+        "text": "container containerized environment you"
+      },
+      {
+        "start": 1836.45,
+        "duration": 4.26,
+        "text": "can say I've got 32 CPUs and I'm gonna"
+      },
+      {
+        "start": 1838.82,
+        "duration": 2.85,
+        "text": "let you know all these containers you"
+      },
+      {
+        "start": 1840.71,
+        "duration": 2.82,
+        "text": "know I'm gonna have eight containers"
+      },
+      {
+        "start": 1841.67,
+        "duration": 5.22,
+        "text": "there and I'm not going to restrict how"
+      },
+      {
+        "start": 1843.53,
+        "duration": 4.71,
+        "text": "much CPU they can use and that you know"
+      },
+      {
+        "start": 1846.89,
+        "duration": 3.15,
+        "text": "it's one of the advantages you know you"
+      },
+      {
+        "start": 1848.24,
+        "duration": 4.56,
+        "text": "can get better efficiency better use of"
+      },
+      {
+        "start": 1850.04,
+        "duration": 4.23,
+        "text": "your of your investment in hardware but"
+      },
+      {
+        "start": 1852.8,
+        "duration": 3.51,
+        "text": "you know there's a there's this"
+      },
+      {
+        "start": 1854.27,
+        "duration": 5.04,
+        "text": "trade-off I think you know if you if you"
+      },
+      {
+        "start": 1856.31,
+        "duration": 4.41,
+        "text": "weigh over provision your stuff and you"
+      },
+      {
+        "start": 1859.31,
+        "duration": 2.03,
+        "text": "know you get an out of memory area here"
+      },
+      {
+        "start": 1860.72,
+        "duration": 2.69,
+        "text": "and your"
+      },
+      {
+        "start": 1861.34,
+        "duration": 4.53,
+        "text": "you know you're aiming everywhere that's"
+      },
+      {
+        "start": 1863.41,
+        "duration": 3.42,
+        "text": "that's not good but in if you go too far"
+      },
+      {
+        "start": 1865.87,
+        "duration": 2.79,
+        "text": "the other way and you don't give it any"
+      },
+      {
+        "start": 1866.83,
+        "duration": 4.47,
+        "text": "safety factor why are you running in"
+      },
+      {
+        "start": 1868.66,
+        "duration": 4.38,
+        "text": "containers you know so I think the you"
+      },
+      {
+        "start": 1871.3,
+        "duration": 3.45,
+        "text": "know you need for your use case for your"
+      },
+      {
+        "start": 1873.04,
+        "duration": 3.48,
+        "text": "the profile of your application I think"
+      },
+      {
+        "start": 1874.75,
+        "duration": 4.02,
+        "text": "you need to find that that middle ground"
+      },
+      {
+        "start": 1876.52,
+        "duration": 3.6,
+        "text": "where where you know you're getting the"
+      },
+      {
+        "start": 1878.77,
+        "duration": 3.3,
+        "text": "advantages but you're not putting"
+      },
+      {
+        "start": 1880.12,
+        "duration": 3.12,
+        "text": "yourself at risk so I think kind of find"
+      },
+      {
+        "start": 1882.07,
+        "duration": 5.01,
+        "text": "that what I'm calling a safety factor"
+      },
+      {
+        "start": 1883.24,
+        "duration": 5.99,
+        "text": "here and then I think you really need to"
+      },
+      {
+        "start": 1887.08,
+        "duration": 4.86,
+        "text": "understand your operational procedures"
+      },
+      {
+        "start": 1889.23,
+        "duration": 4.81,
+        "text": "you know in working with people that are"
+      },
+      {
+        "start": 1891.94,
+        "duration": 5.28,
+        "text": "run in large Cassander instances and in"
+      },
+      {
+        "start": 1894.04,
+        "duration": 5.76,
+        "text": "my job I find that a lot of people test"
+      },
+      {
+        "start": 1897.22,
+        "duration": 4.71,
+        "text": "the happy path they say hey I'm expected"
+      },
+      {
+        "start": 1899.8,
+        "duration": 4.77,
+        "text": "in my production load to be you know X"
+      },
+      {
+        "start": 1901.93,
+        "duration": 4.86,
+        "text": "TPS and so many writes in so many reads"
+      },
+      {
+        "start": 1904.57,
+        "duration": 3.39,
+        "text": "and they set up stress tools and I and"
+      },
+      {
+        "start": 1906.79,
+        "duration": 2.79,
+        "text": "they and they make sure that their"
+      },
+      {
+        "start": 1907.96,
+        "duration": 2.88,
+        "text": "production load can handle that you know"
+      },
+      {
+        "start": 1909.58,
+        "duration": 4.17,
+        "text": "their production of Armant can handle"
+      },
+      {
+        "start": 1910.84,
+        "duration": 4.77,
+        "text": "that and they might even you know do 2x"
+      },
+      {
+        "start": 1913.75,
+        "duration": 3.45,
+        "text": "testing to see can I handle twice the"
+      },
+      {
+        "start": 1915.61,
+        "duration": 4.23,
+        "text": "load you know but what a lot of"
+      },
+      {
+        "start": 1917.2,
+        "duration": 5.01,
+        "text": "customers don't do is failure testing so"
+      },
+      {
+        "start": 1919.84,
+        "duration": 5.64,
+        "text": "you know what happens if if I lose the"
+      },
+      {
+        "start": 1922.21,
+        "duration": 5.61,
+        "text": "whole data center you know what happens"
+      },
+      {
+        "start": 1925.48,
+        "duration": 5.07,
+        "text": "to my application those reads and writes"
+      },
+      {
+        "start": 1927.82,
+        "duration": 4.41,
+        "text": "you know dude did my latency spike all"
+      },
+      {
+        "start": 1930.55,
+        "duration": 3.78,
+        "text": "of a sudden what happens when I start"
+      },
+      {
+        "start": 1932.23,
+        "duration": 4.01,
+        "text": "rebuilding the data center from an from"
+      },
+      {
+        "start": 1934.33,
+        "duration": 4.5,
+        "text": "another data center what happens if I"
+      },
+      {
+        "start": 1936.24,
+        "duration": 4.87,
+        "text": "lose a whole rack you know what happens"
+      },
+      {
+        "start": 1938.83,
+        "duration": 3.93,
+        "text": "to my application and and how long does"
+      },
+      {
+        "start": 1941.11,
+        "duration": 3.03,
+        "text": "it take me to recover you know I think"
+      },
+      {
+        "start": 1942.76,
+        "duration": 3.75,
+        "text": "that's a big question that a lot of a"
+      },
+      {
+        "start": 1944.14,
+        "duration": 3.96,
+        "text": "lot of folks can't answer and that makes"
+      },
+      {
+        "start": 1946.51,
+        "duration": 3.3,
+        "text": "me nervous like when you say you know"
+      },
+      {
+        "start": 1948.1,
+        "duration": 3.21,
+        "text": "what if we lost the node we had to"
+      },
+      {
+        "start": 1949.81,
+        "duration": 3.06,
+        "text": "replace it you know especially in this"
+      },
+      {
+        "start": 1951.31,
+        "duration": 3.15,
+        "text": "kind of a world where we're using"
+      },
+      {
+        "start": 1952.87,
+        "duration": 3.51,
+        "text": "ephemeral drives in the cloud or we're"
+      },
+      {
+        "start": 1954.46,
+        "duration": 3.54,
+        "text": "using containers with you know that"
+      },
+      {
+        "start": 1956.38,
+        "duration": 5.19,
+        "text": "aren't on some shared storage we can"
+      },
+      {
+        "start": 1958.0,
+        "duration": 7.02,
+        "text": "remount you know we know that cassandra"
+      },
+      {
+        "start": 1961.57,
+        "duration": 5.34,
+        "text": "has mechanisms in it to help us you know"
+      },
+      {
+        "start": 1965.02,
+        "duration": 4.77,
+        "text": "to give us the availability guarantees"
+      },
+      {
+        "start": 1966.91,
+        "duration": 5.31,
+        "text": "we want but does does that come out of"
+      },
+      {
+        "start": 1969.79,
+        "duration": 4.26,
+        "text": "latency cost to our application and you"
+      },
+      {
+        "start": 1972.22,
+        "duration": 3.54,
+        "text": "know is it take a week to rebuild the"
+      },
+      {
+        "start": 1974.05,
+        "duration": 5.25,
+        "text": "nodes there's a ticket half a day to"
+      },
+      {
+        "start": 1975.76,
+        "duration": 4.74,
+        "text": "rebuild the nodes so you know I would"
+      },
+      {
+        "start": 1979.3,
+        "duration": 2.7,
+        "text": "want to understand those things really"
+      },
+      {
+        "start": 1980.5,
+        "duration": 3.78,
+        "text": "well have some really well documented"
+      },
+      {
+        "start": 1982.0,
+        "duration": 4.89,
+        "text": "procedures have a DBA group or sysadmin"
+      },
+      {
+        "start": 1984.28,
+        "duration": 5.28,
+        "text": "group that really knows how to do that"
+      },
+      {
+        "start": 1986.89,
+        "duration": 4.02,
+        "text": "well outside a docker and and then take"
+      },
+      {
+        "start": 1989.56,
+        "duration": 3.57,
+        "text": "take those learnings and kind of put"
+      },
+      {
+        "start": 1990.91,
+        "duration": 6.0,
+        "text": "docker into the mix you know"
+      },
+      {
+        "start": 1993.13,
+        "duration": 6.57,
+        "text": "and along those same lines to me like"
+      },
+      {
+        "start": 1996.91,
+        "duration": 4.23,
+        "text": "when something goes wrong and you're"
+      },
+      {
+        "start": 1999.7,
+        "duration": 4.08,
+        "text": "saying I got Cassandra in the mix I got"
+      },
+      {
+        "start": 2001.14,
+        "duration": 4.32,
+        "text": "Linux in the mix I've got some storage"
+      },
+      {
+        "start": 2003.78,
+        "duration": 4.14,
+        "text": "mechanism in the mix and now I've got"
+      },
+      {
+        "start": 2005.46,
+        "duration": 4.29,
+        "text": "docker in the mix you know I you know do"
+      },
+      {
+        "start": 2007.92,
+        "duration": 3.57,
+        "text": "my people have visibility into all these"
+      },
+      {
+        "start": 2009.75,
+        "duration": 3.36,
+        "text": "layers to do people know how to look at"
+      },
+      {
+        "start": 2011.49,
+        "duration": 3.81,
+        "text": "the logs at all these layers do it can I"
+      },
+      {
+        "start": 2013.11,
+        "duration": 4.7,
+        "text": "trace through you know and it's just one"
+      },
+      {
+        "start": 2015.3,
+        "duration": 4.8,
+        "text": "more area of complexity on top of that"
+      },
+      {
+        "start": 2017.81,
+        "duration": 6.34,
+        "text": "that I think you need you need to make"
+      },
+      {
+        "start": 2020.1,
+        "duration": 6.54,
+        "text": "sure you're aware of so you know and"
+      },
+      {
+        "start": 2024.15,
+        "duration": 5.49,
+        "text": "then I think I heard Ben Brom had talked"
+      },
+      {
+        "start": 2026.64,
+        "duration": 5.04,
+        "text": "earlier about kubernetes and Jeff"
+      },
+      {
+        "start": 2029.64,
+        "duration": 3.78,
+        "text": "carpenter just talking in this last talk"
+      },
+      {
+        "start": 2031.68,
+        "duration": 4.62,
+        "text": "he talked about using kubernetes in a"
+      },
+      {
+        "start": 2033.42,
+        "duration": 6.72,
+        "text": "multi cloud environment so you know"
+      },
+      {
+        "start": 2036.3,
+        "duration": 5.25,
+        "text": "kubernetes to me you know some of you"
+      },
+      {
+        "start": 2040.14,
+        "duration": 5.7,
+        "text": "simplify some of this gives you some"
+      },
+      {
+        "start": 2041.55,
+        "duration": 8.129,
+        "text": "some orchestration on top of containers"
+      },
+      {
+        "start": 2045.84,
+        "duration": 6.3,
+        "text": "but to me to me it takes away I don't"
+      },
+      {
+        "start": 2049.679,
+        "duration": 4.23,
+        "text": "think it helps that much because to me"
+      },
+      {
+        "start": 2052.14,
+        "duration": 3.45,
+        "text": "the whole benefit of using kubernetes is"
+      },
+      {
+        "start": 2053.909,
+        "duration": 3.541,
+        "text": "that you're saying okay I've got these"
+      },
+      {
+        "start": 2055.59,
+        "duration": 4.17,
+        "text": "containers now I've got kubernetes on"
+      },
+      {
+        "start": 2057.45,
+        "duration": 3.87,
+        "text": "top of that that that says hey you know"
+      },
+      {
+        "start": 2059.76,
+        "duration": 3.63,
+        "text": "you've got I don't know 50 physical"
+      },
+      {
+        "start": 2061.32,
+        "duration": 3.42,
+        "text": "hosts and I don't want to think about"
+      },
+      {
+        "start": 2063.39,
+        "duration": 2.64,
+        "text": "where does this container go where's"
+      },
+      {
+        "start": 2064.74,
+        "duration": 2.7,
+        "text": "this container go Cooper Nettie's just"
+      },
+      {
+        "start": 2066.03,
+        "duration": 3.66,
+        "text": "kind of says oh and I move around for"
+      },
+      {
+        "start": 2067.44,
+        "duration": 4.8,
+        "text": "you and and you know take care all that"
+      },
+      {
+        "start": 2069.69,
+        "duration": 4.56,
+        "text": "for you but as soon as so you know when"
+      },
+      {
+        "start": 2072.24,
+        "duration": 3.33,
+        "text": "people talk about running Cassandra and"
+      },
+      {
+        "start": 2074.25,
+        "duration": 4.26,
+        "text": "kubernetes they always say you're gonna"
+      },
+      {
+        "start": 2075.57,
+        "duration": 4.41,
+        "text": "use stateful sets and says that state"
+      },
+      {
+        "start": 2078.51,
+        "duration": 3.63,
+        "text": "has to live in that pod so all of a"
+      },
+      {
+        "start": 2079.98,
+        "duration": 5.13,
+        "text": "sudden if you put kubernetes on top of"
+      },
+      {
+        "start": 2082.14,
+        "duration": 5.37,
+        "text": "it the you know you say okay i've got"
+      },
+      {
+        "start": 2085.11,
+        "duration": 4.11,
+        "text": "i've got state if I lose a container I"
+      },
+      {
+        "start": 2087.51,
+        "duration": 3.96,
+        "text": "still got to state there but now that"
+      },
+      {
+        "start": 2089.22,
+        "duration": 3.51,
+        "text": "that container is pinned to that pod so"
+      },
+      {
+        "start": 2091.47,
+        "duration": 2.91,
+        "text": "to me that that kind of loses a lot of"
+      },
+      {
+        "start": 2092.73,
+        "duration": 3.57,
+        "text": "value of why you did kubernetes in the"
+      },
+      {
+        "start": 2094.38,
+        "duration": 6.3,
+        "text": "first place so it's a really interesting"
+      },
+      {
+        "start": 2096.3,
+        "duration": 5.73,
+        "text": "space and you know I think I mean kind"
+      },
+      {
+        "start": 2100.68,
+        "duration": 2.85,
+        "text": "of my predictions of what we'll see is"
+      },
+      {
+        "start": 2102.03,
+        "duration": 3.15,
+        "text": "we'll see somebody go into production"
+      },
+      {
+        "start": 2103.53,
+        "duration": 3.75,
+        "text": "and they'll know and they'll dial that"
+      },
+      {
+        "start": 2105.18,
+        "duration": 7.44,
+        "text": "safety factor way back they'll say I got"
+      },
+      {
+        "start": 2107.28,
+        "duration": 7.44,
+        "text": "this physical host it's got 32 cores I'm"
+      },
+      {
+        "start": 2112.62,
+        "duration": 4.2,
+        "text": "gonna put you know two big containers on"
+      },
+      {
+        "start": 2114.72,
+        "duration": 4.41,
+        "text": "it and limit them to use I don't know 16"
+      },
+      {
+        "start": 2116.82,
+        "duration": 4.98,
+        "text": "cores and that so have a pretty tight"
+      },
+      {
+        "start": 2119.13,
+        "duration": 4.71,
+        "text": "safety factor and start running in it in"
+      },
+      {
+        "start": 2121.8,
+        "duration": 3.76,
+        "text": "that kind of a world maybe use shared"
+      },
+      {
+        "start": 2123.84,
+        "duration": 3.31,
+        "text": "storage so you could remount thing"
+      },
+      {
+        "start": 2125.56,
+        "duration": 3.18,
+        "text": "and then once you get comfortable with"
+      },
+      {
+        "start": 2127.15,
+        "duration": 3.09,
+        "text": "that then you change one variable you"
+      },
+      {
+        "start": 2128.74,
+        "duration": 3.66,
+        "text": "fake and now I'm gonna over-provision my"
+      },
+      {
+        "start": 2130.24,
+        "duration": 4.11,
+        "text": "server a little bit I'm gonna you know"
+      },
+      {
+        "start": 2132.4,
+        "duration": 4.71,
+        "text": "maybe put three three containers on"
+      },
+      {
+        "start": 2134.35,
+        "duration": 5.16,
+        "text": "there and and you know let them use a"
+      },
+      {
+        "start": 2137.11,
+        "duration": 4.86,
+        "text": "little bit more of the elastic resource"
+      },
+      {
+        "start": 2139.51,
+        "duration": 3.75,
+        "text": "and so you know if I was going to"
+      },
+      {
+        "start": 2141.97,
+        "duration": 3.48,
+        "text": "approach you somebody said to me we got"
+      },
+      {
+        "start": 2143.26,
+        "duration": 4.05,
+        "text": "to run in in in production with"
+      },
+      {
+        "start": 2145.45,
+        "duration": 3.81,
+        "text": "Cassandra docker kubernetes stuff like"
+      },
+      {
+        "start": 2147.31,
+        "duration": 3.96,
+        "text": "that I think that's how it approached I"
+      },
+      {
+        "start": 2149.26,
+        "duration": 3.83,
+        "text": "would start off super safe I would get"
+      },
+      {
+        "start": 2151.27,
+        "duration": 4.35,
+        "text": "really comfortable with my operations"
+      },
+      {
+        "start": 2153.09,
+        "duration": 8.14,
+        "text": "and I would just start adding one thing"
+      },
+      {
+        "start": 2155.62,
+        "duration": 7.5,
+        "text": "at a time you know so I have a couple of"
+      },
+      {
+        "start": 2161.23,
+        "duration": 3.9,
+        "text": "slides here with some resources that if"
+      },
+      {
+        "start": 2163.12,
+        "duration": 3.6,
+        "text": "you want to look at the the slides later"
+      },
+      {
+        "start": 2165.13,
+        "duration": 3.74,
+        "text": "you can look at them but leave some"
+      },
+      {
+        "start": 2166.72,
+        "duration": 5.7,
+        "text": "resources the data stacks puts out about"
+      },
+      {
+        "start": 2168.87,
+        "duration": 6.91,
+        "text": "docker images there is a you know in the"
+      },
+      {
+        "start": 2172.42,
+        "duration": 5.13,
+        "text": "demo op hold down that Cassandra image"
+      },
+      {
+        "start": 2175.78,
+        "duration": 4.5,
+        "text": "but there are some images with data"
+      },
+      {
+        "start": 2177.55,
+        "duration": 4.86,
+        "text": "stack puts out and then here's some some"
+      },
+      {
+        "start": 2180.28,
+        "duration": 6.66,
+        "text": "resources that that I pulled from and"
+      },
+      {
+        "start": 2182.41,
+        "duration": 6.66,
+        "text": "putting this together so I'm not"
+      },
+      {
+        "start": 2186.94,
+        "duration": 5.06,
+        "text": "actually sure how long I'm going here"
+      },
+      {
+        "start": 2189.07,
+        "duration": 6.74,
+        "text": "but I think I have time for questions"
+      },
+      {
+        "start": 2192.0,
+        "duration": 3.81,
+        "text": "any any questions"
+      },
+      {
+        "start": 2205.05,
+        "duration": 4.09,
+        "text": "yeah you know how people say if yes the"
+      },
+      {
+        "start": 2207.61,
+        "duration": 2.67,
+        "text": "same question about virtual machines I"
+      },
+      {
+        "start": 2209.14,
+        "duration": 5.01,
+        "text": "hear people saying oh it's like a 10%"
+      },
+      {
+        "start": 2210.28,
+        "duration": 6.54,
+        "text": "hit or something and docker they say"
+      },
+      {
+        "start": 2214.15,
+        "duration": 3.87,
+        "text": "it's very little like it's like a Ben"
+      },
+      {
+        "start": 2216.82,
+        "duration": 3.87,
+        "text": "Bromhead some I asked him that question"
+      },
+      {
+        "start": 2218.02,
+        "duration": 4.56,
+        "text": "earlier he said it's nothing you know"
+      },
+      {
+        "start": 2220.69,
+        "duration": 3.42,
+        "text": "there was the idea that there's you know"
+      },
+      {
+        "start": 2222.58,
+        "duration": 3.87,
+        "text": "that they're very quick to spin up there"
+      },
+      {
+        "start": 2224.11,
+        "duration": 4.259,
+        "text": "like a minimum of resources it's not"
+      },
+      {
+        "start": 2226.45,
+        "duration": 5.97,
+        "text": "like another it's not another host of us"
+      },
+      {
+        "start": 2228.369,
+        "duration": 6.271,
+        "text": "on top of it's just yeah it's it's it's"
+      },
+      {
+        "start": 2232.42,
+        "duration": 4.5,
+        "text": "cgroups and it's namespaces you know on"
+      },
+      {
+        "start": 2234.64,
+        "duration": 3.84,
+        "text": "your existing thing so you know it seems"
+      },
+      {
+        "start": 2236.92,
+        "duration": 4.74,
+        "text": "like there's you know maybe one person"
+      },
+      {
+        "start": 2238.48,
+        "duration": 5.76,
+        "text": "saying it's nothing seems like a little"
+      },
+      {
+        "start": 2241.66,
+        "duration": 6.5,
+        "text": "little bold but I mean I think it's free"
+      },
+      {
+        "start": 2244.24,
+        "duration": 3.92,
+        "text": "compared to VMs it's it's much less"
+      },
+      {
+        "start": 2273.35,
+        "duration": 4.48,
+        "text": "so mr. P would you say there that you're"
+      },
+      {
+        "start": 2276.48,
+        "duration": 4.23,
+        "text": "saying that the containers are all gonna"
+      },
+      {
+        "start": 2277.83,
+        "duration": 22.2,
+        "text": "host like one physical Nick and so some"
+      },
+      {
+        "start": 2280.71,
+        "duration": 21.18,
+        "text": "of that yeah it's like in this demo I"
+      },
+      {
+        "start": 2300.03,
+        "duration": 3.6,
+        "text": "did everything on one physical machine"
+      },
+      {
+        "start": 2301.89,
+        "duration": 3.84,
+        "text": "so if I just said I'm gonna have two"
+      },
+      {
+        "start": 2303.63,
+        "duration": 4.44,
+        "text": "physical machines that are hosting three"
+      },
+      {
+        "start": 2305.73,
+        "duration": 4.41,
+        "text": "three containers each then you know"
+      },
+      {
+        "start": 2308.07,
+        "duration": 4.67,
+        "text": "you'd have to you'd have to use a little"
+      },
+      {
+        "start": 2310.14,
+        "duration": 2.6,
+        "text": "bit different networking"
+      },
+      {
+        "start": 2322.74,
+        "duration": 14.04,
+        "text": "yeah hey yeah yeah idea isolate the disk"
+      },
+      {
+        "start": 2334.17,
+        "duration": 5.16,
+        "text": "IO yeah so I think you do that all"
+      },
+      {
+        "start": 2336.78,
+        "duration": 5.22,
+        "text": "through through through C groups and"
+      },
+      {
+        "start": 2339.33,
+        "duration": 6.99,
+        "text": "when you when you say doc a run you know"
+      },
+      {
+        "start": 2342.0,
+        "duration": 5.64,
+        "text": "I gave you some commands there where you"
+      },
+      {
+        "start": 2346.32,
+        "duration": 2.67,
+        "text": "know we're saying environment variables"
+      },
+      {
+        "start": 2347.64,
+        "duration": 3.18,
+        "text": "so there's commands here where you can"
+      },
+      {
+        "start": 2348.99,
+        "duration": 4.17,
+        "text": "say I want to limit the number of CPUs"
+      },
+      {
+        "start": 2350.82,
+        "duration": 4.32,
+        "text": "that you can that you can use you know"
+      },
+      {
+        "start": 2353.16,
+        "duration": 4.709,
+        "text": "that this container can only use two and"
+      },
+      {
+        "start": 2355.14,
+        "duration": 4.29,
+        "text": "a half CPUs of those 16 and I want to"
+      },
+      {
+        "start": 2357.869,
+        "duration": 3.391,
+        "text": "limit the amount of memory that this guy"
+      },
+      {
+        "start": 2359.43,
+        "duration": 3.74,
+        "text": "can use I want to limit the amount of"
+      },
+      {
+        "start": 2361.26,
+        "duration": 4.41,
+        "text": "memory that can be swapped a disk and"
+      },
+      {
+        "start": 2363.17,
+        "duration": 4.9,
+        "text": "you can also put some constraints on"
+      },
+      {
+        "start": 2365.67,
+        "duration": 5.1,
+        "text": "there around this disk IO so it's it set"
+      },
+      {
+        "start": 2368.07,
+        "duration": 5.029,
+        "text": "up you do it at a per per container"
+      },
+      {
+        "start": 2370.77,
+        "duration": 2.329,
+        "text": "level"
+      },
+      {
+        "start": 2392.01,
+        "duration": 6.37,
+        "text": "yeah so like in this example I'm I'm"
+      },
+      {
+        "start": 2395.05,
+        "duration": 6.84,
+        "text": "taking one one directory from the local"
+      },
+      {
+        "start": 2398.38,
+        "duration": 5.1,
+        "text": "container and I'm mounting it there so"
+      },
+      {
+        "start": 2401.89,
+        "duration": 5.03,
+        "text": "you're asking like how do you control"
+      },
+      {
+        "start": 2403.48,
+        "duration": 3.44,
+        "text": "the mounts like where it's running"
+      },
+      {
+        "start": 2413.49,
+        "duration": 3.11,
+        "text": "[Music]"
+      },
+      {
+        "start": 2422.19,
+        "duration": 5.649,
+        "text": "yeah I think you could well let me you"
+      },
+      {
+        "start": 2426.13,
+        "duration": 3.54,
+        "text": "could say I'm gonna create some shared"
+      },
+      {
+        "start": 2427.839,
+        "duration": 4.171,
+        "text": "storage you know I've got this mount"
+      },
+      {
+        "start": 2429.67,
+        "duration": 3.72,
+        "text": "point that goes up to my NFS mount or"
+      },
+      {
+        "start": 2432.01,
+        "duration": 3.21,
+        "text": "something and I'm gonna sign that each"
+      },
+      {
+        "start": 2433.39,
+        "duration": 3.54,
+        "text": "one of those to a container or if you"
+      },
+      {
+        "start": 2435.22,
+        "duration": 3.27,
+        "text": "erase you had local disks on your host"
+      },
+      {
+        "start": 2436.93,
+        "duration": 4.86,
+        "text": "machine and you had like maybe four of"
+      },
+      {
+        "start": 2438.49,
+        "duration": 5.22,
+        "text": "them you could yeah you could r80 them"
+      },
+      {
+        "start": 2441.79,
+        "duration": 3.66,
+        "text": "together and and let them all right to"
+      },
+      {
+        "start": 2443.71,
+        "duration": 2.879,
+        "text": "one spot or you you mean I think there's"
+      },
+      {
+        "start": 2445.45,
+        "duration": 4.05,
+        "text": "a lot of ways you can do is I think it's"
+      },
+      {
+        "start": 2446.589,
+        "duration": 4.23,
+        "text": "very flexible I'm not sure I know what"
+      },
+      {
+        "start": 2449.5,
+        "duration": 8.73,
+        "text": "the answer is in terms of a best"
+      },
+      {
+        "start": 2450.819,
+        "duration": 9.77,
+        "text": "practice but yeah yeah sorry any other"
+      },
+      {
+        "start": 2458.23,
+        "duration": 2.359,
+        "text": "questions"
+      },
+      {
+        "start": 2461.97,
+        "duration": 6.7,
+        "text": "all right well that's that's what I got"
+      },
+      {
+        "start": 2465.25,
+        "duration": 6.78,
+        "text": "a B at the data sex booth hanging about"
+      },
+      {
+        "start": 2468.67,
+        "duration": 5.07,
+        "text": "and I'm if anybody's here to for"
+      },
+      {
+        "start": 2472.03,
+        "duration": 6.21,
+        "text": "tomorrow for graft day I'm doing a talk"
+      },
+      {
+        "start": 2473.74,
+        "duration": 6.24,
+        "text": "on data frames and graph frames and so"
+      },
+      {
+        "start": 2478.24,
+        "duration": 3.0,
+        "text": "but some some some neat stuff like I'm"
+      },
+      {
+        "start": 2479.98,
+        "duration": 4.52,
+        "text": "looking forward to sharing some of that"
+      },
+      {
+        "start": 2481.24,
+        "duration": 8.77,
+        "text": "so I think thanks for attending"
+      },
+      {
+        "start": 2484.5,
+        "duration": 5.51,
+        "text": "[Applause]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T05:22:06.566115+00:00"
+}

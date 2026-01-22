@@ -1,0 +1,1905 @@
+{
+  "video_id": "k1WXgkcUDzc",
+  "title": "DS310.05 Search Queries | DataStax Enterprise 6 Search",
+  "description": "#DataStaxAcademy #DS310\nDS310.05 Search Queries\nIn this section we will see how to leverage search queries using the Cassandra Query Language.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-15T20:49:51Z",
+  "thumbnail": "https://i.ytimg.com/vi/k1WXgkcUDzc/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "search",
+    "tutorial",
+    "apache_cassandra",
+    "query",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=k1WXgkcUDzc",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] now that we've learned how to set up our search indexes we're ready to learn how to start using them with actual search queries as we know dsc core normally returns results from our partition or from scanning all partitions even though scanning all partitions isn't recommended we can filter out results using one or more of our clustering columns we can also filter with non-primary key columns if we enable one allow filtering two adding cassandra secondary indexes or three adding materialized views many of these ways are not recommended due to some very real performance concerns dnc search uses search indexes to filter results in a way that has been optimized to not heavily impact performance any column that has been indexed can be used in a search query using dsc search we now have the power to get the results we need by filtering results that are not a part of our partition key or clustering columns let's remind ourselves how queries work on dse core with a familiar ring architecture this example shows how we can use a dse core query to filter based on partition key this allows us to narrow down the query to a single replica and a single partition to read in this case our data is partitioned around the ring by video d our query would look like select star from killervideo.videos where video id equals our video id this will return us only one value since our video id is unique only one value will be returned let's remind ourselves how a query would work with dse core when allow filtering is enabled here we have a query that is not using the partition key to filter by remember our partition key is on video id select star from killervideo.videos where release year equals 2018. what does this mean in practice the query will have to be sent to all nodes in the cluster or enough nodes to cover the entire token range every node will have to go through each and every one of its partitions and rows and read the value for release year to determine if it could be included in the result therefore filtering the rows based on the release year once all rows have been found it will finally be sent back to the coordinator and then finally to the client doing a compare on each row in the table across maybe hundreds of nodes is probably not the best idea now that we've reminded ourselves of what dse core queries would look like in this case let's review how this would work with dse search using the same query that is looking for movies based on release year while the query will still need to be sent to all nodes instead of having to read each and every node dsc search will use the search index to do a check this makes it more efficient to do with the filtering taking place at the index level and not the query level only rows that match the requested parameters will be read eventually and returned now that we understand why we should use dsc search indexes how can we use them with cql this table shows all the cql keywords supporting search equality inequality range match multiple values like exists count limit rows and sort we will discuss a few of these terms in more detail here in just a bit but first let's review some examples take a second to review each one of these examples these will give you a firm grasp on how to use each of these different column data types and the predicates feel free to pause the video here and walk through these i'll be here when you get back oh good you're back since you're now an expert on cql search keywords let's look at date and time stamp date values can be queried using a string formatted as year month day stamps are queried using a string literal or a unix timestamp integer remember unix time is approximately the number of seconds that have passed since january 1st 1970. for timestamps any precision beyond millisecond is not captured in the search index so you can only effectively query to millisecond precision okay like is like great right actually like is very useful it adds the ability to search via simple regular expressions and cql it works only on string data types ascii text and varchar you can use a percentage sign as the wild card at the beginning end of a string or even both it is case sensitive by default but can ultimately change based on your schema in the first example shown here we are looking for movie titles that start with terminator so hopefully we'll find the movies terminator 1 all the way to terminator 6. in the second example we're looking for titles that end with jedi so we should be able to find the last jedi get the joke and the return of the jedi in the last example we're looking for titles that contain the word legend we should be able to find legends of the fall as well as i am legend and anchorman the legend of ron burgundy there are some limitations with cql search using like so be aware of these wild cards do not work if they're not at the beginning or the end of the string no error will be thrown but just nothing will return as a result by putting at the end or the beginning of your string you may end up with more results than you wanted but you will get the results more filtering will just need to be applied the wildcard symbol the percentage sign cannot itself be escaped if your string contains a percentage sign you won't be able to find it with this method also it should be noted that there is no single character wildcards available multiple conditions can be added to your queries the keyword and can define multiple predicates that must all match to be included in your result remember that while and is available for cql queries or is not available when using cql and not when using cql and search to use or you can utilize an alternative query syntax in cql or utilize in as it is similar to an or if you only need to query a single column with or luckily you can just run two separate queries and with dsc's outstanding performance you will have the results quickly here is an example of utilizing and to find a particular movie select star from videos where title equals titanic and release year equals 1997. since i know there are many versions of titanic i want the one that i know i watched over five times in theater as a preteen no judging search allows for order by on any index column not just clustering columns this adds the power of sorting to all our indexed columns be aware that collections user defined types and tuples do not have order by support even partition key columns that do not have order by support in standard cql now can be sorted with dsc search in dse core select count star can cause all kinds of issues select count star will return the number of rows in the query but without the data itself that alone is not the issue the issue is that this results in a full table scan and even adding a where clause will still need to scan all the rows in the partition where each row must be compared and then added to the count if it meets the condition this can be extremely slow and potentially cause performance issues or just time out without generating any kind of answer with dse search this operation will utilize the power of search indexes to quickly return this answer now it's time to put our thinking caps on and work on this pop quiz which of these queries is using dse core versus dse search remember the video table has a primary key of video id okay pause the video now and take a look at these okay great you're back and ready with your answers let's review the first and third query as you can see are using search because they are searching on column titles rating and release here none of those are our partition key video id the second query will execute with just dsc core because it is only querying the partition key remember the other queries wouldn't be able to run in dse core and will return a warning to use the allow filtering keyword ink also a note to remember here even though there is a search index on the video id column because we are able to search with dse core on this column we will the logic states if able to search via dsc core then do that if not try dsc search let's go back and review some very important points around cassandra dsc core and search to be able to use search i need to one have dsc search workload enabled and two an index created for the table being queried more specifically on the columns that i am trying to query dse will determine if the cql query can be fulfilled without using search at all if so then it will run without search otherwise use search instead search will also have a priority in situations where a secondary index is normally used be aware you can also force cql to run a query with search using a different query syntax that will be discussed in the term search unit this flowchart helps us walk through the logic of dsc core versus a dse search query and which one to choose the first branching point asks if search workload enabled we know that if it is not then we'll be using a cassandra query if it is enabled we come to the next branching point that asks if we have a search index created if we don't we're back to a normal cassandra query if we do have a search index enabled then travel to the next branching point this asks if all the columns queried are all the columns in the partition key if yes and no other columns are added then a regular cassandra query will be executed if not all the partition key columns are included or there are regular columns being queried then we will use a search query phew i think talking about it was much more complicated than just studying this easy to understand chart feel free to pause the video and take a look if you want to verify the path your query is taking turn tracing on before running your query it's as simple as adding tracing on before running your query it should be noted here there will be a lot of information when tracing is enabled but you can tell if search was used if you see the message about a response from the solar url if you don't happen to see this message then the query was ran as a standard cql query remember with search queries only two different consistencies levels are supported one and local one if you try to use any other consistency level cql will return an error there is some other cql functionality that is not compatible with search indexes counters these need to be excluded when indexing static columns these are automatically ignored select distinct this must be restricted to the partition key or to a static column we cannot execute a cql search query with the syntax we've been discussing in this unit and also the solar query column remember when querying with the above incompatible types that do not work with search it is still possible to do these queries with allow filtering but always make sure you understand the risks and consequences of doing so all right it's finally time for another hands-on exercise this exercise focuses on running and practicing search queries again it will utilize the awesome data stack studio notebooks you will determine if you're running a dsc core or a dsc search query you'll run search queries using different predicates and try other cql clauses that will work with search good luck and i'll see you in the next lesson",
+    "segments": [
+      {
+        "start": 2.14,
+        "duration": 3.94,
+        "text": "[Music]"
+      },
+      {
+        "start": 4.64,
+        "duration": 2.56,
+        "text": "now that we've learned how to set up our"
+      },
+      {
+        "start": 6.08,
+        "duration": 2.8,
+        "text": "search indexes"
+      },
+      {
+        "start": 7.2,
+        "duration": 3.2,
+        "text": "we're ready to learn how to start using"
+      },
+      {
+        "start": 8.88,
+        "duration": 4.719,
+        "text": "them with actual search"
+      },
+      {
+        "start": 10.4,
+        "duration": 4.239,
+        "text": "queries as we know dsc core normally"
+      },
+      {
+        "start": 13.599,
+        "duration": 3.841,
+        "text": "returns results"
+      },
+      {
+        "start": 14.639,
+        "duration": 3.681,
+        "text": "from our partition or from scanning all"
+      },
+      {
+        "start": 17.44,
+        "duration": 2.72,
+        "text": "partitions"
+      },
+      {
+        "start": 18.32,
+        "duration": 3.039,
+        "text": "even though scanning all partitions"
+      },
+      {
+        "start": 20.16,
+        "duration": 3.359,
+        "text": "isn't recommended"
+      },
+      {
+        "start": 21.359,
+        "duration": 3.84,
+        "text": "we can filter out results using one or"
+      },
+      {
+        "start": 23.519,
+        "duration": 3.76,
+        "text": "more of our clustering columns"
+      },
+      {
+        "start": 25.199,
+        "duration": 3.92,
+        "text": "we can also filter with non-primary key"
+      },
+      {
+        "start": 27.279,
+        "duration": 5.28,
+        "text": "columns if we enable"
+      },
+      {
+        "start": 29.119,
+        "duration": 4.721,
+        "text": "one allow filtering two adding cassandra"
+      },
+      {
+        "start": 32.559,
+        "duration": 4.481,
+        "text": "secondary indexes"
+      },
+      {
+        "start": 33.84,
+        "duration": 5.28,
+        "text": "or three adding materialized views"
+      },
+      {
+        "start": 37.04,
+        "duration": 4.08,
+        "text": "many of these ways are not recommended"
+      },
+      {
+        "start": 39.12,
+        "duration": 3.04,
+        "text": "due to some very real performance"
+      },
+      {
+        "start": 41.12,
+        "duration": 3.759,
+        "text": "concerns"
+      },
+      {
+        "start": 42.16,
+        "duration": 5.04,
+        "text": "dnc search uses search indexes to filter"
+      },
+      {
+        "start": 44.879,
+        "duration": 5.281,
+        "text": "results in a way that has been optimized"
+      },
+      {
+        "start": 47.2,
+        "duration": 4.4,
+        "text": "to not heavily impact performance any"
+      },
+      {
+        "start": 50.16,
+        "duration": 4.399,
+        "text": "column that has been indexed"
+      },
+      {
+        "start": 51.6,
+        "duration": 3.52,
+        "text": "can be used in a search query using dsc"
+      },
+      {
+        "start": 54.559,
+        "duration": 2.561,
+        "text": "search"
+      },
+      {
+        "start": 55.12,
+        "duration": 4.4,
+        "text": "we now have the power to get the results"
+      },
+      {
+        "start": 57.12,
+        "duration": 4.64,
+        "text": "we need by filtering results"
+      },
+      {
+        "start": 59.52,
+        "duration": 3.839,
+        "text": "that are not a part of our partition key"
+      },
+      {
+        "start": 61.76,
+        "duration": 3.84,
+        "text": "or clustering columns"
+      },
+      {
+        "start": 63.359,
+        "duration": 3.361,
+        "text": "let's remind ourselves how queries work"
+      },
+      {
+        "start": 65.6,
+        "duration": 3.76,
+        "text": "on dse core"
+      },
+      {
+        "start": 66.72,
+        "duration": 5.2,
+        "text": "with a familiar ring architecture this"
+      },
+      {
+        "start": 69.36,
+        "duration": 3.28,
+        "text": "example shows how we can use a dse core"
+      },
+      {
+        "start": 71.92,
+        "duration": 3.36,
+        "text": "query"
+      },
+      {
+        "start": 72.64,
+        "duration": 3.519,
+        "text": "to filter based on partition key this"
+      },
+      {
+        "start": 75.28,
+        "duration": 2.879,
+        "text": "allows us"
+      },
+      {
+        "start": 76.159,
+        "duration": 3.121,
+        "text": "to narrow down the query to a single"
+      },
+      {
+        "start": 78.159,
+        "duration": 3.841,
+        "text": "replica"
+      },
+      {
+        "start": 79.28,
+        "duration": 3.199,
+        "text": "and a single partition to read in this"
+      },
+      {
+        "start": 82.0,
+        "duration": 2.479,
+        "text": "case"
+      },
+      {
+        "start": 82.479,
+        "duration": 3.68,
+        "text": "our data is partitioned around the ring"
+      },
+      {
+        "start": 84.479,
+        "duration": 4.481,
+        "text": "by video d"
+      },
+      {
+        "start": 86.159,
+        "duration": 4.96,
+        "text": "our query would look like select star"
+      },
+      {
+        "start": 88.96,
+        "duration": 6.24,
+        "text": "from killervideo.videos"
+      },
+      {
+        "start": 91.119,
+        "duration": 6.64,
+        "text": "where video id equals our video id"
+      },
+      {
+        "start": 95.2,
+        "duration": 4.16,
+        "text": "this will return us only one value since"
+      },
+      {
+        "start": 97.759,
+        "duration": 4.161,
+        "text": "our video id is unique"
+      },
+      {
+        "start": 99.36,
+        "duration": 4.64,
+        "text": "only one value will be returned let's"
+      },
+      {
+        "start": 101.92,
+        "duration": 4.559,
+        "text": "remind ourselves how a query would work"
+      },
+      {
+        "start": 104.0,
+        "duration": 3.28,
+        "text": "with dse core when allow filtering is"
+      },
+      {
+        "start": 106.479,
+        "duration": 2.801,
+        "text": "enabled"
+      },
+      {
+        "start": 107.28,
+        "duration": 4.24,
+        "text": "here we have a query that is not using"
+      },
+      {
+        "start": 109.28,
+        "duration": 4.479,
+        "text": "the partition key to filter by"
+      },
+      {
+        "start": 111.52,
+        "duration": 5.279,
+        "text": "remember our partition key is on video"
+      },
+      {
+        "start": 113.759,
+        "duration": 6.081,
+        "text": "id select star from killervideo.videos"
+      },
+      {
+        "start": 116.799,
+        "duration": 5.121,
+        "text": "where release year equals 2018."
+      },
+      {
+        "start": 119.84,
+        "duration": 3.919,
+        "text": "what does this mean in practice the"
+      },
+      {
+        "start": 121.92,
+        "duration": 2.799,
+        "text": "query will have to be sent to all nodes"
+      },
+      {
+        "start": 123.759,
+        "duration": 2.72,
+        "text": "in the cluster"
+      },
+      {
+        "start": 124.719,
+        "duration": 4.001,
+        "text": "or enough nodes to cover the entire"
+      },
+      {
+        "start": 126.479,
+        "duration": 3.2,
+        "text": "token range every node will have to go"
+      },
+      {
+        "start": 128.72,
+        "duration": 3.44,
+        "text": "through"
+      },
+      {
+        "start": 129.679,
+        "duration": 3.2,
+        "text": "each and every one of its partitions and"
+      },
+      {
+        "start": 132.16,
+        "duration": 3.28,
+        "text": "rows"
+      },
+      {
+        "start": 132.879,
+        "duration": 3.681,
+        "text": "and read the value for release year to"
+      },
+      {
+        "start": 135.44,
+        "duration": 3.12,
+        "text": "determine"
+      },
+      {
+        "start": 136.56,
+        "duration": 4.16,
+        "text": "if it could be included in the result"
+      },
+      {
+        "start": 138.56,
+        "duration": 4.56,
+        "text": "therefore filtering the rows"
+      },
+      {
+        "start": 140.72,
+        "duration": 3.2,
+        "text": "based on the release year once all rows"
+      },
+      {
+        "start": 143.12,
+        "duration": 2.4,
+        "text": "have been found"
+      },
+      {
+        "start": 143.92,
+        "duration": 3.2,
+        "text": "it will finally be sent back to the"
+      },
+      {
+        "start": 145.52,
+        "duration": 2.24,
+        "text": "coordinator and then finally to the"
+      },
+      {
+        "start": 147.12,
+        "duration": 2.88,
+        "text": "client"
+      },
+      {
+        "start": 147.76,
+        "duration": 3.199,
+        "text": "doing a compare on each row in the table"
+      },
+      {
+        "start": 150.0,
+        "duration": 3.12,
+        "text": "across maybe"
+      },
+      {
+        "start": 150.959,
+        "duration": 3.201,
+        "text": "hundreds of nodes is probably not the"
+      },
+      {
+        "start": 153.12,
+        "duration": 2.479,
+        "text": "best idea"
+      },
+      {
+        "start": 154.16,
+        "duration": 3.68,
+        "text": "now that we've reminded ourselves of"
+      },
+      {
+        "start": 155.599,
+        "duration": 2.961,
+        "text": "what dse core queries would look like in"
+      },
+      {
+        "start": 157.84,
+        "duration": 2.8,
+        "text": "this case"
+      },
+      {
+        "start": 158.56,
+        "duration": 3.2,
+        "text": "let's review how this would work with"
+      },
+      {
+        "start": 160.64,
+        "duration": 3.12,
+        "text": "dse search"
+      },
+      {
+        "start": 161.76,
+        "duration": 4.0,
+        "text": "using the same query that is looking for"
+      },
+      {
+        "start": 163.76,
+        "duration": 3.68,
+        "text": "movies based on release year"
+      },
+      {
+        "start": 165.76,
+        "duration": 3.04,
+        "text": "while the query will still need to be"
+      },
+      {
+        "start": 167.44,
+        "duration": 3.2,
+        "text": "sent to all nodes"
+      },
+      {
+        "start": 168.8,
+        "duration": 3.6,
+        "text": "instead of having to read each and every"
+      },
+      {
+        "start": 170.64,
+        "duration": 4.319,
+        "text": "node dsc search"
+      },
+      {
+        "start": 172.4,
+        "duration": 3.199,
+        "text": "will use the search index to do a check"
+      },
+      {
+        "start": 174.959,
+        "duration": 2.56,
+        "text": "this makes"
+      },
+      {
+        "start": 175.599,
+        "duration": 3.841,
+        "text": "it more efficient to do with the"
+      },
+      {
+        "start": 177.519,
+        "duration": 2.401,
+        "text": "filtering taking place at the index"
+      },
+      {
+        "start": 179.44,
+        "duration": 2.719,
+        "text": "level"
+      },
+      {
+        "start": 179.92,
+        "duration": 4.319,
+        "text": "and not the query level only rows that"
+      },
+      {
+        "start": 182.159,
+        "duration": 2.641,
+        "text": "match the requested parameters will be"
+      },
+      {
+        "start": 184.239,
+        "duration": 3.041,
+        "text": "read"
+      },
+      {
+        "start": 184.8,
+        "duration": 3.04,
+        "text": "eventually and returned now that we"
+      },
+      {
+        "start": 187.28,
+        "duration": 3.28,
+        "text": "understand"
+      },
+      {
+        "start": 187.84,
+        "duration": 4.64,
+        "text": "why we should use dsc search indexes how"
+      },
+      {
+        "start": 190.56,
+        "duration": 4.319,
+        "text": "can we use them with cql"
+      },
+      {
+        "start": 192.48,
+        "duration": 3.6,
+        "text": "this table shows all the cql keywords"
+      },
+      {
+        "start": 194.879,
+        "duration": 4.881,
+        "text": "supporting search"
+      },
+      {
+        "start": 196.08,
+        "duration": 7.439,
+        "text": "equality inequality range"
+      },
+      {
+        "start": 199.76,
+        "duration": 6.96,
+        "text": "match multiple values like exists"
+      },
+      {
+        "start": 203.519,
+        "duration": 5.041,
+        "text": "count limit rows and sort we will"
+      },
+      {
+        "start": 206.72,
+        "duration": 2.4,
+        "text": "discuss a few of these terms in more"
+      },
+      {
+        "start": 208.56,
+        "duration": 2.88,
+        "text": "detail"
+      },
+      {
+        "start": 209.12,
+        "duration": 3.92,
+        "text": "here in just a bit but first let's"
+      },
+      {
+        "start": 211.44,
+        "duration": 3.519,
+        "text": "review some examples"
+      },
+      {
+        "start": 213.04,
+        "duration": 3.04,
+        "text": "take a second to review each one of"
+      },
+      {
+        "start": 214.959,
+        "duration": 3.121,
+        "text": "these examples"
+      },
+      {
+        "start": 216.08,
+        "duration": 3.6,
+        "text": "these will give you a firm grasp on how"
+      },
+      {
+        "start": 218.08,
+        "duration": 3.519,
+        "text": "to use each of these different column"
+      },
+      {
+        "start": 219.68,
+        "duration": 3.76,
+        "text": "data types and the predicates"
+      },
+      {
+        "start": 221.599,
+        "duration": 3.2,
+        "text": "feel free to pause the video here and"
+      },
+      {
+        "start": 223.44,
+        "duration": 4.159,
+        "text": "walk through these"
+      },
+      {
+        "start": 224.799,
+        "duration": 3.681,
+        "text": "i'll be here when you get back oh good"
+      },
+      {
+        "start": 227.599,
+        "duration": 3.121,
+        "text": "you're back"
+      },
+      {
+        "start": 228.48,
+        "duration": 4.479,
+        "text": "since you're now an expert on cql search"
+      },
+      {
+        "start": 230.72,
+        "duration": 3.04,
+        "text": "keywords let's look at date and time"
+      },
+      {
+        "start": 232.959,
+        "duration": 2.721,
+        "text": "stamp"
+      },
+      {
+        "start": 233.76,
+        "duration": 3.28,
+        "text": "date values can be queried using a"
+      },
+      {
+        "start": 235.68,
+        "duration": 4.8,
+        "text": "string formatted as"
+      },
+      {
+        "start": 237.04,
+        "duration": 4.8,
+        "text": "year month day stamps are queried using"
+      },
+      {
+        "start": 240.48,
+        "duration": 4.88,
+        "text": "a string literal"
+      },
+      {
+        "start": 241.84,
+        "duration": 5.84,
+        "text": "or a unix timestamp integer remember"
+      },
+      {
+        "start": 245.36,
+        "duration": 3.76,
+        "text": "unix time is approximately the number of"
+      },
+      {
+        "start": 247.68,
+        "duration": 4.88,
+        "text": "seconds that have passed"
+      },
+      {
+        "start": 249.12,
+        "duration": 5.679,
+        "text": "since january 1st 1970. for timestamps"
+      },
+      {
+        "start": 252.56,
+        "duration": 3.919,
+        "text": "any precision beyond millisecond is not"
+      },
+      {
+        "start": 254.799,
+        "duration": 3.921,
+        "text": "captured in the search index"
+      },
+      {
+        "start": 256.479,
+        "duration": 3.841,
+        "text": "so you can only effectively query to"
+      },
+      {
+        "start": 258.72,
+        "duration": 4.72,
+        "text": "millisecond precision"
+      },
+      {
+        "start": 260.32,
+        "duration": 6.24,
+        "text": "okay like is like great"
+      },
+      {
+        "start": 263.44,
+        "duration": 5.759,
+        "text": "right actually like is very useful"
+      },
+      {
+        "start": 266.56,
+        "duration": 3.919,
+        "text": "it adds the ability to search via simple"
+      },
+      {
+        "start": 269.199,
+        "duration": 3.761,
+        "text": "regular expressions"
+      },
+      {
+        "start": 270.479,
+        "duration": 3.521,
+        "text": "and cql it works only on string data"
+      },
+      {
+        "start": 272.96,
+        "duration": 3.04,
+        "text": "types ascii"
+      },
+      {
+        "start": 274.0,
+        "duration": 3.199,
+        "text": "text and varchar you can use a"
+      },
+      {
+        "start": 276.0,
+        "duration": 3.6,
+        "text": "percentage sign"
+      },
+      {
+        "start": 277.199,
+        "duration": 3.121,
+        "text": "as the wild card at the beginning end of"
+      },
+      {
+        "start": 279.6,
+        "duration": 3.039,
+        "text": "a string"
+      },
+      {
+        "start": 280.32,
+        "duration": 4.4,
+        "text": "or even both it is case sensitive by"
+      },
+      {
+        "start": 282.639,
+        "duration": 4.0,
+        "text": "default but can ultimately change"
+      },
+      {
+        "start": 284.72,
+        "duration": 3.199,
+        "text": "based on your schema in the first"
+      },
+      {
+        "start": 286.639,
+        "duration": 2.881,
+        "text": "example shown here"
+      },
+      {
+        "start": 287.919,
+        "duration": 3.361,
+        "text": "we are looking for movie titles that"
+      },
+      {
+        "start": 289.52,
+        "duration": 3.2,
+        "text": "start with terminator so"
+      },
+      {
+        "start": 291.28,
+        "duration": 3.76,
+        "text": "hopefully we'll find the movies"
+      },
+      {
+        "start": 292.72,
+        "duration": 4.479,
+        "text": "terminator 1 all the way to terminator"
+      },
+      {
+        "start": 295.04,
+        "duration": 4.159,
+        "text": "6. in the second example"
+      },
+      {
+        "start": 297.199,
+        "duration": 4.241,
+        "text": "we're looking for titles that end with"
+      },
+      {
+        "start": 299.199,
+        "duration": 5.28,
+        "text": "jedi so we should be able to find"
+      },
+      {
+        "start": 301.44,
+        "duration": 4.319,
+        "text": "the last jedi get the joke and the"
+      },
+      {
+        "start": 304.479,
+        "duration": 3.041,
+        "text": "return of the jedi"
+      },
+      {
+        "start": 305.759,
+        "duration": 4.321,
+        "text": "in the last example we're looking for"
+      },
+      {
+        "start": 307.52,
+        "duration": 4.88,
+        "text": "titles that contain the word legend"
+      },
+      {
+        "start": 310.08,
+        "duration": 3.36,
+        "text": "we should be able to find legends of the"
+      },
+      {
+        "start": 312.4,
+        "duration": 4.079,
+        "text": "fall"
+      },
+      {
+        "start": 313.44,
+        "duration": 5.599,
+        "text": "as well as i am legend and"
+      },
+      {
+        "start": 316.479,
+        "duration": 4.801,
+        "text": "anchorman the legend of ron burgundy"
+      },
+      {
+        "start": 319.039,
+        "duration": 5.041,
+        "text": "there are some limitations with cql"
+      },
+      {
+        "start": 321.28,
+        "duration": 4.72,
+        "text": "search using like so be aware of these"
+      },
+      {
+        "start": 324.08,
+        "duration": 4.16,
+        "text": "wild cards do not work if they're not at"
+      },
+      {
+        "start": 326.0,
+        "duration": 4.56,
+        "text": "the beginning or the end of the string"
+      },
+      {
+        "start": 328.24,
+        "duration": 3.04,
+        "text": "no error will be thrown but just nothing"
+      },
+      {
+        "start": 330.56,
+        "duration": 3.12,
+        "text": "will return"
+      },
+      {
+        "start": 331.28,
+        "duration": 3.84,
+        "text": "as a result by putting at the end or the"
+      },
+      {
+        "start": 333.68,
+        "duration": 3.2,
+        "text": "beginning of your string"
+      },
+      {
+        "start": 335.12,
+        "duration": 4.079,
+        "text": "you may end up with more results than"
+      },
+      {
+        "start": 336.88,
+        "duration": 3.84,
+        "text": "you wanted but you will get the results"
+      },
+      {
+        "start": 339.199,
+        "duration": 3.44,
+        "text": "more filtering will just need to be"
+      },
+      {
+        "start": 340.72,
+        "duration": 4.08,
+        "text": "applied the wildcard symbol"
+      },
+      {
+        "start": 342.639,
+        "duration": 3.041,
+        "text": "the percentage sign cannot itself be"
+      },
+      {
+        "start": 344.8,
+        "duration": 2.56,
+        "text": "escaped"
+      },
+      {
+        "start": 345.68,
+        "duration": 3.6,
+        "text": "if your string contains a percentage"
+      },
+      {
+        "start": 347.36,
+        "duration": 4.32,
+        "text": "sign you won't be able to find it"
+      },
+      {
+        "start": 349.28,
+        "duration": 3.919,
+        "text": "with this method also it should be noted"
+      },
+      {
+        "start": 351.68,
+        "duration": 3.2,
+        "text": "that there is no single character"
+      },
+      {
+        "start": 353.199,
+        "duration": 3.601,
+        "text": "wildcards available"
+      },
+      {
+        "start": 354.88,
+        "duration": 3.84,
+        "text": "multiple conditions can be added to your"
+      },
+      {
+        "start": 356.8,
+        "duration": 4.16,
+        "text": "queries the keyword and"
+      },
+      {
+        "start": 358.72,
+        "duration": 4.56,
+        "text": "can define multiple predicates that must"
+      },
+      {
+        "start": 360.96,
+        "duration": 4.799,
+        "text": "all match to be included in your result"
+      },
+      {
+        "start": 363.28,
+        "duration": 3.919,
+        "text": "remember that while and is available for"
+      },
+      {
+        "start": 365.759,
+        "duration": 4.481,
+        "text": "cql queries"
+      },
+      {
+        "start": 367.199,
+        "duration": 6.481,
+        "text": "or is not available when using cql"
+      },
+      {
+        "start": 370.24,
+        "duration": 5.84,
+        "text": "and not when using cql and search to use"
+      },
+      {
+        "start": 373.68,
+        "duration": 3.92,
+        "text": "or you can utilize an alternative query"
+      },
+      {
+        "start": 376.08,
+        "duration": 4.72,
+        "text": "syntax in cql"
+      },
+      {
+        "start": 377.6,
+        "duration": 4.879,
+        "text": "or utilize in as it is similar to an or"
+      },
+      {
+        "start": 380.8,
+        "duration": 3.28,
+        "text": "if you only need to query a single"
+      },
+      {
+        "start": 382.479,
+        "duration": 3.521,
+        "text": "column with or"
+      },
+      {
+        "start": 384.08,
+        "duration": 3.92,
+        "text": "luckily you can just run two separate"
+      },
+      {
+        "start": 386.0,
+        "duration": 2.72,
+        "text": "queries and with dsc's outstanding"
+      },
+      {
+        "start": 388.0,
+        "duration": 3.28,
+        "text": "performance"
+      },
+      {
+        "start": 388.72,
+        "duration": 4.72,
+        "text": "you will have the results quickly here"
+      },
+      {
+        "start": 391.28,
+        "duration": 4.479,
+        "text": "is an example of utilizing and"
+      },
+      {
+        "start": 393.44,
+        "duration": 4.56,
+        "text": "to find a particular movie select star"
+      },
+      {
+        "start": 395.759,
+        "duration": 5.041,
+        "text": "from videos where title equals titanic"
+      },
+      {
+        "start": 398.0,
+        "duration": 4.96,
+        "text": "and release year equals 1997. since i"
+      },
+      {
+        "start": 400.8,
+        "duration": 4.239,
+        "text": "know there are many versions of titanic"
+      },
+      {
+        "start": 402.96,
+        "duration": 3.6,
+        "text": "i want the one that i know i watched"
+      },
+      {
+        "start": 405.039,
+        "duration": 4.641,
+        "text": "over five times in theater"
+      },
+      {
+        "start": 406.56,
+        "duration": 4.079,
+        "text": "as a preteen no judging search allows"
+      },
+      {
+        "start": 409.68,
+        "duration": 3.68,
+        "text": "for order by"
+      },
+      {
+        "start": 410.639,
+        "duration": 3.521,
+        "text": "on any index column not just clustering"
+      },
+      {
+        "start": 413.36,
+        "duration": 3.04,
+        "text": "columns"
+      },
+      {
+        "start": 414.16,
+        "duration": 3.52,
+        "text": "this adds the power of sorting to all"
+      },
+      {
+        "start": 416.4,
+        "duration": 3.68,
+        "text": "our indexed columns"
+      },
+      {
+        "start": 417.68,
+        "duration": 3.84,
+        "text": "be aware that collections user defined"
+      },
+      {
+        "start": 420.08,
+        "duration": 4.16,
+        "text": "types and tuples"
+      },
+      {
+        "start": 421.52,
+        "duration": 4.959,
+        "text": "do not have order by support even"
+      },
+      {
+        "start": 424.24,
+        "duration": 3.44,
+        "text": "partition key columns that do not have"
+      },
+      {
+        "start": 426.479,
+        "duration": 4.0,
+        "text": "order by support"
+      },
+      {
+        "start": 427.68,
+        "duration": 4.0,
+        "text": "in standard cql now can be sorted with"
+      },
+      {
+        "start": 430.479,
+        "duration": 4.801,
+        "text": "dsc search"
+      },
+      {
+        "start": 431.68,
+        "duration": 6.079,
+        "text": "in dse core select count star can cause"
+      },
+      {
+        "start": 435.28,
+        "duration": 4.24,
+        "text": "all kinds of issues select count star"
+      },
+      {
+        "start": 437.759,
+        "duration": 2.321,
+        "text": "will return the number of rows in the"
+      },
+      {
+        "start": 439.52,
+        "duration": 2.959,
+        "text": "query"
+      },
+      {
+        "start": 440.08,
+        "duration": 3.519,
+        "text": "but without the data itself that alone"
+      },
+      {
+        "start": 442.479,
+        "duration": 3.28,
+        "text": "is not the issue"
+      },
+      {
+        "start": 443.599,
+        "duration": 3.281,
+        "text": "the issue is that this results in a full"
+      },
+      {
+        "start": 445.759,
+        "duration": 3.28,
+        "text": "table scan"
+      },
+      {
+        "start": 446.88,
+        "duration": 3.28,
+        "text": "and even adding a where clause will"
+      },
+      {
+        "start": 449.039,
+        "duration": 3.28,
+        "text": "still need to scan"
+      },
+      {
+        "start": 450.16,
+        "duration": 3.84,
+        "text": "all the rows in the partition where each"
+      },
+      {
+        "start": 452.319,
+        "duration": 3.841,
+        "text": "row must be compared"
+      },
+      {
+        "start": 454.0,
+        "duration": 3.12,
+        "text": "and then added to the count if it meets"
+      },
+      {
+        "start": 456.16,
+        "duration": 2.56,
+        "text": "the condition"
+      },
+      {
+        "start": 457.12,
+        "duration": 3.519,
+        "text": "this can be extremely slow and"
+      },
+      {
+        "start": 458.72,
+        "duration": 4.319,
+        "text": "potentially cause performance issues"
+      },
+      {
+        "start": 460.639,
+        "duration": 3.361,
+        "text": "or just time out without generating any"
+      },
+      {
+        "start": 463.039,
+        "duration": 3.121,
+        "text": "kind of answer"
+      },
+      {
+        "start": 464.0,
+        "duration": 4.319,
+        "text": "with dse search this operation will"
+      },
+      {
+        "start": 466.16,
+        "duration": 4.719,
+        "text": "utilize the power of search indexes"
+      },
+      {
+        "start": 468.319,
+        "duration": 4.56,
+        "text": "to quickly return this answer now it's"
+      },
+      {
+        "start": 470.879,
+        "duration": 4.401,
+        "text": "time to put our thinking caps on"
+      },
+      {
+        "start": 472.879,
+        "duration": 3.521,
+        "text": "and work on this pop quiz which of these"
+      },
+      {
+        "start": 475.28,
+        "duration": 4.16,
+        "text": "queries is using"
+      },
+      {
+        "start": 476.4,
+        "duration": 5.919,
+        "text": "dse core versus dse search"
+      },
+      {
+        "start": 479.44,
+        "duration": 3.52,
+        "text": "remember the video table has a primary"
+      },
+      {
+        "start": 482.319,
+        "duration": 4.081,
+        "text": "key"
+      },
+      {
+        "start": 482.96,
+        "duration": 5.84,
+        "text": "of video id okay pause the video now"
+      },
+      {
+        "start": 486.4,
+        "duration": 4.479,
+        "text": "and take a look at these okay great"
+      },
+      {
+        "start": 488.8,
+        "duration": 4.48,
+        "text": "you're back and ready with your answers"
+      },
+      {
+        "start": 490.879,
+        "duration": 3.281,
+        "text": "let's review the first and third query"
+      },
+      {
+        "start": 493.28,
+        "duration": 2.96,
+        "text": "as you can see"
+      },
+      {
+        "start": 494.16,
+        "duration": 4.0,
+        "text": "are using search because they are"
+      },
+      {
+        "start": 496.24,
+        "duration": 4.72,
+        "text": "searching on column titles"
+      },
+      {
+        "start": 498.16,
+        "duration": 4.24,
+        "text": "rating and release here none of those"
+      },
+      {
+        "start": 500.96,
+        "duration": 4.079,
+        "text": "are our partition key"
+      },
+      {
+        "start": 502.4,
+        "duration": 4.0,
+        "text": "video id the second query will execute"
+      },
+      {
+        "start": 505.039,
+        "duration": 3.041,
+        "text": "with just dsc core"
+      },
+      {
+        "start": 506.4,
+        "duration": 3.28,
+        "text": "because it is only querying the"
+      },
+      {
+        "start": 508.08,
+        "duration": 3.44,
+        "text": "partition key remember"
+      },
+      {
+        "start": 509.68,
+        "duration": 3.44,
+        "text": "the other queries wouldn't be able to"
+      },
+      {
+        "start": 511.52,
+        "duration": 3.36,
+        "text": "run in dse core"
+      },
+      {
+        "start": 513.12,
+        "duration": 3.52,
+        "text": "and will return a warning to use the"
+      },
+      {
+        "start": 514.88,
+        "duration": 4.959,
+        "text": "allow filtering keyword"
+      },
+      {
+        "start": 516.64,
+        "duration": 4.639,
+        "text": "ink also a note to remember here even"
+      },
+      {
+        "start": 519.839,
+        "duration": 3.921,
+        "text": "though there is a search index"
+      },
+      {
+        "start": 521.279,
+        "duration": 4.321,
+        "text": "on the video id column because we are"
+      },
+      {
+        "start": 523.76,
+        "duration": 2.48,
+        "text": "able to search with dse core on this"
+      },
+      {
+        "start": 525.6,
+        "duration": 3.679,
+        "text": "column"
+      },
+      {
+        "start": 526.24,
+        "duration": 3.599,
+        "text": "we will the logic states if able to"
+      },
+      {
+        "start": 529.279,
+        "duration": 3.761,
+        "text": "search"
+      },
+      {
+        "start": 529.839,
+        "duration": 5.841,
+        "text": "via dsc core then do that if not"
+      },
+      {
+        "start": 533.04,
+        "duration": 4.16,
+        "text": "try dsc search let's go back and review"
+      },
+      {
+        "start": 535.68,
+        "duration": 5.12,
+        "text": "some very important points"
+      },
+      {
+        "start": 537.2,
+        "duration": 6.96,
+        "text": "around cassandra dsc core and search"
+      },
+      {
+        "start": 540.8,
+        "duration": 6.88,
+        "text": "to be able to use search i need to one"
+      },
+      {
+        "start": 544.16,
+        "duration": 5.52,
+        "text": "have dsc search workload enabled and two"
+      },
+      {
+        "start": 547.68,
+        "duration": 4.0,
+        "text": "an index created for the table being"
+      },
+      {
+        "start": 549.68,
+        "duration": 4.159,
+        "text": "queried more specifically"
+      },
+      {
+        "start": 551.68,
+        "duration": 5.04,
+        "text": "on the columns that i am trying to query"
+      },
+      {
+        "start": 553.839,
+        "duration": 3.601,
+        "text": "dse will determine if the cql query can"
+      },
+      {
+        "start": 556.72,
+        "duration": 3.92,
+        "text": "be fulfilled"
+      },
+      {
+        "start": 557.44,
+        "duration": 6.24,
+        "text": "without using search at all if so then"
+      },
+      {
+        "start": 560.64,
+        "duration": 4.319,
+        "text": "it will run without search otherwise use"
+      },
+      {
+        "start": 563.68,
+        "duration": 2.88,
+        "text": "search instead"
+      },
+      {
+        "start": 564.959,
+        "duration": 3.761,
+        "text": "search will also have a priority in"
+      },
+      {
+        "start": 566.56,
+        "duration": 3.2,
+        "text": "situations where a secondary index is"
+      },
+      {
+        "start": 568.72,
+        "duration": 3.84,
+        "text": "normally used"
+      },
+      {
+        "start": 569.76,
+        "duration": 3.84,
+        "text": "be aware you can also force cql to run a"
+      },
+      {
+        "start": 572.56,
+        "duration": 3.04,
+        "text": "query with search"
+      },
+      {
+        "start": 573.6,
+        "duration": 3.52,
+        "text": "using a different query syntax that will"
+      },
+      {
+        "start": 575.6,
+        "duration": 4.32,
+        "text": "be discussed in the term"
+      },
+      {
+        "start": 577.12,
+        "duration": 3.6,
+        "text": "search unit this flowchart helps us walk"
+      },
+      {
+        "start": 579.92,
+        "duration": 4.16,
+        "text": "through the logic"
+      },
+      {
+        "start": 580.72,
+        "duration": 6.0,
+        "text": "of dsc core versus a dse search query"
+      },
+      {
+        "start": 584.08,
+        "duration": 4.48,
+        "text": "and which one to choose the first"
+      },
+      {
+        "start": 586.72,
+        "duration": 4.72,
+        "text": "branching point asks"
+      },
+      {
+        "start": 588.56,
+        "duration": 4.08,
+        "text": "if search workload enabled we know that"
+      },
+      {
+        "start": 591.44,
+        "duration": 3.36,
+        "text": "if it is not"
+      },
+      {
+        "start": 592.64,
+        "duration": 3.759,
+        "text": "then we'll be using a cassandra query if"
+      },
+      {
+        "start": 594.8,
+        "duration": 2.479,
+        "text": "it is enabled we come to the next"
+      },
+      {
+        "start": 596.399,
+        "duration": 3.041,
+        "text": "branching point"
+      },
+      {
+        "start": 597.279,
+        "duration": 3.041,
+        "text": "that asks if we have a search index"
+      },
+      {
+        "start": 599.44,
+        "duration": 2.72,
+        "text": "created"
+      },
+      {
+        "start": 600.32,
+        "duration": 3.12,
+        "text": "if we don't we're back to a normal"
+      },
+      {
+        "start": 602.16,
+        "duration": 3.679,
+        "text": "cassandra query"
+      },
+      {
+        "start": 603.44,
+        "duration": 4.639,
+        "text": "if we do have a search index enabled"
+      },
+      {
+        "start": 605.839,
+        "duration": 5.521,
+        "text": "then travel to the next branching point"
+      },
+      {
+        "start": 608.079,
+        "duration": 5.601,
+        "text": "this asks if all the columns queried are"
+      },
+      {
+        "start": 611.36,
+        "duration": 3.28,
+        "text": "all the columns in the partition key if"
+      },
+      {
+        "start": 613.68,
+        "duration": 3.04,
+        "text": "yes"
+      },
+      {
+        "start": 614.64,
+        "duration": 4.4,
+        "text": "and no other columns are added then a"
+      },
+      {
+        "start": 616.72,
+        "duration": 4.32,
+        "text": "regular cassandra query will be executed"
+      },
+      {
+        "start": 619.04,
+        "duration": 4.16,
+        "text": "if not all the partition key columns are"
+      },
+      {
+        "start": 621.04,
+        "duration": 3.12,
+        "text": "included or there are regular columns"
+      },
+      {
+        "start": 623.2,
+        "duration": 4.079,
+        "text": "being queried"
+      },
+      {
+        "start": 624.16,
+        "duration": 4.48,
+        "text": "then we will use a search query phew i"
+      },
+      {
+        "start": 627.279,
+        "duration": 2.081,
+        "text": "think talking about it was much more"
+      },
+      {
+        "start": 628.64,
+        "duration": 2.319,
+        "text": "complicated"
+      },
+      {
+        "start": 629.36,
+        "duration": 3.039,
+        "text": "than just studying this easy to"
+      },
+      {
+        "start": 630.959,
+        "duration": 3.361,
+        "text": "understand chart"
+      },
+      {
+        "start": 632.399,
+        "duration": 4.081,
+        "text": "feel free to pause the video and take a"
+      },
+      {
+        "start": 634.32,
+        "duration": 3.36,
+        "text": "look if you want to verify the path your"
+      },
+      {
+        "start": 636.48,
+        "duration": 2.88,
+        "text": "query is taking"
+      },
+      {
+        "start": 637.68,
+        "duration": 4.0,
+        "text": "turn tracing on before running your"
+      },
+      {
+        "start": 639.36,
+        "duration": 2.8,
+        "text": "query it's as simple as adding tracing"
+      },
+      {
+        "start": 641.68,
+        "duration": 2.399,
+        "text": "on"
+      },
+      {
+        "start": 642.16,
+        "duration": 3.679,
+        "text": "before running your query it should be"
+      },
+      {
+        "start": 644.079,
+        "duration": 3.841,
+        "text": "noted here there will be a lot of"
+      },
+      {
+        "start": 645.839,
+        "duration": 4.321,
+        "text": "information when tracing is enabled"
+      },
+      {
+        "start": 647.92,
+        "duration": 3.599,
+        "text": "but you can tell if search was used if"
+      },
+      {
+        "start": 650.16,
+        "duration": 4.56,
+        "text": "you see the message"
+      },
+      {
+        "start": 651.519,
+        "duration": 4.961,
+        "text": "about a response from the solar url"
+      },
+      {
+        "start": 654.72,
+        "duration": 4.239,
+        "text": "if you don't happen to see this message"
+      },
+      {
+        "start": 656.48,
+        "duration": 3.28,
+        "text": "then the query was ran as a standard cql"
+      },
+      {
+        "start": 658.959,
+        "duration": 3.201,
+        "text": "query"
+      },
+      {
+        "start": 659.76,
+        "duration": 3.84,
+        "text": "remember with search queries only two"
+      },
+      {
+        "start": 662.16,
+        "duration": 2.48,
+        "text": "different consistencies levels are"
+      },
+      {
+        "start": 663.6,
+        "duration": 4.0,
+        "text": "supported"
+      },
+      {
+        "start": 664.64,
+        "duration": 4.319,
+        "text": "one and local one if you try to use any"
+      },
+      {
+        "start": 667.6,
+        "duration": 3.84,
+        "text": "other consistency level"
+      },
+      {
+        "start": 668.959,
+        "duration": 4.481,
+        "text": "cql will return an error there is some"
+      },
+      {
+        "start": 671.44,
+        "duration": 2.72,
+        "text": "other cql functionality that is not"
+      },
+      {
+        "start": 673.44,
+        "duration": 3.6,
+        "text": "compatible"
+      },
+      {
+        "start": 674.16,
+        "duration": 3.84,
+        "text": "with search indexes counters these need"
+      },
+      {
+        "start": 677.04,
+        "duration": 3.6,
+        "text": "to be excluded"
+      },
+      {
+        "start": 678.0,
+        "duration": 4.16,
+        "text": "when indexing static columns these are"
+      },
+      {
+        "start": 680.64,
+        "duration": 4.24,
+        "text": "automatically ignored"
+      },
+      {
+        "start": 682.16,
+        "duration": 4.16,
+        "text": "select distinct this must be restricted"
+      },
+      {
+        "start": 684.88,
+        "duration": 4.32,
+        "text": "to the partition key"
+      },
+      {
+        "start": 686.32,
+        "duration": 4.56,
+        "text": "or to a static column we cannot execute"
+      },
+      {
+        "start": 689.2,
+        "duration": 3.28,
+        "text": "a cql search query"
+      },
+      {
+        "start": 690.88,
+        "duration": 3.12,
+        "text": "with the syntax we've been discussing in"
+      },
+      {
+        "start": 692.48,
+        "duration": 4.24,
+        "text": "this unit and also"
+      },
+      {
+        "start": 694.0,
+        "duration": 3.92,
+        "text": "the solar query column remember when"
+      },
+      {
+        "start": 696.72,
+        "duration": 3.52,
+        "text": "querying with the above"
+      },
+      {
+        "start": 697.92,
+        "duration": 4.159,
+        "text": "incompatible types that do not work with"
+      },
+      {
+        "start": 700.24,
+        "duration": 5.12,
+        "text": "search it is still possible"
+      },
+      {
+        "start": 702.079,
+        "duration": 5.041,
+        "text": "to do these queries with allow filtering"
+      },
+      {
+        "start": 705.36,
+        "duration": 3.36,
+        "text": "but always make sure you understand the"
+      },
+      {
+        "start": 707.12,
+        "duration": 5.12,
+        "text": "risks and consequences"
+      },
+      {
+        "start": 708.72,
+        "duration": 5.6,
+        "text": "of doing so all right it's finally time"
+      },
+      {
+        "start": 712.24,
+        "duration": 4.64,
+        "text": "for another hands-on exercise"
+      },
+      {
+        "start": 714.32,
+        "duration": 3.28,
+        "text": "this exercise focuses on running and"
+      },
+      {
+        "start": 716.88,
+        "duration": 3.36,
+        "text": "practicing"
+      },
+      {
+        "start": 717.6,
+        "duration": 5.12,
+        "text": "search queries again it will utilize the"
+      },
+      {
+        "start": 720.24,
+        "duration": 4.48,
+        "text": "awesome data stack studio notebooks"
+      },
+      {
+        "start": 722.72,
+        "duration": 4.4,
+        "text": "you will determine if you're running a"
+      },
+      {
+        "start": 724.72,
+        "duration": 4.0,
+        "text": "dsc core or a dsc search query"
+      },
+      {
+        "start": 727.12,
+        "duration": 3.279,
+        "text": "you'll run search queries using"
+      },
+      {
+        "start": 728.72,
+        "duration": 4.16,
+        "text": "different predicates and try"
+      },
+      {
+        "start": 730.399,
+        "duration": 3.281,
+        "text": "other cql clauses that will work with"
+      },
+      {
+        "start": 732.88,
+        "duration": 4.399,
+        "text": "search"
+      },
+      {
+        "start": 733.68,
+        "duration": 3.599,
+        "text": "good luck and i'll see you in the next"
+      },
+      {
+        "start": 738.519,
+        "duration": 3.0,
+        "text": "lesson"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T00:30:57.899308+00:00"
+}

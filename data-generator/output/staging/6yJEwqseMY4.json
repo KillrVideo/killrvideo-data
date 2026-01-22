@@ -1,0 +1,1703 @@
+{
+  "video_id": "6yJEwqseMY4",
+  "title": "DS210.15 Leveled Compaction | Operations with Apache Cassandra",
+  "description": "#DataStaxAcademy #DS210\nDS210.15 LEVELED COMPACTION\nLeveled compaction is the most complex form of compaction. Having your compaction tailored to your specific type of workload is important, hence it is good to learn how various compaction types work.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-11T12:32:41Z",
+  "thumbnail": "https://i.ytimg.com/vi/6yJEwqseMY4/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "tutorial",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=6yJEwqseMY4",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "[Music] let's talk about leveled compaction now hang on to your hat this is a little complicated level compaction probably is the most complicated actually it is the most complicated way to compact data compaction in general is not a very understood topic and if you can get through this one all the other compaction schemes are a lot easier but it is a pretty important process having compaction for certain workloads and having it tailored to workloads makes a lot of sense given the amount of data that has to get moved around and how much disk io has to be generated let's start from the beginning level compaction i'm going to show you this and how it works graphically and i think this is the best way to understand level compaction actually any compaction if i explain it to you you wouldn't be able to explain it back if i show you i think it will make a lot more sense so how does it work well level compaction the leveled part actually is important because as an ss table is written to disk that data is sitting there it's immutable however when that data is written now we have to employ some sort of compaction strategy with it level compaction looks at that first ss table that's written to disk as level zero the first file and as i write more data another flush to disk that goes into level zero now what happens we just don't want these things filling up the disk the way they are compaction is an important process so if i want to compact using level compaction what do i do now with these two ss tables well this is where the level comes in we move it to the next level up it gets promoted to level one how it does that similar like any other compaction strategy it tries to group things together so in this case the 12s in that level we're looking at the max ss table size so this is what's going to help guide us through our levels so we're inside of that max ss table size right now great let's do another compaction boom just went over okay now what well we create a new file so we do another compaction with the 52s that goes over we do the next one it's important to note that level zero is really the landing place everything in level zero will get promoted so it's right away so as we compact everything's going beyond the max ss table size awesome okay level one is now ready to go however with the maxes table size comes another parameter and that is the maximum size for level one the max level one size is a multiplier of the max ss table size in this example we're going to say 2 but in the real world it's 10 that's the default so let's look at the example again if max l1 size is 2 times the max as table size that's how much we can store in level one we're over so now we need to trigger another compaction so we could take those two sizes those two maxes table sizes but i'm gonna have to create a level two to fit more data in my disk to satisfy the leveling this is where that level work comes from we're building more levels so what we can do is just move that file down to level two do a quick size check up we're still over so we're gonna have to move another file down awesome now everything seems to fit we have everything leveled properly everything's in the right place great the levels are settled level two max size is a multiplier again two times level one so you can see how it starts growing in that way so if we look at our data everything's fitting neatly in the levels we are totally fine now there's no more compaction that needs to get done but inevitably we're going to start looking at all the sizing but what's going to happen ss tables are going to still be written to disk and when that happens it promotes the level 0 to level 1 immediately and the same process happens again and it just keeps going and we're going to start compacting and compacting again now if you look at what we have here we just went over the sizing again so here we go again we're going to be compacting down into level two max ss table size is too big we can pack that one down we create a new ss table now we have everything in level two level one is satisfied we're within the boundaries for all the different sizing great but like i said we're not gonna stop we're gonna keep writing data into the system this whole thing happens over and over and over again it's very intensive so when we're writing data to the system it gets promoted into the right levels and those levels start moving down from level one to level two to level three level four the good thing here is that we know where that data is going to be and as it gets promoted further it gets written less now as i mentioned we used a multiplier of two two times max as this table size the real world it's ten so it didn't look as good an example but you get what we're trying to do here we're showing multipliers 10 is the default you can change that if you need to in this case it's probably best to leave it alone the configuration as you can see here in the diagram ss table max size that's 160 meg that's the default you could change that again that's one of those things that you better not change it unless you know exactly what you're doing because you could really mess things up quickly and nobody wants to deal with a blown up level compaction system it will get really crazy fast because of how the levels work you can have things promoting really quickly and that's just going to eat up a lot of disk i o so once we have these ss tables exceeding these amounts that's when we go we do another write in the example that we had we had pretty large partitions so things are getting promoted pretty regularly in the real world they don't get promoted quite as fast unless you're doing a lot of writes the smaller your partitions the closer you're going to get to that actual 160 meg size that 160 megs is just a marker if it goes over that's fine we're trying to keep the data close to each other if you go and look at the actual file system you'll see that there's different sizes there's not just 160 meg chunks of data in your disk so that's what's going on there when you go look level of compaction is best used for reads and here's why so if you think about what you're trying to do with this data you're trying to get it to a level where it's stopped so occasional rights meaning it doesn't promote a lot but the reads are very consistent it knows exactly where that data is and it's very stable meaning that level one level two level three by the time you get to level three it's not going to be written as much and you know that that data is always going to be there so it caches nicely it's just really good for reads the idea is that we're trying to group this data together very neatly and succinctly level compaction does that level compaction is not just a cassandra topic it is a general topic in distributed systems especially with log structured storage however cassandra's done a lot with level compaction tailoring it to specific data models for cassandra as you can see from this table things add up really quickly you're adding a zero every single time there are multipliers so it can get pretty large by the time you get to level five or six is a lot of data in that level so between level one level two and level three we have a certain amount of size which is about ten percent of that level four disk usage is also something you need to consider with level compaction the general rule about compaction is you need a little more space not everything so it isn't 50 more of the disk space you have and the reason being is because you can have one level above overlap the level below it needs to be able to compact everything from that size down one level so a little more 11x is generally the multiplier per level if you need to compact from level 1 to level two or level two to level three you can predict how much you're going to need for that so if you're at level two then you're gonna need 1.6 terabytes of space left for level three if you're filling up level three you're going to need a 160 gigabytes plus a little more to compact down to level four in general the disk usage wastes a lot less of the disk and that's a good thing other compaction strategies aren't quite as miserly with your disk level compaction is really good for that the other advantage is that obsolete records can disappear really quickly as they get promoted they get removed the downside though is it is very i o intensive you can see some of these aren't really that good io intensity that's the biggest problem with level compaction if you're doing a lot of writes you're generating a lot of level zero files which didn't get promoted the more promotion means more big files have to get moved around if you're going from say level three to level four that's a lot of data moving around so that's why high rights on a level compaction system is not a good idea you should consider something like size tier or time window in that case but that disk intensity is really what we're trying to avoid anyway because cassandra does love to use disc io and it's important for your reeds you do not want compaction impacting your reeds another problem that could happen is with all these levelings is that eventually compaction will start falling behind level zero will get really far behind and then you're in trouble one of the safety valves for that is that level zero will then switch to size to your compaction to bring that file size down it's a catch-up mechanism but what it does is it eliminates the need to promote those ss tables to the next level in that emergency state and that is an emergency state it shouldn't happen all the time it's there to keep you from having all these files pending waiting to go to level one when really your system is running out of disk io well i hope you got through this okay level compaction is definitely the hardest one to understand the different levels and how they work somewhat complicated it's not as bad as some people think hopefully the graphics really helped you visualize what's going on with those files as they're getting promoted and just know some of the drawbacks the good and the bad and level of compaction could be your friend",
+    "segments": [
+      {
+        "start": 1.43,
+        "duration": 6.329,
+        "text": "[Music]"
+      },
+      {
+        "start": 6.72,
+        "duration": 3.919,
+        "text": "let's talk about"
+      },
+      {
+        "start": 7.759,
+        "duration": 3.92,
+        "text": "leveled compaction now hang on to your"
+      },
+      {
+        "start": 10.639,
+        "duration": 3.441,
+        "text": "hat"
+      },
+      {
+        "start": 11.679,
+        "duration": 3.241,
+        "text": "this is a little complicated level"
+      },
+      {
+        "start": 14.08,
+        "duration": 3.279,
+        "text": "compaction"
+      },
+      {
+        "start": 14.92,
+        "duration": 3.0,
+        "text": "probably is the most complicated"
+      },
+      {
+        "start": 17.359,
+        "duration": 2.161,
+        "text": "actually"
+      },
+      {
+        "start": 17.92,
+        "duration": 3.92,
+        "text": "it is the most complicated way to"
+      },
+      {
+        "start": 19.52,
+        "duration": 4.16,
+        "text": "compact data compaction in general is"
+      },
+      {
+        "start": 21.84,
+        "duration": 4.4,
+        "text": "not a very understood topic"
+      },
+      {
+        "start": 23.68,
+        "duration": 4.4,
+        "text": "and if you can get through this one all"
+      },
+      {
+        "start": 26.24,
+        "duration": 2.959,
+        "text": "the other compaction schemes are a lot"
+      },
+      {
+        "start": 28.08,
+        "duration": 3.439,
+        "text": "easier"
+      },
+      {
+        "start": 29.199,
+        "duration": 3.601,
+        "text": "but it is a pretty important process"
+      },
+      {
+        "start": 31.519,
+        "duration": 3.761,
+        "text": "having compaction"
+      },
+      {
+        "start": 32.8,
+        "duration": 3.84,
+        "text": "for certain workloads and having it"
+      },
+      {
+        "start": 35.28,
+        "duration": 4.08,
+        "text": "tailored to workloads"
+      },
+      {
+        "start": 36.64,
+        "duration": 4.56,
+        "text": "makes a lot of sense given the amount of"
+      },
+      {
+        "start": 39.36,
+        "duration": 5.359,
+        "text": "data that has to get moved around"
+      },
+      {
+        "start": 41.2,
+        "duration": 5.839,
+        "text": "and how much disk io has to be generated"
+      },
+      {
+        "start": 44.719,
+        "duration": 3.281,
+        "text": "let's start from the beginning level"
+      },
+      {
+        "start": 47.039,
+        "duration": 3.2,
+        "text": "compaction"
+      },
+      {
+        "start": 48.0,
+        "duration": 3.039,
+        "text": "i'm going to show you this and how it"
+      },
+      {
+        "start": 50.239,
+        "duration": 2.721,
+        "text": "works"
+      },
+      {
+        "start": 51.039,
+        "duration": 3.921,
+        "text": "graphically and i think this is the best"
+      },
+      {
+        "start": 52.96,
+        "duration": 4.48,
+        "text": "way to understand level compaction"
+      },
+      {
+        "start": 54.96,
+        "duration": 3.279,
+        "text": "actually any compaction if i explain it"
+      },
+      {
+        "start": 57.44,
+        "duration": 2.639,
+        "text": "to you"
+      },
+      {
+        "start": 58.239,
+        "duration": 4.081,
+        "text": "you wouldn't be able to explain it back"
+      },
+      {
+        "start": 60.079,
+        "duration": 3.201,
+        "text": "if i show you i think it will make a lot"
+      },
+      {
+        "start": 62.32,
+        "duration": 2.96,
+        "text": "more sense"
+      },
+      {
+        "start": 63.28,
+        "duration": 4.56,
+        "text": "so how does it work well level"
+      },
+      {
+        "start": 65.28,
+        "duration": 5.76,
+        "text": "compaction the leveled part"
+      },
+      {
+        "start": 67.84,
+        "duration": 5.279,
+        "text": "actually is important because as an ss"
+      },
+      {
+        "start": 71.04,
+        "duration": 3.28,
+        "text": "table is written to disk"
+      },
+      {
+        "start": 73.119,
+        "duration": 3.601,
+        "text": "that data is sitting there it's"
+      },
+      {
+        "start": 74.32,
+        "duration": 3.28,
+        "text": "immutable however when that data is"
+      },
+      {
+        "start": 76.72,
+        "duration": 2.719,
+        "text": "written"
+      },
+      {
+        "start": 77.6,
+        "duration": 3.12,
+        "text": "now we have to employ some sort of"
+      },
+      {
+        "start": 79.439,
+        "duration": 4.32,
+        "text": "compaction strategy"
+      },
+      {
+        "start": 80.72,
+        "duration": 3.52,
+        "text": "with it level compaction looks at that"
+      },
+      {
+        "start": 83.759,
+        "duration": 3.36,
+        "text": "first"
+      },
+      {
+        "start": 84.24,
+        "duration": 3.44,
+        "text": "ss table that's written to disk as level"
+      },
+      {
+        "start": 87.119,
+        "duration": 3.921,
+        "text": "zero"
+      },
+      {
+        "start": 87.68,
+        "duration": 5.84,
+        "text": "the first file and as i write more data"
+      },
+      {
+        "start": 91.04,
+        "duration": 3.52,
+        "text": "another flush to disk that goes into"
+      },
+      {
+        "start": 93.52,
+        "duration": 3.04,
+        "text": "level zero"
+      },
+      {
+        "start": 94.56,
+        "duration": 3.519,
+        "text": "now what happens we just don't want"
+      },
+      {
+        "start": 96.56,
+        "duration": 3.199,
+        "text": "these things filling up the disk"
+      },
+      {
+        "start": 98.079,
+        "duration": 3.601,
+        "text": "the way they are compaction is an"
+      },
+      {
+        "start": 99.759,
+        "duration": 3.761,
+        "text": "important process so"
+      },
+      {
+        "start": 101.68,
+        "duration": 3.759,
+        "text": "if i want to compact using level"
+      },
+      {
+        "start": 103.52,
+        "duration": 3.44,
+        "text": "compaction what do i do now with these"
+      },
+      {
+        "start": 105.439,
+        "duration": 3.921,
+        "text": "two ss tables"
+      },
+      {
+        "start": 106.96,
+        "duration": 4.159,
+        "text": "well this is where the level comes in we"
+      },
+      {
+        "start": 109.36,
+        "duration": 4.24,
+        "text": "move it to the next level up"
+      },
+      {
+        "start": 111.119,
+        "duration": 3.68,
+        "text": "it gets promoted to level one how it"
+      },
+      {
+        "start": 113.6,
+        "duration": 2.64,
+        "text": "does that"
+      },
+      {
+        "start": 114.799,
+        "duration": 3.441,
+        "text": "similar like any other compaction"
+      },
+      {
+        "start": 116.24,
+        "duration": 2.64,
+        "text": "strategy it tries to group things"
+      },
+      {
+        "start": 118.24,
+        "duration": 2.96,
+        "text": "together"
+      },
+      {
+        "start": 118.88,
+        "duration": 5.04,
+        "text": "so in this case the 12s in that level"
+      },
+      {
+        "start": 121.2,
+        "duration": 4.48,
+        "text": "we're looking at the max ss table size"
+      },
+      {
+        "start": 123.92,
+        "duration": 3.12,
+        "text": "so this is what's going to help guide us"
+      },
+      {
+        "start": 125.68,
+        "duration": 3.68,
+        "text": "through our levels"
+      },
+      {
+        "start": 127.04,
+        "duration": 3.279,
+        "text": "so we're inside of that max ss table"
+      },
+      {
+        "start": 129.36,
+        "duration": 3.599,
+        "text": "size right now"
+      },
+      {
+        "start": 130.319,
+        "duration": 3.521,
+        "text": "great let's do another compaction boom"
+      },
+      {
+        "start": 132.959,
+        "duration": 4.881,
+        "text": "just went over"
+      },
+      {
+        "start": 133.84,
+        "duration": 6.56,
+        "text": "okay now what well we create a new file"
+      },
+      {
+        "start": 137.84,
+        "duration": 3.6,
+        "text": "so we do another compaction with the 52s"
+      },
+      {
+        "start": 140.4,
+        "duration": 2.88,
+        "text": "that goes over"
+      },
+      {
+        "start": 141.44,
+        "duration": 3.36,
+        "text": "we do the next one it's important to"
+      },
+      {
+        "start": 143.28,
+        "duration": 3.12,
+        "text": "note that level zero is really the"
+      },
+      {
+        "start": 144.8,
+        "duration": 3.04,
+        "text": "landing place"
+      },
+      {
+        "start": 146.4,
+        "duration": 3.28,
+        "text": "everything in level zero will get"
+      },
+      {
+        "start": 147.84,
+        "duration": 3.679,
+        "text": "promoted so it's right away"
+      },
+      {
+        "start": 149.68,
+        "duration": 4.16,
+        "text": "so as we compact everything's going"
+      },
+      {
+        "start": 151.519,
+        "duration": 5.201,
+        "text": "beyond the max ss table size"
+      },
+      {
+        "start": 153.84,
+        "duration": 3.84,
+        "text": "awesome okay level one is now ready to"
+      },
+      {
+        "start": 156.72,
+        "duration": 3.92,
+        "text": "go"
+      },
+      {
+        "start": 157.68,
+        "duration": 3.68,
+        "text": "however with the maxes table size comes"
+      },
+      {
+        "start": 160.64,
+        "duration": 3.679,
+        "text": "another"
+      },
+      {
+        "start": 161.36,
+        "duration": 4.879,
+        "text": "parameter and that is the maximum size"
+      },
+      {
+        "start": 164.319,
+        "duration": 4.801,
+        "text": "for level one"
+      },
+      {
+        "start": 166.239,
+        "duration": 3.521,
+        "text": "the max level one size is a multiplier"
+      },
+      {
+        "start": 169.12,
+        "duration": 2.8,
+        "text": "of the max"
+      },
+      {
+        "start": 169.76,
+        "duration": 3.68,
+        "text": "ss table size in this example we're"
+      },
+      {
+        "start": 171.92,
+        "duration": 3.52,
+        "text": "going to say 2"
+      },
+      {
+        "start": 173.44,
+        "duration": 4.159,
+        "text": "but in the real world it's 10 that's the"
+      },
+      {
+        "start": 175.44,
+        "duration": 2.879,
+        "text": "default so let's look at the example"
+      },
+      {
+        "start": 177.599,
+        "duration": 3.201,
+        "text": "again"
+      },
+      {
+        "start": 178.319,
+        "duration": 3.681,
+        "text": "if max l1 size is 2 times the max as"
+      },
+      {
+        "start": 180.8,
+        "duration": 2.719,
+        "text": "table size"
+      },
+      {
+        "start": 182.0,
+        "duration": 3.36,
+        "text": "that's how much we can store in level"
+      },
+      {
+        "start": 183.519,
+        "duration": 3.521,
+        "text": "one we're over"
+      },
+      {
+        "start": 185.36,
+        "duration": 3.2,
+        "text": "so now we need to trigger another"
+      },
+      {
+        "start": 187.04,
+        "duration": 3.52,
+        "text": "compaction so"
+      },
+      {
+        "start": 188.56,
+        "duration": 3.679,
+        "text": "we could take those two sizes those two"
+      },
+      {
+        "start": 190.56,
+        "duration": 3.84,
+        "text": "maxes table sizes"
+      },
+      {
+        "start": 192.239,
+        "duration": 4.161,
+        "text": "but i'm gonna have to create a level two"
+      },
+      {
+        "start": 194.4,
+        "duration": 4.72,
+        "text": "to fit more data in my disk"
+      },
+      {
+        "start": 196.4,
+        "duration": 4.0,
+        "text": "to satisfy the leveling this is where"
+      },
+      {
+        "start": 199.12,
+        "duration": 2.8,
+        "text": "that level work comes from we're"
+      },
+      {
+        "start": 200.4,
+        "duration": 3.759,
+        "text": "building more levels"
+      },
+      {
+        "start": 201.92,
+        "duration": 3.84,
+        "text": "so what we can do is just move that file"
+      },
+      {
+        "start": 204.159,
+        "duration": 3.521,
+        "text": "down to level two"
+      },
+      {
+        "start": 205.76,
+        "duration": 3.52,
+        "text": "do a quick size check up we're still"
+      },
+      {
+        "start": 207.68,
+        "duration": 2.72,
+        "text": "over so we're gonna have to move another"
+      },
+      {
+        "start": 209.28,
+        "duration": 3.84,
+        "text": "file down"
+      },
+      {
+        "start": 210.4,
+        "duration": 4.16,
+        "text": "awesome now everything seems to fit we"
+      },
+      {
+        "start": 213.12,
+        "duration": 3.039,
+        "text": "have everything leveled properly"
+      },
+      {
+        "start": 214.56,
+        "duration": 4.64,
+        "text": "everything's in the right place"
+      },
+      {
+        "start": 216.159,
+        "duration": 4.72,
+        "text": "great the levels are settled level two"
+      },
+      {
+        "start": 219.2,
+        "duration": 4.24,
+        "text": "max size is a multiplier"
+      },
+      {
+        "start": 220.879,
+        "duration": 3.841,
+        "text": "again two times level one so you can see"
+      },
+      {
+        "start": 223.44,
+        "duration": 3.92,
+        "text": "how it starts growing"
+      },
+      {
+        "start": 224.72,
+        "duration": 4.079,
+        "text": "in that way so if we look at our data"
+      },
+      {
+        "start": 227.36,
+        "duration": 2.08,
+        "text": "everything's fitting neatly in the"
+      },
+      {
+        "start": 228.799,
+        "duration": 2.561,
+        "text": "levels"
+      },
+      {
+        "start": 229.44,
+        "duration": 3.76,
+        "text": "we are totally fine now there's no more"
+      },
+      {
+        "start": 231.36,
+        "duration": 3.68,
+        "text": "compaction that needs to get done"
+      },
+      {
+        "start": 233.2,
+        "duration": 3.2,
+        "text": "but inevitably we're going to start"
+      },
+      {
+        "start": 235.04,
+        "duration": 3.44,
+        "text": "looking at all the sizing"
+      },
+      {
+        "start": 236.4,
+        "duration": 3.839,
+        "text": "but what's going to happen ss tables are"
+      },
+      {
+        "start": 238.48,
+        "duration": 3.839,
+        "text": "going to still be written to disk"
+      },
+      {
+        "start": 240.239,
+        "duration": 3.2,
+        "text": "and when that happens it promotes the"
+      },
+      {
+        "start": 242.319,
+        "duration": 3.28,
+        "text": "level 0 to level 1"
+      },
+      {
+        "start": 243.439,
+        "duration": 3.121,
+        "text": "immediately and the same process happens"
+      },
+      {
+        "start": 245.599,
+        "duration": 2.801,
+        "text": "again"
+      },
+      {
+        "start": 246.56,
+        "duration": 4.239,
+        "text": "and it just keeps going and we're going"
+      },
+      {
+        "start": 248.4,
+        "duration": 4.24,
+        "text": "to start compacting and compacting again"
+      },
+      {
+        "start": 250.799,
+        "duration": 3.761,
+        "text": "now if you look at what we have here we"
+      },
+      {
+        "start": 252.64,
+        "duration": 3.76,
+        "text": "just went over the sizing again"
+      },
+      {
+        "start": 254.56,
+        "duration": 3.84,
+        "text": "so here we go again we're going to be"
+      },
+      {
+        "start": 256.4,
+        "duration": 4.64,
+        "text": "compacting down into level two"
+      },
+      {
+        "start": 258.4,
+        "duration": 3.6,
+        "text": "max ss table size is too big we can pack"
+      },
+      {
+        "start": 261.04,
+        "duration": 3.84,
+        "text": "that one down"
+      },
+      {
+        "start": 262.0,
+        "duration": 4.4,
+        "text": "we create a new ss table now we have"
+      },
+      {
+        "start": 264.88,
+        "duration": 3.68,
+        "text": "everything in level two"
+      },
+      {
+        "start": 266.4,
+        "duration": 4.56,
+        "text": "level one is satisfied we're within the"
+      },
+      {
+        "start": 268.56,
+        "duration": 4.8,
+        "text": "boundaries for all the different sizing"
+      },
+      {
+        "start": 270.96,
+        "duration": 4.239,
+        "text": "great but like i said we're not gonna"
+      },
+      {
+        "start": 273.36,
+        "duration": 2.8,
+        "text": "stop we're gonna keep writing data into"
+      },
+      {
+        "start": 275.199,
+        "duration": 2.961,
+        "text": "the system"
+      },
+      {
+        "start": 276.16,
+        "duration": 3.12,
+        "text": "this whole thing happens over and over"
+      },
+      {
+        "start": 278.16,
+        "duration": 3.44,
+        "text": "and over again"
+      },
+      {
+        "start": 279.28,
+        "duration": 3.919,
+        "text": "it's very intensive so when we're"
+      },
+      {
+        "start": 281.6,
+        "duration": 4.0,
+        "text": "writing data to the system"
+      },
+      {
+        "start": 283.199,
+        "duration": 4.0,
+        "text": "it gets promoted into the right levels"
+      },
+      {
+        "start": 285.6,
+        "duration": 3.28,
+        "text": "and those levels start moving down from"
+      },
+      {
+        "start": 287.199,
+        "duration": 3.921,
+        "text": "level one to level two to level three"
+      },
+      {
+        "start": 288.88,
+        "duration": 3.92,
+        "text": "level four the good thing here is that"
+      },
+      {
+        "start": 291.12,
+        "duration": 3.92,
+        "text": "we know where that data is going to be"
+      },
+      {
+        "start": 292.8,
+        "duration": 3.679,
+        "text": "and as it gets promoted further it gets"
+      },
+      {
+        "start": 295.04,
+        "duration": 3.76,
+        "text": "written less"
+      },
+      {
+        "start": 296.479,
+        "duration": 3.041,
+        "text": "now as i mentioned we used a multiplier"
+      },
+      {
+        "start": 298.8,
+        "duration": 3.44,
+        "text": "of two"
+      },
+      {
+        "start": 299.52,
+        "duration": 3.76,
+        "text": "two times max as this table size the"
+      },
+      {
+        "start": 302.24,
+        "duration": 3.6,
+        "text": "real world"
+      },
+      {
+        "start": 303.28,
+        "duration": 3.359,
+        "text": "it's ten so it didn't look as good an"
+      },
+      {
+        "start": 305.84,
+        "duration": 2.16,
+        "text": "example"
+      },
+      {
+        "start": 306.639,
+        "duration": 3.041,
+        "text": "but you get what we're trying to do here"
+      },
+      {
+        "start": 308.0,
+        "duration": 3.68,
+        "text": "we're showing multipliers"
+      },
+      {
+        "start": 309.68,
+        "duration": 3.92,
+        "text": "10 is the default you can change that if"
+      },
+      {
+        "start": 311.68,
+        "duration": 4.16,
+        "text": "you need to in this case"
+      },
+      {
+        "start": 313.6,
+        "duration": 3.84,
+        "text": "it's probably best to leave it alone the"
+      },
+      {
+        "start": 315.84,
+        "duration": 2.639,
+        "text": "configuration as you can see here in the"
+      },
+      {
+        "start": 317.44,
+        "duration": 3.92,
+        "text": "diagram"
+      },
+      {
+        "start": 318.479,
+        "duration": 3.601,
+        "text": "ss table max size that's 160 meg that's"
+      },
+      {
+        "start": 321.36,
+        "duration": 2.72,
+        "text": "the default"
+      },
+      {
+        "start": 322.08,
+        "duration": 3.28,
+        "text": "you could change that again that's one"
+      },
+      {
+        "start": 324.08,
+        "duration": 2.8,
+        "text": "of those things that you better not"
+      },
+      {
+        "start": 325.36,
+        "duration": 2.96,
+        "text": "change it unless you know exactly what"
+      },
+      {
+        "start": 326.88,
+        "duration": 2.879,
+        "text": "you're doing because you could really"
+      },
+      {
+        "start": 328.32,
+        "duration": 3.92,
+        "text": "mess things up quickly"
+      },
+      {
+        "start": 329.759,
+        "duration": 3.841,
+        "text": "and nobody wants to deal with a blown up"
+      },
+      {
+        "start": 332.24,
+        "duration": 3.36,
+        "text": "level compaction system"
+      },
+      {
+        "start": 333.6,
+        "duration": 3.2,
+        "text": "it will get really crazy fast because of"
+      },
+      {
+        "start": 335.6,
+        "duration": 2.64,
+        "text": "how the levels work"
+      },
+      {
+        "start": 336.8,
+        "duration": 3.28,
+        "text": "you can have things promoting really"
+      },
+      {
+        "start": 338.24,
+        "duration": 3.2,
+        "text": "quickly and that's just going to eat up"
+      },
+      {
+        "start": 340.08,
+        "duration": 3.119,
+        "text": "a lot of disk i o"
+      },
+      {
+        "start": 341.44,
+        "duration": 3.12,
+        "text": "so once we have these ss tables"
+      },
+      {
+        "start": 343.199,
+        "duration": 4.961,
+        "text": "exceeding these amounts"
+      },
+      {
+        "start": 344.56,
+        "duration": 5.44,
+        "text": "that's when we go we do another write"
+      },
+      {
+        "start": 348.16,
+        "duration": 3.599,
+        "text": "in the example that we had we had pretty"
+      },
+      {
+        "start": 350.0,
+        "duration": 3.36,
+        "text": "large partitions so things are getting"
+      },
+      {
+        "start": 351.759,
+        "duration": 2.72,
+        "text": "promoted pretty regularly"
+      },
+      {
+        "start": 353.36,
+        "duration": 2.959,
+        "text": "in the real world they don't get"
+      },
+      {
+        "start": 354.479,
+        "duration": 3.121,
+        "text": "promoted quite as fast unless you're"
+      },
+      {
+        "start": 356.319,
+        "duration": 3.681,
+        "text": "doing a lot of writes"
+      },
+      {
+        "start": 357.6,
+        "duration": 4.0,
+        "text": "the smaller your partitions the closer"
+      },
+      {
+        "start": 360.0,
+        "duration": 2.56,
+        "text": "you're going to get to that actual 160"
+      },
+      {
+        "start": 361.6,
+        "duration": 4.08,
+        "text": "meg size"
+      },
+      {
+        "start": 362.56,
+        "duration": 4.24,
+        "text": "that 160 megs is just a marker if it"
+      },
+      {
+        "start": 365.68,
+        "duration": 2.639,
+        "text": "goes over that's fine we're trying to"
+      },
+      {
+        "start": 366.8,
+        "duration": 3.44,
+        "text": "keep the data close to each other if you"
+      },
+      {
+        "start": 368.319,
+        "duration": 3.921,
+        "text": "go and look at the actual file system"
+      },
+      {
+        "start": 370.24,
+        "duration": 4.72,
+        "text": "you'll see that there's different sizes"
+      },
+      {
+        "start": 372.24,
+        "duration": 4.799,
+        "text": "there's not just 160 meg chunks of data"
+      },
+      {
+        "start": 374.96,
+        "duration": 3.92,
+        "text": "in your disk so that's what's going on"
+      },
+      {
+        "start": 377.039,
+        "duration": 3.681,
+        "text": "there when you go look"
+      },
+      {
+        "start": 378.88,
+        "duration": 3.92,
+        "text": "level of compaction is best used for"
+      },
+      {
+        "start": 380.72,
+        "duration": 3.52,
+        "text": "reads and here's why"
+      },
+      {
+        "start": 382.8,
+        "duration": 2.8,
+        "text": "so if you think about what you're trying"
+      },
+      {
+        "start": 384.24,
+        "duration": 3.36,
+        "text": "to do with this data you're trying to"
+      },
+      {
+        "start": 385.6,
+        "duration": 4.319,
+        "text": "get it to a level where it's stopped"
+      },
+      {
+        "start": 387.6,
+        "duration": 3.439,
+        "text": "so occasional rights meaning it doesn't"
+      },
+      {
+        "start": 389.919,
+        "duration": 3.12,
+        "text": "promote a lot"
+      },
+      {
+        "start": 391.039,
+        "duration": 3.921,
+        "text": "but the reads are very consistent it"
+      },
+      {
+        "start": 393.039,
+        "duration": 2.241,
+        "text": "knows exactly where that data is and"
+      },
+      {
+        "start": 394.96,
+        "duration": 3.44,
+        "text": "it's"
+      },
+      {
+        "start": 395.28,
+        "duration": 4.56,
+        "text": "very stable meaning that level one level"
+      },
+      {
+        "start": 398.4,
+        "duration": 2.4,
+        "text": "two level three by the time you get to"
+      },
+      {
+        "start": 399.84,
+        "duration": 2.72,
+        "text": "level three"
+      },
+      {
+        "start": 400.8,
+        "duration": 2.959,
+        "text": "it's not going to be written as much and"
+      },
+      {
+        "start": 402.56,
+        "duration": 1.84,
+        "text": "you know that that data is always going"
+      },
+      {
+        "start": 403.759,
+        "duration": 2.401,
+        "text": "to be there"
+      },
+      {
+        "start": 404.4,
+        "duration": 3.68,
+        "text": "so it caches nicely it's just really"
+      },
+      {
+        "start": 406.16,
+        "duration": 3.36,
+        "text": "good for reads"
+      },
+      {
+        "start": 408.08,
+        "duration": 3.119,
+        "text": "the idea is that we're trying to group"
+      },
+      {
+        "start": 409.52,
+        "duration": 4.239,
+        "text": "this data together very neatly"
+      },
+      {
+        "start": 411.199,
+        "duration": 4.321,
+        "text": "and succinctly level compaction does"
+      },
+      {
+        "start": 413.759,
+        "duration": 4.481,
+        "text": "that level compaction is not just a"
+      },
+      {
+        "start": 415.52,
+        "duration": 3.92,
+        "text": "cassandra topic it is a general topic in"
+      },
+      {
+        "start": 418.24,
+        "duration": 3.28,
+        "text": "distributed systems"
+      },
+      {
+        "start": 419.44,
+        "duration": 3.92,
+        "text": "especially with log structured storage"
+      },
+      {
+        "start": 421.52,
+        "duration": 4.079,
+        "text": "however cassandra's done a lot"
+      },
+      {
+        "start": 423.36,
+        "duration": 3.6,
+        "text": "with level compaction tailoring it to"
+      },
+      {
+        "start": 425.599,
+        "duration": 3.681,
+        "text": "specific data models"
+      },
+      {
+        "start": 426.96,
+        "duration": 4.16,
+        "text": "for cassandra as you can see from this"
+      },
+      {
+        "start": 429.28,
+        "duration": 4.319,
+        "text": "table things add up really quickly"
+      },
+      {
+        "start": 431.12,
+        "duration": 3.84,
+        "text": "you're adding a zero every single time"
+      },
+      {
+        "start": 433.599,
+        "duration": 3.6,
+        "text": "there are multipliers"
+      },
+      {
+        "start": 434.96,
+        "duration": 4.079,
+        "text": "so it can get pretty large by the time"
+      },
+      {
+        "start": 437.199,
+        "duration": 4.72,
+        "text": "you get to level five or six"
+      },
+      {
+        "start": 439.039,
+        "duration": 4.641,
+        "text": "is a lot of data in that level so"
+      },
+      {
+        "start": 441.919,
+        "duration": 2.481,
+        "text": "between level one level two and level"
+      },
+      {
+        "start": 443.68,
+        "duration": 2.32,
+        "text": "three"
+      },
+      {
+        "start": 444.4,
+        "duration": 3.6,
+        "text": "we have a certain amount of size which"
+      },
+      {
+        "start": 446.0,
+        "duration": 5.199,
+        "text": "is about ten percent"
+      },
+      {
+        "start": 448.0,
+        "duration": 4.479,
+        "text": "of that level four disk usage is also"
+      },
+      {
+        "start": 451.199,
+        "duration": 2.4,
+        "text": "something you need to consider with"
+      },
+      {
+        "start": 452.479,
+        "duration": 3.921,
+        "text": "level compaction"
+      },
+      {
+        "start": 453.599,
+        "duration": 4.641,
+        "text": "the general rule about compaction is you"
+      },
+      {
+        "start": 456.4,
+        "duration": 4.639,
+        "text": "need a little more space"
+      },
+      {
+        "start": 458.24,
+        "duration": 4.239,
+        "text": "not everything so it isn't 50 more of"
+      },
+      {
+        "start": 461.039,
+        "duration": 2.961,
+        "text": "the disk space you have and the reason"
+      },
+      {
+        "start": 462.479,
+        "duration": 4.081,
+        "text": "being is because you can have"
+      },
+      {
+        "start": 464.0,
+        "duration": 4.0,
+        "text": "one level above overlap the level below"
+      },
+      {
+        "start": 466.56,
+        "duration": 4.4,
+        "text": "it needs to be able to compact"
+      },
+      {
+        "start": 468.0,
+        "duration": 3.52,
+        "text": "everything from that size down one level"
+      },
+      {
+        "start": 470.96,
+        "duration": 2.88,
+        "text": "so"
+      },
+      {
+        "start": 471.52,
+        "duration": 4.0,
+        "text": "a little more 11x is generally the"
+      },
+      {
+        "start": 473.84,
+        "duration": 3.359,
+        "text": "multiplier per level"
+      },
+      {
+        "start": 475.52,
+        "duration": 3.84,
+        "text": "if you need to compact from level 1 to"
+      },
+      {
+        "start": 477.199,
+        "duration": 4.241,
+        "text": "level two or level two to level three"
+      },
+      {
+        "start": 479.36,
+        "duration": 4.64,
+        "text": "you can predict how much you're going to"
+      },
+      {
+        "start": 481.44,
+        "duration": 5.52,
+        "text": "need for that so if you're at level two"
+      },
+      {
+        "start": 484.0,
+        "duration": 3.52,
+        "text": "then you're gonna need 1.6 terabytes of"
+      },
+      {
+        "start": 486.96,
+        "duration": 2.639,
+        "text": "space"
+      },
+      {
+        "start": 487.52,
+        "duration": 3.28,
+        "text": "left for level three if you're filling"
+      },
+      {
+        "start": 489.599,
+        "duration": 3.44,
+        "text": "up level three"
+      },
+      {
+        "start": 490.8,
+        "duration": 3.76,
+        "text": "you're going to need a 160 gigabytes"
+      },
+      {
+        "start": 493.039,
+        "duration": 4.401,
+        "text": "plus a little more"
+      },
+      {
+        "start": 494.56,
+        "duration": 5.12,
+        "text": "to compact down to level four in general"
+      },
+      {
+        "start": 497.44,
+        "duration": 3.84,
+        "text": "the disk usage wastes a lot less of the"
+      },
+      {
+        "start": 499.68,
+        "duration": 3.44,
+        "text": "disk and that's a good thing"
+      },
+      {
+        "start": 501.28,
+        "duration": 3.599,
+        "text": "other compaction strategies aren't quite"
+      },
+      {
+        "start": 503.12,
+        "duration": 3.68,
+        "text": "as miserly with your disk"
+      },
+      {
+        "start": 504.879,
+        "duration": 3.281,
+        "text": "level compaction is really good for that"
+      },
+      {
+        "start": 506.8,
+        "duration": 2.16,
+        "text": "the other advantage is that obsolete"
+      },
+      {
+        "start": 508.16,
+        "duration": 2.879,
+        "text": "records"
+      },
+      {
+        "start": 508.96,
+        "duration": 3.84,
+        "text": "can disappear really quickly as they get"
+      },
+      {
+        "start": 511.039,
+        "duration": 4.48,
+        "text": "promoted they get removed"
+      },
+      {
+        "start": 512.8,
+        "duration": 3.52,
+        "text": "the downside though is it is very i o"
+      },
+      {
+        "start": 515.519,
+        "duration": 2.241,
+        "text": "intensive"
+      },
+      {
+        "start": 516.32,
+        "duration": 4.0,
+        "text": "you can see some of these aren't really"
+      },
+      {
+        "start": 517.76,
+        "duration": 4.399,
+        "text": "that good io intensity that's the"
+      },
+      {
+        "start": 520.32,
+        "duration": 3.519,
+        "text": "biggest problem with level compaction"
+      },
+      {
+        "start": 522.159,
+        "duration": 3.921,
+        "text": "if you're doing a lot of writes you're"
+      },
+      {
+        "start": 523.839,
+        "duration": 4.161,
+        "text": "generating a lot of level zero files"
+      },
+      {
+        "start": 526.08,
+        "duration": 3.92,
+        "text": "which didn't get promoted the more"
+      },
+      {
+        "start": 528.0,
+        "duration": 3.12,
+        "text": "promotion means more big files have to"
+      },
+      {
+        "start": 530.0,
+        "duration": 2.72,
+        "text": "get moved around"
+      },
+      {
+        "start": 531.12,
+        "duration": 3.92,
+        "text": "if you're going from say level three to"
+      },
+      {
+        "start": 532.72,
+        "duration": 2.88,
+        "text": "level four that's a lot of data moving"
+      },
+      {
+        "start": 535.04,
+        "duration": 3.12,
+        "text": "around"
+      },
+      {
+        "start": 535.6,
+        "duration": 3.679,
+        "text": "so that's why high rights on a level"
+      },
+      {
+        "start": 538.16,
+        "duration": 2.799,
+        "text": "compaction system"
+      },
+      {
+        "start": 539.279,
+        "duration": 3.361,
+        "text": "is not a good idea you should consider"
+      },
+      {
+        "start": 540.959,
+        "duration": 2.721,
+        "text": "something like size tier or time window"
+      },
+      {
+        "start": 542.64,
+        "duration": 3.68,
+        "text": "in that case"
+      },
+      {
+        "start": 543.68,
+        "duration": 4.56,
+        "text": "but that disk intensity is really what"
+      },
+      {
+        "start": 546.32,
+        "duration": 4.56,
+        "text": "we're trying to avoid anyway because"
+      },
+      {
+        "start": 548.24,
+        "duration": 4.24,
+        "text": "cassandra does love to use disc io and"
+      },
+      {
+        "start": 550.88,
+        "duration": 3.28,
+        "text": "it's important for your reeds"
+      },
+      {
+        "start": 552.48,
+        "duration": 3.6,
+        "text": "you do not want compaction impacting"
+      },
+      {
+        "start": 554.16,
+        "duration": 2.56,
+        "text": "your reeds another problem that could"
+      },
+      {
+        "start": 556.08,
+        "duration": 2.8,
+        "text": "happen"
+      },
+      {
+        "start": 556.72,
+        "duration": 3.76,
+        "text": "is with all these levelings is that"
+      },
+      {
+        "start": 558.88,
+        "duration": 2.56,
+        "text": "eventually compaction will start falling"
+      },
+      {
+        "start": 560.48,
+        "duration": 3.359,
+        "text": "behind"
+      },
+      {
+        "start": 561.44,
+        "duration": 3.6,
+        "text": "level zero will get really far behind"
+      },
+      {
+        "start": 563.839,
+        "duration": 3.041,
+        "text": "and then you're in trouble"
+      },
+      {
+        "start": 565.04,
+        "duration": 4.08,
+        "text": "one of the safety valves for that is"
+      },
+      {
+        "start": 566.88,
+        "duration": 4.48,
+        "text": "that level zero will then switch to"
+      },
+      {
+        "start": 569.12,
+        "duration": 3.6,
+        "text": "size to your compaction to bring that"
+      },
+      {
+        "start": 571.36,
+        "duration": 3.36,
+        "text": "file size down"
+      },
+      {
+        "start": 572.72,
+        "duration": 3.36,
+        "text": "it's a catch-up mechanism but what it"
+      },
+      {
+        "start": 574.72,
+        "duration": 2.16,
+        "text": "does is it eliminates the need to"
+      },
+      {
+        "start": 576.08,
+        "duration": 3.6,
+        "text": "promote"
+      },
+      {
+        "start": 576.88,
+        "duration": 4.32,
+        "text": "those ss tables to the next level in"
+      },
+      {
+        "start": 579.68,
+        "duration": 3.279,
+        "text": "that emergency state"
+      },
+      {
+        "start": 581.2,
+        "duration": 3.52,
+        "text": "and that is an emergency state it"
+      },
+      {
+        "start": 582.959,
+        "duration": 3.361,
+        "text": "shouldn't happen all the time it's there"
+      },
+      {
+        "start": 584.72,
+        "duration": 2.239,
+        "text": "to keep you from having all these files"
+      },
+      {
+        "start": 586.32,
+        "duration": 2.639,
+        "text": "pending"
+      },
+      {
+        "start": 586.959,
+        "duration": 4.081,
+        "text": "waiting to go to level one when really"
+      },
+      {
+        "start": 588.959,
+        "duration": 4.721,
+        "text": "your system is running out of disk io"
+      },
+      {
+        "start": 591.04,
+        "duration": 4.4,
+        "text": "well i hope you got through this okay"
+      },
+      {
+        "start": 593.68,
+        "duration": 3.12,
+        "text": "level compaction is definitely the"
+      },
+      {
+        "start": 595.44,
+        "duration": 3.36,
+        "text": "hardest one to understand"
+      },
+      {
+        "start": 596.8,
+        "duration": 3.2,
+        "text": "the different levels and how they work"
+      },
+      {
+        "start": 598.8,
+        "duration": 2.8,
+        "text": "somewhat complicated"
+      },
+      {
+        "start": 600.0,
+        "duration": 3.279,
+        "text": "it's not as bad as some people think"
+      },
+      {
+        "start": 601.6,
+        "duration": 2.72,
+        "text": "hopefully the graphics really helped you"
+      },
+      {
+        "start": 603.279,
+        "duration": 2.56,
+        "text": "visualize"
+      },
+      {
+        "start": 604.32,
+        "duration": 3.04,
+        "text": "what's going on with those files as"
+      },
+      {
+        "start": 605.839,
+        "duration": 3.281,
+        "text": "they're getting promoted"
+      },
+      {
+        "start": 607.36,
+        "duration": 3.68,
+        "text": "and just know some of the drawbacks the"
+      },
+      {
+        "start": 609.12,
+        "duration": 7.92,
+        "text": "good and the bad and level of compaction"
+      },
+      {
+        "start": 611.04,
+        "duration": 6.0,
+        "text": "could be your friend"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T01:32:30.025190+00:00"
+}

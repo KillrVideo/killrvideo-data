@@ -1,0 +1,2363 @@
+{
+  "video_id": "11J11rc7cO4",
+  "title": "Cassandra Forward - Code That Can't Fail, Backed By Cassandra | Temporal",
+  "description": "An introduction to durable execution and how Temporal implements it using\nCassandra. Durable execution transparently persists each step of a program so\nthat if the machine running the code crashes, another machine can continue\nexecuting at the next step. It also has built-in durable timers and automatic\nretries for anything that might fail. Combined, it makes it simple for developers\nto write reliable code.\nLoren Sands-Ramshaw | Temporal\n\nCONNECT WITH DATASTAX\nSubscribe: http://www.youtube.com/c/datastaxdevs?sub_confirmation=1 \nTwitter: https://twitter.com/datastaxdevs\nTwitch: https://www.twitch.tv/datastaxdevs\n\nAbout DataStax:\nDataStax is the company behind the massively scalable, highly available, cloud-native NoSQL data platform built on Apache Cassandra™. DataStax gives developers and enterprises the freedom to run data in any cloud, Kubernetes, hybrid or bare metal at global scale with zero downtime and zero lock-in. More than 450 of the world’s leading enterprises including Capital One, Cisco, Comcast, Delta Airlines, Macy’s, McDonald’s, Safeway, Sony, and Walmart use DataStax to build transformational data architectures for real-world outcomes. For more, visit DataStax.com and @DataStax.\n\nAbout DataStax Developer:\nOn the DataStax Developers YouTube channel, you can find tutorials, workshops and much more to help you learn and stay updated with the latest information on Apache Cassandra©.  Visit https://datastax.com/dev for more free learning resources.",
+  "published_at": "2023-03-14T19:00:01Z",
+  "thumbnail": "https://i.ytimg.com/vi/11J11rc7cO4/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "scalable",
+    "workshop",
+    "cassandra",
+    "tutorial",
+    "apache_cassandra",
+    "nosql",
+    "introduction",
+    "architecture",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=11J11rc7cO4",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "hi folks this talk is code that can't fail backed by Cassandra my name is Lauren and I'm a devrel engineer at temporal I'm going to introduce a concept called durable execution and then I'll explain how we designed a system that provides durable execution finally I'll share a few learnings we've had working with Cassandra at scale part 1 durable execution so what even is code that can't fail now I don't mean expected errors like your code charges a card and gets a card expired error what I mean is that you can write a function that will not fail to complete executing it is guaranteed to finish running now you might be thinking what's the big deal of course my functions finish executing that's how code works but there are a number of different cases in which your code might fail to complete the process could crash maybe you divided by zero the process could be killed by the OS maybe it's out of memory the machine could lose power you could deploy a new version of your code and while usually you'd set up a graceful shutdown for the old processes they may be doing something longer than the grace period like a sleep statement for one hour and that would get interrupted by the fourth shutdown after say a five minute gracefair grace period the final reason is transient failures like temporarily unable to reach a downstream service now of course you could catch and handle this type of error and retry with exponential back off but a that can be a lot of code to write everywhere you hit the network and B if the retries go on for long enough you'll go past the redeployment graceful shutdown window get killed and lose the state of whatever you were trying to do durable execution takes care of all of these failures it runs your code in a way that persists each step taken so that in the event of a failure it can read execution history from disk and continue executing your function from the same place with a call stack and local variables intact yeah so this is great for any application that needs a high level of reliability and correctness applications that already are or should be manually checkpointing progress saving state to the database after each step to ensure the ability to recover from execution getting in trouble interrupted those applications can throw away their manual database updates and state machine code and instead write a durable function with automatically persistent steps and Recovery but maybe you're like my application doesn't need that level of reliability I never have long sleeps I already have retry code and it's okay if there's a restart on rare occasion and retry gets interrupted and lost it's a bug and will either lose data or end up with inconsistent data but if it happens once in a blue moon that's fine my answer to that is if you have a decent sized load even application with a normal amount of complexity in terms of Downstream services and third-party apis you're going to have a significant amount of drop to work so you're going to need to persist retry information and timers and have a pool of workers that pick up drop work and you need to do that for every service boundary and every important third-party API that's a lot of code to write debug and maintain that's why people do choreography using a message bus according between services or orchestration where there's a central coordinator deciding which services to call choreography gets really complex to reason about and debug when things go wrong in the microservices patterns book Chris Richardson recommends using orchestration for all but the simplest of use cases and you can think of durable execution as like a developer friendly version of orchestration so if your work is important and you don't want to drop it you can either write and maintain a lot of code to try make sure it's not dropped or you can use durable execution and code at a higher level of abstraction where you don't have to care about crashes and redeployments and retries and even about saving state not only is durable execution taking care of things used to have to do manually but opens up new ways of programming you can sleep for 30 days and not only will the function reliably go to the next line of code after 30 days passes but you also won't be taking up resources during those 30 days because the system will know the function isn't in use kill it in order to free up resources for active functions and when 30 days comes around recover the function to the correct state so you could easily code a subscription charging the customer every 30 days in a loop since these functions are potentially long running you may want to query them for their state or send them instructions so durable functions provide mechanisms to receive and respond to rpcs for instance on Amazon there's a 30 minute cancellation window on each order if that was implemented with a durable function you would start the function at order time the function would reserve the item as from the inventory service sleep for 30 minutes and if it received an RPC that said cancel before then it would free up that inventory send a cancellation successful email and return able functions can also be indefinitely long running for example you could have a customer function that runs forever and implements your customer loyalty program whenever the customer makes a purchase you send that customer's durable function an RPC with the purchase info and the function adds to that customer's loyalty points and decides whether to send them an email or maybe with a coupon or an encouragement to hit the next loyalty level finally if you have a function that can last forever and can't fail and that can respond to rpcs you no longer need a database in the last example when the customer logs into their account to view their loyalty points we don't need to look it up in a database instead we can send a get points RPC to the function and responds with the number of points from the local variable that it's stored in it's more concretely show what I'm talking about um let's go through a couple examples first here's the subscription implementation uh is a durable function it takes a user object and the amount to charge it starts out with cancel false sets up a Handler for an RPC called cancel which sets cancel to true and sends a confirmation email then it Loops Wildlife canceled charge the user and sleep for 30 days so the function will wake up when the sleep timer goes off or when it receives a cancel RPC and otherwise won't take up resources also both the send email and the charge functions it will automatically retry on failures like our email Services down or we can't reach right now here is the Loyalty program example when a user signs up you call the function with the user object and they start with zero points whenever the user makes a purchase we send a notified purchase RPC to the function and it adds the points total and decides whether to send these or a coupon whenever the user views their profile we send get points RPC to the function which Returns the points total finally the function needs to not return so that it stays running so we wait for a promise that never resolves so that's the whole whole loyalty program it's pretty basic but it's reliable scalable and durable we don't need to save the points total to a database we can trust that the local variable will always be there and be accurate and that is durable execution running functions in a way that is process independent they survive process death and long-running functions are intentionally run by different processes over time it automatically retries any functions that might have Transit failures you can sleep for arbitrary periods of time you can send messages to the function and receive responses your functions can last indefinitely long and you can treat your local variables as durable state here are the systems that support durable execution at the bottom is temporal where I work our co-fundors Maxime in summer launched AWS simple workflow service in 2012 and summer went on to Microsoft and built Azure durable test streamer which became so popular that it was adopted by Azure durable functions uh summer and Maxime uh got back together at Uber where they created Cadence in 2016 which is used by Uber engineering for hundreds of use cases and was adopted by a number of other companies as well they left Uber in 2019 to recreate some Coral which is a fork of cadence that now has a team of 130 people working on it including me and here are some companies that Houston portal including stripe Netflix snap box coinbase and data doc now that we have a better sense of what durable execution is let's get into how we implement the system that provides durable execution at high level there are three parts of the system there's a client library that you use to start durable functions or stop them or send rpcs to them it talks via grpc to the server which saves the progress of the function to the database there's a worker which uses one of our language runtimes we support go Java python node PHP and are working on.net and Ruby and has your code the workers are polling the server for tasks and when they get a task they run your code like calling a durable function or calling a function's RPC Handler then the worker sends the server the results of running the code let's look at a couple concrete examples we can start the subscription function we saw earlier by using the client to send the server a start function message the server saves the request in the database and replies that it has received and accepted the request the server creates a start function task for the worker the worker pulls and receives the task and calls the function since the worker is the process that has the code the function initializes a variable sets up an RPC Handler enters the loop and then hits the line away to chart that's the result of executing the start function task and at this point the worker sends that result to the server the worker is saying the next step of running the subscription function is calling this charge function now let's look inside the server to see how it handles receiving the next step inside the server component are a few different services and a couple data stores the front-end service receives the next step from the worker along with the ID of this instance of the subscription function each instance has an ID that is unique among all running functions and it's provided by the client at start time we hash the ID to determine which host the function belongs to in this case a function id5 belongs to host B so that's where the front-end service affords the request to each host has a database partition or Shard we support my SQL postgres sqlite and Cassandra but it's a very write heavy load since each step of each function you run is written into the database and you can sale scale that right load much higher with Cassandra so we use Cassandra for our cloud service our cloud service is a hosted version of the server but it's open source and many companies host themselves the cloud pitch is that you'll save time and that's money as well as peace of mind if you if the experts host and maintain it for you now zoom in on just host B and partition B when host b gets the message to call charge it needs to do three things update the state of the function add a charge task to the queue so that a worker can pick it up and execute it and add a timeout there are many types of timeouts that might be set in this case it might be the maximum length of time the charge function can be tried and retried before we consider it permanently failed at which point that line of code in the subscription function will throw an error it's important that uh all three of these things are done together atomically because otherwise you'll run into various sorts of race conditions and inconsistencies inconsistencies like if you update State first and then fail to add the task to the queue then the system will think there's a task that's not there or if you add to the queue first and then you do the update the update is slow uh the task might be completed before the update goes through so we use a single partition log to batch statement to get atomicity and isolation an issue with having the tests on each partition is queer reform query performance with Cassandra I think of your schema design following your query patterns versus relational where you can generally with start with a schema and query arbitrarily so when we're thinking of the query give me the next task on Q few Q Foo we would need to check all of the partitions because they're partitioned by function ID not by a q name and that's not scalable so we have a separate table called tasks on the right Partition by q a and a separate service for responding to Q queries queries and we have a service that moves tasks from the functions table partitions on the left to the queue table on the right and it takes care of retrying and deduping this is the transactional outbox pattern and the cues on the left are also called transfer cues also a single queue can have a load higher than a single host can handle so in reality we Shard the hosts on the right further Beyond just qname so now when a worker asks the front-end service for new work on task queue Foo it will get forwarded to host one which will take the charge task from partition one when the worker receives the charge task it will call the charge function if the function fails the worker will report that back to the server if it's something transient like a network error the server will schedule the same task for a future time if it's something permanent like a card expired error the server will record that result and put a task on the Queue to activate the subscription function which we'll throw from the charge line if the charge succeeds the server will record the result and activate the subscription function passing the result that's as far as I'll go into temporal's architecture for the next section I talked to one of our Engineers that has the most experience with Cassandra to get a few quick things we've learned from using Cassandra a lot under high load the first thing is we have a lot of cues and as a old data Stacks blog post says cues are an anti-pattern in Cassandra a simple example is if we have a tasks table with qname and queued at time uuid and task info if we insert 10 000 tasks onto qfu and Q Foo and then a DQ or delete all but the most recent then there will be 999 tombstones which by default will stick around for their 10-day garbage collection grace period if we do the query on the right select a single task from qfoo then Cassandra will have to go through all of those tombstones before finding the most recently inserted task and that can take in a blog post example of 300 milliseconds the solution is to avoid most or all of these tube zones by adding to the where Clause to tell Cassandra where to start scanning and here's a link to the blog post an example of us doing this in our code here are some miscellaneous recommendations we had generally Cassandra is a great fit for write heavy workloads and especially nice for append only tables try to avoid lightweight transactions beyond the Forex latency of paxos four phase commit there's also the potential for contention during two of the phases we wound up implementing a client-side in-memory lock to avoid sending concurrent lightweight transactions and there's also the need if you use like transactions to insert rows to only use lightweight transactions for reading and writing on that table try to avoid secondary indexes or materialized views use elasticsearch for searching and avoid large partitions to recap we learned what durable execution is how it's programming at a higher level of abstraction where a number of different distributed systems concerns are taken care of automatically for you we also look at how part of the internals of how that's implemented and shared a few suggestions from our time with Cassandra Holland was something we like to say which is distributed systems should hold you up not hold you back we've made software to support you and having a better development experience if you'd like to learn more our website is temporal.io I'm Lauren DSR on Twitter and happy to answer any questions you have and these slides are available at T dot MP slash Can't Fail forward thanks for your time",
+    "segments": [
+      {
+        "start": 3.54,
+        "duration": 4.68,
+        "text": "hi folks this talk is code that can't"
+      },
+      {
+        "start": 6.12,
+        "duration": 3.72,
+        "text": "fail backed by Cassandra"
+      },
+      {
+        "start": 8.22,
+        "duration": 3.54,
+        "text": "my name is Lauren and I'm a devrel"
+      },
+      {
+        "start": 9.84,
+        "duration": 3.78,
+        "text": "engineer at temporal"
+      },
+      {
+        "start": 11.76,
+        "duration": 3.959,
+        "text": "I'm going to introduce a concept called"
+      },
+      {
+        "start": 13.62,
+        "duration": 4.14,
+        "text": "durable execution and then I'll explain"
+      },
+      {
+        "start": 15.719,
+        "duration": 3.541,
+        "text": "how we designed a system that provides"
+      },
+      {
+        "start": 17.76,
+        "duration": 3.42,
+        "text": "durable execution"
+      },
+      {
+        "start": 19.26,
+        "duration": 4.439,
+        "text": "finally I'll share a few learnings we've"
+      },
+      {
+        "start": 21.18,
+        "duration": 4.859,
+        "text": "had working with Cassandra at scale"
+      },
+      {
+        "start": 23.699,
+        "duration": 5.16,
+        "text": "part 1 durable execution"
+      },
+      {
+        "start": 26.039,
+        "duration": 5.041,
+        "text": "so what even is code that can't fail"
+      },
+      {
+        "start": 28.859,
+        "duration": 4.441,
+        "text": "now I don't mean expected errors like"
+      },
+      {
+        "start": 31.08,
+        "duration": 4.56,
+        "text": "your code charges a card and gets a card"
+      },
+      {
+        "start": 33.3,
+        "duration": 3.779,
+        "text": "expired error what I mean is that you"
+      },
+      {
+        "start": 35.64,
+        "duration": 3.9,
+        "text": "can write a function that will not fail"
+      },
+      {
+        "start": 37.079,
+        "duration": 3.841,
+        "text": "to complete executing it is guaranteed"
+      },
+      {
+        "start": 39.54,
+        "duration": 3.359,
+        "text": "to finish running"
+      },
+      {
+        "start": 40.92,
+        "duration": 3.36,
+        "text": "now you might be thinking what's the big"
+      },
+      {
+        "start": 42.899,
+        "duration": 3.601,
+        "text": "deal of course my functions finish"
+      },
+      {
+        "start": 44.28,
+        "duration": 4.08,
+        "text": "executing that's how code works but"
+      },
+      {
+        "start": 46.5,
+        "duration": 4.86,
+        "text": "there are a number of different cases in"
+      },
+      {
+        "start": 48.36,
+        "duration": 4.98,
+        "text": "which your code might fail to complete"
+      },
+      {
+        "start": 51.36,
+        "duration": 4.019,
+        "text": "the process could crash maybe you"
+      },
+      {
+        "start": 53.34,
+        "duration": 4.02,
+        "text": "divided by zero the process could be"
+      },
+      {
+        "start": 55.379,
+        "duration": 4.801,
+        "text": "killed by the OS maybe it's out of"
+      },
+      {
+        "start": 57.36,
+        "duration": 4.199,
+        "text": "memory the machine could lose power you"
+      },
+      {
+        "start": 60.18,
+        "duration": 3.839,
+        "text": "could deploy a new version of your code"
+      },
+      {
+        "start": 61.559,
+        "duration": 4.261,
+        "text": "and while usually you'd set up a"
+      },
+      {
+        "start": 64.019,
+        "duration": 3.541,
+        "text": "graceful shutdown for the old processes"
+      },
+      {
+        "start": 65.82,
+        "duration": 3.479,
+        "text": "they may be doing something longer than"
+      },
+      {
+        "start": 67.56,
+        "duration": 3.419,
+        "text": "the grace period like a sleep statement"
+      },
+      {
+        "start": 69.299,
+        "duration": 3.121,
+        "text": "for one hour and that would get"
+      },
+      {
+        "start": 70.979,
+        "duration": 4.561,
+        "text": "interrupted by the fourth shutdown after"
+      },
+      {
+        "start": 72.42,
+        "duration": 4.98,
+        "text": "say a five minute gracefair grace period"
+      },
+      {
+        "start": 75.54,
+        "duration": 3.72,
+        "text": "the final reason is transient failures"
+      },
+      {
+        "start": 77.4,
+        "duration": 3.539,
+        "text": "like temporarily unable to reach a"
+      },
+      {
+        "start": 79.26,
+        "duration": 2.88,
+        "text": "downstream service now of course you"
+      },
+      {
+        "start": 80.939,
+        "duration": 3.121,
+        "text": "could catch and handle this type of"
+      },
+      {
+        "start": 82.14,
+        "duration": 4.32,
+        "text": "error and retry with exponential back"
+      },
+      {
+        "start": 84.06,
+        "duration": 3.96,
+        "text": "off but a that can be a lot of code to"
+      },
+      {
+        "start": 86.46,
+        "duration": 3.839,
+        "text": "write everywhere you hit the network and"
+      },
+      {
+        "start": 88.02,
+        "duration": 4.38,
+        "text": "B if the retries go on for long enough"
+      },
+      {
+        "start": 90.299,
+        "duration": 4.261,
+        "text": "you'll go past the redeployment graceful"
+      },
+      {
+        "start": 92.4,
+        "duration": 5.28,
+        "text": "shutdown window get killed and lose the"
+      },
+      {
+        "start": 94.56,
+        "duration": 5.34,
+        "text": "state of whatever you were trying to do"
+      },
+      {
+        "start": 97.68,
+        "duration": 4.32,
+        "text": "durable execution takes care of all of"
+      },
+      {
+        "start": 99.9,
+        "duration": 4.32,
+        "text": "these failures it runs your code in a"
+      },
+      {
+        "start": 102.0,
+        "duration": 4.259,
+        "text": "way that persists each step taken so"
+      },
+      {
+        "start": 104.22,
+        "duration": 3.84,
+        "text": "that in the event of a failure it can"
+      },
+      {
+        "start": 106.259,
+        "duration": 3.481,
+        "text": "read execution history from disk and"
+      },
+      {
+        "start": 108.06,
+        "duration": 3.72,
+        "text": "continue executing your function from"
+      },
+      {
+        "start": 109.74,
+        "duration": 3.9,
+        "text": "the same place with a call stack and"
+      },
+      {
+        "start": 111.78,
+        "duration": 3.96,
+        "text": "local variables intact"
+      },
+      {
+        "start": 113.64,
+        "duration": 3.54,
+        "text": "yeah so this is great for any"
+      },
+      {
+        "start": 115.74,
+        "duration": 3.3,
+        "text": "application that needs a high level of"
+      },
+      {
+        "start": 117.18,
+        "duration": 4.14,
+        "text": "reliability and correctness applications"
+      },
+      {
+        "start": 119.04,
+        "duration": 4.14,
+        "text": "that already are or should be manually"
+      },
+      {
+        "start": 121.32,
+        "duration": 3.72,
+        "text": "checkpointing progress saving state to"
+      },
+      {
+        "start": 123.18,
+        "duration": 3.6,
+        "text": "the database after each step to ensure"
+      },
+      {
+        "start": 125.04,
+        "duration": 3.359,
+        "text": "the ability to recover from execution"
+      },
+      {
+        "start": 126.78,
+        "duration": 4.56,
+        "text": "getting in trouble"
+      },
+      {
+        "start": 128.399,
+        "duration": 5.041,
+        "text": "interrupted those applications can throw"
+      },
+      {
+        "start": 131.34,
+        "duration": 3.96,
+        "text": "away their manual database updates and"
+      },
+      {
+        "start": 133.44,
+        "duration": 3.48,
+        "text": "state machine code and instead write a"
+      },
+      {
+        "start": 135.3,
+        "duration": 3.96,
+        "text": "durable function with automatically"
+      },
+      {
+        "start": 136.92,
+        "duration": 3.899,
+        "text": "persistent steps and Recovery"
+      },
+      {
+        "start": 139.26,
+        "duration": 3.18,
+        "text": "but maybe you're like"
+      },
+      {
+        "start": 140.819,
+        "duration": 3.841,
+        "text": "my application doesn't need that level"
+      },
+      {
+        "start": 142.44,
+        "duration": 4.32,
+        "text": "of reliability I never have long sleeps"
+      },
+      {
+        "start": 144.66,
+        "duration": 4.079,
+        "text": "I already have retry code and it's okay"
+      },
+      {
+        "start": 146.76,
+        "duration": 4.5,
+        "text": "if there's a restart on rare occasion"
+      },
+      {
+        "start": 148.739,
+        "duration": 4.441,
+        "text": "and retry gets interrupted and lost it's"
+      },
+      {
+        "start": 151.26,
+        "duration": 4.02,
+        "text": "a bug and will either lose data or end"
+      },
+      {
+        "start": 153.18,
+        "duration": 4.38,
+        "text": "up with inconsistent data but if it"
+      },
+      {
+        "start": 155.28,
+        "duration": 4.92,
+        "text": "happens once in a blue moon that's fine"
+      },
+      {
+        "start": 157.56,
+        "duration": 4.8,
+        "text": "my answer to that is if you have a"
+      },
+      {
+        "start": 160.2,
+        "duration": 4.56,
+        "text": "decent sized load even application with"
+      },
+      {
+        "start": 162.36,
+        "duration": 4.08,
+        "text": "a normal amount of complexity in terms"
+      },
+      {
+        "start": 164.76,
+        "duration": 3.72,
+        "text": "of Downstream services and third-party"
+      },
+      {
+        "start": 166.44,
+        "duration": 3.6,
+        "text": "apis you're going to have a significant"
+      },
+      {
+        "start": 168.48,
+        "duration": 3.3,
+        "text": "amount of drop to work"
+      },
+      {
+        "start": 170.04,
+        "duration": 3.479,
+        "text": "so you're going to need to persist retry"
+      },
+      {
+        "start": 171.78,
+        "duration": 3.84,
+        "text": "information and timers and have a pool"
+      },
+      {
+        "start": 173.519,
+        "duration": 3.841,
+        "text": "of workers that pick up drop work"
+      },
+      {
+        "start": 175.62,
+        "duration": 3.36,
+        "text": "and you need to do that for every"
+      },
+      {
+        "start": 177.36,
+        "duration": 3.9,
+        "text": "service boundary and every important"
+      },
+      {
+        "start": 178.98,
+        "duration": 4.74,
+        "text": "third-party API that's a lot of code to"
+      },
+      {
+        "start": 181.26,
+        "duration": 4.68,
+        "text": "write debug and maintain"
+      },
+      {
+        "start": 183.72,
+        "duration": 3.72,
+        "text": "that's why people do choreography using"
+      },
+      {
+        "start": 185.94,
+        "duration": 3.42,
+        "text": "a message bus according between services"
+      },
+      {
+        "start": 187.44,
+        "duration": 3.62,
+        "text": "or orchestration where there's a central"
+      },
+      {
+        "start": 189.36,
+        "duration": 4.2,
+        "text": "coordinator"
+      },
+      {
+        "start": 191.06,
+        "duration": 4.36,
+        "text": "deciding which services to call"
+      },
+      {
+        "start": 193.56,
+        "duration": 3.599,
+        "text": "choreography gets really complex to"
+      },
+      {
+        "start": 195.42,
+        "duration": 4.319,
+        "text": "reason about and debug when things go"
+      },
+      {
+        "start": 197.159,
+        "duration": 4.681,
+        "text": "wrong in the microservices patterns book"
+      },
+      {
+        "start": 199.739,
+        "duration": 3.541,
+        "text": "Chris Richardson recommends using"
+      },
+      {
+        "start": 201.84,
+        "duration": 3.3,
+        "text": "orchestration for all but the simplest"
+      },
+      {
+        "start": 203.28,
+        "duration": 3.539,
+        "text": "of use cases and you can think of"
+      },
+      {
+        "start": 205.14,
+        "duration": 5.519,
+        "text": "durable execution as like a developer"
+      },
+      {
+        "start": 206.819,
+        "duration": 5.64,
+        "text": "friendly version of orchestration"
+      },
+      {
+        "start": 210.659,
+        "duration": 3.241,
+        "text": "so if your work is important and you"
+      },
+      {
+        "start": 212.459,
+        "duration": 3.661,
+        "text": "don't want to drop it you can either"
+      },
+      {
+        "start": 213.9,
+        "duration": 4.44,
+        "text": "write and maintain a lot of code to try"
+      },
+      {
+        "start": 216.12,
+        "duration": 4.32,
+        "text": "make sure it's not dropped or you can"
+      },
+      {
+        "start": 218.34,
+        "duration": 3.66,
+        "text": "use durable execution and code at a"
+      },
+      {
+        "start": 220.44,
+        "duration": 2.76,
+        "text": "higher level of abstraction where you"
+      },
+      {
+        "start": 222.0,
+        "duration": 3.9,
+        "text": "don't have to care about crashes and"
+      },
+      {
+        "start": 223.2,
+        "duration": 3.959,
+        "text": "redeployments and retries and even about"
+      },
+      {
+        "start": 225.9,
+        "duration": 3.24,
+        "text": "saving state"
+      },
+      {
+        "start": 227.159,
+        "duration": 3.72,
+        "text": "not only is durable execution taking"
+      },
+      {
+        "start": 229.14,
+        "duration": 3.72,
+        "text": "care of things used to have to do"
+      },
+      {
+        "start": 230.879,
+        "duration": 3.36,
+        "text": "manually but opens up new ways of"
+      },
+      {
+        "start": 232.86,
+        "duration": 3.659,
+        "text": "programming"
+      },
+      {
+        "start": 234.239,
+        "duration": 3.78,
+        "text": "you can sleep for 30 days and not only"
+      },
+      {
+        "start": 236.519,
+        "duration": 2.94,
+        "text": "will the function reliably go to the"
+      },
+      {
+        "start": 238.019,
+        "duration": 4.08,
+        "text": "next line of code after 30 days passes"
+      },
+      {
+        "start": 239.459,
+        "duration": 4.081,
+        "text": "but you also won't be taking up"
+      },
+      {
+        "start": 242.099,
+        "duration": 3.0,
+        "text": "resources during those 30 days because"
+      },
+      {
+        "start": 243.54,
+        "duration": 3.36,
+        "text": "the system will know the function isn't"
+      },
+      {
+        "start": 245.099,
+        "duration": 3.72,
+        "text": "in use kill it in order to free up"
+      },
+      {
+        "start": 246.9,
+        "duration": 3.72,
+        "text": "resources for active functions and when"
+      },
+      {
+        "start": 248.819,
+        "duration": 3.601,
+        "text": "30 days comes around recover the"
+      },
+      {
+        "start": 250.62,
+        "duration": 2.94,
+        "text": "function to the correct state so you"
+      },
+      {
+        "start": 252.42,
+        "duration": 3.539,
+        "text": "could easily code a subscription"
+      },
+      {
+        "start": 253.56,
+        "duration": 4.019,
+        "text": "charging the customer every 30 days in a"
+      },
+      {
+        "start": 255.959,
+        "duration": 3.0,
+        "text": "loop"
+      },
+      {
+        "start": 257.579,
+        "duration": 3.421,
+        "text": "since these functions are potentially"
+      },
+      {
+        "start": 258.959,
+        "duration": 3.361,
+        "text": "long running you may want to query them"
+      },
+      {
+        "start": 261.0,
+        "duration": 3.18,
+        "text": "for their state or send them"
+      },
+      {
+        "start": 262.32,
+        "duration": 4.379,
+        "text": "instructions so durable functions"
+      },
+      {
+        "start": 264.18,
+        "duration": 4.739,
+        "text": "provide mechanisms to receive and"
+      },
+      {
+        "start": 266.699,
+        "duration": 4.44,
+        "text": "respond to rpcs"
+      },
+      {
+        "start": 268.919,
+        "duration": 3.661,
+        "text": "for instance on Amazon there's a 30"
+      },
+      {
+        "start": 271.139,
+        "duration": 3.421,
+        "text": "minute cancellation window on each order"
+      },
+      {
+        "start": 272.58,
+        "duration": 3.54,
+        "text": "if that was implemented with a durable"
+      },
+      {
+        "start": 274.56,
+        "duration": 3.24,
+        "text": "function you would start the function at"
+      },
+      {
+        "start": 276.12,
+        "duration": 3.84,
+        "text": "order time the function would reserve"
+      },
+      {
+        "start": 277.8,
+        "duration": 5.28,
+        "text": "the item as from the inventory service"
+      },
+      {
+        "start": 279.96,
+        "duration": 5.34,
+        "text": "sleep for 30 minutes and if it received"
+      },
+      {
+        "start": 283.08,
+        "duration": 4.02,
+        "text": "an RPC that said cancel before then it"
+      },
+      {
+        "start": 285.3,
+        "duration": 5.22,
+        "text": "would free up that inventory send a"
+      },
+      {
+        "start": 287.1,
+        "duration": 5.34,
+        "text": "cancellation successful email and return"
+      },
+      {
+        "start": 290.52,
+        "duration": 4.14,
+        "text": "able functions can also be indefinitely"
+      },
+      {
+        "start": 292.44,
+        "duration": 3.66,
+        "text": "long running for example you could have"
+      },
+      {
+        "start": 294.66,
+        "duration": 3.18,
+        "text": "a customer function that runs forever"
+      },
+      {
+        "start": 296.1,
+        "duration": 3.72,
+        "text": "and implements your customer loyalty"
+      },
+      {
+        "start": 297.84,
+        "duration": 3.84,
+        "text": "program whenever the customer makes a"
+      },
+      {
+        "start": 299.82,
+        "duration": 4.08,
+        "text": "purchase you send that customer's"
+      },
+      {
+        "start": 301.68,
+        "duration": 4.799,
+        "text": "durable function an RPC with the"
+      },
+      {
+        "start": 303.9,
+        "duration": 5.16,
+        "text": "purchase info and the function adds to"
+      },
+      {
+        "start": 306.479,
+        "duration": 5.22,
+        "text": "that customer's loyalty points and"
+      },
+      {
+        "start": 309.06,
+        "duration": 4.5,
+        "text": "decides whether to send them an email or"
+      },
+      {
+        "start": 311.699,
+        "duration": 4.981,
+        "text": "maybe with a coupon or an encouragement"
+      },
+      {
+        "start": 313.56,
+        "duration": 4.919,
+        "text": "to hit the next loyalty level"
+      },
+      {
+        "start": 316.68,
+        "duration": 4.079,
+        "text": "finally if you have a function that can"
+      },
+      {
+        "start": 318.479,
+        "duration": 4.5,
+        "text": "last forever and can't fail and that can"
+      },
+      {
+        "start": 320.759,
+        "duration": 4.561,
+        "text": "respond to rpcs you no longer need a"
+      },
+      {
+        "start": 322.979,
+        "duration": 3.901,
+        "text": "database in the last example when the"
+      },
+      {
+        "start": 325.32,
+        "duration": 2.819,
+        "text": "customer logs into their account to view"
+      },
+      {
+        "start": 326.88,
+        "duration": 2.819,
+        "text": "their loyalty points we don't need to"
+      },
+      {
+        "start": 328.139,
+        "duration": 3.421,
+        "text": "look it up in a database instead we can"
+      },
+      {
+        "start": 329.699,
+        "duration": 3.78,
+        "text": "send a get points RPC to the function"
+      },
+      {
+        "start": 331.56,
+        "duration": 3.419,
+        "text": "and responds with the number of points"
+      },
+      {
+        "start": 333.479,
+        "duration": 2.641,
+        "text": "from the local variable that it's stored"
+      },
+      {
+        "start": 334.979,
+        "duration": 2.761,
+        "text": "in"
+      },
+      {
+        "start": 336.12,
+        "duration": 2.639,
+        "text": "it's more concretely show what I'm"
+      },
+      {
+        "start": 337.74,
+        "duration": 3.42,
+        "text": "talking about"
+      },
+      {
+        "start": 338.759,
+        "duration": 3.481,
+        "text": "um let's go through a couple examples"
+      },
+      {
+        "start": 341.16,
+        "duration": 4.08,
+        "text": "first here's the subscription"
+      },
+      {
+        "start": 342.24,
+        "duration": 5.34,
+        "text": "implementation uh is a durable function"
+      },
+      {
+        "start": 345.24,
+        "duration": 4.44,
+        "text": "it takes a user object and the amount to"
+      },
+      {
+        "start": 347.58,
+        "duration": 4.14,
+        "text": "charge it starts out with cancel false"
+      },
+      {
+        "start": 349.68,
+        "duration": 4.62,
+        "text": "sets up a Handler for an RPC called"
+      },
+      {
+        "start": 351.72,
+        "duration": 4.38,
+        "text": "cancel which sets cancel to true and"
+      },
+      {
+        "start": 354.3,
+        "duration": 4.679,
+        "text": "sends a confirmation email"
+      },
+      {
+        "start": 356.1,
+        "duration": 5.64,
+        "text": "then it Loops Wildlife canceled charge"
+      },
+      {
+        "start": 358.979,
+        "duration": 4.621,
+        "text": "the user and sleep for 30 days"
+      },
+      {
+        "start": 361.74,
+        "duration": 4.019,
+        "text": "so the function will wake up when the"
+      },
+      {
+        "start": 363.6,
+        "duration": 4.74,
+        "text": "sleep timer goes off or when it receives"
+      },
+      {
+        "start": 365.759,
+        "duration": 3.78,
+        "text": "a cancel RPC and otherwise won't take up"
+      },
+      {
+        "start": 368.34,
+        "duration": 3.66,
+        "text": "resources"
+      },
+      {
+        "start": 369.539,
+        "duration": 4.141,
+        "text": "also both the send email and the charge"
+      },
+      {
+        "start": 372.0,
+        "duration": 3.66,
+        "text": "functions it will automatically retry on"
+      },
+      {
+        "start": 373.68,
+        "duration": 4.76,
+        "text": "failures like our email Services down or"
+      },
+      {
+        "start": 375.66,
+        "duration": 2.78,
+        "text": "we can't reach right"
+      },
+      {
+        "start": 378.9,
+        "duration": 5.34,
+        "text": "now here is the Loyalty program example"
+      },
+      {
+        "start": 381.3,
+        "duration": 4.679,
+        "text": "when a user signs up you call the"
+      },
+      {
+        "start": 384.24,
+        "duration": 3.66,
+        "text": "function with the user object and they"
+      },
+      {
+        "start": 385.979,
+        "duration": 3.601,
+        "text": "start with zero points whenever the user"
+      },
+      {
+        "start": 387.9,
+        "duration": 3.9,
+        "text": "makes a purchase we send a notified"
+      },
+      {
+        "start": 389.58,
+        "duration": 4.26,
+        "text": "purchase RPC to the function and it adds"
+      },
+      {
+        "start": 391.8,
+        "duration": 4.32,
+        "text": "the points total and decides whether to"
+      },
+      {
+        "start": 393.84,
+        "duration": 4.74,
+        "text": "send these or a coupon"
+      },
+      {
+        "start": 396.12,
+        "duration": 4.5,
+        "text": "whenever the user views their profile we"
+      },
+      {
+        "start": 398.58,
+        "duration": 4.8,
+        "text": "send get points RPC to the function"
+      },
+      {
+        "start": 400.62,
+        "duration": 4.74,
+        "text": "which Returns the points total finally"
+      },
+      {
+        "start": 403.38,
+        "duration": 3.78,
+        "text": "the function needs to not return so that"
+      },
+      {
+        "start": 405.36,
+        "duration": 4.32,
+        "text": "it stays running so we wait for a"
+      },
+      {
+        "start": 407.16,
+        "duration": 4.379,
+        "text": "promise that never resolves"
+      },
+      {
+        "start": 409.68,
+        "duration": 3.42,
+        "text": "so that's the whole whole loyalty"
+      },
+      {
+        "start": 411.539,
+        "duration": 4.141,
+        "text": "program it's pretty basic but it's"
+      },
+      {
+        "start": 413.1,
+        "duration": 3.9,
+        "text": "reliable scalable and durable we don't"
+      },
+      {
+        "start": 415.68,
+        "duration": 3.0,
+        "text": "need to save the points total to a"
+      },
+      {
+        "start": 417.0,
+        "duration": 3.539,
+        "text": "database we can trust that the local"
+      },
+      {
+        "start": 418.68,
+        "duration": 3.84,
+        "text": "variable will always be there and be"
+      },
+      {
+        "start": 420.539,
+        "duration": 4.801,
+        "text": "accurate"
+      },
+      {
+        "start": 422.52,
+        "duration": 4.56,
+        "text": "and that is durable execution"
+      },
+      {
+        "start": 425.34,
+        "duration": 3.9,
+        "text": "running functions in a way that is"
+      },
+      {
+        "start": 427.08,
+        "duration": 4.08,
+        "text": "process independent they survive process"
+      },
+      {
+        "start": 429.24,
+        "duration": 3.299,
+        "text": "death and long-running functions are"
+      },
+      {
+        "start": 431.16,
+        "duration": 2.58,
+        "text": "intentionally run by different processes"
+      },
+      {
+        "start": 432.539,
+        "duration": 3.481,
+        "text": "over time"
+      },
+      {
+        "start": 433.74,
+        "duration": 4.679,
+        "text": "it automatically retries any functions"
+      },
+      {
+        "start": 436.02,
+        "duration": 4.079,
+        "text": "that might have Transit failures"
+      },
+      {
+        "start": 438.419,
+        "duration": 3.78,
+        "text": "you can sleep for arbitrary periods of"
+      },
+      {
+        "start": 440.099,
+        "duration": 3.72,
+        "text": "time you can send messages to the"
+      },
+      {
+        "start": 442.199,
+        "duration": 3.181,
+        "text": "function and receive responses"
+      },
+      {
+        "start": 443.819,
+        "duration": 2.401,
+        "text": "your functions can last indefinitely"
+      },
+      {
+        "start": 445.38,
+        "duration": 2.46,
+        "text": "long"
+      },
+      {
+        "start": 446.22,
+        "duration": 4.259,
+        "text": "and you can treat your local variables"
+      },
+      {
+        "start": 447.84,
+        "duration": 4.74,
+        "text": "as durable state"
+      },
+      {
+        "start": 450.479,
+        "duration": 4.021,
+        "text": "here are the systems that support"
+      },
+      {
+        "start": 452.58,
+        "duration": 4.08,
+        "text": "durable execution at the bottom is"
+      },
+      {
+        "start": 454.5,
+        "duration": 4.68,
+        "text": "temporal where I work our co-fundors"
+      },
+      {
+        "start": 456.66,
+        "duration": 5.159,
+        "text": "Maxime in summer launched AWS simple"
+      },
+      {
+        "start": 459.18,
+        "duration": 5.1,
+        "text": "workflow service in 2012 and summer went"
+      },
+      {
+        "start": 461.819,
+        "duration": 4.141,
+        "text": "on to Microsoft and built Azure durable"
+      },
+      {
+        "start": 464.28,
+        "duration": 3.72,
+        "text": "test streamer which became so popular"
+      },
+      {
+        "start": 465.96,
+        "duration": 3.0,
+        "text": "that it was adopted by Azure durable"
+      },
+      {
+        "start": 468.0,
+        "duration": 3.12,
+        "text": "functions"
+      },
+      {
+        "start": 468.96,
+        "duration": 3.359,
+        "text": "uh summer and Maxime uh got back"
+      },
+      {
+        "start": 471.12,
+        "duration": 3.359,
+        "text": "together at Uber where they created"
+      },
+      {
+        "start": 472.319,
+        "duration": 3.541,
+        "text": "Cadence in 2016 which is used by Uber"
+      },
+      {
+        "start": 474.479,
+        "duration": 3.421,
+        "text": "engineering for hundreds of use cases"
+      },
+      {
+        "start": 475.86,
+        "duration": 3.48,
+        "text": "and was adopted by a number of other"
+      },
+      {
+        "start": 477.9,
+        "duration": 3.299,
+        "text": "companies as well"
+      },
+      {
+        "start": 479.34,
+        "duration": 4.199,
+        "text": "they left Uber in 2019 to recreate some"
+      },
+      {
+        "start": 481.199,
+        "duration": 4.081,
+        "text": "Coral which is a fork of cadence that"
+      },
+      {
+        "start": 483.539,
+        "duration": 3.961,
+        "text": "now has a team of 130 people working on"
+      },
+      {
+        "start": 485.28,
+        "duration": 4.199,
+        "text": "it including me"
+      },
+      {
+        "start": 487.5,
+        "duration": 4.819,
+        "text": "and here are some companies that Houston"
+      },
+      {
+        "start": 489.479,
+        "duration": 6.0,
+        "text": "portal including stripe Netflix snap box"
+      },
+      {
+        "start": 492.319,
+        "duration": 4.66,
+        "text": "coinbase and data doc"
+      },
+      {
+        "start": 495.479,
+        "duration": 3.601,
+        "text": "now that we have a better sense of what"
+      },
+      {
+        "start": 496.979,
+        "duration": 3.9,
+        "text": "durable execution is let's get into how"
+      },
+      {
+        "start": 499.08,
+        "duration": 4.2,
+        "text": "we implement the system that provides"
+      },
+      {
+        "start": 500.879,
+        "duration": 4.26,
+        "text": "durable execution"
+      },
+      {
+        "start": 503.28,
+        "duration": 3.72,
+        "text": "at high level there are three parts of"
+      },
+      {
+        "start": 505.139,
+        "duration": 3.541,
+        "text": "the system there's a client library that"
+      },
+      {
+        "start": 507.0,
+        "duration": 4.44,
+        "text": "you use to start durable functions or"
+      },
+      {
+        "start": 508.68,
+        "duration": 4.979,
+        "text": "stop them or send rpcs to them it talks"
+      },
+      {
+        "start": 511.44,
+        "duration": 4.44,
+        "text": "via grpc to the server which saves the"
+      },
+      {
+        "start": 513.659,
+        "duration": 4.68,
+        "text": "progress of the function to the database"
+      },
+      {
+        "start": 515.88,
+        "duration": 4.68,
+        "text": "there's a worker which uses one of our"
+      },
+      {
+        "start": 518.339,
+        "duration": 4.981,
+        "text": "language runtimes we support go Java"
+      },
+      {
+        "start": 520.56,
+        "duration": 3.719,
+        "text": "python node PHP and are working on.net"
+      },
+      {
+        "start": 523.32,
+        "duration": 3.66,
+        "text": "and Ruby"
+      },
+      {
+        "start": 524.279,
+        "duration": 4.801,
+        "text": "and has your code the workers are"
+      },
+      {
+        "start": 526.98,
+        "duration": 3.78,
+        "text": "polling the server for tasks and when"
+      },
+      {
+        "start": 529.08,
+        "duration": 3.48,
+        "text": "they get a task they run your code like"
+      },
+      {
+        "start": 530.76,
+        "duration": 4.199,
+        "text": "calling a durable function or calling a"
+      },
+      {
+        "start": 532.56,
+        "duration": 5.04,
+        "text": "function's RPC Handler"
+      },
+      {
+        "start": 534.959,
+        "duration": 4.5,
+        "text": "then the worker sends the server the"
+      },
+      {
+        "start": 537.6,
+        "duration": 5.16,
+        "text": "results of running the code let's look"
+      },
+      {
+        "start": 539.459,
+        "duration": 5.281,
+        "text": "at a couple concrete examples"
+      },
+      {
+        "start": 542.76,
+        "duration": 4.38,
+        "text": "we can start the subscription function"
+      },
+      {
+        "start": 544.74,
+        "duration": 5.219,
+        "text": "we saw earlier by using the client to"
+      },
+      {
+        "start": 547.14,
+        "duration": 4.139,
+        "text": "send the server a start function message"
+      },
+      {
+        "start": 549.959,
+        "duration": 2.641,
+        "text": "the server saves the request in the"
+      },
+      {
+        "start": 551.279,
+        "duration": 4.74,
+        "text": "database and replies that it has"
+      },
+      {
+        "start": 552.6,
+        "duration": 5.64,
+        "text": "received and accepted the request"
+      },
+      {
+        "start": 556.019,
+        "duration": 4.141,
+        "text": "the server creates a start function task"
+      },
+      {
+        "start": 558.24,
+        "duration": 3.779,
+        "text": "for the worker the worker pulls and"
+      },
+      {
+        "start": 560.16,
+        "duration": 4.859,
+        "text": "receives the task and calls the function"
+      },
+      {
+        "start": 562.019,
+        "duration": 5.101,
+        "text": "since the worker is the process that has"
+      },
+      {
+        "start": 565.019,
+        "duration": 4.981,
+        "text": "the code"
+      },
+      {
+        "start": 567.12,
+        "duration": 5.04,
+        "text": "the function initializes a variable sets"
+      },
+      {
+        "start": 570.0,
+        "duration": 4.5,
+        "text": "up an RPC Handler enters the loop and"
+      },
+      {
+        "start": 572.16,
+        "duration": 4.739,
+        "text": "then hits the line away to chart"
+      },
+      {
+        "start": 574.5,
+        "duration": 4.5,
+        "text": "that's the result of executing the start"
+      },
+      {
+        "start": 576.899,
+        "duration": 4.681,
+        "text": "function task and at this point the"
+      },
+      {
+        "start": 579.0,
+        "duration": 4.5,
+        "text": "worker sends that result to the server"
+      },
+      {
+        "start": 581.58,
+        "duration": 3.36,
+        "text": "the worker is saying the next step of"
+      },
+      {
+        "start": 583.5,
+        "duration": 3.3,
+        "text": "running the subscription function is"
+      },
+      {
+        "start": 584.94,
+        "duration": 3.72,
+        "text": "calling this charge function now let's"
+      },
+      {
+        "start": 586.8,
+        "duration": 4.8,
+        "text": "look inside the server to see how it"
+      },
+      {
+        "start": 588.66,
+        "duration": 4.679,
+        "text": "handles receiving the next step"
+      },
+      {
+        "start": 591.6,
+        "duration": 3.0,
+        "text": "inside the server component are a few"
+      },
+      {
+        "start": 593.339,
+        "duration": 2.94,
+        "text": "different services and a couple data"
+      },
+      {
+        "start": 594.6,
+        "duration": 3.419,
+        "text": "stores the front-end service receives"
+      },
+      {
+        "start": 596.279,
+        "duration": 4.861,
+        "text": "the next step from the worker along with"
+      },
+      {
+        "start": 598.019,
+        "duration": 6.0,
+        "text": "the ID of this instance of the"
+      },
+      {
+        "start": 601.14,
+        "duration": 5.28,
+        "text": "subscription function each instance has"
+      },
+      {
+        "start": 604.019,
+        "duration": 4.021,
+        "text": "an ID that is unique among all running"
+      },
+      {
+        "start": 606.42,
+        "duration": 3.66,
+        "text": "functions and it's provided by the"
+      },
+      {
+        "start": 608.04,
+        "duration": 4.38,
+        "text": "client at start time"
+      },
+      {
+        "start": 610.08,
+        "duration": 4.439,
+        "text": "we hash the ID to determine which host"
+      },
+      {
+        "start": 612.42,
+        "duration": 5.64,
+        "text": "the function belongs to in this case a"
+      },
+      {
+        "start": 614.519,
+        "duration": 4.921,
+        "text": "function id5 belongs to host B so that's"
+      },
+      {
+        "start": 618.06,
+        "duration": 3.6,
+        "text": "where the front-end service affords the"
+      },
+      {
+        "start": 619.44,
+        "duration": 4.44,
+        "text": "request to each host has a database"
+      },
+      {
+        "start": 621.66,
+        "duration": 5.22,
+        "text": "partition or Shard we support my SQL"
+      },
+      {
+        "start": 623.88,
+        "duration": 4.74,
+        "text": "postgres sqlite and Cassandra but it's a"
+      },
+      {
+        "start": 626.88,
+        "duration": 2.88,
+        "text": "very write heavy load since each step of"
+      },
+      {
+        "start": 628.62,
+        "duration": 3.96,
+        "text": "each function you run is written into"
+      },
+      {
+        "start": 629.76,
+        "duration": 4.32,
+        "text": "the database and you can sale scale that"
+      },
+      {
+        "start": 632.58,
+        "duration": 4.319,
+        "text": "right load much higher with Cassandra so"
+      },
+      {
+        "start": 634.08,
+        "duration": 4.74,
+        "text": "we use Cassandra for our cloud service"
+      },
+      {
+        "start": 636.899,
+        "duration": 3.841,
+        "text": "our cloud service is a hosted version of"
+      },
+      {
+        "start": 638.82,
+        "duration": 3.72,
+        "text": "the server but it's open source and many"
+      },
+      {
+        "start": 640.74,
+        "duration": 3.9,
+        "text": "companies host themselves"
+      },
+      {
+        "start": 642.54,
+        "duration": 3.479,
+        "text": "the cloud pitch is that you'll save time"
+      },
+      {
+        "start": 644.64,
+        "duration": 3.42,
+        "text": "and that's money as well as peace of"
+      },
+      {
+        "start": 646.019,
+        "duration": 3.901,
+        "text": "mind if you if the experts host and"
+      },
+      {
+        "start": 648.06,
+        "duration": 4.32,
+        "text": "maintain it for you"
+      },
+      {
+        "start": 649.92,
+        "duration": 3.84,
+        "text": "now zoom in on just host B and partition"
+      },
+      {
+        "start": 652.38,
+        "duration": 3.54,
+        "text": "B"
+      },
+      {
+        "start": 653.76,
+        "duration": 4.079,
+        "text": "when host b gets the message to call"
+      },
+      {
+        "start": 655.92,
+        "duration": 3.9,
+        "text": "charge it needs to do three things"
+      },
+      {
+        "start": 657.839,
+        "duration": 4.081,
+        "text": "update the state of the function"
+      },
+      {
+        "start": 659.82,
+        "duration": 5.04,
+        "text": "add a charge task to the queue so that a"
+      },
+      {
+        "start": 661.92,
+        "duration": 4.859,
+        "text": "worker can pick it up and execute it and"
+      },
+      {
+        "start": 664.86,
+        "duration": 3.599,
+        "text": "add a timeout there are many types of"
+      },
+      {
+        "start": 666.779,
+        "duration": 3.421,
+        "text": "timeouts that might be set in this case"
+      },
+      {
+        "start": 668.459,
+        "duration": 3.361,
+        "text": "it might be the maximum length of time"
+      },
+      {
+        "start": 670.2,
+        "duration": 3.06,
+        "text": "the charge function can be tried and"
+      },
+      {
+        "start": 671.82,
+        "duration": 3.6,
+        "text": "retried before we consider it"
+      },
+      {
+        "start": 673.26,
+        "duration": 3.24,
+        "text": "permanently failed at which point that"
+      },
+      {
+        "start": 675.42,
+        "duration": 3.9,
+        "text": "line of code in the subscription"
+      },
+      {
+        "start": 676.5,
+        "duration": 4.98,
+        "text": "function will throw an error"
+      },
+      {
+        "start": 679.32,
+        "duration": 3.18,
+        "text": "it's important that uh all three of"
+      },
+      {
+        "start": 681.48,
+        "duration": 2.82,
+        "text": "these things are done together"
+      },
+      {
+        "start": 682.5,
+        "duration": 3.12,
+        "text": "atomically because otherwise you'll run"
+      },
+      {
+        "start": 684.3,
+        "duration": 4.5,
+        "text": "into various sorts of race conditions"
+      },
+      {
+        "start": 685.62,
+        "duration": 4.86,
+        "text": "and inconsistencies inconsistencies like"
+      },
+      {
+        "start": 688.8,
+        "duration": 3.479,
+        "text": "if you update State first and then fail"
+      },
+      {
+        "start": 690.48,
+        "duration": 3.12,
+        "text": "to add the task to the queue then the"
+      },
+      {
+        "start": 692.279,
+        "duration": 3.24,
+        "text": "system will think there's a task that's"
+      },
+      {
+        "start": 693.6,
+        "duration": 3.06,
+        "text": "not there or if you add to the queue"
+      },
+      {
+        "start": 695.519,
+        "duration": 3.421,
+        "text": "first and then you do the update the"
+      },
+      {
+        "start": 696.66,
+        "duration": 4.919,
+        "text": "update is slow uh the task might be"
+      },
+      {
+        "start": 698.94,
+        "duration": 4.68,
+        "text": "completed before the update goes through"
+      },
+      {
+        "start": 701.579,
+        "duration": 4.32,
+        "text": "so we use a single partition log to"
+      },
+      {
+        "start": 703.62,
+        "duration": 4.7,
+        "text": "batch statement to get atomicity and"
+      },
+      {
+        "start": 705.899,
+        "duration": 2.421,
+        "text": "isolation"
+      },
+      {
+        "start": 708.36,
+        "duration": 4.14,
+        "text": "an issue with having the tests on each"
+      },
+      {
+        "start": 710.64,
+        "duration": 4.02,
+        "text": "partition is queer reform query"
+      },
+      {
+        "start": 712.5,
+        "duration": 3.72,
+        "text": "performance with Cassandra I think of"
+      },
+      {
+        "start": 714.66,
+        "duration": 3.66,
+        "text": "your schema design following your query"
+      },
+      {
+        "start": 716.22,
+        "duration": 5.04,
+        "text": "patterns versus relational where you can"
+      },
+      {
+        "start": 718.32,
+        "duration": 5.1,
+        "text": "generally with start with a schema and"
+      },
+      {
+        "start": 721.26,
+        "duration": 5.28,
+        "text": "query arbitrarily so when we're thinking"
+      },
+      {
+        "start": 723.42,
+        "duration": 5.46,
+        "text": "of the query give me the next task on Q"
+      },
+      {
+        "start": 726.54,
+        "duration": 4.32,
+        "text": "few Q Foo"
+      },
+      {
+        "start": 728.88,
+        "duration": 3.66,
+        "text": "we would need to check all of the"
+      },
+      {
+        "start": 730.86,
+        "duration": 3.84,
+        "text": "partitions because they're partitioned"
+      },
+      {
+        "start": 732.54,
+        "duration": 3.9,
+        "text": "by function ID not by a q name and"
+      },
+      {
+        "start": 734.7,
+        "duration": 4.079,
+        "text": "that's not scalable"
+      },
+      {
+        "start": 736.44,
+        "duration": 5.16,
+        "text": "so we have a separate table called tasks"
+      },
+      {
+        "start": 738.779,
+        "duration": 4.5,
+        "text": "on the right Partition by q a and a"
+      },
+      {
+        "start": 741.6,
+        "duration": 4.62,
+        "text": "separate service for responding to Q"
+      },
+      {
+        "start": 743.279,
+        "duration": 5.521,
+        "text": "queries queries and we have a service"
+      },
+      {
+        "start": 746.22,
+        "duration": 4.5,
+        "text": "that moves tasks from the functions"
+      },
+      {
+        "start": 748.8,
+        "duration": 3.539,
+        "text": "table partitions on the left to the"
+      },
+      {
+        "start": 750.72,
+        "duration": 4.08,
+        "text": "queue table on the right and it takes"
+      },
+      {
+        "start": 752.339,
+        "duration": 4.321,
+        "text": "care of retrying and deduping this is"
+      },
+      {
+        "start": 754.8,
+        "duration": 3.0,
+        "text": "the transactional outbox pattern and the"
+      },
+      {
+        "start": 756.66,
+        "duration": 3.0,
+        "text": "cues on the left are also called"
+      },
+      {
+        "start": 757.8,
+        "duration": 4.14,
+        "text": "transfer cues"
+      },
+      {
+        "start": 759.66,
+        "duration": 3.9,
+        "text": "also a single queue can have a load"
+      },
+      {
+        "start": 761.94,
+        "duration": 3.18,
+        "text": "higher than a single host can handle so"
+      },
+      {
+        "start": 763.56,
+        "duration": 5.54,
+        "text": "in reality we Shard the hosts on the"
+      },
+      {
+        "start": 765.12,
+        "duration": 3.98,
+        "text": "right further Beyond just qname"
+      },
+      {
+        "start": 769.26,
+        "duration": 4.319,
+        "text": "so now when a worker asks the front-end"
+      },
+      {
+        "start": 771.06,
+        "duration": 4.92,
+        "text": "service for new work on task queue Foo"
+      },
+      {
+        "start": 773.579,
+        "duration": 4.5,
+        "text": "it will get forwarded to host one which"
+      },
+      {
+        "start": 775.98,
+        "duration": 3.96,
+        "text": "will take the charge task from partition"
+      },
+      {
+        "start": 778.079,
+        "duration": 4.5,
+        "text": "one when the worker receives the charge"
+      },
+      {
+        "start": 779.94,
+        "duration": 4.44,
+        "text": "task it will call the charge function if"
+      },
+      {
+        "start": 782.579,
+        "duration": 3.841,
+        "text": "the function fails the worker will"
+      },
+      {
+        "start": 784.38,
+        "duration": 4.139,
+        "text": "report that back to the server if it's"
+      },
+      {
+        "start": 786.42,
+        "duration": 3.84,
+        "text": "something transient like a network error"
+      },
+      {
+        "start": 788.519,
+        "duration": 3.361,
+        "text": "the server will schedule the same task"
+      },
+      {
+        "start": 790.26,
+        "duration": 3.9,
+        "text": "for a future time if it's something"
+      },
+      {
+        "start": 791.88,
+        "duration": 4.139,
+        "text": "permanent like a card expired error the"
+      },
+      {
+        "start": 794.16,
+        "duration": 3.419,
+        "text": "server will record that result and put a"
+      },
+      {
+        "start": 796.019,
+        "duration": 3.421,
+        "text": "task on the Queue to activate the"
+      },
+      {
+        "start": 797.579,
+        "duration": 4.021,
+        "text": "subscription function"
+      },
+      {
+        "start": 799.44,
+        "duration": 3.899,
+        "text": "which we'll throw from the charge line"
+      },
+      {
+        "start": 801.6,
+        "duration": 3.479,
+        "text": "if the charge succeeds"
+      },
+      {
+        "start": 803.339,
+        "duration": 3.421,
+        "text": "the server will record the result and"
+      },
+      {
+        "start": 805.079,
+        "duration": 3.541,
+        "text": "activate the subscription function"
+      },
+      {
+        "start": 806.76,
+        "duration": 3.78,
+        "text": "passing the result"
+      },
+      {
+        "start": 808.62,
+        "duration": 4.56,
+        "text": "that's as far as I'll go into temporal's"
+      },
+      {
+        "start": 810.54,
+        "duration": 4.02,
+        "text": "architecture for the next section I"
+      },
+      {
+        "start": 813.18,
+        "duration": 3.0,
+        "text": "talked to one of our Engineers that has"
+      },
+      {
+        "start": 814.56,
+        "duration": 3.24,
+        "text": "the most experience with Cassandra to"
+      },
+      {
+        "start": 816.18,
+        "duration": 3.839,
+        "text": "get a few quick things we've learned"
+      },
+      {
+        "start": 817.8,
+        "duration": 4.08,
+        "text": "from using Cassandra a lot under high"
+      },
+      {
+        "start": 820.019,
+        "duration": 5.041,
+        "text": "load"
+      },
+      {
+        "start": 821.88,
+        "duration": 5.88,
+        "text": "the first thing is we have a lot of cues"
+      },
+      {
+        "start": 825.06,
+        "duration": 5.519,
+        "text": "and as a old data Stacks blog post says"
+      },
+      {
+        "start": 827.76,
+        "duration": 5.04,
+        "text": "cues are an anti-pattern in Cassandra a"
+      },
+      {
+        "start": 830.579,
+        "duration": 5.341,
+        "text": "simple example is if we have a tasks"
+      },
+      {
+        "start": 832.8,
+        "duration": 7.56,
+        "text": "table with qname and queued at time uuid"
+      },
+      {
+        "start": 835.92,
+        "duration": 9.0,
+        "text": "and task info if we insert 10 000 tasks"
+      },
+      {
+        "start": 840.36,
+        "duration": 6.599,
+        "text": "onto qfu and Q Foo and then a DQ or"
+      },
+      {
+        "start": 844.92,
+        "duration": 5.52,
+        "text": "delete all but the most recent then"
+      },
+      {
+        "start": 846.959,
+        "duration": 4.981,
+        "text": "there will be 999 tombstones which by"
+      },
+      {
+        "start": 850.44,
+        "duration": 3.54,
+        "text": "default will stick around for their"
+      },
+      {
+        "start": 851.94,
+        "duration": 4.92,
+        "text": "10-day garbage collection grace period"
+      },
+      {
+        "start": 853.98,
+        "duration": 5.52,
+        "text": "if we do the query on the right select a"
+      },
+      {
+        "start": 856.86,
+        "duration": 3.84,
+        "text": "single task from qfoo then Cassandra"
+      },
+      {
+        "start": 859.5,
+        "duration": 2.579,
+        "text": "will have to go through all of those"
+      },
+      {
+        "start": 860.7,
+        "duration": 3.42,
+        "text": "tombstones before finding the most"
+      },
+      {
+        "start": 862.079,
+        "duration": 3.601,
+        "text": "recently inserted task and that can take"
+      },
+      {
+        "start": 864.12,
+        "duration": 3.6,
+        "text": "in a blog post example of 300"
+      },
+      {
+        "start": 865.68,
+        "duration": 4.5,
+        "text": "milliseconds"
+      },
+      {
+        "start": 867.72,
+        "duration": 4.44,
+        "text": "the solution is to avoid most or all of"
+      },
+      {
+        "start": 870.18,
+        "duration": 4.14,
+        "text": "these tube zones by adding to the where"
+      },
+      {
+        "start": 872.16,
+        "duration": 4.56,
+        "text": "Clause to tell Cassandra where to start"
+      },
+      {
+        "start": 874.32,
+        "duration": 5.16,
+        "text": "scanning"
+      },
+      {
+        "start": 876.72,
+        "duration": 7.34,
+        "text": "and here's a link to the blog post an"
+      },
+      {
+        "start": 879.48,
+        "duration": 4.58,
+        "text": "example of us doing this in our code"
+      },
+      {
+        "start": 885.0,
+        "duration": 3.54,
+        "text": "here are some miscellaneous"
+      },
+      {
+        "start": 886.38,
+        "duration": 5.16,
+        "text": "recommendations we had generally"
+      },
+      {
+        "start": 888.54,
+        "duration": 5.52,
+        "text": "Cassandra is a great fit for write heavy"
+      },
+      {
+        "start": 891.54,
+        "duration": 3.96,
+        "text": "workloads and especially nice for append"
+      },
+      {
+        "start": 894.06,
+        "duration": 3.839,
+        "text": "only tables"
+      },
+      {
+        "start": 895.5,
+        "duration": 5.279,
+        "text": "try to avoid lightweight transactions"
+      },
+      {
+        "start": 897.899,
+        "duration": 4.44,
+        "text": "beyond the Forex latency of paxos four"
+      },
+      {
+        "start": 900.779,
+        "duration": 3.18,
+        "text": "phase commit there's also the potential"
+      },
+      {
+        "start": 902.339,
+        "duration": 3.601,
+        "text": "for contention during two of the phases"
+      },
+      {
+        "start": 903.959,
+        "duration": 3.961,
+        "text": "we wound up implementing a client-side"
+      },
+      {
+        "start": 905.94,
+        "duration": 3.959,
+        "text": "in-memory lock to avoid sending"
+      },
+      {
+        "start": 907.92,
+        "duration": 4.26,
+        "text": "concurrent lightweight transactions"
+      },
+      {
+        "start": 909.899,
+        "duration": 4.62,
+        "text": "and there's also the need if you use"
+      },
+      {
+        "start": 912.18,
+        "duration": 3.779,
+        "text": "like transactions to insert rows to only"
+      },
+      {
+        "start": 914.519,
+        "duration": 2.94,
+        "text": "use lightweight transactions for reading"
+      },
+      {
+        "start": 915.959,
+        "duration": 3.961,
+        "text": "and writing on that table"
+      },
+      {
+        "start": 917.459,
+        "duration": 4.861,
+        "text": "try to avoid secondary indexes or"
+      },
+      {
+        "start": 919.92,
+        "duration": 6.979,
+        "text": "materialized views use elasticsearch for"
+      },
+      {
+        "start": 922.32,
+        "duration": 4.579,
+        "text": "searching and avoid large partitions"
+      },
+      {
+        "start": 927.24,
+        "duration": 4.44,
+        "text": "to recap we learned what durable"
+      },
+      {
+        "start": 929.459,
+        "duration": 4.141,
+        "text": "execution is how it's programming at a"
+      },
+      {
+        "start": 931.68,
+        "duration": 3.48,
+        "text": "higher level of abstraction where a"
+      },
+      {
+        "start": 933.6,
+        "duration": 3.539,
+        "text": "number of different distributed systems"
+      },
+      {
+        "start": 935.16,
+        "duration": 3.419,
+        "text": "concerns are taken care of automatically"
+      },
+      {
+        "start": 937.139,
+        "duration": 3.241,
+        "text": "for you"
+      },
+      {
+        "start": 938.579,
+        "duration": 4.681,
+        "text": "we also look at how part of the"
+      },
+      {
+        "start": 940.38,
+        "duration": 4.319,
+        "text": "internals of how that's implemented and"
+      },
+      {
+        "start": 943.26,
+        "duration": 3.18,
+        "text": "shared a few suggestions from our time"
+      },
+      {
+        "start": 944.699,
+        "duration": 3.181,
+        "text": "with Cassandra"
+      },
+      {
+        "start": 946.44,
+        "duration": 3.42,
+        "text": "Holland was something we like to say"
+      },
+      {
+        "start": 947.88,
+        "duration": 4.62,
+        "text": "which is distributed systems should hold"
+      },
+      {
+        "start": 949.86,
+        "duration": 4.2,
+        "text": "you up not hold you back we've made"
+      },
+      {
+        "start": 952.5,
+        "duration": 4.019,
+        "text": "software to support you and having a"
+      },
+      {
+        "start": 954.06,
+        "duration": 4.38,
+        "text": "better development experience"
+      },
+      {
+        "start": 956.519,
+        "duration": 5.041,
+        "text": "if you'd like to learn more our website"
+      },
+      {
+        "start": 958.44,
+        "duration": 4.56,
+        "text": "is temporal.io I'm Lauren DSR on Twitter"
+      },
+      {
+        "start": 961.56,
+        "duration": 3.42,
+        "text": "and happy to answer any questions you"
+      },
+      {
+        "start": 963.0,
+        "duration": 4.5,
+        "text": "have and these slides are available at T"
+      },
+      {
+        "start": 964.98,
+        "duration": 5.359,
+        "text": "dot MP slash Can't Fail forward"
+      },
+      {
+        "start": 967.5,
+        "duration": 2.839,
+        "text": "thanks for your time"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T18:04:52.451429+00:00"
+}

@@ -1,0 +1,3127 @@
+{
+  "video_id": "8-H2DyF8jEU",
+  "title": "Distributed Data Show Episode 44: Thread Per Core with Jake Luciani",
+  "description": "Jake Luciani takes us behind the scenes to explain how the principle of mechanical sympathy was applied to DataStax Enterprise 6 in the new Thread Per Core feature. DSE 6 is demonstrating 2x improvements in read/write latency compared to DSE 5.1 / open source Apache Cassandra.\n\nHighlights!\n0:15 - Jeff welcomes Apache Cassandra committer and DataStax Engineer Jake Luciani to the show \n1:35 - Defining mechanical sympathy\n3:06 - Why the lost art of mechanical sympathy is coming back - the recent trend toward multi-core servers.\n4:34 - Thread per core is the DataStax Enterprise manifestation of mechanical sympathy concepts. We’ve rebuilt the internal engine with an asynchronous, non-blocking approach that improves over the “Staged Event Driven Architecture” (SEDA) approach used by Cassandra\n8:31 - TPC leverages reactive streams to connect one event loop to the processing chain for each core\n10:07 - The solution includes libraries such as Netty and RxJava, plus custom code\n10:51 - The benefits of TPC are improved performance on machines with more cores. With SEDA, the problem was that the more cores you added, the more contention. \n13:31 - From a data partitioning perspective, each node is treated as a mini cluster, with a token range assigned to each core.\n15:24 - The same techniques we’ve used historically to design around the hot partition problem still apply\n17:46 - Don’t forget the client when scaling distributed systems - scaling the application layer is just as important as adding nodes to a cluster.\n19:38 - Using libaio for asynchronous disk access helps toward the goal of having all interactions (memory, disk, network) in the same event loop. It’s all about reworking any place in the code that can block.\n22:25 - The solution was tested on many different hardware configurations and topologies. More than half the TPC effort was on testing. \n23:53 - We’re seeing ~2x throughput improvements on reads and writes, and big improvements in tail latency. This kind of impr",
+  "published_at": "2018-04-24T15:00:02Z",
+  "thumbnail": "https://i.ytimg.com/vi/8-H2DyF8jEU/hqdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "distributed",
+    "cassandra",
+    "apache_cassandra",
+    "performance",
+    "demo",
+    "architecture",
+    "dse",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=8-H2DyF8jEU",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "welcome to another episode of the distributed data show brought to you by data Stax Academy where we bring you the latest news and interview technical experts to help you succeed at building large-scale distributed systems thanks for joining us for another episode of the distributed data show I am Jeff carpenter and today we are going to geek out with Jake Luciani who is a member of our core database team here at data sacks also an Apache Cassandra committer also on the PMC the project management side of that so welcome Jake thanks very much glad to be here anything else that you want to share to introduce yourself or did I cover it all yeah I mean I've been working on Cassandra for quite a number of years coming up on ten and in great ride yeah and it's been really exciting the past couple years I'm excited to talk about mechanical sympathy through procore all the stuff that we've been focused on excellent yeah we're gonna deep dive on some of the tech stuff here you know we've been working pretty hard data sacks on our implementation of Cassandra and making some major improvements under the hood and we are finally able to talk about it we've maybe perhaps been hinted get some things and had some things under wraps for a while so we are excited today to talk about thread per core and what we've been doing there so you mentioned a term it's not gonna go that I want to dig into some more that we've started to hear quite a bit you know not just in the database world but in you know in the areas of software development in general which is this concept of mechanical sympathy so can you really explain what you mean by that unpack that a little bit sure mechanical sympathy is sort of a way of thinking in in regards to programming to be specific about programming for the underlying hardware that it's running on like the the underlying architecture of how the CPUs are laid out what memory bus you know connections are being able to access data locally on a specific piece of hardware versus going from multiple cores across to other sockets so there's a lot of stuff to it but basically it's trying to think a very low level about how your application is running because there's a lot of performance effects I think people especially nowadays with the cloud and everything and server lists you know you kind of forget that at the end of the day it's running on a physical piece of hardware or the specific layout and there's a useful information than that I think you know Martin Thompson and folks like that have really been pushing this concept for a while and there's a lot of really interesting applications of it which is what we've been trying to do here on Deus Ex Enterprise nice so yeah that's you bring up an interesting point which is wide now like why is this trend happening now when in fact you know for many years we've been moving farther and farther away from the hardware and abstracting things more and more so like why why is this a big deal now yeah I mean I don't know if it's all that new I mean this is stuff that a long time ago you know my early days of programming it it was very much the thing to do and I think people are sort of sort of forgotten about it's kind of a lost art and I think now people care more about it again especially in in infrastructure software so I I think the real push for it though recently has been the way that you know hardware manufacturers have kind of changed from you know having more and more processor speed to having more and more cores you know maybe five ten years ago it was very uncommon to have more than you know to four CPUs and on your desktop machine now you know if you're a developer or writing a large scale application you know you you you can tend to have you know 32 64 cores with lots and lots of RAM on those machines we want to be able to properly utilize it so I think a lot of us just come down to how servers how the server market has changed okay so now mechanical sympathy as a concept I think I kind of get where that's going and you know taking better advantage of the hardware and and mapping more closely what we're doing in our software programs onto the underlying hardware and I would say that thread procore is maybe our specific manifestation of that for data sacks enterprise am I on the right track here yeah I mean at the fundamental level all we're doing is making the core of of the database more asynchronous the goal of throw procore or any kind of you know large-scale software is is to allow it to to fully utilize all the cores on the machine now normally in in in an expander world you know we're very used to to this SATA model which is um you know the staged event-driven architecture and what it means is that for each stage of the processing pipeline you have a thread pool of size X and in that pool naturally creates some back pressure in the system and allows it to try to utilize as much of the the CPUs as it can well not over riding all the other work going on and what that what that means in the end is that you have a whole bunch of threads you know trying trying to compete for for the for the same set of resources and what happens and this is very much a a kernel level issue but on the physical hardware since there isn't really any application level routing of where did where data is going to run the operating system just does its best and what that means is that there's a lot of context switching and there's a lot of work that that the currently meet needs to do to try to keep those those cores bit busy and and and in the meantime trying to make all of the threads safety get guarantees so as an application developer you're writing software you know in a in a somewhat declarative manner we're saying you know run run like read this row merge the two together and write it up here now that if that happens to block along the way it's it's running inside of threads so no big deal you know it's going going to keep running when it has more work and the operating system will try to swap in other threads which which are ready to do work what what this whole concept of of trying to keep the CPU use busy and on the application level is to basically make sure that you're not blocking any work from from being done in in the application itself so if you can tell that something is going to block you need to physically reschedule it so this is very much you know most people nowadays are no JavaScript programming JavaScript programming is basically all you know asynchronous all asynchronous um it's basically callbacks and futures and all these things so this is very very much you know from the ground up trying to rebuild the database engine to support this way of of processing work cool yeah so I remember back when I first started to get to know Cassandra and looking under the hood to see what was going on there this idea of the stage driven event-driven architecture sounded very cool and having the concept of having these multiple thread pools but it just turned out to not scale as well in practice as maybe was it was originally thought right so can you can you drive in a little bit more and tell me about what the the thread per core implementation looks like like what's different about what we're doing now so we're basically building off of the reactive streams effort which is a you know sort of a consortium of of developers have tried to build this stream standard for for for for building a asynchronous pipelines and and at the basis of all this there's effectively a event loop which processes tasks and what thread procore really is is you're creating a vent loop per core it's and it happens to be we're running in a thread but the idea is you go from having you know hundreds and hundreds of threads all competing to work to having one thread per core and you're effectively trying to keep that that event loop as busy as possible so whenever has to read something off of the network or read something off of disk it it moves that work off until it's ready and then it keeps keeps pulling new work off of the queue so that's fundamentally how these things work but but but the reactive streams effort is really our you know connecting those those two things the the event loop and the processing chain gotcha so we're taking advantage it sounds like we're not reinventing our own kind of reactive programming model here we're leveraging existing libraries yeah it's heavily based off nettie rx Java and some some of our own stuff ok because there are some some tricky things when it comes to trying to access data off of disk which you know you need to be very careful about when when you free things and the guarantees that these frameworks give you isn't necessarily what what what we needed for the job so there's a combination of projects ok cool so what do I get from thread per core what are the what are the benefits of doing this I mean I think we can sort of understand at a high level yeah ok yeah better performance better resource utilization but can you really kind of distill that down for us what what's what are the benefits the the goal of the effort is is to as to allow DSC to perform as well as it can on whatever hardware it's running on so if you're running on an acorn machine that's gonna run as well as it can for a core if you're running for a 64 core machine it's gonna run as well as it can on 64 core the problem with the old model is as you scale up the number of cores on a physical machine the the more contention there is to to basically access a shared resource so say for example you're building the the mint table reads and writes for example is a good example of this in Cassandra when data goes in or it's being read out there's a mem table that mem table is shared by all threads which which read and write to it so it's basically a giant couldn't concurrent skip list map and and and you know although that works well as you scale up the number of cores the contention on on that data structure starts starts to outweigh the the performance of the actual read and write operation so everything is doing spin locks you know trying treasure trying to do compare and and and and swap operations across sockets and what ends up happening is even though your CPU looks like it's pegged at a hundred percent it's actually just waiting this busy word so your your server looks totally saturated but you're not really getting much out of it so this is what I mean by mechanical sympathy and trying to build software that's aware of what's going on so with the threat per core model that allows us to to basically partition per core the data partitions inside of DSE so what it means is that you effectively have a a single writer principle so that for any given partition there's only one event loop and one thread which is accessing that that that that that partition of data and that gives you a huge benefit in terms of there's zero contention on that across course okay so this is like zooming out I'm I I have a partition ur for my cluster which is determining you know based on the token of the of the data that I'm accessing what node or nodes is going to own that data and then once I hit those nodes inside those nodes there's actually an allocation to a specific thread that that token range for that node is divided up further into token range per thread or per core is that right yeah exactly so we basically taken a Cassandra node and broken it into its own little bitty cluster you know a lot of benefit in terms of how fast we can run on larger scale hardware so for example in in in the in some of the tests that we've done we can show that you know if you move from a a core machine to a 16 core machine into a 30 core to core to 64 your rights will will scare scale linearly a across one box which which increases the the number of core counts so we're not talking about a cluster anymore this whole effort is focused on you know with with within a single node we're trying to make that as as scalable as possible so we're really just trying to improve the scalability of a signal node whereas with with DC or patchy Cassandra you end up seeing you know a a asymptotic effect sort of like as you add more more cores your throughput kind of stops scaling and it starts actually go down gotcha okay so I think we've talked about some of what the benefits are of the TPC effort and what that's going to give you you made me think of something when you started talking about dividing up the token range across the different threads which is maybe a similar problem that you have with your with your cluster as a whole which is the idea of the hot partition right is that one of the the tricky or challenging areas for this kind of architectural approach yeah definitely I mean so the the upside of this is when you're doing you know when when you're when you're using DSC you're trying to use it for some kind of large scalable application if you have a hot partition where all the data so for example the justin beiber problem you know he sends an Instagram and and all of a sudden you know they have one node which which which just gets hammered so there's a similar problem in t-vec where there's a single thread responsible for a single partition so if you so if you spam that that one partition your throughput would be less than the the model of having lots and lots of threads trying to you know access at that same partition but in general that's kind of a problem that you shouldn't want to have you know it's not something that you should design for so it's something that you should try to build your data model such if if it's a time-series data model for example you you can change your partition key to you know to spread the work as well as in in inside of DSC or cassandra you can you you also have a replication factor so you're able to to basically use more nodes in parallel to kind of share that that data load but but in practice we don't see this as you know a huge problem but it is theoretically one of the problems of this approach okay cool so it tends to not be as big of a deal in practice and you can kind of designer on it with data model changes and you know increasing the number of nodes I guess in the cluster is what you're saying okay so understand about the the hot partition problem but are there any other kind of tricky or challenging areas in this implementation that you'd like to talk about not a ton but but you need to be careful in general with with with most distributed systems you have to consider the fact that your client is is is a part of that system so a lot of people when they start using DC or Cassandra they you know set up at EndNote cluster and they have one client note and they're like hey it's slow why is that and a lot of it is just because of the fact that your client is the bottleneck so you need to be careful that you know you are properly scaling your application layer to kind of match the resources of your of your infrastructure layer so so for TPC for example we we recommend that for applications that have you know a single client trying to fetch a whole bunch of data we we recommend that they change their drivers settings to to include more connections per per session right so instead of that that session creating one connection to one Cassandra machine it's actually creating like 8 or 10 / / / coordinator and that and that solve solves the issue gotcha yeah that is really important to remember that we need to just not always blame the database but obviously we need to scale our application as well as scaling our database and taking the use of the what the affordances that we get from the driver to manage connection pools and such so that's an important reminder there's a whole bunch of other stuff in terms of so so one issue thing about this event loop it's going back to one year earlier questions yeah is you know you're talking about what these what these tasks are so effectively when a when a request comes in to the coordinator its asynchronously you parsed and and turned into a let's say a partition read recommand which maybe needs to access data on disk so once it figures out which SS tables have the data in it and it sits checked the men table all that so far is non-blocking but then let's say it needs to you know something off of disk and it's not in the you know disk cache so in that case we're using a Lib a IO which which which is a a synchronous discont access library which allows you to bypass the Linux kernel and it will acknowledge the event loop when that disk read is it is done so this is something that you know most Java systems don't don't really know have have built in and we spent a lot of time on that two-bit to basically get rid of all context switching for disk reads for for that particular purpose so when you combine that with Network reads disk reads and internode network calls all of that is happening inside of one event loop and being able to combine all of your to basically combine all of your work asynchronous work in into one single event loop for for disk access network assets and application tasks that that's really what gives you the benefit of being able to scale this kind of architecture so if you want to build a thread per core model in your application system you need to break down all of the spots in the code where it can block and and make those all a a synchronous meaning there's effectively a callback when data is ready to be awesome okay so this sounds pretty involved and and touching multiple things network access this access the you know the entire way that things are structured inside the storage engine so please tell me that there is some net benefit from from all this work like can you can you talk performance numbers at all or we all know that benchmarks lie but like you obviously have some representative sets that you know that this runs faster what can you tell me about it yeah I mean we've we've taken a lot of effort this this release to make sure that we have a good representative set of all different types of benchmarks with as many different workloads as we can cover and and as many different topologies and no density probably more than half of the work was done on setting up this kind of test harness I think there's a whole other episode we could have on on disk on distributed systems testing oh absolutely yeah which has been you know something that I've been way too involved in but it's it's super interesting and beneficial I think when customers use our product we always find out that they're using it in some way that maybe we didn't think of so how many we didn't expect yeah who collects and reproduce all these different topologies and schemas and workloads in in a in a and be able to run them on the same types of hardware whether it be in the cloud or physical is a pretty big task so we're really excited about the fact that we have this kind of pipelines set up in terms of performance testing and and regression testing and in terms of the numbers we see for like a time series workload with you know with half a terabyte of disk per node sorry I mentioned five so five nodes are f3 and with half a terabyte per node time series workload you know we we can write twice as fast using the throw procore solution versus the existing solution reads as well our r2x or more and the best part about it is Layton sees are also dropped significantly you know by about thirty percent so and especially tailor agencies have improved so we're really this really solves a lot of the fundamental performance issues that people run into so the goal of this all this work is is to make is to make DC more predictable and use less Hardware more effectively so it it's really beneficial to to the customer in terms of how many resources they need as as as well as how many resource resources they need to manage because don't forget at the end of day these are all running somewhere and someone has to be watching them so the less you can do that the better right and you know for me like I've been impressed kind of hearing through the grapevine some of the the performance numbers that you guys were achieving with this almost more impressive to that than that to me is really the improvement in the tail Layton sees you know some of the longer performing queries those tend to be the really a lot of the things that you know cause annoyances and and a bad user experience kind of like at the upper layer of your application right why is this you know I I don't understand the intermittent slow responses so these are this is all really really good stuff yeah it's it's it's it's been a major effort we're really excited to get it out there into everyone's hands uh the EAP is already out there and we're really excited to to get it into everyone's hands so I think um you know we've we've really as you were mentioning in terms of that the benefit of trying to understand what's going on we've also spent a lot of time on on the observability of these things so metrics going into op center gives you much more granular insight into what each core is doing of different types of tasks so there's a lot more insight into what's at happening under under the hood right so hey yeah it sounds like there's actually a quite a bit different going on because we you know anybody use use Cassandra for any amount of time maybe on the ops side is familiar with TP stats and absorbing what's going on with all those thread pools and it's all different now under the hood it a whole different set of metrics available be a jet via JMX right and yeah we've tried to map the concept of thread pools into sort of task types so you'll see you know you could still run no tool TTP stats but you'll see for example a stage that's you know just callbacks you could see a stage four range queries you could see a stage four you know Reed Reed repairs so even those these things are no longer and thread pools they're there's still different states of a particular processing chain so you're able to kind of track those the same way okay good so it doesn't blow up everything yeah and and and you can look at it a cross the whole across all cores or you can look at it per core which is pretty interesting especially if you're if you think you have some kind of hotspot issue you can easily drill in and see excellent so I've super enjoyed having you on today Jake and I'm kind of peeling back the covers on what's been going on with TPC and and I will say that people usually wait until after the episode to pitch me on their next episode to be on the show but I would love to have you back to talk about distributed testing frameworks and the like at some point so thanks for coming on today and thank you for having me it's been a lot of fun excellent well and thank you to our listening and viewing audience we'll see you next time thank you for joining us again for the distributed data show we love your feedback so go to the distributed data show page on data stacks Academy and tell us what you think you can also find us on the data stacks academy youtube channel or find our podcast Google Play or wherever you get great podcast while you're there make sure and subscribe so you don't miss a single episode [Music]",
+    "segments": [
+      {
+        "start": 0.05,
+        "duration": 4.15,
+        "text": "welcome to another episode of the"
+      },
+      {
+        "start": 2.399,
+        "duration": 4.081,
+        "text": "distributed data show brought to you by"
+      },
+      {
+        "start": 4.2,
+        "duration": 4.26,
+        "text": "data Stax Academy where we bring you the"
+      },
+      {
+        "start": 6.48,
+        "duration": 4.17,
+        "text": "latest news and interview technical"
+      },
+      {
+        "start": 8.46,
+        "duration": 8.04,
+        "text": "experts to help you succeed at building"
+      },
+      {
+        "start": 10.65,
+        "duration": 7.53,
+        "text": "large-scale distributed systems thanks"
+      },
+      {
+        "start": 16.5,
+        "duration": 4.41,
+        "text": "for joining us for another episode of"
+      },
+      {
+        "start": 18.18,
+        "duration": 5.91,
+        "text": "the distributed data show I am Jeff"
+      },
+      {
+        "start": 20.91,
+        "duration": 7.109,
+        "text": "carpenter and today we are going to geek"
+      },
+      {
+        "start": 24.09,
+        "duration": 7.14,
+        "text": "out with Jake Luciani who is a member of"
+      },
+      {
+        "start": 28.019,
+        "duration": 6.361,
+        "text": "our core database team here at data"
+      },
+      {
+        "start": 31.23,
+        "duration": 7.02,
+        "text": "sacks also an Apache Cassandra committer"
+      },
+      {
+        "start": 34.38,
+        "duration": 6.839,
+        "text": "also on the PMC the project management"
+      },
+      {
+        "start": 38.25,
+        "duration": 4.5,
+        "text": "side of that so welcome Jake thanks very"
+      },
+      {
+        "start": 41.219,
+        "duration": 3.451,
+        "text": "much glad to be here"
+      },
+      {
+        "start": 42.75,
+        "duration": 4.26,
+        "text": "anything else that you want to share to"
+      },
+      {
+        "start": 44.67,
+        "duration": 4.13,
+        "text": "introduce yourself or did I cover it all"
+      },
+      {
+        "start": 47.01,
+        "duration": 5.49,
+        "text": "yeah I mean I've been working on"
+      },
+      {
+        "start": 48.8,
+        "duration": 7.81,
+        "text": "Cassandra for quite a number of years"
+      },
+      {
+        "start": 52.5,
+        "duration": 6.42,
+        "text": "coming up on ten and in great ride yeah"
+      },
+      {
+        "start": 56.61,
+        "duration": 6.619,
+        "text": "and it's been really exciting the past"
+      },
+      {
+        "start": 58.92,
+        "duration": 6.36,
+        "text": "couple years I'm excited to talk about"
+      },
+      {
+        "start": 63.229,
+        "duration": 4.231,
+        "text": "mechanical sympathy through procore all"
+      },
+      {
+        "start": 65.28,
+        "duration": 4.44,
+        "text": "the stuff that we've been focused on"
+      },
+      {
+        "start": 67.46,
+        "duration": 4.06,
+        "text": "excellent yeah we're gonna deep dive on"
+      },
+      {
+        "start": 69.72,
+        "duration": 4.079,
+        "text": "some of the tech stuff here you know"
+      },
+      {
+        "start": 71.52,
+        "duration": 5.459,
+        "text": "we've been working pretty hard data"
+      },
+      {
+        "start": 73.799,
+        "duration": 5.551,
+        "text": "sacks on our implementation of Cassandra"
+      },
+      {
+        "start": 76.979,
+        "duration": 6.271,
+        "text": "and making some major improvements under"
+      },
+      {
+        "start": 79.35,
+        "duration": 6.629,
+        "text": "the hood and we are finally able to talk"
+      },
+      {
+        "start": 83.25,
+        "duration": 5.28,
+        "text": "about it we've maybe perhaps been hinted"
+      },
+      {
+        "start": 85.979,
+        "duration": 4.951,
+        "text": "get some things and had some things"
+      },
+      {
+        "start": 88.53,
+        "duration": 4.17,
+        "text": "under wraps for a while so we are"
+      },
+      {
+        "start": 90.93,
+        "duration": 3.689,
+        "text": "excited today to talk about thread per"
+      },
+      {
+        "start": 92.7,
+        "duration": 4.59,
+        "text": "core and what we've been doing there so"
+      },
+      {
+        "start": 94.619,
+        "duration": 4.831,
+        "text": "you mentioned a term it's not gonna go"
+      },
+      {
+        "start": 97.29,
+        "duration": 4.89,
+        "text": "that I want to dig into some more that"
+      },
+      {
+        "start": 99.45,
+        "duration": 4.529,
+        "text": "we've started to hear quite a bit you"
+      },
+      {
+        "start": 102.18,
+        "duration": 4.619,
+        "text": "know not just in the database world but"
+      },
+      {
+        "start": 103.979,
+        "duration": 4.111,
+        "text": "in you know in the areas of software"
+      },
+      {
+        "start": 106.799,
+        "duration": 3.151,
+        "text": "development in general which is this"
+      },
+      {
+        "start": 108.09,
+        "duration": 3.63,
+        "text": "concept of mechanical sympathy so can"
+      },
+      {
+        "start": 109.95,
+        "duration": 5.25,
+        "text": "you really explain what you mean by that"
+      },
+      {
+        "start": 111.72,
+        "duration": 7.14,
+        "text": "unpack that a little bit sure mechanical"
+      },
+      {
+        "start": 115.2,
+        "duration": 8.129,
+        "text": "sympathy is sort of a way of thinking in"
+      },
+      {
+        "start": 118.86,
+        "duration": 7.439,
+        "text": "in regards to programming to be specific"
+      },
+      {
+        "start": 123.329,
+        "duration": 4.981,
+        "text": "about programming for the underlying"
+      },
+      {
+        "start": 126.299,
+        "duration": 4.35,
+        "text": "hardware that it's running on like the"
+      },
+      {
+        "start": 128.31,
+        "duration": 4.49,
+        "text": "the underlying architecture of how the"
+      },
+      {
+        "start": 130.649,
+        "duration": 5.331,
+        "text": "CPUs are laid out what"
+      },
+      {
+        "start": 132.8,
+        "duration": 6.24,
+        "text": "memory bus you know connections are"
+      },
+      {
+        "start": 135.98,
+        "duration": 6.72,
+        "text": "being able to access data locally on a"
+      },
+      {
+        "start": 139.04,
+        "duration": 5.43,
+        "text": "specific piece of hardware versus going"
+      },
+      {
+        "start": 142.7,
+        "duration": 5.85,
+        "text": "from multiple cores across to other"
+      },
+      {
+        "start": 144.47,
+        "duration": 6.9,
+        "text": "sockets so there's a lot of stuff to it"
+      },
+      {
+        "start": 148.55,
+        "duration": 5.01,
+        "text": "but basically it's trying to think a"
+      },
+      {
+        "start": 151.37,
+        "duration": 3.42,
+        "text": "very low level about how your"
+      },
+      {
+        "start": 153.56,
+        "duration": 2.64,
+        "text": "application is running because there's a"
+      },
+      {
+        "start": 154.79,
+        "duration": 4.11,
+        "text": "lot of performance effects"
+      },
+      {
+        "start": 156.2,
+        "duration": 4.5,
+        "text": "I think people especially nowadays with"
+      },
+      {
+        "start": 158.9,
+        "duration": 3.3,
+        "text": "the cloud and everything and server"
+      },
+      {
+        "start": 160.7,
+        "duration": 3.96,
+        "text": "lists you know you kind of forget that"
+      },
+      {
+        "start": 162.2,
+        "duration": 3.6,
+        "text": "at the end of the day it's running on a"
+      },
+      {
+        "start": 164.66,
+        "duration": 5.13,
+        "text": "physical piece of hardware or the"
+      },
+      {
+        "start": 165.8,
+        "duration": 6.24,
+        "text": "specific layout and there's a useful"
+      },
+      {
+        "start": 169.79,
+        "duration": 5.22,
+        "text": "information than that I think you know"
+      },
+      {
+        "start": 172.04,
+        "duration": 4.53,
+        "text": "Martin Thompson and folks like that have"
+      },
+      {
+        "start": 175.01,
+        "duration": 3.27,
+        "text": "really been pushing this concept for a"
+      },
+      {
+        "start": 176.57,
+        "duration": 4.23,
+        "text": "while and there's a lot of really"
+      },
+      {
+        "start": 178.28,
+        "duration": 4.62,
+        "text": "interesting applications of it which is"
+      },
+      {
+        "start": 180.8,
+        "duration": 5.04,
+        "text": "what we've been trying to do here on"
+      },
+      {
+        "start": 182.9,
+        "duration": 4.29,
+        "text": "Deus Ex Enterprise nice"
+      },
+      {
+        "start": 185.84,
+        "duration": 3.9,
+        "text": "so yeah that's you bring up an"
+      },
+      {
+        "start": 187.19,
+        "duration": 5.82,
+        "text": "interesting point which is wide now like"
+      },
+      {
+        "start": 189.74,
+        "duration": 5.22,
+        "text": "why is this trend happening now when in"
+      },
+      {
+        "start": 193.01,
+        "duration": 4.05,
+        "text": "fact you know for many years we've been"
+      },
+      {
+        "start": 194.96,
+        "duration": 3.93,
+        "text": "moving farther and farther away from the"
+      },
+      {
+        "start": 197.06,
+        "duration": 3.899,
+        "text": "hardware and abstracting things more and"
+      },
+      {
+        "start": 198.89,
+        "duration": 4.8,
+        "text": "more so like why why is this a big deal"
+      },
+      {
+        "start": 200.959,
+        "duration": 5.25,
+        "text": "now yeah I mean I don't know if it's all"
+      },
+      {
+        "start": 203.69,
+        "duration": 5.49,
+        "text": "that new I mean this is stuff that a"
+      },
+      {
+        "start": 206.209,
+        "duration": 5.341,
+        "text": "long time ago you know my early days of"
+      },
+      {
+        "start": 209.18,
+        "duration": 4.83,
+        "text": "programming it it was very much the"
+      },
+      {
+        "start": 211.55,
+        "duration": 3.96,
+        "text": "thing to do and I think people are sort"
+      },
+      {
+        "start": 214.01,
+        "duration": 3.84,
+        "text": "of sort of forgotten about it's kind of"
+      },
+      {
+        "start": 215.51,
+        "duration": 6.89,
+        "text": "a lost art and I think now people care"
+      },
+      {
+        "start": 217.85,
+        "duration": 9.15,
+        "text": "more about it again especially in in"
+      },
+      {
+        "start": 222.4,
+        "duration": 7.72,
+        "text": "infrastructure software so I I think the"
+      },
+      {
+        "start": 227.0,
+        "duration": 5.91,
+        "text": "real push for it though recently has"
+      },
+      {
+        "start": 230.12,
+        "duration": 4.95,
+        "text": "been the way that you know hardware"
+      },
+      {
+        "start": 232.91,
+        "duration": 4.41,
+        "text": "manufacturers have kind of changed from"
+      },
+      {
+        "start": 235.07,
+        "duration": 4.62,
+        "text": "you know having more and more processor"
+      },
+      {
+        "start": 237.32,
+        "duration": 5.67,
+        "text": "speed to having more and more cores you"
+      },
+      {
+        "start": 239.69,
+        "duration": 7.05,
+        "text": "know maybe five ten years ago it was"
+      },
+      {
+        "start": 242.99,
+        "duration": 7.86,
+        "text": "very uncommon to have more than you know"
+      },
+      {
+        "start": 246.74,
+        "duration": 7.95,
+        "text": "to four CPUs and on your desktop machine"
+      },
+      {
+        "start": 250.85,
+        "duration": 6.27,
+        "text": "now you know if you're a developer or"
+      },
+      {
+        "start": 254.69,
+        "duration": 5.76,
+        "text": "writing a large scale application you"
+      },
+      {
+        "start": 257.12,
+        "duration": 7.02,
+        "text": "know you you you can tend to have you"
+      },
+      {
+        "start": 260.45,
+        "duration": 5.64,
+        "text": "know 32 64 cores with lots and lots of"
+      },
+      {
+        "start": 264.14,
+        "duration": 3.69,
+        "text": "RAM on those machines"
+      },
+      {
+        "start": 266.09,
+        "duration": 3.93,
+        "text": "we want to be able to properly utilize"
+      },
+      {
+        "start": 267.83,
+        "duration": 4.619,
+        "text": "it so I think a lot of us just come down"
+      },
+      {
+        "start": 270.02,
+        "duration": 6.0,
+        "text": "to how servers how the server market has"
+      },
+      {
+        "start": 272.449,
+        "duration": 5.491,
+        "text": "changed okay so now mechanical sympathy"
+      },
+      {
+        "start": 276.02,
+        "duration": 4.2,
+        "text": "as a concept I think I kind of get where"
+      },
+      {
+        "start": 277.94,
+        "duration": 5.009,
+        "text": "that's going and you know taking better"
+      },
+      {
+        "start": 280.22,
+        "duration": 5.49,
+        "text": "advantage of the hardware and and"
+      },
+      {
+        "start": 282.949,
+        "duration": 4.591,
+        "text": "mapping more closely what we're doing in"
+      },
+      {
+        "start": 285.71,
+        "duration": 3.66,
+        "text": "our software programs onto the"
+      },
+      {
+        "start": 287.54,
+        "duration": 5.22,
+        "text": "underlying hardware and I would say that"
+      },
+      {
+        "start": 289.37,
+        "duration": 5.549,
+        "text": "thread procore is maybe our specific"
+      },
+      {
+        "start": 292.76,
+        "duration": 4.94,
+        "text": "manifestation of that for data sacks"
+      },
+      {
+        "start": 294.919,
+        "duration": 5.97,
+        "text": "enterprise am I on the right track here"
+      },
+      {
+        "start": 297.7,
+        "duration": 7.15,
+        "text": "yeah I mean at the fundamental level all"
+      },
+      {
+        "start": 300.889,
+        "duration": 6.331,
+        "text": "we're doing is making the core of of the"
+      },
+      {
+        "start": 304.85,
+        "duration": 5.129,
+        "text": "database more asynchronous the goal of"
+      },
+      {
+        "start": 307.22,
+        "duration": 8.49,
+        "text": "throw procore or any kind of you know"
+      },
+      {
+        "start": 309.979,
+        "duration": 9.511,
+        "text": "large-scale software is is to allow it"
+      },
+      {
+        "start": 315.71,
+        "duration": 6.54,
+        "text": "to to fully utilize all the cores on the"
+      },
+      {
+        "start": 319.49,
+        "duration": 4.83,
+        "text": "machine now normally in in in an"
+      },
+      {
+        "start": 322.25,
+        "duration": 6.69,
+        "text": "expander world you know we're very used"
+      },
+      {
+        "start": 324.32,
+        "duration": 8.31,
+        "text": "to to this SATA model which is um you"
+      },
+      {
+        "start": 328.94,
+        "duration": 6.9,
+        "text": "know the staged event-driven"
+      },
+      {
+        "start": 332.63,
+        "duration": 6.3,
+        "text": "architecture and what it means is that"
+      },
+      {
+        "start": 335.84,
+        "duration": 6.6,
+        "text": "for each stage of the processing"
+      },
+      {
+        "start": 338.93,
+        "duration": 7.7,
+        "text": "pipeline you have a thread pool of size"
+      },
+      {
+        "start": 342.44,
+        "duration": 6.84,
+        "text": "X and in that pool naturally creates"
+      },
+      {
+        "start": 346.63,
+        "duration": 7.27,
+        "text": "some back pressure in the system and"
+      },
+      {
+        "start": 349.28,
+        "duration": 9.889,
+        "text": "allows it to try to utilize as much of"
+      },
+      {
+        "start": 353.9,
+        "duration": 8.489,
+        "text": "the the CPUs as it can well not over"
+      },
+      {
+        "start": 359.169,
+        "duration": 4.87,
+        "text": "riding all the other work going on and"
+      },
+      {
+        "start": 362.389,
+        "duration": 3.721,
+        "text": "what that what that means in the end is"
+      },
+      {
+        "start": 364.039,
+        "duration": 4.681,
+        "text": "that you have a whole bunch of threads"
+      },
+      {
+        "start": 366.11,
+        "duration": 5.22,
+        "text": "you know trying trying to compete for"
+      },
+      {
+        "start": 368.72,
+        "duration": 5.58,
+        "text": "for the for the same set of resources"
+      },
+      {
+        "start": 371.33,
+        "duration": 6.12,
+        "text": "and what happens and this is very much a"
+      },
+      {
+        "start": 374.3,
+        "duration": 6.049,
+        "text": "a kernel level issue but on the physical"
+      },
+      {
+        "start": 377.45,
+        "duration": 5.67,
+        "text": "hardware since there isn't really any"
+      },
+      {
+        "start": 380.349,
+        "duration": 5.29,
+        "text": "application level routing of where did"
+      },
+      {
+        "start": 383.12,
+        "duration": 4.83,
+        "text": "where data is going to run the operating"
+      },
+      {
+        "start": 385.639,
+        "duration": 5.221,
+        "text": "system just does its best and what that"
+      },
+      {
+        "start": 387.95,
+        "duration": 5.1,
+        "text": "means is that there's a lot of context"
+      },
+      {
+        "start": 390.86,
+        "duration": 4.92,
+        "text": "switching and there's a lot of work that"
+      },
+      {
+        "start": 393.05,
+        "duration": 6.69,
+        "text": "that the currently meet needs to do to"
+      },
+      {
+        "start": 395.78,
+        "duration": 6.72,
+        "text": "try to keep those those cores bit busy"
+      },
+      {
+        "start": 399.74,
+        "duration": 7.38,
+        "text": "and and and in the meantime trying to"
+      },
+      {
+        "start": 402.5,
+        "duration": 5.97,
+        "text": "make all of the threads safety get"
+      },
+      {
+        "start": 407.12,
+        "duration": 4.26,
+        "text": "guarantees so as an application"
+      },
+      {
+        "start": 408.47,
+        "duration": 7.46,
+        "text": "developer you're writing software you"
+      },
+      {
+        "start": 411.38,
+        "duration": 4.55,
+        "text": "know in a in a somewhat"
+      },
+      {
+        "start": 416.41,
+        "duration": 8.229,
+        "text": "declarative manner we're saying you know"
+      },
+      {
+        "start": 419.599,
+        "duration": 6.181,
+        "text": "run run like read this row merge the two"
+      },
+      {
+        "start": 424.639,
+        "duration": 3.991,
+        "text": "together"
+      },
+      {
+        "start": 425.78,
+        "duration": 5.37,
+        "text": "and write it up here now that if that"
+      },
+      {
+        "start": 428.63,
+        "duration": 5.31,
+        "text": "happens to block along the way it's it's"
+      },
+      {
+        "start": 431.15,
+        "duration": 5.609,
+        "text": "running inside of threads so no big deal"
+      },
+      {
+        "start": 433.94,
+        "duration": 4.89,
+        "text": "you know it's going going to keep"
+      },
+      {
+        "start": 436.759,
+        "duration": 5.391,
+        "text": "running when it has more work and the"
+      },
+      {
+        "start": 438.83,
+        "duration": 5.85,
+        "text": "operating system will try to swap in"
+      },
+      {
+        "start": 442.15,
+        "duration": 5.53,
+        "text": "other threads which which are ready to"
+      },
+      {
+        "start": 444.68,
+        "duration": 5.54,
+        "text": "do work what what this whole concept of"
+      },
+      {
+        "start": 447.68,
+        "duration": 5.88,
+        "text": "of trying to keep the CPU use busy and"
+      },
+      {
+        "start": 450.22,
+        "duration": 5.319,
+        "text": "on the application level is to basically"
+      },
+      {
+        "start": 453.56,
+        "duration": 5.43,
+        "text": "make sure that you're not blocking any"
+      },
+      {
+        "start": 455.539,
+        "duration": 5.521,
+        "text": "work from from being done in in the"
+      },
+      {
+        "start": 458.99,
+        "duration": 3.63,
+        "text": "application itself so if you can tell"
+      },
+      {
+        "start": 461.06,
+        "duration": 5.039,
+        "text": "that something is going to block you"
+      },
+      {
+        "start": 462.62,
+        "duration": 5.28,
+        "text": "need to physically reschedule it so this"
+      },
+      {
+        "start": 466.099,
+        "duration": 6.231,
+        "text": "is very much you know most people"
+      },
+      {
+        "start": 467.9,
+        "duration": 6.65,
+        "text": "nowadays are no JavaScript programming"
+      },
+      {
+        "start": 472.33,
+        "duration": 4.809,
+        "text": "JavaScript programming is basically all"
+      },
+      {
+        "start": 474.55,
+        "duration": 5.649,
+        "text": "you know asynchronous all asynchronous"
+      },
+      {
+        "start": 477.139,
+        "duration": 4.681,
+        "text": "um it's basically callbacks and futures"
+      },
+      {
+        "start": 480.199,
+        "duration": 3.121,
+        "text": "and all these things so this is very"
+      },
+      {
+        "start": 481.82,
+        "duration": 3.779,
+        "text": "very much you know from the ground up"
+      },
+      {
+        "start": 483.32,
+        "duration": 4.649,
+        "text": "trying to rebuild the database engine to"
+      },
+      {
+        "start": 485.599,
+        "duration": 5.341,
+        "text": "support this way of of processing work"
+      },
+      {
+        "start": 487.969,
+        "duration": 5.641,
+        "text": "cool yeah so I remember back when I"
+      },
+      {
+        "start": 490.94,
+        "duration": 4.229,
+        "text": "first started to get to know Cassandra"
+      },
+      {
+        "start": 493.61,
+        "duration": 3.299,
+        "text": "and looking under the hood to see what"
+      },
+      {
+        "start": 495.169,
+        "duration": 3.691,
+        "text": "was going on there this idea of the"
+      },
+      {
+        "start": 496.909,
+        "duration": 4.471,
+        "text": "stage driven event-driven architecture"
+      },
+      {
+        "start": 498.86,
+        "duration": 3.839,
+        "text": "sounded very cool and having the concept"
+      },
+      {
+        "start": 501.38,
+        "duration": 4.349,
+        "text": "of having these multiple thread pools"
+      },
+      {
+        "start": 502.699,
+        "duration": 6.27,
+        "text": "but it just turned out to not scale as"
+      },
+      {
+        "start": 505.729,
+        "duration": 6.451,
+        "text": "well in practice as maybe was it was"
+      },
+      {
+        "start": 508.969,
+        "duration": 4.26,
+        "text": "originally thought right so can you can"
+      },
+      {
+        "start": 512.18,
+        "duration": 3.479,
+        "text": "you drive in a little bit more and tell"
+      },
+      {
+        "start": 513.229,
+        "duration": 4.56,
+        "text": "me about what the the thread per core"
+      },
+      {
+        "start": 515.659,
+        "duration": 3.81,
+        "text": "implementation looks like like what's"
+      },
+      {
+        "start": 517.789,
+        "duration": 7.191,
+        "text": "different about what we're doing now"
+      },
+      {
+        "start": 519.469,
+        "duration": 10.171,
+        "text": "so we're basically building off of the"
+      },
+      {
+        "start": 524.98,
+        "duration": 8.04,
+        "text": "reactive streams effort which is a you"
+      },
+      {
+        "start": 529.64,
+        "duration": 8.2,
+        "text": "know sort of a consortium of"
+      },
+      {
+        "start": 533.02,
+        "duration": 8.73,
+        "text": "of developers have tried to build this"
+      },
+      {
+        "start": 537.84,
+        "duration": 9.64,
+        "text": "stream standard for for for for building"
+      },
+      {
+        "start": 541.75,
+        "duration": 7.62,
+        "text": "a asynchronous pipelines and and at the"
+      },
+      {
+        "start": 547.48,
+        "duration": 4.68,
+        "text": "basis of all this there's effectively a"
+      },
+      {
+        "start": 549.37,
+        "duration": 5.13,
+        "text": "event loop which processes tasks and"
+      },
+      {
+        "start": 552.16,
+        "duration": 6.6,
+        "text": "what thread procore really is is you're"
+      },
+      {
+        "start": 554.5,
+        "duration": 5.67,
+        "text": "creating a vent loop per core it's and"
+      },
+      {
+        "start": 558.76,
+        "duration": 3.3,
+        "text": "it happens to be we're running in a"
+      },
+      {
+        "start": 560.17,
+        "duration": 3.69,
+        "text": "thread but the idea is you go from"
+      },
+      {
+        "start": 562.06,
+        "duration": 4.47,
+        "text": "having you know hundreds and hundreds of"
+      },
+      {
+        "start": 563.86,
+        "duration": 5.43,
+        "text": "threads all competing to work to having"
+      },
+      {
+        "start": 566.53,
+        "duration": 4.8,
+        "text": "one thread per core and you're"
+      },
+      {
+        "start": 569.29,
+        "duration": 5.64,
+        "text": "effectively trying to keep that that"
+      },
+      {
+        "start": 571.33,
+        "duration": 5.39,
+        "text": "event loop as busy as possible so"
+      },
+      {
+        "start": 574.93,
+        "duration": 4.44,
+        "text": "whenever has to read something off of"
+      },
+      {
+        "start": 576.72,
+        "duration": 6.7,
+        "text": "the network or read something off of"
+      },
+      {
+        "start": 579.37,
+        "duration": 8.07,
+        "text": "disk it it moves that work off until"
+      },
+      {
+        "start": 583.42,
+        "duration": 7.5,
+        "text": "it's ready and then it keeps keeps"
+      },
+      {
+        "start": 587.44,
+        "duration": 5.99,
+        "text": "pulling new work off of the queue so"
+      },
+      {
+        "start": 590.92,
+        "duration": 6.96,
+        "text": "that's fundamentally how these things"
+      },
+      {
+        "start": 593.43,
+        "duration": 8.17,
+        "text": "work but but but the reactive streams"
+      },
+      {
+        "start": 597.88,
+        "duration": 6.6,
+        "text": "effort is really our you know connecting"
+      },
+      {
+        "start": 601.6,
+        "duration": 5.79,
+        "text": "those those two things the the event"
+      },
+      {
+        "start": 604.48,
+        "duration": 4.53,
+        "text": "loop and the processing chain gotcha so"
+      },
+      {
+        "start": 607.39,
+        "duration": 4.77,
+        "text": "we're taking advantage it sounds like"
+      },
+      {
+        "start": 609.01,
+        "duration": 4.71,
+        "text": "we're not reinventing our own kind of"
+      },
+      {
+        "start": 612.16,
+        "duration": 5.43,
+        "text": "reactive programming model here we're"
+      },
+      {
+        "start": 613.72,
+        "duration": 11.78,
+        "text": "leveraging existing libraries yeah it's"
+      },
+      {
+        "start": 617.59,
+        "duration": 10.68,
+        "text": "heavily based off nettie rx Java and"
+      },
+      {
+        "start": 625.5,
+        "duration": 4.81,
+        "text": "some some of our own stuff ok"
+      },
+      {
+        "start": 628.27,
+        "duration": 4.23,
+        "text": "because there are some some tricky"
+      },
+      {
+        "start": 630.31,
+        "duration": 4.92,
+        "text": "things when it comes to trying to access"
+      },
+      {
+        "start": 632.5,
+        "duration": 5.36,
+        "text": "data off of disk which you know you need"
+      },
+      {
+        "start": 635.23,
+        "duration": 6.15,
+        "text": "to be very careful about when when you"
+      },
+      {
+        "start": 637.86,
+        "duration": 5.89,
+        "text": "free things and the guarantees that"
+      },
+      {
+        "start": 641.38,
+        "duration": 5.13,
+        "text": "these frameworks give you isn't"
+      },
+      {
+        "start": 643.75,
+        "duration": 5.45,
+        "text": "necessarily what what what we needed for"
+      },
+      {
+        "start": 646.51,
+        "duration": 6.87,
+        "text": "the job so there's a combination of"
+      },
+      {
+        "start": 649.2,
+        "duration": 6.28,
+        "text": "projects ok cool so what do I get from"
+      },
+      {
+        "start": 653.38,
+        "duration": 3.78,
+        "text": "thread per core what are the what are"
+      },
+      {
+        "start": 655.48,
+        "duration": 2.82,
+        "text": "the benefits of doing this I mean I"
+      },
+      {
+        "start": 657.16,
+        "duration": 3.42,
+        "text": "think we can sort of understand at a"
+      },
+      {
+        "start": 658.3,
+        "duration": 3.99,
+        "text": "high level yeah ok yeah better"
+      },
+      {
+        "start": 660.58,
+        "duration": 3.33,
+        "text": "performance better resource utilization"
+      },
+      {
+        "start": 662.29,
+        "duration": 3.33,
+        "text": "but can you really kind of distill that"
+      },
+      {
+        "start": 663.91,
+        "duration": 4.02,
+        "text": "down for us what what's"
+      },
+      {
+        "start": 665.62,
+        "duration": 5.88,
+        "text": "what are the benefits the the goal of"
+      },
+      {
+        "start": 667.93,
+        "duration": 6.92,
+        "text": "the effort is is to as to allow DSC to"
+      },
+      {
+        "start": 671.5,
+        "duration": 6.06,
+        "text": "perform as well as it can on whatever"
+      },
+      {
+        "start": 674.85,
+        "duration": 4.33,
+        "text": "hardware it's running on so if you're"
+      },
+      {
+        "start": 677.56,
+        "duration": 4.59,
+        "text": "running on an acorn machine that's gonna"
+      },
+      {
+        "start": 679.18,
+        "duration": 4.53,
+        "text": "run as well as it can for a core if"
+      },
+      {
+        "start": 682.15,
+        "duration": 3.66,
+        "text": "you're running for a 64 core machine"
+      },
+      {
+        "start": 683.71,
+        "duration": 4.44,
+        "text": "it's gonna run as well as it can on 64"
+      },
+      {
+        "start": 685.81,
+        "duration": 4.86,
+        "text": "core the problem with the old model is"
+      },
+      {
+        "start": 688.15,
+        "duration": 5.76,
+        "text": "as you scale up the number of cores on a"
+      },
+      {
+        "start": 690.67,
+        "duration": 7.08,
+        "text": "physical machine the the more contention"
+      },
+      {
+        "start": 693.91,
+        "duration": 6.06,
+        "text": "there is to to basically access a shared"
+      },
+      {
+        "start": 697.75,
+        "duration": 6.12,
+        "text": "resource so say for example you're"
+      },
+      {
+        "start": 699.97,
+        "duration": 5.55,
+        "text": "building the the mint table reads and"
+      },
+      {
+        "start": 703.87,
+        "duration": 5.73,
+        "text": "writes for example is a good example of"
+      },
+      {
+        "start": 705.52,
+        "duration": 6.54,
+        "text": "this in Cassandra when data goes in or"
+      },
+      {
+        "start": 709.6,
+        "duration": 4.68,
+        "text": "it's being read out there's a mem table"
+      },
+      {
+        "start": 712.06,
+        "duration": 5.61,
+        "text": "that mem table is shared by all threads"
+      },
+      {
+        "start": 714.28,
+        "duration": 6.15,
+        "text": "which which read and write to it so it's"
+      },
+      {
+        "start": 717.67,
+        "duration": 8.46,
+        "text": "basically a giant couldn't concurrent"
+      },
+      {
+        "start": 720.43,
+        "duration": 8.37,
+        "text": "skip list map and and and you know"
+      },
+      {
+        "start": 726.13,
+        "duration": 6.9,
+        "text": "although that works well as you scale up"
+      },
+      {
+        "start": 728.8,
+        "duration": 6.81,
+        "text": "the number of cores the contention on on"
+      },
+      {
+        "start": 733.03,
+        "duration": 4.95,
+        "text": "that data structure starts starts to"
+      },
+      {
+        "start": 735.61,
+        "duration": 4.89,
+        "text": "outweigh the the performance of the"
+      },
+      {
+        "start": 737.98,
+        "duration": 5.16,
+        "text": "actual read and write operation so"
+      },
+      {
+        "start": 740.5,
+        "duration": 6.21,
+        "text": "everything is doing spin locks you know"
+      },
+      {
+        "start": 743.14,
+        "duration": 6.23,
+        "text": "trying treasure trying to do compare and"
+      },
+      {
+        "start": 746.71,
+        "duration": 3.78,
+        "text": "and and and swap operations across"
+      },
+      {
+        "start": 749.37,
+        "duration": 2.86,
+        "text": "sockets"
+      },
+      {
+        "start": 750.49,
+        "duration": 3.33,
+        "text": "and what ends up happening is even"
+      },
+      {
+        "start": 752.23,
+        "duration": 4.2,
+        "text": "though your CPU looks like it's pegged"
+      },
+      {
+        "start": 753.82,
+        "duration": 5.97,
+        "text": "at a hundred percent it's actually just"
+      },
+      {
+        "start": 756.43,
+        "duration": 6.39,
+        "text": "waiting this busy word so your your"
+      },
+      {
+        "start": 759.79,
+        "duration": 4.68,
+        "text": "server looks totally saturated but"
+      },
+      {
+        "start": 762.82,
+        "duration": 5.01,
+        "text": "you're not really getting much out of it"
+      },
+      {
+        "start": 764.47,
+        "duration": 5.34,
+        "text": "so this is what I mean by mechanical"
+      },
+      {
+        "start": 767.83,
+        "duration": 4.5,
+        "text": "sympathy and trying to build software"
+      },
+      {
+        "start": 769.81,
+        "duration": 3.87,
+        "text": "that's aware of what's going on so with"
+      },
+      {
+        "start": 772.33,
+        "duration": 7.23,
+        "text": "the threat per core model that allows us"
+      },
+      {
+        "start": 773.68,
+        "duration": 11.43,
+        "text": "to to basically partition per core the"
+      },
+      {
+        "start": 779.56,
+        "duration": 8.75,
+        "text": "data partitions inside of DSE so what it"
+      },
+      {
+        "start": 785.11,
+        "duration": 8.19,
+        "text": "means is that you effectively have a a"
+      },
+      {
+        "start": 788.31,
+        "duration": 8.05,
+        "text": "single writer principle so that for any"
+      },
+      {
+        "start": 793.3,
+        "duration": 4.95,
+        "text": "given partition there's only one event"
+      },
+      {
+        "start": 796.36,
+        "duration": 3.06,
+        "text": "loop and one thread which is accessing"
+      },
+      {
+        "start": 798.25,
+        "duration": 4.41,
+        "text": "that that"
+      },
+      {
+        "start": 799.42,
+        "duration": 5.64,
+        "text": "that that that partition of data and"
+      },
+      {
+        "start": 802.66,
+        "duration": 5.91,
+        "text": "that gives you a huge benefit in terms"
+      },
+      {
+        "start": 805.06,
+        "duration": 6.66,
+        "text": "of there's zero contention on that"
+      },
+      {
+        "start": 808.57,
+        "duration": 6.12,
+        "text": "across course okay so this is like"
+      },
+      {
+        "start": 811.72,
+        "duration": 5.04,
+        "text": "zooming out I'm I I have a partition ur"
+      },
+      {
+        "start": 814.69,
+        "duration": 4.2,
+        "text": "for my cluster which is determining you"
+      },
+      {
+        "start": 816.76,
+        "duration": 4.23,
+        "text": "know based on the token of the of the"
+      },
+      {
+        "start": 818.89,
+        "duration": 3.57,
+        "text": "data that I'm accessing what node or"
+      },
+      {
+        "start": 820.99,
+        "duration": 4.05,
+        "text": "nodes is going to own that data and then"
+      },
+      {
+        "start": 822.46,
+        "duration": 4.83,
+        "text": "once I hit those nodes inside those"
+      },
+      {
+        "start": 825.04,
+        "duration": 4.92,
+        "text": "nodes there's actually an allocation to"
+      },
+      {
+        "start": 827.29,
+        "duration": 4.58,
+        "text": "a specific thread that that token range"
+      },
+      {
+        "start": 829.96,
+        "duration": 4.5,
+        "text": "for that node is divided up further into"
+      },
+      {
+        "start": 831.87,
+        "duration": 4.69,
+        "text": "token range per thread or per core is"
+      },
+      {
+        "start": 834.46,
+        "duration": 6.78,
+        "text": "that right yeah exactly so we basically"
+      },
+      {
+        "start": 836.56,
+        "duration": 9.63,
+        "text": "taken a Cassandra node and broken it"
+      },
+      {
+        "start": 841.24,
+        "duration": 7.55,
+        "text": "into its own little bitty cluster you"
+      },
+      {
+        "start": 846.19,
+        "duration": 6.45,
+        "text": "know a lot of benefit in terms of how"
+      },
+      {
+        "start": 848.79,
+        "duration": 6.58,
+        "text": "fast we can run on larger scale hardware"
+      },
+      {
+        "start": 852.64,
+        "duration": 5.61,
+        "text": "so for example in in in the in some of"
+      },
+      {
+        "start": 855.37,
+        "duration": 6.0,
+        "text": "the tests that we've done we can show"
+      },
+      {
+        "start": 858.25,
+        "duration": 5.46,
+        "text": "that you know if you move from a a core"
+      },
+      {
+        "start": 861.37,
+        "duration": 6.9,
+        "text": "machine to a 16 core machine into a 30"
+      },
+      {
+        "start": 863.71,
+        "duration": 13.23,
+        "text": "core to core to 64 your rights will will"
+      },
+      {
+        "start": 868.27,
+        "duration": 11.43,
+        "text": "scare scale linearly a across one box"
+      },
+      {
+        "start": 876.94,
+        "duration": 4.35,
+        "text": "which which increases the the number of"
+      },
+      {
+        "start": 879.7,
+        "duration": 3.72,
+        "text": "core counts so we're not talking about a"
+      },
+      {
+        "start": 881.29,
+        "duration": 5.34,
+        "text": "cluster anymore this whole effort is"
+      },
+      {
+        "start": 883.42,
+        "duration": 5.49,
+        "text": "focused on you know with with within a"
+      },
+      {
+        "start": 886.63,
+        "duration": 4.74,
+        "text": "single node we're trying to make that as"
+      },
+      {
+        "start": 888.91,
+        "duration": 3.96,
+        "text": "as scalable as possible so we're really"
+      },
+      {
+        "start": 891.37,
+        "duration": 5.67,
+        "text": "just trying to improve the scalability"
+      },
+      {
+        "start": 892.87,
+        "duration": 7.8,
+        "text": "of a signal node whereas with with DC or"
+      },
+      {
+        "start": 897.04,
+        "duration": 7.83,
+        "text": "patchy Cassandra you end up seeing you"
+      },
+      {
+        "start": 900.67,
+        "duration": 7.29,
+        "text": "know a a asymptotic effect sort of like"
+      },
+      {
+        "start": 904.87,
+        "duration": 6.36,
+        "text": "as you add more more cores your"
+      },
+      {
+        "start": 907.96,
+        "duration": 8.34,
+        "text": "throughput kind of stops scaling and it"
+      },
+      {
+        "start": 911.23,
+        "duration": 7.38,
+        "text": "starts actually go down gotcha okay so I"
+      },
+      {
+        "start": 916.3,
+        "duration": 5.64,
+        "text": "think we've talked about some of what"
+      },
+      {
+        "start": 918.61,
+        "duration": 6.3,
+        "text": "the benefits are of the TPC effort and"
+      },
+      {
+        "start": 921.94,
+        "duration": 4.44,
+        "text": "what that's going to give you you made"
+      },
+      {
+        "start": 924.91,
+        "duration": 5.43,
+        "text": "me think of something when you started"
+      },
+      {
+        "start": 926.38,
+        "duration": 6.6,
+        "text": "talking about dividing up the token"
+      },
+      {
+        "start": 930.34,
+        "duration": 5.189,
+        "text": "range across the different threads"
+      },
+      {
+        "start": 932.98,
+        "duration": 5.31,
+        "text": "which is maybe a similar problem that"
+      },
+      {
+        "start": 935.529,
+        "duration": 4.651,
+        "text": "you have with your with your cluster as"
+      },
+      {
+        "start": 938.29,
+        "duration": 3.989,
+        "text": "a whole which is the idea of the hot"
+      },
+      {
+        "start": 940.18,
+        "duration": 4.98,
+        "text": "partition right is that one of the the"
+      },
+      {
+        "start": 942.279,
+        "duration": 5.221,
+        "text": "tricky or challenging areas for this"
+      },
+      {
+        "start": 945.16,
+        "duration": 4.35,
+        "text": "kind of architectural approach yeah"
+      },
+      {
+        "start": 947.5,
+        "duration": 5.88,
+        "text": "definitely I mean so the the upside of"
+      },
+      {
+        "start": 949.51,
+        "duration": 7.05,
+        "text": "this is when you're doing you know when"
+      },
+      {
+        "start": 953.38,
+        "duration": 5.31,
+        "text": "when you're when you're using DSC you're"
+      },
+      {
+        "start": 956.56,
+        "duration": 6.029,
+        "text": "trying to use it for some kind of large"
+      },
+      {
+        "start": 958.69,
+        "duration": 6.149,
+        "text": "scalable application if you have a hot"
+      },
+      {
+        "start": 962.589,
+        "duration": 5.37,
+        "text": "partition where all the data so for"
+      },
+      {
+        "start": 964.839,
+        "duration": 6.12,
+        "text": "example the justin beiber problem you"
+      },
+      {
+        "start": 967.959,
+        "duration": 5.701,
+        "text": "know he sends an Instagram and and all"
+      },
+      {
+        "start": 970.959,
+        "duration": 5.701,
+        "text": "of a sudden you know they have one node"
+      },
+      {
+        "start": 973.66,
+        "duration": 6.45,
+        "text": "which which which just gets hammered so"
+      },
+      {
+        "start": 976.66,
+        "duration": 5.429,
+        "text": "there's a similar problem in t-vec where"
+      },
+      {
+        "start": 980.11,
+        "duration": 6.9,
+        "text": "there's a single thread responsible for"
+      },
+      {
+        "start": 982.089,
+        "duration": 8.671,
+        "text": "a single partition so if you so if you"
+      },
+      {
+        "start": 987.01,
+        "duration": 6.6,
+        "text": "spam that that one partition your"
+      },
+      {
+        "start": 990.76,
+        "duration": 4.769,
+        "text": "throughput would be less than the the"
+      },
+      {
+        "start": 993.61,
+        "duration": 4.83,
+        "text": "model of having lots and lots of threads"
+      },
+      {
+        "start": 995.529,
+        "duration": 7.141,
+        "text": "trying to you know access at that same"
+      },
+      {
+        "start": 998.44,
+        "duration": 7.079,
+        "text": "partition but in general that's kind of"
+      },
+      {
+        "start": 1002.67,
+        "duration": 4.109,
+        "text": "a problem that you shouldn't want to"
+      },
+      {
+        "start": 1005.519,
+        "duration": 3.93,
+        "text": "have you know it's not something that"
+      },
+      {
+        "start": 1006.779,
+        "duration": 5.071,
+        "text": "you should design for so it's something"
+      },
+      {
+        "start": 1009.449,
+        "duration": 6.541,
+        "text": "that you should try to build your data"
+      },
+      {
+        "start": 1011.85,
+        "duration": 6.96,
+        "text": "model such if if it's a time-series data"
+      },
+      {
+        "start": 1015.99,
+        "duration": 6.42,
+        "text": "model for example you you can change"
+      },
+      {
+        "start": 1018.81,
+        "duration": 8.369,
+        "text": "your partition key to you know to spread"
+      },
+      {
+        "start": 1022.41,
+        "duration": 10.49,
+        "text": "the work as well as in in inside of DSC"
+      },
+      {
+        "start": 1027.179,
+        "duration": 10.321,
+        "text": "or cassandra you can you you also have a"
+      },
+      {
+        "start": 1032.9,
+        "duration": 8.59,
+        "text": "replication factor so you're able to to"
+      },
+      {
+        "start": 1037.5,
+        "duration": 7.41,
+        "text": "basically use more nodes in parallel to"
+      },
+      {
+        "start": 1041.49,
+        "duration": 6.059,
+        "text": "kind of share that that data load but"
+      },
+      {
+        "start": 1044.91,
+        "duration": 4.98,
+        "text": "but in practice we don't see this as you"
+      },
+      {
+        "start": 1047.549,
+        "duration": 5.311,
+        "text": "know a huge problem but it is"
+      },
+      {
+        "start": 1049.89,
+        "duration": 5.1,
+        "text": "theoretically one of the problems of"
+      },
+      {
+        "start": 1052.86,
+        "duration": 4.5,
+        "text": "this approach okay cool so it tends to"
+      },
+      {
+        "start": 1054.99,
+        "duration": 4.47,
+        "text": "not be as big of a deal in practice and"
+      },
+      {
+        "start": 1057.36,
+        "duration": 5.49,
+        "text": "you can kind of designer on it with data"
+      },
+      {
+        "start": 1059.46,
+        "duration": 5.79,
+        "text": "model changes and you know increasing"
+      },
+      {
+        "start": 1062.85,
+        "duration": 3.75,
+        "text": "the number of nodes I guess in the"
+      },
+      {
+        "start": 1065.25,
+        "duration": 4.169,
+        "text": "cluster is what you're saying"
+      },
+      {
+        "start": 1066.6,
+        "duration": 4.14,
+        "text": "okay so understand about the the hot"
+      },
+      {
+        "start": 1069.419,
+        "duration": 3.481,
+        "text": "partition problem but are there any"
+      },
+      {
+        "start": 1070.74,
+        "duration": 3.9,
+        "text": "other kind of tricky or challenging"
+      },
+      {
+        "start": 1072.9,
+        "duration": 4.98,
+        "text": "areas in this implementation that you'd"
+      },
+      {
+        "start": 1074.64,
+        "duration": 5.64,
+        "text": "like to talk about not a ton but but you"
+      },
+      {
+        "start": 1077.88,
+        "duration": 6.06,
+        "text": "need to be careful in general with with"
+      },
+      {
+        "start": 1080.28,
+        "duration": 5.639,
+        "text": "with most distributed systems you have"
+      },
+      {
+        "start": 1083.94,
+        "duration": 5.369,
+        "text": "to consider the fact that your client is"
+      },
+      {
+        "start": 1085.919,
+        "duration": 6.63,
+        "text": "is is a part of that system so a lot of"
+      },
+      {
+        "start": 1089.309,
+        "duration": 6.271,
+        "text": "people when they start using DC or"
+      },
+      {
+        "start": 1092.549,
+        "duration": 5.13,
+        "text": "Cassandra they you know set up at"
+      },
+      {
+        "start": 1095.58,
+        "duration": 4.349,
+        "text": "EndNote cluster and they have one client"
+      },
+      {
+        "start": 1097.679,
+        "duration": 4.201,
+        "text": "note and they're like hey it's slow why"
+      },
+      {
+        "start": 1099.929,
+        "duration": 5.401,
+        "text": "is that and a lot of it is just because"
+      },
+      {
+        "start": 1101.88,
+        "duration": 5.789,
+        "text": "of the fact that your client is the"
+      },
+      {
+        "start": 1105.33,
+        "duration": 5.49,
+        "text": "bottleneck so you need to be careful"
+      },
+      {
+        "start": 1107.669,
+        "duration": 6.781,
+        "text": "that you know you are properly scaling"
+      },
+      {
+        "start": 1110.82,
+        "duration": 8.28,
+        "text": "your application layer to kind of match"
+      },
+      {
+        "start": 1114.45,
+        "duration": 9.06,
+        "text": "the resources of your of your"
+      },
+      {
+        "start": 1119.1,
+        "duration": 7.26,
+        "text": "infrastructure layer so so for TPC for"
+      },
+      {
+        "start": 1123.51,
+        "duration": 4.71,
+        "text": "example we we recommend that for"
+      },
+      {
+        "start": 1126.36,
+        "duration": 4.799,
+        "text": "applications that have you know a single"
+      },
+      {
+        "start": 1128.22,
+        "duration": 6.03,
+        "text": "client trying to fetch a whole bunch of"
+      },
+      {
+        "start": 1131.159,
+        "duration": 5.551,
+        "text": "data we we recommend that they change"
+      },
+      {
+        "start": 1134.25,
+        "duration": 7.74,
+        "text": "their drivers settings to to include"
+      },
+      {
+        "start": 1136.71,
+        "duration": 8.19,
+        "text": "more connections per per session right"
+      },
+      {
+        "start": 1141.99,
+        "duration": 7.069,
+        "text": "so instead of that that session creating"
+      },
+      {
+        "start": 1144.9,
+        "duration": 9.08,
+        "text": "one connection to one Cassandra machine"
+      },
+      {
+        "start": 1149.059,
+        "duration": 8.591,
+        "text": "it's actually creating like 8 or 10 / /"
+      },
+      {
+        "start": 1153.98,
+        "duration": 6.73,
+        "text": "/ coordinator and that and that solve"
+      },
+      {
+        "start": 1157.65,
+        "duration": 4.35,
+        "text": "solves the issue gotcha yeah that is"
+      },
+      {
+        "start": 1160.71,
+        "duration": 2.969,
+        "text": "really important to remember that we"
+      },
+      {
+        "start": 1162.0,
+        "duration": 3.45,
+        "text": "need to just not always blame the"
+      },
+      {
+        "start": 1163.679,
+        "duration": 4.051,
+        "text": "database but obviously we need to scale"
+      },
+      {
+        "start": 1165.45,
+        "duration": 6.12,
+        "text": "our application as well as scaling our"
+      },
+      {
+        "start": 1167.73,
+        "duration": 5.28,
+        "text": "database and taking the use of the what"
+      },
+      {
+        "start": 1171.57,
+        "duration": 3.63,
+        "text": "the affordances that we get from the"
+      },
+      {
+        "start": 1173.01,
+        "duration": 4.58,
+        "text": "driver to manage connection pools and"
+      },
+      {
+        "start": 1175.2,
+        "duration": 5.33,
+        "text": "such so that's an important reminder"
+      },
+      {
+        "start": 1177.59,
+        "duration": 8.05,
+        "text": "there's a whole bunch of other stuff in"
+      },
+      {
+        "start": 1180.53,
+        "duration": 8.23,
+        "text": "terms of so so one issue thing about"
+      },
+      {
+        "start": 1185.64,
+        "duration": 5.01,
+        "text": "this event loop it's going back to one"
+      },
+      {
+        "start": 1188.76,
+        "duration": 3.51,
+        "text": "year earlier questions yeah is you know"
+      },
+      {
+        "start": 1190.65,
+        "duration": 3.45,
+        "text": "you're talking about what these what"
+      },
+      {
+        "start": 1192.27,
+        "duration": 4.74,
+        "text": "these tasks are so effectively when a"
+      },
+      {
+        "start": 1194.1,
+        "duration": 5.92,
+        "text": "when a request comes in to the"
+      },
+      {
+        "start": 1197.01,
+        "duration": 6.37,
+        "text": "coordinator its asynchronously you"
+      },
+      {
+        "start": 1200.02,
+        "duration": 7.86,
+        "text": "parsed and and turned into a let's say a"
+      },
+      {
+        "start": 1203.38,
+        "duration": 8.85,
+        "text": "partition read recommand which maybe"
+      },
+      {
+        "start": 1207.88,
+        "duration": 6.63,
+        "text": "needs to access data on disk so once it"
+      },
+      {
+        "start": 1212.23,
+        "duration": 5.7,
+        "text": "figures out which SS tables have the"
+      },
+      {
+        "start": 1214.51,
+        "duration": 5.97,
+        "text": "data in it and it sits checked the men"
+      },
+      {
+        "start": 1217.93,
+        "duration": 5.39,
+        "text": "table all that so far is non-blocking"
+      },
+      {
+        "start": 1220.48,
+        "duration": 6.03,
+        "text": "but then let's say it needs to you know"
+      },
+      {
+        "start": 1223.32,
+        "duration": 8.49,
+        "text": "something off of disk and it's not in"
+      },
+      {
+        "start": 1226.51,
+        "duration": 11.97,
+        "text": "the you know disk cache so in that case"
+      },
+      {
+        "start": 1231.81,
+        "duration": 10.75,
+        "text": "we're using a Lib a IO which which which"
+      },
+      {
+        "start": 1238.48,
+        "duration": 10.07,
+        "text": "is a a synchronous discont access"
+      },
+      {
+        "start": 1242.56,
+        "duration": 5.99,
+        "text": "library which allows you to bypass the"
+      },
+      {
+        "start": 1248.58,
+        "duration": 9.64,
+        "text": "Linux kernel and it will acknowledge the"
+      },
+      {
+        "start": 1254.41,
+        "duration": 6.18,
+        "text": "event loop when that disk read is it is"
+      },
+      {
+        "start": 1258.22,
+        "duration": 4.8,
+        "text": "done so this is something that you know"
+      },
+      {
+        "start": 1260.59,
+        "duration": 5.79,
+        "text": "most Java systems don't don't really"
+      },
+      {
+        "start": 1263.02,
+        "duration": 5.79,
+        "text": "know have have built in and we spent a"
+      },
+      {
+        "start": 1266.38,
+        "duration": 4.59,
+        "text": "lot of time on that two-bit to basically"
+      },
+      {
+        "start": 1268.81,
+        "duration": 5.61,
+        "text": "get rid of all context switching for"
+      },
+      {
+        "start": 1270.97,
+        "duration": 7.34,
+        "text": "disk reads for for that particular"
+      },
+      {
+        "start": 1274.42,
+        "duration": 9.02,
+        "text": "purpose so when you combine that with"
+      },
+      {
+        "start": 1278.31,
+        "duration": 8.17,
+        "text": "Network reads disk reads and internode"
+      },
+      {
+        "start": 1283.44,
+        "duration": 7.75,
+        "text": "network calls all of that is happening"
+      },
+      {
+        "start": 1286.48,
+        "duration": 7.59,
+        "text": "inside of one event loop and being able"
+      },
+      {
+        "start": 1291.19,
+        "duration": 5.64,
+        "text": "to combine all of your to basically"
+      },
+      {
+        "start": 1294.07,
+        "duration": 6.32,
+        "text": "combine all of your work asynchronous"
+      },
+      {
+        "start": 1296.83,
+        "duration": 7.32,
+        "text": "work in into one single event loop for"
+      },
+      {
+        "start": 1300.39,
+        "duration": 6.64,
+        "text": "for disk access network assets and"
+      },
+      {
+        "start": 1304.15,
+        "duration": 4.86,
+        "text": "application tasks that that's really"
+      },
+      {
+        "start": 1307.03,
+        "duration": 4.44,
+        "text": "what gives you the benefit of being able"
+      },
+      {
+        "start": 1309.01,
+        "duration": 4.86,
+        "text": "to scale this kind of architecture so if"
+      },
+      {
+        "start": 1311.47,
+        "duration": 5.07,
+        "text": "you want to build a thread per core"
+      },
+      {
+        "start": 1313.87,
+        "duration": 5.22,
+        "text": "model in your application system you"
+      },
+      {
+        "start": 1316.54,
+        "duration": 5.97,
+        "text": "need to break down all of the spots in"
+      },
+      {
+        "start": 1319.09,
+        "duration": 7.29,
+        "text": "the code where it can block and and make"
+      },
+      {
+        "start": 1322.51,
+        "duration": 7.23,
+        "text": "those all a a synchronous meaning"
+      },
+      {
+        "start": 1326.38,
+        "duration": 7.35,
+        "text": "there's effectively a callback when data"
+      },
+      {
+        "start": 1329.74,
+        "duration": 6.309,
+        "text": "is ready to be"
+      },
+      {
+        "start": 1333.73,
+        "duration": 4.299,
+        "text": "awesome okay so this sounds pretty"
+      },
+      {
+        "start": 1336.049,
+        "duration": 4.771,
+        "text": "involved and and touching multiple"
+      },
+      {
+        "start": 1338.029,
+        "duration": 4.77,
+        "text": "things network access this access the"
+      },
+      {
+        "start": 1340.82,
+        "duration": 3.989,
+        "text": "you know the entire way that things are"
+      },
+      {
+        "start": 1342.799,
+        "duration": 4.591,
+        "text": "structured inside the storage engine so"
+      },
+      {
+        "start": 1344.809,
+        "duration": 5.071,
+        "text": "please tell me that there is some net"
+      },
+      {
+        "start": 1347.39,
+        "duration": 3.96,
+        "text": "benefit from from all this work like can"
+      },
+      {
+        "start": 1349.88,
+        "duration": 3.57,
+        "text": "you can you talk performance numbers at"
+      },
+      {
+        "start": 1351.35,
+        "duration": 4.14,
+        "text": "all or we all know that benchmarks lie"
+      },
+      {
+        "start": 1353.45,
+        "duration": 3.66,
+        "text": "but like you obviously have some"
+      },
+      {
+        "start": 1355.49,
+        "duration": 3.48,
+        "text": "representative sets that you know that"
+      },
+      {
+        "start": 1357.11,
+        "duration": 4.169,
+        "text": "this runs faster what can you tell me"
+      },
+      {
+        "start": 1358.97,
+        "duration": 7.41,
+        "text": "about it yeah I mean we've we've taken a"
+      },
+      {
+        "start": 1361.279,
+        "duration": 6.841,
+        "text": "lot of effort this this release to make"
+      },
+      {
+        "start": 1366.38,
+        "duration": 3.99,
+        "text": "sure that we have a good representative"
+      },
+      {
+        "start": 1368.12,
+        "duration": 4.049,
+        "text": "set of all different types of benchmarks"
+      },
+      {
+        "start": 1370.37,
+        "duration": 5.45,
+        "text": "with as many different workloads as we"
+      },
+      {
+        "start": 1372.169,
+        "duration": 7.26,
+        "text": "can cover and and as many different"
+      },
+      {
+        "start": 1375.82,
+        "duration": 5.079,
+        "text": "topologies and no density probably more"
+      },
+      {
+        "start": 1379.429,
+        "duration": 3.211,
+        "text": "than half of the work was done on"
+      },
+      {
+        "start": 1380.899,
+        "duration": 3.991,
+        "text": "setting up this kind of test harness I"
+      },
+      {
+        "start": 1382.64,
+        "duration": 5.58,
+        "text": "think there's a whole other episode we"
+      },
+      {
+        "start": 1384.89,
+        "duration": 5.46,
+        "text": "could have on on disk on distributed"
+      },
+      {
+        "start": 1388.22,
+        "duration": 4.17,
+        "text": "systems testing oh absolutely"
+      },
+      {
+        "start": 1390.35,
+        "duration": 4.65,
+        "text": "yeah which has been you know something"
+      },
+      {
+        "start": 1392.39,
+        "duration": 4.38,
+        "text": "that I've been way too involved in but"
+      },
+      {
+        "start": 1395.0,
+        "duration": 4.919,
+        "text": "it's it's super interesting and"
+      },
+      {
+        "start": 1396.77,
+        "duration": 6.389,
+        "text": "beneficial I think when customers use"
+      },
+      {
+        "start": 1399.919,
+        "duration": 4.86,
+        "text": "our product we always find out that"
+      },
+      {
+        "start": 1403.159,
+        "duration": 3.931,
+        "text": "they're using it in some way that maybe"
+      },
+      {
+        "start": 1404.779,
+        "duration": 5.041,
+        "text": "we didn't think of so how many we didn't"
+      },
+      {
+        "start": 1407.09,
+        "duration": 6.35,
+        "text": "expect yeah who collects and reproduce"
+      },
+      {
+        "start": 1409.82,
+        "duration": 7.17,
+        "text": "all these different topologies and"
+      },
+      {
+        "start": 1413.44,
+        "duration": 5.619,
+        "text": "schemas and workloads in in a in a and"
+      },
+      {
+        "start": 1416.99,
+        "duration": 4.11,
+        "text": "be able to run them on the same types of"
+      },
+      {
+        "start": 1419.059,
+        "duration": 6.84,
+        "text": "hardware whether it be in the cloud or"
+      },
+      {
+        "start": 1421.1,
+        "duration": 6.09,
+        "text": "physical is a pretty big task so we're"
+      },
+      {
+        "start": 1425.899,
+        "duration": 3.211,
+        "text": "really excited about the fact that we"
+      },
+      {
+        "start": 1427.19,
+        "duration": 3.869,
+        "text": "have this kind of pipelines set up in"
+      },
+      {
+        "start": 1429.11,
+        "duration": 5.4,
+        "text": "terms of performance testing and and"
+      },
+      {
+        "start": 1431.059,
+        "duration": 5.191,
+        "text": "regression testing and in terms of the"
+      },
+      {
+        "start": 1434.51,
+        "duration": 5.039,
+        "text": "numbers we see for like a time series"
+      },
+      {
+        "start": 1436.25,
+        "duration": 8.37,
+        "text": "workload with you know with half a"
+      },
+      {
+        "start": 1439.549,
+        "duration": 7.98,
+        "text": "terabyte of disk per node sorry I"
+      },
+      {
+        "start": 1444.62,
+        "duration": 4.71,
+        "text": "mentioned five so five nodes are f3 and"
+      },
+      {
+        "start": 1447.529,
+        "duration": 6.441,
+        "text": "with half a terabyte per node time"
+      },
+      {
+        "start": 1449.33,
+        "duration": 8.969,
+        "text": "series workload you know we we can write"
+      },
+      {
+        "start": 1453.97,
+        "duration": 7.86,
+        "text": "twice as fast using the throw procore"
+      },
+      {
+        "start": 1458.299,
+        "duration": 6.781,
+        "text": "solution versus the existing solution"
+      },
+      {
+        "start": 1461.83,
+        "duration": 6.219,
+        "text": "reads as well our"
+      },
+      {
+        "start": 1465.08,
+        "duration": 6.62,
+        "text": "r2x or more and the best part about it"
+      },
+      {
+        "start": 1468.049,
+        "duration": 8.46,
+        "text": "is Layton sees are also dropped"
+      },
+      {
+        "start": 1471.7,
+        "duration": 7.569,
+        "text": "significantly you know by about thirty"
+      },
+      {
+        "start": 1476.509,
+        "duration": 5.25,
+        "text": "percent so and especially tailor"
+      },
+      {
+        "start": 1479.269,
+        "duration": 4.591,
+        "text": "agencies have improved so we're really"
+      },
+      {
+        "start": 1481.759,
+        "duration": 4.02,
+        "text": "this really solves a lot of the"
+      },
+      {
+        "start": 1483.86,
+        "duration": 4.259,
+        "text": "fundamental performance issues that"
+      },
+      {
+        "start": 1485.779,
+        "duration": 6.12,
+        "text": "people run into so the goal of this all"
+      },
+      {
+        "start": 1488.119,
+        "duration": 8.28,
+        "text": "this work is is to make is to make DC"
+      },
+      {
+        "start": 1491.899,
+        "duration": 8.581,
+        "text": "more predictable and use less Hardware"
+      },
+      {
+        "start": 1496.399,
+        "duration": 7.62,
+        "text": "more effectively so it it's really"
+      },
+      {
+        "start": 1500.48,
+        "duration": 10.559,
+        "text": "beneficial to to the customer in terms"
+      },
+      {
+        "start": 1504.019,
+        "duration": 9.421,
+        "text": "of how many resources they need as as as"
+      },
+      {
+        "start": 1511.039,
+        "duration": 5.01,
+        "text": "well as how many resource resources they"
+      },
+      {
+        "start": 1513.44,
+        "duration": 4.02,
+        "text": "need to manage because don't forget at"
+      },
+      {
+        "start": 1516.049,
+        "duration": 3.48,
+        "text": "the end of day these are all running"
+      },
+      {
+        "start": 1517.46,
+        "duration": 4.679,
+        "text": "somewhere and someone has to be watching"
+      },
+      {
+        "start": 1519.529,
+        "duration": 5.34,
+        "text": "them so the less you can do that the"
+      },
+      {
+        "start": 1522.139,
+        "duration": 4.29,
+        "text": "better right and you know for me like"
+      },
+      {
+        "start": 1524.869,
+        "duration": 3.841,
+        "text": "I've been impressed kind of hearing"
+      },
+      {
+        "start": 1526.429,
+        "duration": 3.63,
+        "text": "through the grapevine some of the the"
+      },
+      {
+        "start": 1528.71,
+        "duration": 3.209,
+        "text": "performance numbers that you guys were"
+      },
+      {
+        "start": 1530.059,
+        "duration": 3.99,
+        "text": "achieving with this almost more"
+      },
+      {
+        "start": 1531.919,
+        "duration": 4.051,
+        "text": "impressive to that than that to me is"
+      },
+      {
+        "start": 1534.049,
+        "duration": 4.021,
+        "text": "really the improvement in the tail"
+      },
+      {
+        "start": 1535.97,
+        "duration": 4.74,
+        "text": "Layton sees you know some of the longer"
+      },
+      {
+        "start": 1538.07,
+        "duration": 5.309,
+        "text": "performing queries those tend to be the"
+      },
+      {
+        "start": 1540.71,
+        "duration": 5.01,
+        "text": "really a lot of the things that you know"
+      },
+      {
+        "start": 1543.379,
+        "duration": 4.02,
+        "text": "cause annoyances and and a bad user"
+      },
+      {
+        "start": 1545.72,
+        "duration": 3.329,
+        "text": "experience kind of like at the upper"
+      },
+      {
+        "start": 1547.399,
+        "duration": 3.75,
+        "text": "layer of your application right why is"
+      },
+      {
+        "start": 1549.049,
+        "duration": 4.44,
+        "text": "this you know I I don't understand the"
+      },
+      {
+        "start": 1551.149,
+        "duration": 4.64,
+        "text": "intermittent slow responses so these are"
+      },
+      {
+        "start": 1553.489,
+        "duration": 4.861,
+        "text": "this is all really really good stuff"
+      },
+      {
+        "start": 1555.789,
+        "duration": 4.541,
+        "text": "yeah it's it's it's it's been a major"
+      },
+      {
+        "start": 1558.35,
+        "duration": 4.11,
+        "text": "effort we're really excited to get it"
+      },
+      {
+        "start": 1560.33,
+        "duration": 6.5,
+        "text": "out there into everyone's hands uh the"
+      },
+      {
+        "start": 1562.46,
+        "duration": 7.289,
+        "text": "EAP is already out there and we're"
+      },
+      {
+        "start": 1566.83,
+        "duration": 7.99,
+        "text": "really excited to to get it into"
+      },
+      {
+        "start": 1569.749,
+        "duration": 6.961,
+        "text": "everyone's hands so I think um you know"
+      },
+      {
+        "start": 1574.82,
+        "duration": 4.5,
+        "text": "we've we've really as you were"
+      },
+      {
+        "start": 1576.71,
+        "duration": 4.26,
+        "text": "mentioning in terms of that the benefit"
+      },
+      {
+        "start": 1579.32,
+        "duration": 4.969,
+        "text": "of trying to understand what's going on"
+      },
+      {
+        "start": 1580.97,
+        "duration": 7.23,
+        "text": "we've also spent a lot of time on on the"
+      },
+      {
+        "start": 1584.289,
+        "duration": 6.01,
+        "text": "observability of these things so metrics"
+      },
+      {
+        "start": 1588.2,
+        "duration": 4.65,
+        "text": "going into op center gives you much more"
+      },
+      {
+        "start": 1590.299,
+        "duration": 6.72,
+        "text": "granular insight into what each core is"
+      },
+      {
+        "start": 1592.85,
+        "duration": 5.64,
+        "text": "doing of different types of tasks so"
+      },
+      {
+        "start": 1597.019,
+        "duration": 1.731,
+        "text": "there's a lot more insight into what's"
+      },
+      {
+        "start": 1598.49,
+        "duration": 2.99,
+        "text": "at"
+      },
+      {
+        "start": 1598.75,
+        "duration": 3.87,
+        "text": "happening under under the hood right so"
+      },
+      {
+        "start": 1601.48,
+        "duration": 2.91,
+        "text": "hey yeah it sounds like there's actually"
+      },
+      {
+        "start": 1602.62,
+        "duration": 3.78,
+        "text": "a quite a bit different going on because"
+      },
+      {
+        "start": 1604.39,
+        "duration": 3.48,
+        "text": "we you know anybody use use Cassandra"
+      },
+      {
+        "start": 1606.4,
+        "duration": 3.54,
+        "text": "for any amount of time maybe on the ops"
+      },
+      {
+        "start": 1607.87,
+        "duration": 3.87,
+        "text": "side is familiar with TP stats and"
+      },
+      {
+        "start": 1609.94,
+        "duration": 3.69,
+        "text": "absorbing what's going on with all those"
+      },
+      {
+        "start": 1611.74,
+        "duration": 4.05,
+        "text": "thread pools and it's all different now"
+      },
+      {
+        "start": 1613.63,
+        "duration": 5.46,
+        "text": "under the hood it a whole different set"
+      },
+      {
+        "start": 1615.79,
+        "duration": 5.94,
+        "text": "of metrics available be a jet via JMX"
+      },
+      {
+        "start": 1619.09,
+        "duration": 5.1,
+        "text": "right and yeah we've tried to map the"
+      },
+      {
+        "start": 1621.73,
+        "duration": 5.34,
+        "text": "concept of thread pools into sort of"
+      },
+      {
+        "start": 1624.19,
+        "duration": 8.4,
+        "text": "task types so you'll see you know you"
+      },
+      {
+        "start": 1627.07,
+        "duration": 9.48,
+        "text": "could still run no tool TTP stats but"
+      },
+      {
+        "start": 1632.59,
+        "duration": 7.23,
+        "text": "you'll see for example a stage that's"
+      },
+      {
+        "start": 1636.55,
+        "duration": 6.86,
+        "text": "you know just callbacks you could see a"
+      },
+      {
+        "start": 1639.82,
+        "duration": 8.46,
+        "text": "stage four range queries you could see a"
+      },
+      {
+        "start": 1643.41,
+        "duration": 6.34,
+        "text": "stage four you know Reed Reed repairs so"
+      },
+      {
+        "start": 1648.28,
+        "duration": 4.07,
+        "text": "even those these things are no longer"
+      },
+      {
+        "start": 1649.75,
+        "duration": 5.84,
+        "text": "and thread pools they're there's still"
+      },
+      {
+        "start": 1652.35,
+        "duration": 6.22,
+        "text": "different states of a particular"
+      },
+      {
+        "start": 1655.59,
+        "duration": 5.74,
+        "text": "processing chain so you're able to kind"
+      },
+      {
+        "start": 1658.57,
+        "duration": 4.86,
+        "text": "of track those the same way okay good so"
+      },
+      {
+        "start": 1661.33,
+        "duration": 5.13,
+        "text": "it doesn't blow up everything yeah and"
+      },
+      {
+        "start": 1663.43,
+        "duration": 7.56,
+        "text": "and and you can look at it a cross the"
+      },
+      {
+        "start": 1666.46,
+        "duration": 7.02,
+        "text": "whole across all cores or you can look"
+      },
+      {
+        "start": 1670.99,
+        "duration": 4.41,
+        "text": "at it per core which is pretty"
+      },
+      {
+        "start": 1673.48,
+        "duration": 3.12,
+        "text": "interesting especially if you're if you"
+      },
+      {
+        "start": 1675.4,
+        "duration": 3.62,
+        "text": "think you have some kind of hotspot"
+      },
+      {
+        "start": 1676.6,
+        "duration": 3.66,
+        "text": "issue you can easily drill in and see"
+      },
+      {
+        "start": 1679.02,
+        "duration": 4.0,
+        "text": "excellent"
+      },
+      {
+        "start": 1680.26,
+        "duration": 5.01,
+        "text": "so I've super enjoyed having you on"
+      },
+      {
+        "start": 1683.02,
+        "duration": 4.26,
+        "text": "today Jake and I'm kind of peeling back"
+      },
+      {
+        "start": 1685.27,
+        "duration": 4.2,
+        "text": "the covers on what's been going on with"
+      },
+      {
+        "start": 1687.28,
+        "duration": 4.29,
+        "text": "TPC and and I will say that people"
+      },
+      {
+        "start": 1689.47,
+        "duration": 4.59,
+        "text": "usually wait until after the episode to"
+      },
+      {
+        "start": 1691.57,
+        "duration": 4.14,
+        "text": "pitch me on their next episode to be on"
+      },
+      {
+        "start": 1694.06,
+        "duration": 3.69,
+        "text": "the show but I would love to have you"
+      },
+      {
+        "start": 1695.71,
+        "duration": 4.65,
+        "text": "back to talk about distributed testing"
+      },
+      {
+        "start": 1697.75,
+        "duration": 5.91,
+        "text": "frameworks and the like at some point so"
+      },
+      {
+        "start": 1700.36,
+        "duration": 5.69,
+        "text": "thanks for coming on today and thank you"
+      },
+      {
+        "start": 1703.66,
+        "duration": 4.5,
+        "text": "for having me it's been a lot of fun"
+      },
+      {
+        "start": 1706.05,
+        "duration": 5.56,
+        "text": "excellent well and thank you to our"
+      },
+      {
+        "start": 1708.16,
+        "duration": 6.51,
+        "text": "listening and viewing audience we'll see"
+      },
+      {
+        "start": 1711.61,
+        "duration": 5.13,
+        "text": "you next time thank you for joining us"
+      },
+      {
+        "start": 1714.67,
+        "duration": 3.6,
+        "text": "again for the distributed data show we"
+      },
+      {
+        "start": 1716.74,
+        "duration": 3.18,
+        "text": "love your feedback so go to the"
+      },
+      {
+        "start": 1718.27,
+        "duration": 3.06,
+        "text": "distributed data show page on data"
+      },
+      {
+        "start": 1719.92,
+        "duration": 3.3,
+        "text": "stacks Academy and tell us what you"
+      },
+      {
+        "start": 1721.33,
+        "duration": 4.32,
+        "text": "think you can also find us on the data"
+      },
+      {
+        "start": 1723.22,
+        "duration": 3.54,
+        "text": "stacks academy youtube channel or find"
+      },
+      {
+        "start": 1725.65,
+        "duration": 3.36,
+        "text": "our podcast"
+      },
+      {
+        "start": 1726.76,
+        "duration": 4.74,
+        "text": "Google Play or wherever you get great"
+      },
+      {
+        "start": 1729.01,
+        "duration": 4.169,
+        "text": "podcast while you're there make sure and"
+      },
+      {
+        "start": 1731.5,
+        "duration": 2.49,
+        "text": "subscribe so you don't miss a single"
+      },
+      {
+        "start": 1733.179,
+        "duration": 4.991,
+        "text": "episode"
+      },
+      {
+        "start": 1733.99,
+        "duration": 4.18,
+        "text": "[Music]"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T06:40:23.889909+00:00"
+}

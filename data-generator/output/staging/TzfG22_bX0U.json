@@ -1,0 +1,4672 @@
+{
+  "video_id": "TzfG22_bX0U",
+  "title": "Beyond GPT: Hands on with vector embeddings",
+  "description": "Are you a developer fascinated by the potential of vector search?\r\n\r\nJoin our 30-minute hands-on workshop and dive deep into the world of vector databases. Witness how vector databases, such as Apache Cassandra, open up whole new categories of applications without even engaging Large Language Models like ChatGPT.\r\n\r\nDiscover how similarity search can revolutionize recommendation systems, image search, and natural language processing.. \r\n\r\nRepo for this workshop: https://github.com/datastaxdevs/ai_ml_workshop_notebooks\nSign up FREE for Astra DB : https://astra.dev/yt-06-28",
+  "published_at": "2023-06-28T15:39:48Z",
+  "thumbnail": "https://i.ytimg.com/vi/TzfG22_bX0U/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "workshop",
+    "cassandra",
+    "search",
+    "database",
+    "apache_cassandra",
+    "vector",
+    "astra",
+    "datastax"
+  ],
+  "url": "https://www.youtube.com/watch?v=TzfG22_bX0U",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "is the audio on I just saw a message about that can everybody hear me are we all good I'm gonna dive in and I'll see more messages if we're having audio problems so just to frame what we're doing today we're going to spend all we're going to spend the half an hour in a notebook don't worry there's no uh terminal side deck presentation here um but I do want to talk about where I see what we're doing today fitting into the bigger picture of what's going on with AI right now we're a data sex we're super excited about generative AI about the the agent architectures you can build by chaining llms and then using Vector DBS to hold context or other things or doing uh you know augmented retrieval we're not going to talk about any of that today we're going to talk about the bottom two layers of this picture we're going to talk about using Vector search to generate context or risk to respond to queries that you're going to deliver directly to whatever your application is and we're going to talk a little bit about the data layer to do that we're going to be working out of a workshop or workbook that will share um if you want to go look at it the data stacks devs GitHub has this in the AIML Workshop notebooks repository there also should be a Google collab Link in the notes when they go out so let's hop over to it let's build some Vector search so today we are going to build our data Stacks uh data snacks image search yeah we will I'll link you out to actually looking at recommendations of similar items we're going to do image to image but I will throw a bump in just reacting to one of the questions I will throw a bump in at the end about two towers and actually doing different things but anyway um what do we need to build image to image search well we need some type of model previously we had to build those models we really don't have to anymore one of the cool things going on right now is just the the absolute explosion of publicly available generalizable models we're going to use a model called Vision Transformer there are a bunch of other options I like this one because it uses Transformers and that's not just because I grew up in the 80s Transformers are pretty cool uh totally worth reading up on to see why we've had these huge jumps in AI uh we're going to use a publicly available image data set to do this for today and we're going to use asterdb's Vector DB and in the process of doing this we'll set up an environment in this notebook we'll get the image set we'll process them to extract a vector from our photos we'll add them into our GB and then we'll use a fresh image to actually uh query our DB for similar pictures and if you like pictures to think about it here's the classic what does Vector search look like we're going to do all this today we're going to take content we're going to feed that content to our embedding model in my mind the embedding model is the librarian that the library I went to when I was 10. and the embedding is the Dewey Decimal System I think eventually I understood it but I didn't need to I could feed my content to the librarian the librarian can figure out where to put it in the information space that I had and then if I wanted to query I could bring my query in Back to the librarian and that librarian could figure out where to look and then I can look around that embedding and find all the things that look very similar whatever similarity means whatever near means here we'll see a little bit more of that as we go but I could see all those things and then bring them back as a response to the query um there's a little Easter egg in here too you'll notice the dots are different colors uh there are some very cool things you can do that I will link out to at the bottom of this for embedding multiple different types of things in the same embedding space like ratings and movies to do personal personalization anyway let's get set up as I said this is all in the workbook while I run this let's talk about the libraries we're going to be using timm is used to pull down the publicly available model data sets and data sets Vision will go out to hugging face and pull down some of the beta models that are available there are a bunch of great image models out here or I'm sorry data sets not models apologies there are a bunch of great image data sets here we're actually going to be working in see if I see it in this list I've got a link to another thing too but we're going to be working out of a image set of snacks that's probably on page one there we go that way I can make the data snacks pun um Cassandra driver is going to allow us to connect to Astra DB and in the future um open source Cassandra if the change goes through let me get that into that should be on the way or data sacks uh Enterprise should all support this but right now this is available in beta in Astra if you want to play with it uh iPod plot to make things look a little prettier torch Vision because we're going to have to tweak the images a little bit pil because we're going to want to look at the images and then we're also going to pull down this image lip imagenet labels list um so we can talk a little bit about what this model was for and why we can use it to do image standard search all right if you're following along at home I have some links out to set up your Astra DB database obviously I've already done that our credentials are set up you'll need to create the astrodb database and if you do that right now uh keep an eye out for this triaster with Vector search we are still in beta it's not GA so you definitely want to create a database through here and there also are some instructions to follow to set up your token and do some other things once we've done that make sure I have what I need I don't just getting my security credentials I can connect and make sure everything's working correctly great we're good to connect to our Vector DB so let's talk about the good stuff let's talk about the data um this is our snacks data set I mentioned we've got a bunch of images we've also got a bunch of classification labels I don't care as much about those today although I will show you where we see those come up in the data but I'm not really interested in doing image classification I'm interested in doing image to image search also I should point out that we do have in that data set a couple of splits we have a test and a validation split we'll use this test split a little bit later and pretend like users actually uploaded an image but we'll just pull it out of that part of the data set all right let's import the data set we're grabbing the big one and then we'll grab oh we've got all three because I ran this earlier all right now because we're working with images we want to try to normalize the images we want to get them to a particular image size we may look at normalizing uh some of the internals of the image for this data set this is a pretty typical thing to do I'm just setting up a transform and the cool thing with the hug and face dataset Library is I can just apply that transform to all my data and let's see where our data set stands now so looking at an individual Row in that data set we see we've got an image a pil image because it's already been processed we have a label and we're already starting to see something that looks like a vector these aren't actually the vectors we're going to put in the database but they are the vectors we need to feed to the image model So This Is Us pre-processing sort of setting the size of that image and then prepping the image to feed to the model it's just again no code at all there's the two tensor that's doing that to get that data transformed and ready all right so we have data we've got some rows of the data now we need a model I'm going to work with this vit base patch 16224 there are a bunch of other image models out there um if you're doing this for real life you need to think about some things with the model how performant is the model sometimes a very generalized model like this is not as performant for a discrete set of tasks as a smaller model or a self-trained model but it's also kind of cool that you can go this quickly and just pull a public model to run with um and obviously as I said earlier you know look for a public model before you dig on to building your own it's we are running on the video card and the model is ready and loaded to the GPU for us to use so let's look at what happens when we hand our image tensor that we prepared earlier over the model we get this completely understandable you guys know what this means right like obviously the first uh dimension of that tensor would be negative 70 to the tenth minus one or negative seven a kid we don't really know all the time what's in these embeddings it depends it's based entirely on the model it's not the original content of the image it is something that came out of the model where we try to get every Dimension here to be independent of the other dimensions it is if you start in the mental context of like latitude and longitude for Geographic search and then you just keep adding height and other things onto that you know we eventually get to a thousand dimensions the cool thing about this particular Vision Transformer model is that our we actually do know what our dimensions are um our Dimensions here are actually those imagenet label uh categories and the strength in each of the categories and I can show you that so here's an image but I pulled it's index 10 I pulled from the data uh I'm going to pull the tensor out I'm going to get the actual vector of the results of this model let's display the image and let's look at the top five strongest results in that model so if we look at our tensor these are the the indices in that tensor our strongest indices was 582 which is a grocery store at 9.7 but in the top five we also saw some Granny Smith we also saw some orange we saw some fig which was interesting and some banana which is interesting now imagine not that we just have five of these we have a thousand of these and they're not just positive numbers too we have images in our data set where grocery store is a negative four right because it's very not grocery store and once we start to be able to categorize an image like that we're actually kind of defining a knowledge space we're defining um a lat long blah blah blah blah blah out to all the dimensions we have an orangey Dimension and we have a granny Smithy Dimension and we have a figgy Dimension we have a banana Dimension and if we start to plot things across all those Dimensions which is what our Vector is then we could actually look into that Vector space and see things like related images so let's load all of our images through that embedding process let's do the inference and get embeddings for all the images this is going to be about 5 000 images that we do embeddings on it's uh probably a minute if you have a GPU it's probably 40 or 40 minutes if you don't which is fine if you're out on colab you can run this either way and then the next thing we would do is we'd actually save our embeddings to Astra DB this is where we're taking all that cool embedding stuff we did and we're saying all right we're going to have a photo app and people can upload images and they can see images that are like the image that they had and you know it's out there for everybody to use and we're not going to run that um with our you know we're not going to train and load the model and load all the images every time we do that we need a persistence layer to operate our Vector search against when we roll this out into the Big World so if we oh sorry so the way we do that is we're going to create a key space and a table where we're going to create a table we already have the key space inside Astra it looks a lot like if you know SQL this is Cassandra query language but create a table keyspace table name I've got an ID I've got an image vector and that's all I care about right now in terms of uh storing this image in the database in the real world you're going to have metadata you're going to have other things maybe you save them the same table maybe you change your model a lot and you don't save them in the same table you save them in a different table to look out but for now this is all we need to get started so create a table create a custom index we're ready for data this process currently because I'm not running multi-threaded takes about 40 minutes so I'm going to do the classic cooking show Trick and tell you that I already have a cake in the other oven so we should be able to query against that data because I've preloaded it so we're going to do a query for item number 422. we're going to grab that item out of our test data split this is not part of the data that we did embeddings for and put into the vector DB we're pretending like this is a fresh upload or some image that somebody just gave us um we're going to take a look at what that image is we're going to get the embedding for that image and then we're going to take that embedding and we're just going to do select ID and image vector from our Vector table order by the image Vector for anything that's an approximate nearest neighbor of that thousand Dimension embedding and let's get five of them back and let's see how well that worked I mean think about this in terms like this is a 15-minute setup public model public data take an image a couple of lines of python I've got the image ready to train but did it work so here's our original image and here are our matches this is a great match the first one you can tell it's a slightly different image but it's got all the same elements the second image is a little more cryptic um this would be fun to dig into and see we've got some similar shape things but clearly a banana is not a hot dog but then the rest of our images are really solid hits yes no this is not a hot dog oh well the others are really solid hits well uh we have seen this app but we saw this app as image classification now we're doing full search um let me try a different one too just to give you an idea that this is just not the magic of a well-rigged demo so we'll do 120 which looks like a birthday cake oh I hate these but we did get a birthday cake back here be fun to break down our nearest neighbor on this guy and see we could use the code from earlier if you uh have this notebook and you want to actually investigate the major categories for each of the hits here's some apples we're usually really good about apples I don't know if I'd be too impressed by this because apples are usually what we get back for just about anything here we go cupcakes there we go pull down the notebook play with this run it on the free Google co-lab uh set up an aster account and the rest of it you can just run through with the database start doing image search tear into these guys and see if you can see why they matched or why they didn't um feel free to play with this or share it around if you want to go forward from here I have a couple of yeah I have a couple of maybe branching paths depending on what you'd like to dig into more deeply so if you'd like to do a little bit more deeper into vectors Google's got this great developer practitioner class that really digs into what Vector embeddings are um if you want to go have coffee with data scientists there's a great machine learning crash course um I had to relearn a bunch of math that I had forgotten about uh and the funny thing about the crash course is it starts hard and it gets a little easier if you want to embed two vectors in the same embedding space this is a recommendation engine we're really talking about two towers as an architecture and there's a great blog on Google that'll start you on that path if you want to go the other direction and build up to generative Ai and agent architectures check out the Casio uh dot org site there's a really funny story about how this derived out of a hallucination uh when Patrick McFadden was digging into how this stuff works and then uh if you want to dig deeper into the vision Transformer there's a nice workbook that's a walk through here um that's it this is a Lightning Run through image to image search implemented on astra's new beta uh Vector search and it's available as we said in the notebook take it play with it send me some feedback I'm happy to hear whatever about it curious what people find what folds they find in the data if they play with other image models you could rework this for sound very easily obviously people are doing a ton of things with text see if there's anything interesting in the comments or Patrick if you've seen anything out on YouTube I'm happy we've got a couple of minutes we could hop into that yep any questions out there uh I could have used image to vet the question is why didn't I use image to back um I could have used images I wanted to use a model that I actually used Transformers and that's the whole reason that I picked vit but image to vac would have been fine um tournament with the other one is efficient net is the other one that people like to do a lot this is for Andy's question about uh why we didn't use uh image to back anything else out there we've got a collab URL and the questions hey Patrick hi so yeah I thought I might jump in here with my own because I can do that um the the the question I'm I'm gonna come up with here shortly is uh probably one that I hear a lot is like around is there best practices of for vectors especially when using Cassandra and I may I may be kind of um leading the witness a little bit um the big one that hops out to me that may not be the answer you have a lot is the dimensionality of the vector is going to affect how performant the search is yeah um one of the cool things about vectors that I didn't get into here is vectors can actually sort of decrease your feature space they can fold your feature space a little bit so if you're if you're building something complicated and it needs to be fast then you need to use that ability to get down into 50 Dimensions or smaller than that because all your interactions are going to be a lot more performant and you're probably going to be living in this experience of like uh a bunch of the text embedding models are 768 dimensions a bunch of the images are a thousand and like there's a performance impact to the generalization of the images less is better more is probably more generalized and flexible and you're getting the benefit of work other people have done yeah I think it's worth mentioning too that you know the underlying um the underlying indexing scheme here is hnsw from singing and so you know a lot of a lot of those um anything that works there works great this is what works great with Cassandra because it's it's the same Library um yeah worth understanding that too as you dig into it because in my mind I'm just doing cosine difference between two vectors but you can't do that with a thousand vectors like it's it's not performance so you get into this stuff like H and SW which may also be why we saw the bananas on that hot dog search h s w can jump around a little bit for its a m M yeah and there's a difference between the indexing types when you when you create the index um and of course you didn't go into that piece so much but there are two different types of indexes you can create um the dot dot product and the cosine cosine is the um is the uh default but dot product is like twice as fast and it it returns different results too um because the math is a little different and I've seen a bunch of recommendations about play with that too particularly if you're if you've got a good test set and you have a good judgment list um I would throw into at a very high level if you're going to work with us uh go look at some of the work that open source connections did with Cupid which was a way to build judgment lists against traditional search but I think that approach is going to be a big deal as we get into things like vector search where we need to evaluate a model really quickly to figure out how effective it is for the the searches that we know people are going to perform yeah well this kind of underscores this thing it's like I I feel like a lot of folks especially maybe even in this particular Workshop are pretty new to this concept and that's okay hey we're working through this as a community I think Vector was a niche for a small group of people that were using it really highly effectively like if you worked at meta but now we're all having to get thrown into this so this is good we need to share information like this I touched it a few years ago with uh the Vespa database when I was doing search stuff which was neat but like it wasn't there yet and oh it seems like it's there now what do you get first imagine that idea like image to image search on Apache Cassandra like Apache has that scale it you know it runs the the Deep Beating Heart of the internet and then just be able to lay something like this on top of it or you know large language models or image to sound or uh some of the stuff that's that's a pretty well tried path like um what Netflix did with recommendations where you're laying ratings in the same embedding space that you're laying movies or you're you're laying it users from their features in the same embedded space that you're writing movies and you can just get a brand new user grab their features run it through the model and get back a bunch of movies that seem like they're close to that user that's amazing so while we've been chatting um all of a sudden the questions have rolled in other chat we should go look at those yeah there's some good ones in here like Stefan is like does this work for a recommendation of similar items like documents depending on content so that that's a multimodal model and look at two towers to do that you've gotta you gotta train in to do both of those and you've got to have a classification system that like lets you compare apples and oranges not just images of apples and oranges um but once you do that it's really powerful for like I don't know just crazy things like we can have a set of features around soil samples and we could have um another set of embeddings around Geographic locations and we could take a soil sample and guess where it probably came from because we embedded those two vectors in the same embedding space um there are a bunch of cool things that can happen there I think uh Spotify uses that for a bunch of their recommendations now the and has been for a while not on astrodb yet but we'll get them over here um there are a bunch of use cases already where people are doing multi-embeddings yeah the semantic search uh and that's I think that's there's a lot of questions along this line um yeah and this is a elastic search now includes H and SW from Lucine surprise because it is different um but it's context and I think that's that's one of the main differences you can get out of this search so if you have a block of text and so instead of searching for the word cat in it which you know standard Tech search does you can look for context is this about a cat or does it just happen to mention a cat and yeah it just starts there man um I didn't do this All Fired Up say I took one of those images and I wanted an apple with a lemon and I knew the vector for an apple image and I wanted to find ones that had Lemons with the apples I know what those feature vectors are for this particular model I could do a query and just bump the limitininess up and I'm translating to a different place in the vector space and I'm getting a similar image with a new element in it like you're right similarity search is awesome the the way the models find latent connections between the data and then surface them so we can work with them uh but we can also do translations and play games in that Vector space uh they're really kind of cool yeah so let's see if we can tackle a couple more questions here um good boy they're just starting to stream in now ah streaming Workshop um that's that's the next one by the way everyone yeah streaming um all sorts of awesome guys uh is there any other workshops about uh Vector databases I you know I'm gonna be careful is Vector search is really the feature that we're looking at here but um yes uh I will look for the link real quick or if someone out there already has it there's a uh it started yesterday but you can catch up there's a five-week series on using llms and Cassandra and Vector to basically build your own chat GPT so much more comprehensive um I will find the link and put it in here yeah that's that high level gen AI agent architecture stuff that's so cool yeah exactly there should be a bunch of information about factors for recommendations like I said Google's got a bunch of information about it um and if you look around a little bit I don't know do we have anything about pure Vector search or most of our stuff right now is Gen Ai and it's mostly Jedi because it's using Vector search it's a vector search in general needs of use case right I see a couple of questions about combining other metadata absolutely you can put anything you want in that table um I just did the ID and the the vector because that's all I needed for the search I even like did a little trick where I didn't bother saving the images anywhere because I had the original data set you could put whatever you want in it treat it like a normal Cassandra table and then just access it through vectors in the long run I feel like embeddings are going to change so maybe you'll have your metadata in one table ID and your vector in another table but it's hard for me to predict yeah so then there's a question uh I think we answered this before I just want to make sure this is clear apart from cosine similarity what other algorithms there's a DOT product yeah yeah um and that that's that's in the Docks but um the the caveat is cosine can work with any any man amount of Dimensions you don't have to have the same amount of Dimensions so if you have a thousand five hundred whatever um dot product absolutely requires the same amount of dimensions in everything and if you don't then you won't get normal you won't get rational results well it's hard enough to reason about this without having different sets of Dimensions right somebody asked about batch insert everything right batch insert is um a little bit subjective in Cassandra because it's really only worth doing when like you're sharing partition Keys uh it exists there are also some talks about um definitely in this model training switch over your embeddings workflow the ability to load data really quickly which Cassandra can already do you know tens of thousands hundreds of thousands records per second um maybe we want to go even faster so keep an eye on us for that because there may be some stuff coming out to do even more efficient batch all right there's a couple more in here I think um I don't know how to compare it to PG Vector we're still in beta I'm sure those numbers will come out it's on Cassandra so you know I'm optimistic that it's going to tear I I think that the in general you know PG Vector if you're looking at the algorithms h s w from leucine is a really optimized Library so um we're we're pretty happy that we're using that one um PG Vector uses a different one that um there's that a n benchmarks.com or dot net anyway a m benchmarks um out there if you want to do some comparison on different uh algorithms and indexing schemes that includes things like face hnsw um you know there's a n lib there's just there's a ton of them but um yeah well here we are I mean you know it's getting mainstream when we have sites up that compare speeds yeah it's it's got to happen now um ridwick had a question about no host available that probably is just the secure connect bundle that the step before that downloads so make sure you run that step and then pick the database you want to use from the drop down from the Astro device as you have and then click the download button you can also look in your files in colab and make sure there's a secure connect bundle file in there that's actually used to do a secure connection to Astra [Music] it is funny that the vector search is much easier than the secure connect that's funny that is funny um so and then the last one which I I think is interesting is can you invert the vector so you can find out what the image is about I I think I know how you could do that but Matt I bet you have an even Slicker solution I don't I don't know but the in this particular model the cool thing is I can just look in the vector and find the dimensions with the greatest magnitude and go pull that image in that classification right so that the you see it in the top K example that I did where I bring back this category this category this category it's not always that easy to look at a vector and actually figure out what it represents but here it's it's a pretty clear delineations um and you as I've mentioned earlier you could also do things like poke at those values to try to find other images that are more lemony or more grocery story or whatever it's not stable diffusion um but you could explore that space by playing with the vectors yeah that's um well my interesting so we're gonna have two two answers I I think one of the things that you could potentially do and we should probably um end this soon but uh you could also there's libraries out there that will contextualize a picture so that would be a Transformer that would say take a picture and then create a text description of it um those Transformers do exist and then you would take the text description and vectorize that by the way that's uh that's a multimodal embedding where you've embedded your images and your text in the same embedding space so that you can take an image and pull back text results very cool yeah it is very very cool um I think we're at the end here um yeah if you have any questions I should have put it on the slide it's matt.over Street at datastacks.com um happy to answer questions by email or reach out on LinkedIn or whatever yeah thanks a lot Matt for a very insightful uh Workshop thanks Patrick fun setting this up well I think this stuff is gonna happen here we'll see you soon next two weeks we're gonna be doing streaming we'll see you there",
+    "segments": [
+      {
+        "start": 0.24,
+        "duration": 5.179,
+        "text": "is the audio on I just saw a message"
+      },
+      {
+        "start": 2.28,
+        "duration": 3.139,
+        "text": "about that can everybody hear me"
+      },
+      {
+        "start": 7.799,
+        "duration": 3.601,
+        "text": "are we all good I'm gonna dive in and"
+      },
+      {
+        "start": 9.96,
+        "duration": 2.94,
+        "text": "I'll see more messages if we're having"
+      },
+      {
+        "start": 11.4,
+        "duration": 3.72,
+        "text": "audio problems"
+      },
+      {
+        "start": 12.9,
+        "duration": 3.42,
+        "text": "so just to frame what we're doing today"
+      },
+      {
+        "start": 15.12,
+        "duration": 2.579,
+        "text": "we're going to spend all we're going to"
+      },
+      {
+        "start": 16.32,
+        "duration": 2.879,
+        "text": "spend the half an hour in a notebook"
+      },
+      {
+        "start": 17.699,
+        "duration": 5.641,
+        "text": "don't worry there's no"
+      },
+      {
+        "start": 19.199,
+        "duration": 6.541,
+        "text": "uh terminal side deck presentation here"
+      },
+      {
+        "start": 23.34,
+        "duration": 3.84,
+        "text": "um but I do want to talk about"
+      },
+      {
+        "start": 25.74,
+        "duration": 3.66,
+        "text": "where I see what we're doing today"
+      },
+      {
+        "start": 27.18,
+        "duration": 4.439,
+        "text": "fitting into the bigger picture of"
+      },
+      {
+        "start": 29.4,
+        "duration": 4.86,
+        "text": "what's going on with AI right now we're"
+      },
+      {
+        "start": 31.619,
+        "duration": 4.921,
+        "text": "a data sex we're super excited about"
+      },
+      {
+        "start": 34.26,
+        "duration": 4.08,
+        "text": "generative AI about the the agent"
+      },
+      {
+        "start": 36.54,
+        "duration": 4.56,
+        "text": "architectures you can build"
+      },
+      {
+        "start": 38.34,
+        "duration": 5.52,
+        "text": "by chaining llms and then using Vector"
+      },
+      {
+        "start": 41.1,
+        "duration": 6.24,
+        "text": "DBS to hold context or other things or"
+      },
+      {
+        "start": 43.86,
+        "duration": 4.74,
+        "text": "doing uh you know augmented retrieval"
+      },
+      {
+        "start": 47.34,
+        "duration": 3.899,
+        "text": "we're not going to talk about any of"
+      },
+      {
+        "start": 48.6,
+        "duration": 4.38,
+        "text": "that today we're going to talk about the"
+      },
+      {
+        "start": 51.239,
+        "duration": 2.96,
+        "text": "bottom two layers of this picture we're"
+      },
+      {
+        "start": 52.98,
+        "duration": 4.32,
+        "text": "going to talk about"
+      },
+      {
+        "start": 54.199,
+        "duration": 5.2,
+        "text": "using Vector search to generate context"
+      },
+      {
+        "start": 57.3,
+        "duration": 3.419,
+        "text": "or risk to respond"
+      },
+      {
+        "start": 59.399,
+        "duration": 4.081,
+        "text": "to queries that you're going to deliver"
+      },
+      {
+        "start": 60.719,
+        "duration": 3.721,
+        "text": "directly to whatever your application is"
+      },
+      {
+        "start": 63.48,
+        "duration": 3.06,
+        "text": "and we're going to talk a little bit"
+      },
+      {
+        "start": 64.44,
+        "duration": 5.1,
+        "text": "about the data layer"
+      },
+      {
+        "start": 66.54,
+        "duration": 5.04,
+        "text": "to do that we're going to be working out"
+      },
+      {
+        "start": 69.54,
+        "duration": 3.36,
+        "text": "of a workshop or workbook that will"
+      },
+      {
+        "start": 71.58,
+        "duration": 3.899,
+        "text": "share"
+      },
+      {
+        "start": 72.9,
+        "duration": 4.079,
+        "text": "um if you want to go look at it the data"
+      },
+      {
+        "start": 75.479,
+        "duration": 2.881,
+        "text": "stacks devs"
+      },
+      {
+        "start": 76.979,
+        "duration": 4.861,
+        "text": "GitHub"
+      },
+      {
+        "start": 78.36,
+        "duration": 6.42,
+        "text": "has this in the AIML Workshop notebooks"
+      },
+      {
+        "start": 81.84,
+        "duration": 4.26,
+        "text": "repository there also should be a Google"
+      },
+      {
+        "start": 84.78,
+        "duration": 5.1,
+        "text": "collab"
+      },
+      {
+        "start": 86.1,
+        "duration": 5.28,
+        "text": "Link in the notes when they go out"
+      },
+      {
+        "start": 89.88,
+        "duration": 2.879,
+        "text": "so let's hop over to it let's build some"
+      },
+      {
+        "start": 91.38,
+        "duration": 3.54,
+        "text": "Vector search"
+      },
+      {
+        "start": 92.759,
+        "duration": 3.54,
+        "text": "so today we are going to build"
+      },
+      {
+        "start": 94.92,
+        "duration": 5.1,
+        "text": "our"
+      },
+      {
+        "start": 96.299,
+        "duration": 7.081,
+        "text": "data Stacks uh data snacks image search"
+      },
+      {
+        "start": 100.02,
+        "duration": 5.04,
+        "text": "yeah we will I'll link you out to"
+      },
+      {
+        "start": 103.38,
+        "duration": 3.599,
+        "text": "actually looking at recommendations of"
+      },
+      {
+        "start": 105.06,
+        "duration": 4.98,
+        "text": "similar items we're going to do image to"
+      },
+      {
+        "start": 106.979,
+        "duration": 4.801,
+        "text": "image but I will throw a bump in just"
+      },
+      {
+        "start": 110.04,
+        "duration": 3.84,
+        "text": "reacting to one of the questions I will"
+      },
+      {
+        "start": 111.78,
+        "duration": 4.44,
+        "text": "throw a bump in at the end about two"
+      },
+      {
+        "start": 113.88,
+        "duration": 4.739,
+        "text": "towers and actually doing different"
+      },
+      {
+        "start": 116.22,
+        "duration": 4.439,
+        "text": "things but anyway"
+      },
+      {
+        "start": 118.619,
+        "duration": 5.161,
+        "text": "um"
+      },
+      {
+        "start": 120.659,
+        "duration": 5.881,
+        "text": "what do we need to build image to image"
+      },
+      {
+        "start": 123.78,
+        "duration": 4.8,
+        "text": "search well we need some type of model"
+      },
+      {
+        "start": 126.54,
+        "duration": 3.54,
+        "text": "previously we had to build those models"
+      },
+      {
+        "start": 128.58,
+        "duration": 3.18,
+        "text": "we really don't have to anymore one of"
+      },
+      {
+        "start": 130.08,
+        "duration": 3.6,
+        "text": "the cool things going on right now"
+      },
+      {
+        "start": 131.76,
+        "duration": 6.0,
+        "text": "is just the"
+      },
+      {
+        "start": 133.68,
+        "duration": 5.419,
+        "text": "the absolute explosion of publicly"
+      },
+      {
+        "start": 137.76,
+        "duration": 3.54,
+        "text": "available"
+      },
+      {
+        "start": 139.099,
+        "duration": 4.78,
+        "text": "generalizable models we're going to use"
+      },
+      {
+        "start": 141.3,
+        "duration": 4.38,
+        "text": "a model called Vision Transformer"
+      },
+      {
+        "start": 143.879,
+        "duration": 3.061,
+        "text": "there are a bunch of other options I"
+      },
+      {
+        "start": 145.68,
+        "duration": 3.12,
+        "text": "like this one because it uses"
+      },
+      {
+        "start": 146.94,
+        "duration": 4.379,
+        "text": "Transformers and that's not just because"
+      },
+      {
+        "start": 148.8,
+        "duration": 3.799,
+        "text": "I grew up in the 80s Transformers are"
+      },
+      {
+        "start": 151.319,
+        "duration": 4.201,
+        "text": "pretty cool"
+      },
+      {
+        "start": 152.599,
+        "duration": 6.161,
+        "text": "uh totally worth reading up on to see"
+      },
+      {
+        "start": 155.52,
+        "duration": 4.32,
+        "text": "why we've had these huge jumps in AI uh"
+      },
+      {
+        "start": 158.76,
+        "duration": 4.08,
+        "text": "we're going to use a publicly available"
+      },
+      {
+        "start": 159.84,
+        "duration": 6.24,
+        "text": "image data set to do this for today and"
+      },
+      {
+        "start": 162.84,
+        "duration": 4.8,
+        "text": "we're going to use asterdb's Vector DB"
+      },
+      {
+        "start": 166.08,
+        "duration": 3.12,
+        "text": "and in the process of doing this we'll"
+      },
+      {
+        "start": 167.64,
+        "duration": 3.239,
+        "text": "set up an environment in this notebook"
+      },
+      {
+        "start": 169.2,
+        "duration": 4.319,
+        "text": "we'll get the image set"
+      },
+      {
+        "start": 170.879,
+        "duration": 5.161,
+        "text": "we'll process them to extract a vector"
+      },
+      {
+        "start": 173.519,
+        "duration": 5.521,
+        "text": "from our photos we'll add them into our"
+      },
+      {
+        "start": 176.04,
+        "duration": 5.76,
+        "text": "GB and then we'll use a fresh image to"
+      },
+      {
+        "start": 179.04,
+        "duration": 4.32,
+        "text": "actually uh query our DB for similar"
+      },
+      {
+        "start": 181.8,
+        "duration": 3.54,
+        "text": "pictures"
+      },
+      {
+        "start": 183.36,
+        "duration": 4.08,
+        "text": "and if you like pictures to think about"
+      },
+      {
+        "start": 185.34,
+        "duration": 4.02,
+        "text": "it here's the classic"
+      },
+      {
+        "start": 187.44,
+        "duration": 3.659,
+        "text": "what does Vector search look like we're"
+      },
+      {
+        "start": 189.36,
+        "duration": 3.239,
+        "text": "going to do all this today we're going"
+      },
+      {
+        "start": 191.099,
+        "duration": 3.42,
+        "text": "to take content"
+      },
+      {
+        "start": 192.599,
+        "duration": 5.041,
+        "text": "we're going to feed that content to our"
+      },
+      {
+        "start": 194.519,
+        "duration": 5.761,
+        "text": "embedding model in my mind the embedding"
+      },
+      {
+        "start": 197.64,
+        "duration": 5.22,
+        "text": "model is the librarian that the library"
+      },
+      {
+        "start": 200.28,
+        "duration": 5.039,
+        "text": "I went to when I was 10. and the"
+      },
+      {
+        "start": 202.86,
+        "duration": 4.14,
+        "text": "embedding is the Dewey Decimal System I"
+      },
+      {
+        "start": 205.319,
+        "duration": 3.961,
+        "text": "think eventually I understood it but I"
+      },
+      {
+        "start": 207.0,
+        "duration": 4.62,
+        "text": "didn't need to I could feed my content"
+      },
+      {
+        "start": 209.28,
+        "duration": 4.26,
+        "text": "to the librarian the librarian can"
+      },
+      {
+        "start": 211.62,
+        "duration": 4.5,
+        "text": "figure out where to put it"
+      },
+      {
+        "start": 213.54,
+        "duration": 4.5,
+        "text": "in the information space that I had"
+      },
+      {
+        "start": 216.12,
+        "duration": 5.46,
+        "text": "and then if I wanted to query I could"
+      },
+      {
+        "start": 218.04,
+        "duration": 5.279,
+        "text": "bring my query in Back to the librarian"
+      },
+      {
+        "start": 221.58,
+        "duration": 3.42,
+        "text": "and that librarian could figure out"
+      },
+      {
+        "start": 223.319,
+        "duration": 4.521,
+        "text": "where to look"
+      },
+      {
+        "start": 225.0,
+        "duration": 6.299,
+        "text": "and then I can look around that"
+      },
+      {
+        "start": 227.84,
+        "duration": 6.1,
+        "text": "embedding and find all the things"
+      },
+      {
+        "start": 231.299,
+        "duration": 4.621,
+        "text": "that look very similar whatever"
+      },
+      {
+        "start": 233.94,
+        "duration": 3.42,
+        "text": "similarity means whatever near means"
+      },
+      {
+        "start": 235.92,
+        "duration": 3.42,
+        "text": "here we'll see a little bit more of that"
+      },
+      {
+        "start": 237.36,
+        "duration": 4.32,
+        "text": "as we go but I could see all those"
+      },
+      {
+        "start": 239.34,
+        "duration": 4.14,
+        "text": "things and then bring them back as a"
+      },
+      {
+        "start": 241.68,
+        "duration": 3.119,
+        "text": "response to the query"
+      },
+      {
+        "start": 243.48,
+        "duration": 2.64,
+        "text": "um there's a little Easter egg in here"
+      },
+      {
+        "start": 244.799,
+        "duration": 3.66,
+        "text": "too you'll notice the dots are different"
+      },
+      {
+        "start": 246.12,
+        "duration": 5.039,
+        "text": "colors uh there are some very cool"
+      },
+      {
+        "start": 248.459,
+        "duration": 5.161,
+        "text": "things you can do that I will link out"
+      },
+      {
+        "start": 251.159,
+        "duration": 3.901,
+        "text": "to at the bottom of this for embedding"
+      },
+      {
+        "start": 253.62,
+        "duration": 3.299,
+        "text": "multiple different types of things in"
+      },
+      {
+        "start": 255.06,
+        "duration": 4.62,
+        "text": "the same embedding space like"
+      },
+      {
+        "start": 256.919,
+        "duration": 4.5,
+        "text": "ratings and movies to do personal"
+      },
+      {
+        "start": 259.68,
+        "duration": 5.76,
+        "text": "personalization"
+      },
+      {
+        "start": 261.419,
+        "duration": 6.72,
+        "text": "anyway let's get set up"
+      },
+      {
+        "start": 265.44,
+        "duration": 4.979,
+        "text": "as I said this is all"
+      },
+      {
+        "start": 268.139,
+        "duration": 4.321,
+        "text": "in the workbook while I run this let's"
+      },
+      {
+        "start": 270.419,
+        "duration": 5.34,
+        "text": "talk about the libraries we're going to"
+      },
+      {
+        "start": 272.46,
+        "duration": 5.16,
+        "text": "be using timm is used to pull down the"
+      },
+      {
+        "start": 275.759,
+        "duration": 4.5,
+        "text": "publicly available model"
+      },
+      {
+        "start": 277.62,
+        "duration": 5.519,
+        "text": "data sets and data sets Vision will go"
+      },
+      {
+        "start": 280.259,
+        "duration": 4.38,
+        "text": "out to hugging face and pull down some"
+      },
+      {
+        "start": 283.139,
+        "duration": 3.481,
+        "text": "of the"
+      },
+      {
+        "start": 284.639,
+        "duration": 3.541,
+        "text": "beta models"
+      },
+      {
+        "start": 286.62,
+        "duration": 3.299,
+        "text": "that are available there are a bunch of"
+      },
+      {
+        "start": 288.18,
+        "duration": 4.26,
+        "text": "great image models out here or I'm sorry"
+      },
+      {
+        "start": 289.919,
+        "duration": 4.321,
+        "text": "data sets not models apologies there are"
+      },
+      {
+        "start": 292.44,
+        "duration": 4.319,
+        "text": "a bunch of great image"
+      },
+      {
+        "start": 294.24,
+        "duration": 5.399,
+        "text": "data sets here we're actually going to"
+      },
+      {
+        "start": 296.759,
+        "duration": 6.5,
+        "text": "be working in"
+      },
+      {
+        "start": 299.639,
+        "duration": 3.62,
+        "text": "see if I see it in this list"
+      },
+      {
+        "start": 303.419,
+        "duration": 3.541,
+        "text": "I've got a link to another thing too but"
+      },
+      {
+        "start": 304.979,
+        "duration": 3.541,
+        "text": "we're going to be working out of a image"
+      },
+      {
+        "start": 306.96,
+        "duration": 3.84,
+        "text": "set of snacks"
+      },
+      {
+        "start": 308.52,
+        "duration": 4.8,
+        "text": "that's probably on page one"
+      },
+      {
+        "start": 310.8,
+        "duration": 6.56,
+        "text": "there we go"
+      },
+      {
+        "start": 313.32,
+        "duration": 4.04,
+        "text": "that way I can make the data snacks pun"
+      },
+      {
+        "start": 319.919,
+        "duration": 5.28,
+        "text": "um Cassandra driver is going to allow us"
+      },
+      {
+        "start": 321.419,
+        "duration": 6.961,
+        "text": "to connect to Astra DB and in the future"
+      },
+      {
+        "start": 325.199,
+        "duration": 4.741,
+        "text": "um open source Cassandra if the change"
+      },
+      {
+        "start": 328.38,
+        "duration": 4.8,
+        "text": "goes through let me get that into that"
+      },
+      {
+        "start": 329.94,
+        "duration": 5.88,
+        "text": "should be on the way or data sacks"
+      },
+      {
+        "start": 333.18,
+        "duration": 5.16,
+        "text": "uh Enterprise should all support this"
+      },
+      {
+        "start": 335.82,
+        "duration": 4.98,
+        "text": "but right now this is available in beta"
+      },
+      {
+        "start": 338.34,
+        "duration": 4.62,
+        "text": "in Astra if you want to play with it"
+      },
+      {
+        "start": 340.8,
+        "duration": 3.899,
+        "text": "uh iPod plot to make things look a"
+      },
+      {
+        "start": 342.96,
+        "duration": 2.94,
+        "text": "little prettier torch Vision because"
+      },
+      {
+        "start": 344.699,
+        "duration": 3.06,
+        "text": "we're going to have to tweak the images"
+      },
+      {
+        "start": 345.9,
+        "duration": 3.42,
+        "text": "a little bit pil because we're going to"
+      },
+      {
+        "start": 347.759,
+        "duration": 2.88,
+        "text": "want to look at the images"
+      },
+      {
+        "start": 349.32,
+        "duration": 2.819,
+        "text": "and then we're also going to pull down"
+      },
+      {
+        "start": 350.639,
+        "duration": 4.141,
+        "text": "this image lip"
+      },
+      {
+        "start": 352.139,
+        "duration": 3.961,
+        "text": "imagenet labels list"
+      },
+      {
+        "start": 354.78,
+        "duration": 3.12,
+        "text": "um so we can talk a little bit about"
+      },
+      {
+        "start": 356.1,
+        "duration": 4.8,
+        "text": "what this model was for and why we can"
+      },
+      {
+        "start": 357.9,
+        "duration": 4.739,
+        "text": "use it to do image standard search all"
+      },
+      {
+        "start": 360.9,
+        "duration": 4.019,
+        "text": "right"
+      },
+      {
+        "start": 362.639,
+        "duration": 4.441,
+        "text": "if you're following along at home"
+      },
+      {
+        "start": 364.919,
+        "duration": 3.901,
+        "text": "I have some links out to set up your"
+      },
+      {
+        "start": 367.08,
+        "duration": 3.059,
+        "text": "Astra DB database obviously I've already"
+      },
+      {
+        "start": 368.82,
+        "duration": 3.78,
+        "text": "done that"
+      },
+      {
+        "start": 370.139,
+        "duration": 5.521,
+        "text": "our credentials are set up"
+      },
+      {
+        "start": 372.6,
+        "duration": 5.4,
+        "text": "you'll need to"
+      },
+      {
+        "start": 375.66,
+        "duration": 4.14,
+        "text": "create the astrodb database and if you"
+      },
+      {
+        "start": 378.0,
+        "duration": 3.539,
+        "text": "do that right now"
+      },
+      {
+        "start": 379.8,
+        "duration": 4.2,
+        "text": "uh keep an eye out for this triaster"
+      },
+      {
+        "start": 381.539,
+        "duration": 4.621,
+        "text": "with Vector search we are still in beta"
+      },
+      {
+        "start": 384.0,
+        "duration": 3.96,
+        "text": "it's not GA so you definitely want to"
+      },
+      {
+        "start": 386.16,
+        "duration": 4.02,
+        "text": "create a database through here"
+      },
+      {
+        "start": 387.96,
+        "duration": 4.32,
+        "text": "and there also are some instructions to"
+      },
+      {
+        "start": 390.18,
+        "duration": 3.72,
+        "text": "follow to set up your token and do some"
+      },
+      {
+        "start": 392.28,
+        "duration": 4.139,
+        "text": "other things"
+      },
+      {
+        "start": 393.9,
+        "duration": 5.9,
+        "text": "once we've done that make sure I have"
+      },
+      {
+        "start": 396.419,
+        "duration": 3.381,
+        "text": "what I need I don't"
+      },
+      {
+        "start": 406.919,
+        "duration": 5.461,
+        "text": "just getting my security credentials"
+      },
+      {
+        "start": 410.16,
+        "duration": 4.56,
+        "text": "I can connect and make sure everything's"
+      },
+      {
+        "start": 412.38,
+        "duration": 4.74,
+        "text": "working correctly"
+      },
+      {
+        "start": 414.72,
+        "duration": 4.38,
+        "text": "great we're good to connect to our"
+      },
+      {
+        "start": 417.12,
+        "duration": 3.54,
+        "text": "Vector DB"
+      },
+      {
+        "start": 419.1,
+        "duration": 3.659,
+        "text": "so let's talk about the good stuff let's"
+      },
+      {
+        "start": 420.66,
+        "duration": 2.879,
+        "text": "talk about the data"
+      },
+      {
+        "start": 422.759,
+        "duration": 3.0,
+        "text": "um"
+      },
+      {
+        "start": 423.539,
+        "duration": 5.041,
+        "text": "this is our snacks data set I mentioned"
+      },
+      {
+        "start": 425.759,
+        "duration": 4.56,
+        "text": "we've got a bunch of images we've also"
+      },
+      {
+        "start": 428.58,
+        "duration": 4.2,
+        "text": "got a bunch of classification labels I"
+      },
+      {
+        "start": 430.319,
+        "duration": 5.041,
+        "text": "don't care as much about those today"
+      },
+      {
+        "start": 432.78,
+        "duration": 5.46,
+        "text": "although I will show you where we see"
+      },
+      {
+        "start": 435.36,
+        "duration": 4.32,
+        "text": "those come up in the data but I'm not"
+      },
+      {
+        "start": 438.24,
+        "duration": 2.88,
+        "text": "really interested in doing image"
+      },
+      {
+        "start": 439.68,
+        "duration": 4.2,
+        "text": "classification I'm interested in doing"
+      },
+      {
+        "start": 441.12,
+        "duration": 5.1,
+        "text": "image to image search"
+      },
+      {
+        "start": 443.88,
+        "duration": 5.28,
+        "text": "also I should point out that we do have"
+      },
+      {
+        "start": 446.22,
+        "duration": 5.28,
+        "text": "in that data set a couple of splits we"
+      },
+      {
+        "start": 449.16,
+        "duration": 4.08,
+        "text": "have a test and a validation split we'll"
+      },
+      {
+        "start": 451.5,
+        "duration": 3.72,
+        "text": "use this test split a little bit later"
+      },
+      {
+        "start": 453.24,
+        "duration": 3.299,
+        "text": "and pretend like users actually uploaded"
+      },
+      {
+        "start": 455.22,
+        "duration": 3.479,
+        "text": "an image but we'll just pull it out of"
+      },
+      {
+        "start": 456.539,
+        "duration": 4.821,
+        "text": "that part of the data set"
+      },
+      {
+        "start": 458.699,
+        "duration": 2.661,
+        "text": "all right"
+      },
+      {
+        "start": 461.58,
+        "duration": 5.339,
+        "text": "let's import the data set we're grabbing"
+      },
+      {
+        "start": 464.22,
+        "duration": 4.259,
+        "text": "the big one and then we'll grab oh we've"
+      },
+      {
+        "start": 466.919,
+        "duration": 2.821,
+        "text": "got all three because I ran this earlier"
+      },
+      {
+        "start": 468.479,
+        "duration": 3.56,
+        "text": "all right"
+      },
+      {
+        "start": 469.74,
+        "duration": 4.799,
+        "text": "now because we're working with images"
+      },
+      {
+        "start": 472.039,
+        "duration": 4.301,
+        "text": "we want to try to normalize the images"
+      },
+      {
+        "start": 474.539,
+        "duration": 6.66,
+        "text": "we want to get them to a particular"
+      },
+      {
+        "start": 476.34,
+        "duration": 6.54,
+        "text": "image size we may look at normalizing uh"
+      },
+      {
+        "start": 481.199,
+        "duration": 3.241,
+        "text": "some of the internals of the image for"
+      },
+      {
+        "start": 482.88,
+        "duration": 4.02,
+        "text": "this data set this is a pretty typical"
+      },
+      {
+        "start": 484.44,
+        "duration": 3.659,
+        "text": "thing to do I'm just setting up a"
+      },
+      {
+        "start": 486.9,
+        "duration": 4.139,
+        "text": "transform"
+      },
+      {
+        "start": 488.099,
+        "duration": 4.681,
+        "text": "and the cool thing with the hug and face"
+      },
+      {
+        "start": 491.039,
+        "duration": 3.6,
+        "text": "dataset Library"
+      },
+      {
+        "start": 492.78,
+        "duration": 4.52,
+        "text": "is I can just apply that transform to"
+      },
+      {
+        "start": 494.639,
+        "duration": 2.661,
+        "text": "all my data"
+      },
+      {
+        "start": 499.379,
+        "duration": 6.0,
+        "text": "and let's see"
+      },
+      {
+        "start": 501.599,
+        "duration": 6.44,
+        "text": "where our data set stands now"
+      },
+      {
+        "start": 505.379,
+        "duration": 2.66,
+        "text": "so"
+      },
+      {
+        "start": 508.08,
+        "duration": 4.74,
+        "text": "looking at an individual Row in that"
+      },
+      {
+        "start": 510.18,
+        "duration": 3.9,
+        "text": "data set we see we've got an image a pil"
+      },
+      {
+        "start": 512.82,
+        "duration": 3.42,
+        "text": "image because it's already been"
+      },
+      {
+        "start": 514.08,
+        "duration": 3.42,
+        "text": "processed we have a label and we're"
+      },
+      {
+        "start": 516.24,
+        "duration": 2.82,
+        "text": "already starting to see something that"
+      },
+      {
+        "start": 517.5,
+        "duration": 2.82,
+        "text": "looks like a vector these aren't"
+      },
+      {
+        "start": 519.06,
+        "duration": 3.06,
+        "text": "actually the vectors we're going to put"
+      },
+      {
+        "start": 520.32,
+        "duration": 5.4,
+        "text": "in the database but they are the vectors"
+      },
+      {
+        "start": 522.12,
+        "duration": 5.76,
+        "text": "we need to feed to the image model So"
+      },
+      {
+        "start": 525.72,
+        "duration": 4.02,
+        "text": "This Is Us pre-processing"
+      },
+      {
+        "start": 527.88,
+        "duration": 3.84,
+        "text": "sort of setting the size of that image"
+      },
+      {
+        "start": 529.74,
+        "duration": 3.24,
+        "text": "and then prepping the image to feed to"
+      },
+      {
+        "start": 531.72,
+        "duration": 3.72,
+        "text": "the model"
+      },
+      {
+        "start": 532.98,
+        "duration": 4.44,
+        "text": "it's just again"
+      },
+      {
+        "start": 535.44,
+        "duration": 3.36,
+        "text": "no code at all there's the two tensor"
+      },
+      {
+        "start": 537.42,
+        "duration": 4.26,
+        "text": "that's doing that"
+      },
+      {
+        "start": 538.8,
+        "duration": 4.8,
+        "text": "to get that data transformed and ready"
+      },
+      {
+        "start": 541.68,
+        "duration": 3.779,
+        "text": "all right so we have data"
+      },
+      {
+        "start": 543.6,
+        "duration": 3.239,
+        "text": "we've got some rows of the data now we"
+      },
+      {
+        "start": 545.459,
+        "duration": 3.0,
+        "text": "need a model"
+      },
+      {
+        "start": 546.839,
+        "duration": 4.201,
+        "text": "I'm going to work with this vit base"
+      },
+      {
+        "start": 548.459,
+        "duration": 4.44,
+        "text": "patch 16224"
+      },
+      {
+        "start": 551.04,
+        "duration": 3.479,
+        "text": "there are a bunch of other image models"
+      },
+      {
+        "start": 552.899,
+        "duration": 3.12,
+        "text": "out there"
+      },
+      {
+        "start": 554.519,
+        "duration": 4.681,
+        "text": "um"
+      },
+      {
+        "start": 556.019,
+        "duration": 5.521,
+        "text": "if you're doing this for real life you"
+      },
+      {
+        "start": 559.2,
+        "duration": 3.66,
+        "text": "need to think about some things with the"
+      },
+      {
+        "start": 561.54,
+        "duration": 3.84,
+        "text": "model how performant is the model"
+      },
+      {
+        "start": 562.86,
+        "duration": 5.82,
+        "text": "sometimes a very generalized model"
+      },
+      {
+        "start": 565.38,
+        "duration": 5.7,
+        "text": "like this is not as performant for a"
+      },
+      {
+        "start": 568.68,
+        "duration": 4.98,
+        "text": "discrete set of tasks as a smaller model"
+      },
+      {
+        "start": 571.08,
+        "duration": 3.54,
+        "text": "or a self-trained model but it's also"
+      },
+      {
+        "start": 573.66,
+        "duration": 3.78,
+        "text": "kind of cool that you can go this"
+      },
+      {
+        "start": 574.62,
+        "duration": 4.38,
+        "text": "quickly and just pull a public model"
+      },
+      {
+        "start": 577.44,
+        "duration": 3.56,
+        "text": "to run with"
+      },
+      {
+        "start": 579.0,
+        "duration": 2.0,
+        "text": "um"
+      },
+      {
+        "start": 583.62,
+        "duration": 4.44,
+        "text": "and obviously as I said earlier you know"
+      },
+      {
+        "start": 586.38,
+        "duration": 5.42,
+        "text": "look for a public model before you dig"
+      },
+      {
+        "start": 588.06,
+        "duration": 3.74,
+        "text": "on to building your own it's"
+      },
+      {
+        "start": 593.58,
+        "duration": 4.5,
+        "text": "we are"
+      },
+      {
+        "start": 595.2,
+        "duration": 6.3,
+        "text": "running on the video card"
+      },
+      {
+        "start": 598.08,
+        "duration": 6.24,
+        "text": "and the model is ready and loaded to the"
+      },
+      {
+        "start": 601.5,
+        "duration": 5.64,
+        "text": "GPU for us to use"
+      },
+      {
+        "start": 604.32,
+        "duration": 4.8,
+        "text": "so let's look at what happens"
+      },
+      {
+        "start": 607.14,
+        "duration": 4.259,
+        "text": "when we hand our image tensor that we"
+      },
+      {
+        "start": 609.12,
+        "duration": 4.98,
+        "text": "prepared earlier over the model we get"
+      },
+      {
+        "start": 611.399,
+        "duration": 3.861,
+        "text": "this completely understandable you guys"
+      },
+      {
+        "start": 614.1,
+        "duration": 3.419,
+        "text": "know what this means right like"
+      },
+      {
+        "start": 615.26,
+        "duration": 5.1,
+        "text": "obviously the first"
+      },
+      {
+        "start": 617.519,
+        "duration": 5.88,
+        "text": "uh dimension of that tensor would be"
+      },
+      {
+        "start": 620.36,
+        "duration": 5.52,
+        "text": "negative 70 to the tenth minus one or"
+      },
+      {
+        "start": 623.399,
+        "duration": 2.481,
+        "text": "negative seven"
+      },
+      {
+        "start": 626.04,
+        "duration": 8.34,
+        "text": "a kid we don't really know all the time"
+      },
+      {
+        "start": 631.44,
+        "duration": 5.1,
+        "text": "what's in these embeddings it depends"
+      },
+      {
+        "start": 634.38,
+        "duration": 4.44,
+        "text": "it's based entirely on the model"
+      },
+      {
+        "start": 636.54,
+        "duration": 3.18,
+        "text": "it's not the original content of the"
+      },
+      {
+        "start": 638.82,
+        "duration": 2.579,
+        "text": "image"
+      },
+      {
+        "start": 639.72,
+        "duration": 4.38,
+        "text": "it is"
+      },
+      {
+        "start": 641.399,
+        "duration": 5.701,
+        "text": "something that came out of the model"
+      },
+      {
+        "start": 644.1,
+        "duration": 4.62,
+        "text": "where we try to get every Dimension here"
+      },
+      {
+        "start": 647.1,
+        "duration": 3.84,
+        "text": "to be independent of the other"
+      },
+      {
+        "start": 648.72,
+        "duration": 4.5,
+        "text": "dimensions it is"
+      },
+      {
+        "start": 650.94,
+        "duration": 3.78,
+        "text": "if you start in the mental context of"
+      },
+      {
+        "start": 653.22,
+        "duration": 3.0,
+        "text": "like latitude and longitude for"
+      },
+      {
+        "start": 654.72,
+        "duration": 7.02,
+        "text": "Geographic search and then you just keep"
+      },
+      {
+        "start": 656.22,
+        "duration": 7.5,
+        "text": "adding height and other things onto that"
+      },
+      {
+        "start": 661.74,
+        "duration": 3.18,
+        "text": "you know we eventually get to a thousand"
+      },
+      {
+        "start": 663.72,
+        "duration": 3.359,
+        "text": "dimensions"
+      },
+      {
+        "start": 664.92,
+        "duration": 4.2,
+        "text": "the cool thing about this particular"
+      },
+      {
+        "start": 667.079,
+        "duration": 5.281,
+        "text": "Vision Transformer model"
+      },
+      {
+        "start": 669.12,
+        "duration": 4.74,
+        "text": "is that our we actually do know what our"
+      },
+      {
+        "start": 672.36,
+        "duration": 3.26,
+        "text": "dimensions are"
+      },
+      {
+        "start": 673.86,
+        "duration": 4.88,
+        "text": "um our Dimensions here are actually"
+      },
+      {
+        "start": 675.62,
+        "duration": 5.98,
+        "text": "those imagenet label"
+      },
+      {
+        "start": 678.74,
+        "duration": 4.3,
+        "text": "uh categories and the strength in each"
+      },
+      {
+        "start": 681.6,
+        "duration": 3.56,
+        "text": "of the categories and I can show you"
+      },
+      {
+        "start": 683.04,
+        "duration": 2.12,
+        "text": "that"
+      },
+      {
+        "start": 686.04,
+        "duration": 4.56,
+        "text": "so here's an image"
+      },
+      {
+        "start": 688.5,
+        "duration": 3.18,
+        "text": "but I pulled it's index 10 I pulled from"
+      },
+      {
+        "start": 690.6,
+        "duration": 3.66,
+        "text": "the data"
+      },
+      {
+        "start": 691.68,
+        "duration": 5.399,
+        "text": "uh I'm going to pull the tensor out I'm"
+      },
+      {
+        "start": 694.26,
+        "duration": 5.94,
+        "text": "going to get the actual vector"
+      },
+      {
+        "start": 697.079,
+        "duration": 5.521,
+        "text": "of the results of this model let's"
+      },
+      {
+        "start": 700.2,
+        "duration": 4.02,
+        "text": "display the image and let's look at the"
+      },
+      {
+        "start": 702.6,
+        "duration": 4.859,
+        "text": "top five"
+      },
+      {
+        "start": 704.22,
+        "duration": 5.76,
+        "text": "strongest results in that model so if we"
+      },
+      {
+        "start": 707.459,
+        "duration": 5.82,
+        "text": "look at our tensor these are the the"
+      },
+      {
+        "start": 709.98,
+        "duration": 6.299,
+        "text": "indices in that tensor our strongest"
+      },
+      {
+        "start": 713.279,
+        "duration": 5.761,
+        "text": "indices was 582 which is a grocery store"
+      },
+      {
+        "start": 716.279,
+        "duration": 4.5,
+        "text": "at 9.7"
+      },
+      {
+        "start": 719.04,
+        "duration": 4.56,
+        "text": "but in the top five we also saw some"
+      },
+      {
+        "start": 720.779,
+        "duration": 5.281,
+        "text": "Granny Smith we also saw some orange we"
+      },
+      {
+        "start": 723.6,
+        "duration": 4.5,
+        "text": "saw some fig which was interesting and"
+      },
+      {
+        "start": 726.06,
+        "duration": 4.32,
+        "text": "some banana which is interesting"
+      },
+      {
+        "start": 728.1,
+        "duration": 4.62,
+        "text": "now imagine not that we just have five"
+      },
+      {
+        "start": 730.38,
+        "duration": 4.38,
+        "text": "of these we have a thousand of these and"
+      },
+      {
+        "start": 732.72,
+        "duration": 4.2,
+        "text": "they're not just positive numbers too we"
+      },
+      {
+        "start": 734.76,
+        "duration": 4.92,
+        "text": "have images in our data set where"
+      },
+      {
+        "start": 736.92,
+        "duration": 5.28,
+        "text": "grocery store is a negative four right"
+      },
+      {
+        "start": 739.68,
+        "duration": 4.5,
+        "text": "because it's very not grocery store"
+      },
+      {
+        "start": 742.2,
+        "duration": 3.54,
+        "text": "and once we start to be able to"
+      },
+      {
+        "start": 744.18,
+        "duration": 4.08,
+        "text": "categorize an image like that we're"
+      },
+      {
+        "start": 745.74,
+        "duration": 5.159,
+        "text": "actually kind of defining a knowledge"
+      },
+      {
+        "start": 748.26,
+        "duration": 5.22,
+        "text": "space we're defining"
+      },
+      {
+        "start": 750.899,
+        "duration": 5.041,
+        "text": "um a lat long blah blah blah blah blah"
+      },
+      {
+        "start": 753.48,
+        "duration": 4.26,
+        "text": "out to all the dimensions we have an"
+      },
+      {
+        "start": 755.94,
+        "duration": 3.54,
+        "text": "orangey Dimension and we have a granny"
+      },
+      {
+        "start": 757.74,
+        "duration": 3.96,
+        "text": "Smithy Dimension and we have a figgy"
+      },
+      {
+        "start": 759.48,
+        "duration": 3.96,
+        "text": "Dimension we have a banana Dimension and"
+      },
+      {
+        "start": 761.7,
+        "duration": 3.3,
+        "text": "if we start to plot things across all"
+      },
+      {
+        "start": 763.44,
+        "duration": 2.76,
+        "text": "those Dimensions which is what our"
+      },
+      {
+        "start": 765.0,
+        "duration": 3.12,
+        "text": "Vector is"
+      },
+      {
+        "start": 766.2,
+        "duration": 5.579,
+        "text": "then we could actually look into that"
+      },
+      {
+        "start": 768.12,
+        "duration": 5.94,
+        "text": "Vector space and see things like related"
+      },
+      {
+        "start": 771.779,
+        "duration": 3.601,
+        "text": "images"
+      },
+      {
+        "start": 774.06,
+        "duration": 5.219,
+        "text": "so let's"
+      },
+      {
+        "start": 775.38,
+        "duration": 6.3,
+        "text": "load all of our images through that"
+      },
+      {
+        "start": 779.279,
+        "duration": 5.881,
+        "text": "embedding process let's do the inference"
+      },
+      {
+        "start": 781.68,
+        "duration": 5.399,
+        "text": "and get embeddings for all the images"
+      },
+      {
+        "start": 785.16,
+        "duration": 3.72,
+        "text": "this is going to be about 5 000 images"
+      },
+      {
+        "start": 787.079,
+        "duration": 4.141,
+        "text": "that we do embeddings on"
+      },
+      {
+        "start": 788.88,
+        "duration": 4.44,
+        "text": "it's uh"
+      },
+      {
+        "start": 791.22,
+        "duration": 5.1,
+        "text": "probably a minute if you have a GPU it's"
+      },
+      {
+        "start": 793.32,
+        "duration": 4.98,
+        "text": "probably 40 or 40 minutes if you don't"
+      },
+      {
+        "start": 796.32,
+        "duration": 4.259,
+        "text": "which is fine if you're out on colab you"
+      },
+      {
+        "start": 798.3,
+        "duration": 3.659,
+        "text": "can run this either way"
+      },
+      {
+        "start": 800.579,
+        "duration": 3.301,
+        "text": "and then the next thing we would do is"
+      },
+      {
+        "start": 801.959,
+        "duration": 4.62,
+        "text": "we'd actually save our embeddings to"
+      },
+      {
+        "start": 803.88,
+        "duration": 4.74,
+        "text": "Astra DB this is where we're taking all"
+      },
+      {
+        "start": 806.579,
+        "duration": 3.241,
+        "text": "that cool embedding stuff we did and"
+      },
+      {
+        "start": 808.62,
+        "duration": 2.64,
+        "text": "we're saying all right we're going to"
+      },
+      {
+        "start": 809.82,
+        "duration": 3.18,
+        "text": "have a photo app and people can upload"
+      },
+      {
+        "start": 811.26,
+        "duration": 3.48,
+        "text": "images and they can see images that are"
+      },
+      {
+        "start": 813.0,
+        "duration": 3.18,
+        "text": "like the image that they had and you"
+      },
+      {
+        "start": 814.74,
+        "duration": 3.899,
+        "text": "know it's out there for everybody to use"
+      },
+      {
+        "start": 816.18,
+        "duration": 4.56,
+        "text": "and we're not going to run that"
+      },
+      {
+        "start": 818.639,
+        "duration": 3.601,
+        "text": "um with our you know"
+      },
+      {
+        "start": 820.74,
+        "duration": 2.82,
+        "text": "we're not going to train and load the"
+      },
+      {
+        "start": 822.24,
+        "duration": 3.96,
+        "text": "model and load all the images every time"
+      },
+      {
+        "start": 823.56,
+        "duration": 4.92,
+        "text": "we do that we need a persistence layer"
+      },
+      {
+        "start": 826.2,
+        "duration": 5.4,
+        "text": "to operate our Vector search against"
+      },
+      {
+        "start": 828.48,
+        "duration": 4.799,
+        "text": "when we roll this out into the Big World"
+      },
+      {
+        "start": 831.6,
+        "duration": 5.28,
+        "text": "so"
+      },
+      {
+        "start": 833.279,
+        "duration": 5.881,
+        "text": "if we oh sorry so the way we do that is"
+      },
+      {
+        "start": 836.88,
+        "duration": 3.48,
+        "text": "we're going to create a key space and a"
+      },
+      {
+        "start": 839.16,
+        "duration": 2.359,
+        "text": "table where we're going to create a"
+      },
+      {
+        "start": 840.36,
+        "duration": 4.32,
+        "text": "table we already have the key space"
+      },
+      {
+        "start": 841.519,
+        "duration": 5.861,
+        "text": "inside Astra it looks a lot like if you"
+      },
+      {
+        "start": 844.68,
+        "duration": 5.339,
+        "text": "know SQL this is Cassandra query"
+      },
+      {
+        "start": 847.38,
+        "duration": 4.8,
+        "text": "language but create a table"
+      },
+      {
+        "start": 850.019,
+        "duration": 5.521,
+        "text": "keyspace table name"
+      },
+      {
+        "start": 852.18,
+        "duration": 6.42,
+        "text": "I've got an ID I've got an image vector"
+      },
+      {
+        "start": 855.54,
+        "duration": 5.94,
+        "text": "and that's all I care about right now in"
+      },
+      {
+        "start": 858.6,
+        "duration": 4.799,
+        "text": "terms of uh storing this image in the"
+      },
+      {
+        "start": 861.48,
+        "duration": 3.299,
+        "text": "database"
+      },
+      {
+        "start": 863.399,
+        "duration": 3.06,
+        "text": "in the real world you're going to have"
+      },
+      {
+        "start": 864.779,
+        "duration": 2.881,
+        "text": "metadata you're going to have other"
+      },
+      {
+        "start": 866.459,
+        "duration": 3.361,
+        "text": "things maybe you save them the same"
+      },
+      {
+        "start": 867.66,
+        "duration": 3.66,
+        "text": "table maybe you change your model a lot"
+      },
+      {
+        "start": 869.82,
+        "duration": 2.699,
+        "text": "and you don't save them in the same"
+      },
+      {
+        "start": 871.32,
+        "duration": 2.819,
+        "text": "table you save them in a different table"
+      },
+      {
+        "start": 872.519,
+        "duration": 4.62,
+        "text": "to look out but for now this is all we"
+      },
+      {
+        "start": 874.139,
+        "duration": 5.401,
+        "text": "need to get started so create a table"
+      },
+      {
+        "start": 877.139,
+        "duration": 4.981,
+        "text": "create a custom index"
+      },
+      {
+        "start": 879.54,
+        "duration": 3.72,
+        "text": "we're ready for data this process"
+      },
+      {
+        "start": 882.12,
+        "duration": 3.18,
+        "text": "currently because I'm not running"
+      },
+      {
+        "start": 883.26,
+        "duration": 3.54,
+        "text": "multi-threaded takes about 40 minutes so"
+      },
+      {
+        "start": 885.3,
+        "duration": 4.62,
+        "text": "I'm going to do the classic cooking show"
+      },
+      {
+        "start": 886.8,
+        "duration": 6.0,
+        "text": "Trick and tell you that I already have a"
+      },
+      {
+        "start": 889.92,
+        "duration": 6.12,
+        "text": "cake in the other oven"
+      },
+      {
+        "start": 892.8,
+        "duration": 5.58,
+        "text": "so we should be able to query"
+      },
+      {
+        "start": 896.04,
+        "duration": 3.599,
+        "text": "against that data because I've preloaded"
+      },
+      {
+        "start": 898.38,
+        "duration": 3.72,
+        "text": "it"
+      },
+      {
+        "start": 899.639,
+        "duration": 4.44,
+        "text": "so we're going to do a query for item"
+      },
+      {
+        "start": 902.1,
+        "duration": 4.5,
+        "text": "number 422."
+      },
+      {
+        "start": 904.079,
+        "duration": 5.161,
+        "text": "we're going to grab that item out of our"
+      },
+      {
+        "start": 906.6,
+        "duration": 5.7,
+        "text": "test data split this is not part of the"
+      },
+      {
+        "start": 909.24,
+        "duration": 6.12,
+        "text": "data that we did embeddings for and put"
+      },
+      {
+        "start": 912.3,
+        "duration": 5.039,
+        "text": "into the vector DB we're pretending like"
+      },
+      {
+        "start": 915.36,
+        "duration": 4.8,
+        "text": "this is a fresh upload or some image"
+      },
+      {
+        "start": 917.339,
+        "duration": 3.901,
+        "text": "that somebody just gave us"
+      },
+      {
+        "start": 920.16,
+        "duration": 2.58,
+        "text": "um"
+      },
+      {
+        "start": 921.24,
+        "duration": 3.36,
+        "text": "we're going to take a look at what that"
+      },
+      {
+        "start": 922.74,
+        "duration": 3.719,
+        "text": "image is we're going to get the"
+      },
+      {
+        "start": 924.6,
+        "duration": 3.479,
+        "text": "embedding for that image and then we're"
+      },
+      {
+        "start": 926.459,
+        "duration": 4.44,
+        "text": "going to take that embedding and we're"
+      },
+      {
+        "start": 928.079,
+        "duration": 5.101,
+        "text": "just going to do select"
+      },
+      {
+        "start": 930.899,
+        "duration": 4.74,
+        "text": "ID and image vector"
+      },
+      {
+        "start": 933.18,
+        "duration": 4.92,
+        "text": "from our Vector table"
+      },
+      {
+        "start": 935.639,
+        "duration": 4.981,
+        "text": "order by the image Vector for anything"
+      },
+      {
+        "start": 938.1,
+        "duration": 6.9,
+        "text": "that's an approximate nearest neighbor"
+      },
+      {
+        "start": 940.62,
+        "duration": 6.719,
+        "text": "of that thousand Dimension embedding and"
+      },
+      {
+        "start": 945.0,
+        "duration": 4.32,
+        "text": "let's get five of them back"
+      },
+      {
+        "start": 947.339,
+        "duration": 4.141,
+        "text": "and let's see how well that worked"
+      },
+      {
+        "start": 949.32,
+        "duration": 4.86,
+        "text": "I mean think about this in terms like"
+      },
+      {
+        "start": 951.48,
+        "duration": 6.0,
+        "text": "this is a 15-minute setup public model"
+      },
+      {
+        "start": 954.18,
+        "duration": 5.399,
+        "text": "public data take an image a couple of"
+      },
+      {
+        "start": 957.48,
+        "duration": 5.099,
+        "text": "lines of python I've got the image ready"
+      },
+      {
+        "start": 959.579,
+        "duration": 5.521,
+        "text": "to train but did it work"
+      },
+      {
+        "start": 962.579,
+        "duration": 5.221,
+        "text": "so here's our original image"
+      },
+      {
+        "start": 965.1,
+        "duration": 5.52,
+        "text": "and here are our matches"
+      },
+      {
+        "start": 967.8,
+        "duration": 4.14,
+        "text": "this is a great match the first one you"
+      },
+      {
+        "start": 970.62,
+        "duration": 4.5,
+        "text": "can tell it's a slightly different image"
+      },
+      {
+        "start": 971.94,
+        "duration": 4.56,
+        "text": "but it's got all the same elements"
+      },
+      {
+        "start": 975.12,
+        "duration": 2.519,
+        "text": "the second image is a little more"
+      },
+      {
+        "start": 976.5,
+        "duration": 3.18,
+        "text": "cryptic"
+      },
+      {
+        "start": 977.639,
+        "duration": 4.14,
+        "text": "um this would be fun to dig into and see"
+      },
+      {
+        "start": 979.68,
+        "duration": 5.159,
+        "text": "we've got some similar shape things but"
+      },
+      {
+        "start": 981.779,
+        "duration": 5.101,
+        "text": "clearly a banana is not a hot dog"
+      },
+      {
+        "start": 984.839,
+        "duration": 5.781,
+        "text": "but then the rest of our images are"
+      },
+      {
+        "start": 986.88,
+        "duration": 3.74,
+        "text": "really solid hits"
+      },
+      {
+        "start": 991.199,
+        "duration": 4.021,
+        "text": "yes no this is not a hot dog"
+      },
+      {
+        "start": 993.899,
+        "duration": 4.56,
+        "text": "oh"
+      },
+      {
+        "start": 995.22,
+        "duration": 5.82,
+        "text": "well the others are really solid hits"
+      },
+      {
+        "start": 998.459,
+        "duration": 4.5,
+        "text": "well uh we have seen this app but we saw"
+      },
+      {
+        "start": 1001.04,
+        "duration": 4.26,
+        "text": "this app as image classification now"
+      },
+      {
+        "start": 1002.959,
+        "duration": 2.94,
+        "text": "we're doing full search"
+      },
+      {
+        "start": 1005.3,
+        "duration": 2.94,
+        "text": "um"
+      },
+      {
+        "start": 1005.899,
+        "duration": 3.901,
+        "text": "let me try a different one too just to"
+      },
+      {
+        "start": 1008.24,
+        "duration": 3.839,
+        "text": "give you an idea that"
+      },
+      {
+        "start": 1009.8,
+        "duration": 4.44,
+        "text": "this is just not the magic of a"
+      },
+      {
+        "start": 1012.079,
+        "duration": 4.68,
+        "text": "well-rigged demo"
+      },
+      {
+        "start": 1014.24,
+        "duration": 4.98,
+        "text": "so we'll do 120"
+      },
+      {
+        "start": 1016.759,
+        "duration": 4.14,
+        "text": "which looks like a birthday cake oh I"
+      },
+      {
+        "start": 1019.22,
+        "duration": 4.44,
+        "text": "hate these"
+      },
+      {
+        "start": 1020.899,
+        "duration": 4.981,
+        "text": "but we did get a birthday cake back here"
+      },
+      {
+        "start": 1023.66,
+        "duration": 4.74,
+        "text": "be fun to break down our nearest"
+      },
+      {
+        "start": 1025.88,
+        "duration": 4.439,
+        "text": "neighbor on this guy"
+      },
+      {
+        "start": 1028.4,
+        "duration": 4.2,
+        "text": "and see we could use the code from"
+      },
+      {
+        "start": 1030.319,
+        "duration": 4.14,
+        "text": "earlier if you uh have this notebook and"
+      },
+      {
+        "start": 1032.6,
+        "duration": 3.9,
+        "text": "you want to actually investigate"
+      },
+      {
+        "start": 1034.459,
+        "duration": 3.48,
+        "text": "the major categories for each of the"
+      },
+      {
+        "start": 1036.5,
+        "duration": 3.059,
+        "text": "hits"
+      },
+      {
+        "start": 1037.939,
+        "duration": 3.721,
+        "text": "here's some apples we're usually really"
+      },
+      {
+        "start": 1039.559,
+        "duration": 3.421,
+        "text": "good about apples"
+      },
+      {
+        "start": 1041.66,
+        "duration": 2.88,
+        "text": "I don't know if I'd be too impressed by"
+      },
+      {
+        "start": 1042.98,
+        "duration": 3.0,
+        "text": "this because apples are usually what we"
+      },
+      {
+        "start": 1044.54,
+        "duration": 4.639,
+        "text": "get back"
+      },
+      {
+        "start": 1045.98,
+        "duration": 3.199,
+        "text": "for just about anything"
+      },
+      {
+        "start": 1055.28,
+        "duration": 3.08,
+        "text": "here we go cupcakes"
+      },
+      {
+        "start": 1058.82,
+        "duration": 4.56,
+        "text": "there we go"
+      },
+      {
+        "start": 1061.4,
+        "duration": 5.159,
+        "text": "pull down the notebook play with this"
+      },
+      {
+        "start": 1063.38,
+        "duration": 4.56,
+        "text": "run it on the free Google co-lab uh set"
+      },
+      {
+        "start": 1066.559,
+        "duration": 3.24,
+        "text": "up an aster account and the rest of it"
+      },
+      {
+        "start": 1067.94,
+        "duration": 4.2,
+        "text": "you can just run through with the"
+      },
+      {
+        "start": 1069.799,
+        "duration": 3.721,
+        "text": "database start doing image search tear"
+      },
+      {
+        "start": 1072.14,
+        "duration": 4.86,
+        "text": "into these guys and see if you can see"
+      },
+      {
+        "start": 1073.52,
+        "duration": 4.2,
+        "text": "why they matched or why they didn't"
+      },
+      {
+        "start": 1077.0,
+        "duration": 2.52,
+        "text": "um"
+      },
+      {
+        "start": 1077.72,
+        "duration": 3.92,
+        "text": "feel free to play with this or share it"
+      },
+      {
+        "start": 1079.52,
+        "duration": 2.12,
+        "text": "around"
+      },
+      {
+        "start": 1082.16,
+        "duration": 4.08,
+        "text": "if you want to go forward from here I"
+      },
+      {
+        "start": 1084.5,
+        "duration": 4.14,
+        "text": "have a couple of"
+      },
+      {
+        "start": 1086.24,
+        "duration": 4.86,
+        "text": "yeah I have a couple of"
+      },
+      {
+        "start": 1088.64,
+        "duration": 5.88,
+        "text": "maybe branching paths depending on what"
+      },
+      {
+        "start": 1091.1,
+        "duration": 4.439,
+        "text": "you'd like to dig into more deeply so if"
+      },
+      {
+        "start": 1094.52,
+        "duration": 3.0,
+        "text": "you'd like to do a little bit more"
+      },
+      {
+        "start": 1095.539,
+        "duration": 4.981,
+        "text": "deeper into vectors Google's got this"
+      },
+      {
+        "start": 1097.52,
+        "duration": 5.88,
+        "text": "great developer practitioner class that"
+      },
+      {
+        "start": 1100.52,
+        "duration": 4.26,
+        "text": "really digs into what Vector embeddings"
+      },
+      {
+        "start": 1103.4,
+        "duration": 2.76,
+        "text": "are"
+      },
+      {
+        "start": 1104.78,
+        "duration": 3.48,
+        "text": "um if you want to go have coffee with"
+      },
+      {
+        "start": 1106.16,
+        "duration": 3.78,
+        "text": "data scientists there's a great machine"
+      },
+      {
+        "start": 1108.26,
+        "duration": 4.26,
+        "text": "learning crash course"
+      },
+      {
+        "start": 1109.94,
+        "duration": 5.099,
+        "text": "um I had to relearn a bunch of math that"
+      },
+      {
+        "start": 1112.52,
+        "duration": 3.659,
+        "text": "I had forgotten about uh and the funny"
+      },
+      {
+        "start": 1115.039,
+        "duration": 3.481,
+        "text": "thing about the crash course is it"
+      },
+      {
+        "start": 1116.179,
+        "duration": 6.12,
+        "text": "starts hard and it gets a little easier"
+      },
+      {
+        "start": 1118.52,
+        "duration": 6.24,
+        "text": "if you want to"
+      },
+      {
+        "start": 1122.299,
+        "duration": 4.021,
+        "text": "embed two vectors in the same embedding"
+      },
+      {
+        "start": 1124.76,
+        "duration": 4.44,
+        "text": "space this is a recommendation engine"
+      },
+      {
+        "start": 1126.32,
+        "duration": 5.219,
+        "text": "we're really talking about two towers as"
+      },
+      {
+        "start": 1129.2,
+        "duration": 4.32,
+        "text": "an architecture and there's a great blog"
+      },
+      {
+        "start": 1131.539,
+        "duration": 3.181,
+        "text": "on Google that'll start you on that path"
+      },
+      {
+        "start": 1133.52,
+        "duration": 3.72,
+        "text": "if you want to go the other direction"
+      },
+      {
+        "start": 1134.72,
+        "duration": 5.16,
+        "text": "and build up to generative Ai and agent"
+      },
+      {
+        "start": 1137.24,
+        "duration": 5.46,
+        "text": "architectures check out the Casio"
+      },
+      {
+        "start": 1139.88,
+        "duration": 4.919,
+        "text": "uh dot org site there's a really funny"
+      },
+      {
+        "start": 1142.7,
+        "duration": 3.18,
+        "text": "story about how this derived out of a"
+      },
+      {
+        "start": 1144.799,
+        "duration": 3.841,
+        "text": "hallucination"
+      },
+      {
+        "start": 1145.88,
+        "duration": 5.52,
+        "text": "uh when Patrick McFadden was digging"
+      },
+      {
+        "start": 1148.64,
+        "duration": 4.56,
+        "text": "into how this stuff works"
+      },
+      {
+        "start": 1151.4,
+        "duration": 3.42,
+        "text": "and then uh"
+      },
+      {
+        "start": 1153.2,
+        "duration": 3.719,
+        "text": "if you want to dig deeper into the"
+      },
+      {
+        "start": 1154.82,
+        "duration": 5.359,
+        "text": "vision Transformer there's a nice"
+      },
+      {
+        "start": 1156.919,
+        "duration": 3.26,
+        "text": "workbook that's a walk through here"
+      },
+      {
+        "start": 1163.64,
+        "duration": 5.1,
+        "text": "um that's it this is a Lightning Run"
+      },
+      {
+        "start": 1167.36,
+        "duration": 5.12,
+        "text": "through"
+      },
+      {
+        "start": 1168.74,
+        "duration": 7.799,
+        "text": "image to image search implemented on"
+      },
+      {
+        "start": 1172.48,
+        "duration": 5.92,
+        "text": "astra's new beta uh Vector search and"
+      },
+      {
+        "start": 1176.539,
+        "duration": 4.081,
+        "text": "it's available as we said in the"
+      },
+      {
+        "start": 1178.4,
+        "duration": 5.279,
+        "text": "notebook take it play with it send me"
+      },
+      {
+        "start": 1180.62,
+        "duration": 5.34,
+        "text": "some feedback I'm happy to hear whatever"
+      },
+      {
+        "start": 1183.679,
+        "duration": 4.141,
+        "text": "about it curious what people find what"
+      },
+      {
+        "start": 1185.96,
+        "duration": 4.62,
+        "text": "folds they find in the data if they play"
+      },
+      {
+        "start": 1187.82,
+        "duration": 5.219,
+        "text": "with other image models you could rework"
+      },
+      {
+        "start": 1190.58,
+        "duration": 5.52,
+        "text": "this for sound very easily obviously"
+      },
+      {
+        "start": 1193.039,
+        "duration": 4.741,
+        "text": "people are doing a ton of things with"
+      },
+      {
+        "start": 1196.1,
+        "duration": 3.48,
+        "text": "text"
+      },
+      {
+        "start": 1197.78,
+        "duration": 4.259,
+        "text": "see if there's anything interesting in"
+      },
+      {
+        "start": 1199.58,
+        "duration": 4.56,
+        "text": "the comments or Patrick if you've seen"
+      },
+      {
+        "start": 1202.039,
+        "duration": 3.481,
+        "text": "anything out on YouTube I'm happy we've"
+      },
+      {
+        "start": 1204.14,
+        "duration": 4.46,
+        "text": "got a couple of minutes"
+      },
+      {
+        "start": 1205.52,
+        "duration": 3.08,
+        "text": "we could hop into that"
+      },
+      {
+        "start": 1211.64,
+        "duration": 4.22,
+        "text": "yep any questions out there"
+      },
+      {
+        "start": 1221.78,
+        "duration": 4.08,
+        "text": "uh I could have used image to vet the"
+      },
+      {
+        "start": 1224.539,
+        "duration": 2.581,
+        "text": "question is why didn't I use image to"
+      },
+      {
+        "start": 1225.86,
+        "duration": 2.46,
+        "text": "back"
+      },
+      {
+        "start": 1227.12,
+        "duration": 5.64,
+        "text": "um"
+      },
+      {
+        "start": 1228.32,
+        "duration": 5.7,
+        "text": "I could have used images I wanted to use"
+      },
+      {
+        "start": 1232.76,
+        "duration": 3.48,
+        "text": "a model that I actually used"
+      },
+      {
+        "start": 1234.02,
+        "duration": 4.74,
+        "text": "Transformers and that's the whole reason"
+      },
+      {
+        "start": 1236.24,
+        "duration": 3.9,
+        "text": "that I picked vit but image to vac would"
+      },
+      {
+        "start": 1238.76,
+        "duration": 3.0,
+        "text": "have been fine"
+      },
+      {
+        "start": 1240.14,
+        "duration": 3.3,
+        "text": "um"
+      },
+      {
+        "start": 1241.76,
+        "duration": 3.36,
+        "text": "tournament with the other one is"
+      },
+      {
+        "start": 1243.44,
+        "duration": 4.5,
+        "text": "efficient net is the other one that"
+      },
+      {
+        "start": 1245.12,
+        "duration": 6.059,
+        "text": "people like to do a lot"
+      },
+      {
+        "start": 1247.94,
+        "duration": 7.16,
+        "text": "this is for Andy's question about uh why"
+      },
+      {
+        "start": 1251.179,
+        "duration": 3.921,
+        "text": "we didn't use uh image to back"
+      },
+      {
+        "start": 1256.28,
+        "duration": 2.96,
+        "text": "anything else out there"
+      },
+      {
+        "start": 1261.98,
+        "duration": 3.66,
+        "text": "we've got a collab URL and the questions"
+      },
+      {
+        "start": 1264.14,
+        "duration": 3.96,
+        "text": "hey Patrick"
+      },
+      {
+        "start": 1265.64,
+        "duration": 6.14,
+        "text": "hi so yeah I thought I might jump in"
+      },
+      {
+        "start": 1268.1,
+        "duration": 3.68,
+        "text": "here with my own because I can do that"
+      },
+      {
+        "start": 1273.14,
+        "duration": 5.34,
+        "text": "um the the the question I'm I'm gonna"
+      },
+      {
+        "start": 1275.66,
+        "duration": 5.7,
+        "text": "come up with here shortly is uh probably"
+      },
+      {
+        "start": 1278.48,
+        "duration": 5.46,
+        "text": "one that I hear a lot is like around is"
+      },
+      {
+        "start": 1281.36,
+        "duration": 5.12,
+        "text": "there best practices of for vectors"
+      },
+      {
+        "start": 1283.94,
+        "duration": 6.18,
+        "text": "especially when using Cassandra"
+      },
+      {
+        "start": 1286.48,
+        "duration": 8.04,
+        "text": "and I may I may be kind of"
+      },
+      {
+        "start": 1290.12,
+        "duration": 4.4,
+        "text": "um leading the witness a little bit"
+      },
+      {
+        "start": 1295.039,
+        "duration": 4.441,
+        "text": "um the big one that hops out to me that"
+      },
+      {
+        "start": 1296.84,
+        "duration": 5.4,
+        "text": "may not be the answer you have a lot is"
+      },
+      {
+        "start": 1299.48,
+        "duration": 5.16,
+        "text": "the dimensionality of the vector is"
+      },
+      {
+        "start": 1302.24,
+        "duration": 4.02,
+        "text": "going to affect how performant the"
+      },
+      {
+        "start": 1304.64,
+        "duration": 2.279,
+        "text": "search is yeah"
+      },
+      {
+        "start": 1306.26,
+        "duration": 2.34,
+        "text": "um"
+      },
+      {
+        "start": 1306.919,
+        "duration": 3.961,
+        "text": "one of the cool things about vectors"
+      },
+      {
+        "start": 1308.6,
+        "duration": 3.84,
+        "text": "that I didn't get into here is vectors"
+      },
+      {
+        "start": 1310.88,
+        "duration": 3.36,
+        "text": "can actually sort of decrease your"
+      },
+      {
+        "start": 1312.44,
+        "duration": 4.68,
+        "text": "feature space they can fold your feature"
+      },
+      {
+        "start": 1314.24,
+        "duration": 4.559,
+        "text": "space a little bit so if you're"
+      },
+      {
+        "start": 1317.12,
+        "duration": 3.6,
+        "text": "if you're building something complicated"
+      },
+      {
+        "start": 1318.799,
+        "duration": 4.38,
+        "text": "and it needs to be fast then you need to"
+      },
+      {
+        "start": 1320.72,
+        "duration": 4.56,
+        "text": "use that ability to get down into 50"
+      },
+      {
+        "start": 1323.179,
+        "duration": 3.781,
+        "text": "Dimensions or smaller than that because"
+      },
+      {
+        "start": 1325.28,
+        "duration": 3.54,
+        "text": "all your interactions are going to be a"
+      },
+      {
+        "start": 1326.96,
+        "duration": 3.599,
+        "text": "lot more performant and you're probably"
+      },
+      {
+        "start": 1328.82,
+        "duration": 2.7,
+        "text": "going to be living in this experience of"
+      },
+      {
+        "start": 1330.559,
+        "duration": 4.381,
+        "text": "like"
+      },
+      {
+        "start": 1331.52,
+        "duration": 5.94,
+        "text": "uh a bunch of the text embedding models"
+      },
+      {
+        "start": 1334.94,
+        "duration": 4.02,
+        "text": "are 768 dimensions a bunch of the images"
+      },
+      {
+        "start": 1337.46,
+        "duration": 4.079,
+        "text": "are a thousand and like there's a"
+      },
+      {
+        "start": 1338.96,
+        "duration": 5.699,
+        "text": "performance impact to the generalization"
+      },
+      {
+        "start": 1341.539,
+        "duration": 4.921,
+        "text": "of the images less is better more is"
+      },
+      {
+        "start": 1344.659,
+        "duration": 3.421,
+        "text": "probably more generalized and flexible"
+      },
+      {
+        "start": 1346.46,
+        "duration": 4.52,
+        "text": "and you're getting the benefit of work"
+      },
+      {
+        "start": 1348.08,
+        "duration": 2.9,
+        "text": "other people have done"
+      },
+      {
+        "start": 1351.32,
+        "duration": 4.02,
+        "text": "yeah I think it's worth mentioning too"
+      },
+      {
+        "start": 1352.94,
+        "duration": 4.8,
+        "text": "that you know the underlying"
+      },
+      {
+        "start": 1355.34,
+        "duration": 7.02,
+        "text": "um the underlying indexing scheme here"
+      },
+      {
+        "start": 1357.74,
+        "duration": 6.96,
+        "text": "is hnsw from singing and so you know a"
+      },
+      {
+        "start": 1362.36,
+        "duration": 4.559,
+        "text": "lot of a lot of those um anything that"
+      },
+      {
+        "start": 1364.7,
+        "duration": 4.02,
+        "text": "works there works great this is what"
+      },
+      {
+        "start": 1366.919,
+        "duration": 4.021,
+        "text": "works great with Cassandra because it's"
+      },
+      {
+        "start": 1368.72,
+        "duration": 3.36,
+        "text": "it's the same Library"
+      },
+      {
+        "start": 1370.94,
+        "duration": 2.82,
+        "text": "um yeah"
+      },
+      {
+        "start": 1372.08,
+        "duration": 4.14,
+        "text": "worth understanding that too as you dig"
+      },
+      {
+        "start": 1373.76,
+        "duration": 4.62,
+        "text": "into it because in my mind I'm just"
+      },
+      {
+        "start": 1376.22,
+        "duration": 3.78,
+        "text": "doing cosine difference between two"
+      },
+      {
+        "start": 1378.38,
+        "duration": 3.6,
+        "text": "vectors but you can't do that with a"
+      },
+      {
+        "start": 1380.0,
+        "duration": 3.299,
+        "text": "thousand vectors like it's it's not"
+      },
+      {
+        "start": 1381.98,
+        "duration": 2.76,
+        "text": "performance so you get into this stuff"
+      },
+      {
+        "start": 1383.299,
+        "duration": 3.601,
+        "text": "like H and SW"
+      },
+      {
+        "start": 1384.74,
+        "duration": 5.4,
+        "text": "which may also be why we saw the bananas"
+      },
+      {
+        "start": 1386.9,
+        "duration": 6.84,
+        "text": "on that hot dog search h s w can jump"
+      },
+      {
+        "start": 1390.14,
+        "duration": 4.98,
+        "text": "around a little bit for its a m"
+      },
+      {
+        "start": 1393.74,
+        "duration": 3.36,
+        "text": "M yeah and there's a difference between"
+      },
+      {
+        "start": 1395.12,
+        "duration": 3.48,
+        "text": "the indexing types when you when you"
+      },
+      {
+        "start": 1397.1,
+        "duration": 3.78,
+        "text": "create the index"
+      },
+      {
+        "start": 1398.6,
+        "duration": 3.84,
+        "text": "um and of course you didn't go into that"
+      },
+      {
+        "start": 1400.88,
+        "duration": 3.48,
+        "text": "piece so much but there are two"
+      },
+      {
+        "start": 1402.44,
+        "duration": 4.08,
+        "text": "different types of indexes you can"
+      },
+      {
+        "start": 1404.36,
+        "duration": 4.92,
+        "text": "create"
+      },
+      {
+        "start": 1406.52,
+        "duration": 4.62,
+        "text": "um the dot dot product and the cosine"
+      },
+      {
+        "start": 1409.28,
+        "duration": 5.399,
+        "text": "cosine is the"
+      },
+      {
+        "start": 1411.14,
+        "duration": 6.659,
+        "text": "um is the uh default but dot product is"
+      },
+      {
+        "start": 1414.679,
+        "duration": 6.721,
+        "text": "like twice as fast"
+      },
+      {
+        "start": 1417.799,
+        "duration": 4.86,
+        "text": "and it it returns different results too"
+      },
+      {
+        "start": 1421.4,
+        "duration": 2.759,
+        "text": "um because the math is a little"
+      },
+      {
+        "start": 1422.659,
+        "duration": 2.88,
+        "text": "different and I've seen a bunch of"
+      },
+      {
+        "start": 1424.159,
+        "duration": 2.941,
+        "text": "recommendations about play with that too"
+      },
+      {
+        "start": 1425.539,
+        "duration": 3.981,
+        "text": "particularly if you're"
+      },
+      {
+        "start": 1427.1,
+        "duration": 5.52,
+        "text": "if you've got a good test set"
+      },
+      {
+        "start": 1429.52,
+        "duration": 3.82,
+        "text": "and you have a good judgment list"
+      },
+      {
+        "start": 1432.62,
+        "duration": 2.82,
+        "text": "um"
+      },
+      {
+        "start": 1433.34,
+        "duration": 4.5,
+        "text": "I would throw into at a very high level"
+      },
+      {
+        "start": 1435.44,
+        "duration": 3.78,
+        "text": "if you're going to work with us uh go"
+      },
+      {
+        "start": 1437.84,
+        "duration": 4.74,
+        "text": "look at some of the work that open"
+      },
+      {
+        "start": 1439.22,
+        "duration": 5.1,
+        "text": "source connections did with Cupid which"
+      },
+      {
+        "start": 1442.58,
+        "duration": 3.839,
+        "text": "was a way to build judgment lists"
+      },
+      {
+        "start": 1444.32,
+        "duration": 4.739,
+        "text": "against traditional search but I think"
+      },
+      {
+        "start": 1446.419,
+        "duration": 4.62,
+        "text": "that approach is going to be a big deal"
+      },
+      {
+        "start": 1449.059,
+        "duration": 3.961,
+        "text": "as we get into things like vector search"
+      },
+      {
+        "start": 1451.039,
+        "duration": 4.321,
+        "text": "where we need to evaluate a model really"
+      },
+      {
+        "start": 1453.02,
+        "duration": 3.96,
+        "text": "quickly to figure out how effective it"
+      },
+      {
+        "start": 1455.36,
+        "duration": 3.12,
+        "text": "is for the the searches that we know"
+      },
+      {
+        "start": 1456.98,
+        "duration": 4.38,
+        "text": "people are going to perform"
+      },
+      {
+        "start": 1458.48,
+        "duration": 5.04,
+        "text": "yeah well this kind of underscores this"
+      },
+      {
+        "start": 1461.36,
+        "duration": 4.14,
+        "text": "thing it's like I I feel like a lot of"
+      },
+      {
+        "start": 1463.52,
+        "duration": 4.5,
+        "text": "folks especially maybe even in this"
+      },
+      {
+        "start": 1465.5,
+        "duration": 5.88,
+        "text": "particular Workshop are pretty new to"
+      },
+      {
+        "start": 1468.02,
+        "duration": 5.22,
+        "text": "this concept and that's okay hey we're"
+      },
+      {
+        "start": 1471.38,
+        "duration": 4.56,
+        "text": "working through this as a community I"
+      },
+      {
+        "start": 1473.24,
+        "duration": 4.08,
+        "text": "think Vector was a niche for a small"
+      },
+      {
+        "start": 1475.94,
+        "duration": 3.42,
+        "text": "group of people that were using it"
+      },
+      {
+        "start": 1477.32,
+        "duration": 4.44,
+        "text": "really highly effectively like if you"
+      },
+      {
+        "start": 1479.36,
+        "duration": 4.199,
+        "text": "worked at meta"
+      },
+      {
+        "start": 1481.76,
+        "duration": 3.36,
+        "text": "but now we're all having to get thrown"
+      },
+      {
+        "start": 1483.559,
+        "duration": 4.081,
+        "text": "into this so this is good we need to"
+      },
+      {
+        "start": 1485.12,
+        "duration": 5.34,
+        "text": "share information like this I touched it"
+      },
+      {
+        "start": 1487.64,
+        "duration": 4.32,
+        "text": "a few years ago with uh the Vespa"
+      },
+      {
+        "start": 1490.46,
+        "duration": 3.18,
+        "text": "database when I was doing search stuff"
+      },
+      {
+        "start": 1491.96,
+        "duration": 3.54,
+        "text": "which was neat but like it wasn't there"
+      },
+      {
+        "start": 1493.64,
+        "duration": 4.26,
+        "text": "yet and oh it seems like it's there now"
+      },
+      {
+        "start": 1495.5,
+        "duration": 5.039,
+        "text": "what do you get first imagine that idea"
+      },
+      {
+        "start": 1497.9,
+        "duration": 6.0,
+        "text": "like image to image search on Apache"
+      },
+      {
+        "start": 1500.539,
+        "duration": 6.301,
+        "text": "Cassandra like Apache has that scale it"
+      },
+      {
+        "start": 1503.9,
+        "duration": 4.62,
+        "text": "you know it runs the the Deep Beating"
+      },
+      {
+        "start": 1506.84,
+        "duration": 3.24,
+        "text": "Heart of the internet and then just be"
+      },
+      {
+        "start": 1508.52,
+        "duration": 4.62,
+        "text": "able to lay something like this on top"
+      },
+      {
+        "start": 1510.08,
+        "duration": 7.079,
+        "text": "of it or you know large language models"
+      },
+      {
+        "start": 1513.14,
+        "duration": 5.46,
+        "text": "or image to sound or uh some of the"
+      },
+      {
+        "start": 1517.159,
+        "duration": 3.541,
+        "text": "stuff that's that's a pretty well tried"
+      },
+      {
+        "start": 1518.6,
+        "duration": 3.959,
+        "text": "path like um"
+      },
+      {
+        "start": 1520.7,
+        "duration": 4.56,
+        "text": "what Netflix did with recommendations"
+      },
+      {
+        "start": 1522.559,
+        "duration": 4.141,
+        "text": "where you're laying ratings in the same"
+      },
+      {
+        "start": 1525.26,
+        "duration": 4.38,
+        "text": "embedding space that you're laying"
+      },
+      {
+        "start": 1526.7,
+        "duration": 5.16,
+        "text": "movies or you're you're laying it users"
+      },
+      {
+        "start": 1529.64,
+        "duration": 3.779,
+        "text": "from their features in the same embedded"
+      },
+      {
+        "start": 1531.86,
+        "duration": 4.14,
+        "text": "space that you're writing movies and you"
+      },
+      {
+        "start": 1533.419,
+        "duration": 4.681,
+        "text": "can just get a brand new user grab their"
+      },
+      {
+        "start": 1536.0,
+        "duration": 4.86,
+        "text": "features run it through the model and"
+      },
+      {
+        "start": 1538.1,
+        "duration": 4.74,
+        "text": "get back a bunch of movies that seem"
+      },
+      {
+        "start": 1540.86,
+        "duration": 4.74,
+        "text": "like they're close to that user that's"
+      },
+      {
+        "start": 1542.84,
+        "duration": 4.5,
+        "text": "amazing so while we've been chatting um"
+      },
+      {
+        "start": 1545.6,
+        "duration": 4.62,
+        "text": "all of a sudden the questions have"
+      },
+      {
+        "start": 1547.34,
+        "duration": 4.8,
+        "text": "rolled in other chat we should go look"
+      },
+      {
+        "start": 1550.22,
+        "duration": 4.02,
+        "text": "at those yeah there's some good ones in"
+      },
+      {
+        "start": 1552.14,
+        "duration": 4.08,
+        "text": "here like Stefan is like does this work"
+      },
+      {
+        "start": 1554.24,
+        "duration": 4.38,
+        "text": "for a recommendation of similar items"
+      },
+      {
+        "start": 1556.22,
+        "duration": 5.939,
+        "text": "like documents depending on content"
+      },
+      {
+        "start": 1558.62,
+        "duration": 6.0,
+        "text": "so that that's a multimodal model"
+      },
+      {
+        "start": 1562.159,
+        "duration": 4.5,
+        "text": "and look at two towers to do that you've"
+      },
+      {
+        "start": 1564.62,
+        "duration": 3.78,
+        "text": "gotta you gotta train in"
+      },
+      {
+        "start": 1566.659,
+        "duration": 3.601,
+        "text": "to do both of those and you've got to"
+      },
+      {
+        "start": 1568.4,
+        "duration": 4.5,
+        "text": "have a classification system that like"
+      },
+      {
+        "start": 1570.26,
+        "duration": 5.1,
+        "text": "lets you compare apples and oranges not"
+      },
+      {
+        "start": 1572.9,
+        "duration": 5.1,
+        "text": "just images of apples and oranges"
+      },
+      {
+        "start": 1575.36,
+        "duration": 5.28,
+        "text": "um but once you do that"
+      },
+      {
+        "start": 1578.0,
+        "duration": 5.76,
+        "text": "it's really powerful for like I don't"
+      },
+      {
+        "start": 1580.64,
+        "duration": 5.039,
+        "text": "know just crazy things like we can have"
+      },
+      {
+        "start": 1583.76,
+        "duration": 3.96,
+        "text": "a set of features around soil samples"
+      },
+      {
+        "start": 1585.679,
+        "duration": 3.24,
+        "text": "and we could have"
+      },
+      {
+        "start": 1587.72,
+        "duration": 3.3,
+        "text": "um another set of embeddings around"
+      },
+      {
+        "start": 1588.919,
+        "duration": 4.201,
+        "text": "Geographic locations"
+      },
+      {
+        "start": 1591.02,
+        "duration": 3.779,
+        "text": "and we could take a soil sample and"
+      },
+      {
+        "start": 1593.12,
+        "duration": 4.5,
+        "text": "guess where it probably came from"
+      },
+      {
+        "start": 1594.799,
+        "duration": 4.98,
+        "text": "because we embedded those two vectors in"
+      },
+      {
+        "start": 1597.62,
+        "duration": 3.6,
+        "text": "the same embedding space"
+      },
+      {
+        "start": 1599.779,
+        "duration": 3.961,
+        "text": "um there are a bunch of cool things that"
+      },
+      {
+        "start": 1601.22,
+        "duration": 3.54,
+        "text": "can happen there I think uh Spotify uses"
+      },
+      {
+        "start": 1603.74,
+        "duration": 3.66,
+        "text": "that for a bunch of their"
+      },
+      {
+        "start": 1604.76,
+        "duration": 3.6,
+        "text": "recommendations now the and has been for"
+      },
+      {
+        "start": 1607.4,
+        "duration": 2.82,
+        "text": "a while"
+      },
+      {
+        "start": 1608.36,
+        "duration": 3.12,
+        "text": "not on astrodb yet but we'll get them"
+      },
+      {
+        "start": 1610.22,
+        "duration": 2.459,
+        "text": "over here"
+      },
+      {
+        "start": 1611.48,
+        "duration": 2.939,
+        "text": "um"
+      },
+      {
+        "start": 1612.679,
+        "duration": 3.961,
+        "text": "there are a bunch of use cases already"
+      },
+      {
+        "start": 1614.419,
+        "duration": 5.101,
+        "text": "where people are doing multi-embeddings"
+      },
+      {
+        "start": 1616.64,
+        "duration": 4.38,
+        "text": "yeah the semantic search uh and that's I"
+      },
+      {
+        "start": 1619.52,
+        "duration": 2.88,
+        "text": "think that's there's a lot of questions"
+      },
+      {
+        "start": 1621.02,
+        "duration": 5.1,
+        "text": "along this line"
+      },
+      {
+        "start": 1622.4,
+        "duration": 6.98,
+        "text": "um yeah and this is a elastic search now"
+      },
+      {
+        "start": 1626.12,
+        "duration": 5.7,
+        "text": "includes H and SW from Lucine surprise"
+      },
+      {
+        "start": 1629.38,
+        "duration": 4.6,
+        "text": "because it is different"
+      },
+      {
+        "start": 1631.82,
+        "duration": 4.739,
+        "text": "um but it's context and I think that's"
+      },
+      {
+        "start": 1633.98,
+        "duration": 4.439,
+        "text": "that's one of the main differences you"
+      },
+      {
+        "start": 1636.559,
+        "duration": 3.961,
+        "text": "can get out of this search so if you"
+      },
+      {
+        "start": 1638.419,
+        "duration": 4.441,
+        "text": "have a block of text and so instead of"
+      },
+      {
+        "start": 1640.52,
+        "duration": 4.62,
+        "text": "searching for the word cat in it which"
+      },
+      {
+        "start": 1642.86,
+        "duration": 4.679,
+        "text": "you know standard Tech search does you"
+      },
+      {
+        "start": 1645.14,
+        "duration": 5.279,
+        "text": "can look for context is this about a cat"
+      },
+      {
+        "start": 1647.539,
+        "duration": 6.661,
+        "text": "or does it just happen to mention a cat"
+      },
+      {
+        "start": 1650.419,
+        "duration": 4.441,
+        "text": "and yeah it just starts there man"
+      },
+      {
+        "start": 1654.2,
+        "duration": 4.56,
+        "text": "um"
+      },
+      {
+        "start": 1654.86,
+        "duration": 5.64,
+        "text": "I didn't do this All Fired Up"
+      },
+      {
+        "start": 1658.76,
+        "duration": 4.019,
+        "text": "say I took one of those images and I"
+      },
+      {
+        "start": 1660.5,
+        "duration": 4.5,
+        "text": "wanted an apple with a lemon and I knew"
+      },
+      {
+        "start": 1662.779,
+        "duration": 3.601,
+        "text": "the vector for an apple image and I"
+      },
+      {
+        "start": 1665.0,
+        "duration": 2.58,
+        "text": "wanted to find ones that had Lemons with"
+      },
+      {
+        "start": 1666.38,
+        "duration": 3.0,
+        "text": "the apples"
+      },
+      {
+        "start": 1667.58,
+        "duration": 4.26,
+        "text": "I know what those feature vectors are"
+      },
+      {
+        "start": 1669.38,
+        "duration": 5.64,
+        "text": "for this particular model I could do a"
+      },
+      {
+        "start": 1671.84,
+        "duration": 5.699,
+        "text": "query and just bump the limitininess up"
+      },
+      {
+        "start": 1675.02,
+        "duration": 3.96,
+        "text": "and I'm translating to a different place"
+      },
+      {
+        "start": 1677.539,
+        "duration": 3.481,
+        "text": "in the vector space"
+      },
+      {
+        "start": 1678.98,
+        "duration": 4.679,
+        "text": "and I'm getting a similar image with a"
+      },
+      {
+        "start": 1681.02,
+        "duration": 5.1,
+        "text": "new element in it like you're right"
+      },
+      {
+        "start": 1683.659,
+        "duration": 4.5,
+        "text": "similarity search is awesome the the way"
+      },
+      {
+        "start": 1686.12,
+        "duration": 4.559,
+        "text": "the models find latent connections"
+      },
+      {
+        "start": 1688.159,
+        "duration": 3.961,
+        "text": "between the data and then surface them"
+      },
+      {
+        "start": 1690.679,
+        "duration": 3.901,
+        "text": "so we can work with them"
+      },
+      {
+        "start": 1692.12,
+        "duration": 5.82,
+        "text": "uh but we can also do translations and"
+      },
+      {
+        "start": 1694.58,
+        "duration": 6.42,
+        "text": "play games in that Vector space uh"
+      },
+      {
+        "start": 1697.94,
+        "duration": 5.339,
+        "text": "they're really kind of cool"
+      },
+      {
+        "start": 1701.0,
+        "duration": 3.96,
+        "text": "yeah so let's see if we can tackle a"
+      },
+      {
+        "start": 1703.279,
+        "duration": 3.061,
+        "text": "couple more questions here"
+      },
+      {
+        "start": 1704.96,
+        "duration": 3.66,
+        "text": "um good boy they're just starting to"
+      },
+      {
+        "start": 1706.34,
+        "duration": 4.8,
+        "text": "stream in now ah"
+      },
+      {
+        "start": 1708.62,
+        "duration": 4.439,
+        "text": "streaming Workshop"
+      },
+      {
+        "start": 1711.14,
+        "duration": 4.8,
+        "text": "um that's that's the next one by the way"
+      },
+      {
+        "start": 1713.059,
+        "duration": 3.781,
+        "text": "everyone yeah streaming"
+      },
+      {
+        "start": 1715.94,
+        "duration": 2.52,
+        "text": "um"
+      },
+      {
+        "start": 1716.84,
+        "duration": 4.8,
+        "text": "all sorts of awesome guys"
+      },
+      {
+        "start": 1718.46,
+        "duration": 5.579,
+        "text": "uh is there any other workshops about uh"
+      },
+      {
+        "start": 1721.64,
+        "duration": 4.68,
+        "text": "Vector databases I you know I'm gonna be"
+      },
+      {
+        "start": 1724.039,
+        "duration": 4.26,
+        "text": "careful is Vector search is really the"
+      },
+      {
+        "start": 1726.32,
+        "duration": 4.739,
+        "text": "feature that we're looking at here but"
+      },
+      {
+        "start": 1728.299,
+        "duration": 4.38,
+        "text": "um yes uh I will look for the link real"
+      },
+      {
+        "start": 1731.059,
+        "duration": 4.441,
+        "text": "quick or if someone out there already"
+      },
+      {
+        "start": 1732.679,
+        "duration": 4.74,
+        "text": "has it there's a uh it started yesterday"
+      },
+      {
+        "start": 1735.5,
+        "duration": 5.039,
+        "text": "but you can catch up there's a five-week"
+      },
+      {
+        "start": 1737.419,
+        "duration": 6.061,
+        "text": "series on using llms and Cassandra and"
+      },
+      {
+        "start": 1740.539,
+        "duration": 6.361,
+        "text": "Vector to basically build your own chat"
+      },
+      {
+        "start": 1743.48,
+        "duration": 4.92,
+        "text": "GPT so much more comprehensive"
+      },
+      {
+        "start": 1746.9,
+        "duration": 5.34,
+        "text": "um I will find the link and put it in"
+      },
+      {
+        "start": 1748.4,
+        "duration": 6.3,
+        "text": "here yeah that's that high level gen AI"
+      },
+      {
+        "start": 1752.24,
+        "duration": 5.28,
+        "text": "agent architecture stuff that's so cool"
+      },
+      {
+        "start": 1754.7,
+        "duration": 4.979,
+        "text": "yeah exactly there should be a bunch of"
+      },
+      {
+        "start": 1757.52,
+        "duration": 3.659,
+        "text": "information about factors for"
+      },
+      {
+        "start": 1759.679,
+        "duration": 3.72,
+        "text": "recommendations like I said Google's got"
+      },
+      {
+        "start": 1761.179,
+        "duration": 3.781,
+        "text": "a bunch of information about it"
+      },
+      {
+        "start": 1763.399,
+        "duration": 2.76,
+        "text": "um and if you look around a little bit I"
+      },
+      {
+        "start": 1764.96,
+        "duration": 3.42,
+        "text": "don't know do we have anything about"
+      },
+      {
+        "start": 1766.159,
+        "duration": 5.52,
+        "text": "pure Vector search or most of our stuff"
+      },
+      {
+        "start": 1768.38,
+        "duration": 6.06,
+        "text": "right now is Gen Ai and it's mostly Jedi"
+      },
+      {
+        "start": 1771.679,
+        "duration": 5.581,
+        "text": "because it's using Vector search it's a"
+      },
+      {
+        "start": 1774.44,
+        "duration": 4.56,
+        "text": "vector search in general needs of use"
+      },
+      {
+        "start": 1777.26,
+        "duration": 3.899,
+        "text": "case right"
+      },
+      {
+        "start": 1779.0,
+        "duration": 4.32,
+        "text": "I see a couple of questions about"
+      },
+      {
+        "start": 1781.159,
+        "duration": 4.561,
+        "text": "combining other metadata absolutely you"
+      },
+      {
+        "start": 1783.32,
+        "duration": 3.239,
+        "text": "can put anything you want in that table"
+      },
+      {
+        "start": 1785.72,
+        "duration": 4.62,
+        "text": "um"
+      },
+      {
+        "start": 1786.559,
+        "duration": 5.1,
+        "text": "I just did the ID and the the vector"
+      },
+      {
+        "start": 1790.34,
+        "duration": 3.12,
+        "text": "because that's all I needed for the"
+      },
+      {
+        "start": 1791.659,
+        "duration": 3.12,
+        "text": "search I even like did a little trick"
+      },
+      {
+        "start": 1793.46,
+        "duration": 3.12,
+        "text": "where I didn't bother saving the images"
+      },
+      {
+        "start": 1794.779,
+        "duration": 3.0,
+        "text": "anywhere because I had the original data"
+      },
+      {
+        "start": 1796.58,
+        "duration": 2.819,
+        "text": "set"
+      },
+      {
+        "start": 1797.779,
+        "duration": 3.361,
+        "text": "you could put whatever you want in it"
+      },
+      {
+        "start": 1799.399,
+        "duration": 4.14,
+        "text": "treat it like a normal Cassandra table"
+      },
+      {
+        "start": 1801.14,
+        "duration": 5.039,
+        "text": "and then just access it through vectors"
+      },
+      {
+        "start": 1803.539,
+        "duration": 4.921,
+        "text": "in the long run I feel like embeddings"
+      },
+      {
+        "start": 1806.179,
+        "duration": 5.581,
+        "text": "are going to change so maybe you'll have"
+      },
+      {
+        "start": 1808.46,
+        "duration": 5.219,
+        "text": "your metadata in one table ID and your"
+      },
+      {
+        "start": 1811.76,
+        "duration": 3.84,
+        "text": "vector in another table but it's hard"
+      },
+      {
+        "start": 1813.679,
+        "duration": 4.38,
+        "text": "for me to predict"
+      },
+      {
+        "start": 1815.6,
+        "duration": 3.66,
+        "text": "yeah so then there's a question uh I"
+      },
+      {
+        "start": 1818.059,
+        "duration": 2.881,
+        "text": "think we answered this before I just"
+      },
+      {
+        "start": 1819.26,
+        "duration": 3.6,
+        "text": "want to make sure this is clear apart"
+      },
+      {
+        "start": 1820.94,
+        "duration": 4.5,
+        "text": "from cosine similarity what other"
+      },
+      {
+        "start": 1822.86,
+        "duration": 4.76,
+        "text": "algorithms there's a DOT product yeah"
+      },
+      {
+        "start": 1825.44,
+        "duration": 2.18,
+        "text": "yeah"
+      },
+      {
+        "start": 1827.72,
+        "duration": 5.52,
+        "text": "um and that that's that's in the Docks"
+      },
+      {
+        "start": 1829.58,
+        "duration": 6.719,
+        "text": "but um the the caveat is cosine can work"
+      },
+      {
+        "start": 1833.24,
+        "duration": 4.5,
+        "text": "with any any man amount of Dimensions"
+      },
+      {
+        "start": 1836.299,
+        "duration": 4.38,
+        "text": "you don't have to have the same amount"
+      },
+      {
+        "start": 1837.74,
+        "duration": 4.62,
+        "text": "of Dimensions so if you have a thousand"
+      },
+      {
+        "start": 1840.679,
+        "duration": 3.841,
+        "text": "five hundred whatever"
+      },
+      {
+        "start": 1842.36,
+        "duration": 5.72,
+        "text": "um dot product absolutely requires the"
+      },
+      {
+        "start": 1844.52,
+        "duration": 7.379,
+        "text": "same amount of dimensions in everything"
+      },
+      {
+        "start": 1848.08,
+        "duration": 6.16,
+        "text": "and if you don't then you won't get"
+      },
+      {
+        "start": 1851.899,
+        "duration": 4.38,
+        "text": "normal you won't get rational results"
+      },
+      {
+        "start": 1854.24,
+        "duration": 3.419,
+        "text": "well it's hard enough to reason about"
+      },
+      {
+        "start": 1856.279,
+        "duration": 3.421,
+        "text": "this without having different sets of"
+      },
+      {
+        "start": 1857.659,
+        "duration": 4.861,
+        "text": "Dimensions right somebody asked about"
+      },
+      {
+        "start": 1859.7,
+        "duration": 4.62,
+        "text": "batch insert everything right batch"
+      },
+      {
+        "start": 1862.52,
+        "duration": 3.539,
+        "text": "insert is"
+      },
+      {
+        "start": 1864.32,
+        "duration": 3.0,
+        "text": "um a little bit subjective in Cassandra"
+      },
+      {
+        "start": 1866.059,
+        "duration": 2.821,
+        "text": "because it's really only worth doing"
+      },
+      {
+        "start": 1867.32,
+        "duration": 4.26,
+        "text": "when like you're sharing partition Keys"
+      },
+      {
+        "start": 1868.88,
+        "duration": 3.419,
+        "text": "uh it exists there are also some talks"
+      },
+      {
+        "start": 1871.58,
+        "duration": 1.319,
+        "text": "about"
+      },
+      {
+        "start": 1872.299,
+        "duration": 3.901,
+        "text": "um"
+      },
+      {
+        "start": 1872.899,
+        "duration": 4.861,
+        "text": "definitely in this model training switch"
+      },
+      {
+        "start": 1876.2,
+        "duration": 3.66,
+        "text": "over your embeddings workflow the"
+      },
+      {
+        "start": 1877.76,
+        "duration": 4.919,
+        "text": "ability to load data really quickly"
+      },
+      {
+        "start": 1879.86,
+        "duration": 4.919,
+        "text": "which Cassandra can already do you know"
+      },
+      {
+        "start": 1882.679,
+        "duration": 3.961,
+        "text": "tens of thousands hundreds of thousands"
+      },
+      {
+        "start": 1884.779,
+        "duration": 4.02,
+        "text": "records per second"
+      },
+      {
+        "start": 1886.64,
+        "duration": 3.539,
+        "text": "um maybe we want to go even faster so"
+      },
+      {
+        "start": 1888.799,
+        "duration": 2.941,
+        "text": "keep an eye on us for that because there"
+      },
+      {
+        "start": 1890.179,
+        "duration": 4.581,
+        "text": "may be some stuff coming out to do even"
+      },
+      {
+        "start": 1891.74,
+        "duration": 3.02,
+        "text": "more efficient batch"
+      },
+      {
+        "start": 1897.02,
+        "duration": 2.82,
+        "text": "all right there's a couple more in here"
+      },
+      {
+        "start": 1898.58,
+        "duration": 2.76,
+        "text": "I think"
+      },
+      {
+        "start": 1899.84,
+        "duration": 4.199,
+        "text": "um I don't know how to compare it to PG"
+      },
+      {
+        "start": 1901.34,
+        "duration": 4.86,
+        "text": "Vector we're still in beta I'm sure"
+      },
+      {
+        "start": 1904.039,
+        "duration": 4.441,
+        "text": "those numbers will come out it's on"
+      },
+      {
+        "start": 1906.2,
+        "duration": 5.04,
+        "text": "Cassandra so you know I'm"
+      },
+      {
+        "start": 1908.48,
+        "duration": 5.28,
+        "text": "optimistic that it's going to tear"
+      },
+      {
+        "start": 1911.24,
+        "duration": 4.02,
+        "text": "I I think that the in general you know"
+      },
+      {
+        "start": 1913.76,
+        "duration": 4.08,
+        "text": "PG Vector if you're looking at the"
+      },
+      {
+        "start": 1915.26,
+        "duration": 4.799,
+        "text": "algorithms h s w from leucine is a"
+      },
+      {
+        "start": 1917.84,
+        "duration": 4.02,
+        "text": "really optimized Library so"
+      },
+      {
+        "start": 1920.059,
+        "duration": 3.181,
+        "text": "um we're we're pretty happy that we're"
+      },
+      {
+        "start": 1921.86,
+        "duration": 4.919,
+        "text": "using that one"
+      },
+      {
+        "start": 1923.24,
+        "duration": 5.179,
+        "text": "um PG Vector uses a different one that"
+      },
+      {
+        "start": 1926.779,
+        "duration": 4.741,
+        "text": "um there's that a n"
+      },
+      {
+        "start": 1928.419,
+        "duration": 5.26,
+        "text": "benchmarks.com or dot net anyway a m"
+      },
+      {
+        "start": 1931.52,
+        "duration": 4.5,
+        "text": "benchmarks um out there if you want to"
+      },
+      {
+        "start": 1933.679,
+        "duration": 5.041,
+        "text": "do some comparison on different uh"
+      },
+      {
+        "start": 1936.02,
+        "duration": 6.899,
+        "text": "algorithms and indexing schemes that"
+      },
+      {
+        "start": 1938.72,
+        "duration": 4.199,
+        "text": "includes things like face hnsw"
+      },
+      {
+        "start": 1943.22,
+        "duration": 4.74,
+        "text": "um you know there's a n lib there's just"
+      },
+      {
+        "start": 1945.559,
+        "duration": 5.461,
+        "text": "there's a ton of them but"
+      },
+      {
+        "start": 1947.96,
+        "duration": 4.439,
+        "text": "um yeah well here we are I mean you know"
+      },
+      {
+        "start": 1951.02,
+        "duration": 4.56,
+        "text": "it's getting mainstream when we have"
+      },
+      {
+        "start": 1952.399,
+        "duration": 5.461,
+        "text": "sites up that compare speeds yeah it's"
+      },
+      {
+        "start": 1955.58,
+        "duration": 4.199,
+        "text": "it's got to happen now"
+      },
+      {
+        "start": 1957.86,
+        "duration": 4.799,
+        "text": "um ridwick had a question about no host"
+      },
+      {
+        "start": 1959.779,
+        "duration": 4.5,
+        "text": "available that probably is just the"
+      },
+      {
+        "start": 1962.659,
+        "duration": 4.02,
+        "text": "secure connect bundle that the step"
+      },
+      {
+        "start": 1964.279,
+        "duration": 5.101,
+        "text": "before that downloads so make sure you"
+      },
+      {
+        "start": 1966.679,
+        "duration": 4.921,
+        "text": "run that step and then pick the database"
+      },
+      {
+        "start": 1969.38,
+        "duration": 4.019,
+        "text": "you want to use from the drop down"
+      },
+      {
+        "start": 1971.6,
+        "duration": 3.6,
+        "text": "from the Astro device as you have and"
+      },
+      {
+        "start": 1973.399,
+        "duration": 3.601,
+        "text": "then click the download button you can"
+      },
+      {
+        "start": 1975.2,
+        "duration": 3.06,
+        "text": "also look in your files in colab and"
+      },
+      {
+        "start": 1977.0,
+        "duration": 3.419,
+        "text": "make sure there's a secure connect"
+      },
+      {
+        "start": 1978.26,
+        "duration": 4.15,
+        "text": "bundle file in there that's actually"
+      },
+      {
+        "start": 1980.419,
+        "duration": 3.721,
+        "text": "used to do a secure connection to Astra"
+      },
+      {
+        "start": 1982.41,
+        "duration": 4.009,
+        "text": "[Music]"
+      },
+      {
+        "start": 1984.14,
+        "duration": 5.6,
+        "text": "it is funny that the vector search is"
+      },
+      {
+        "start": 1986.419,
+        "duration": 3.321,
+        "text": "much easier than the secure connect"
+      },
+      {
+        "start": 1990.62,
+        "duration": 5.64,
+        "text": "that's funny that is funny um"
+      },
+      {
+        "start": 1993.679,
+        "duration": 4.021,
+        "text": "so and then the last one which I I think"
+      },
+      {
+        "start": 1996.26,
+        "duration": 2.7,
+        "text": "is interesting is can you invert the"
+      },
+      {
+        "start": 1997.7,
+        "duration": 3.9,
+        "text": "vector so you can find out what the"
+      },
+      {
+        "start": 1998.96,
+        "duration": 4.26,
+        "text": "image is about I I think I know how you"
+      },
+      {
+        "start": 2001.6,
+        "duration": 3.72,
+        "text": "could do that but Matt I bet you have an"
+      },
+      {
+        "start": 2003.22,
+        "duration": 4.88,
+        "text": "even Slicker solution I don't I don't"
+      },
+      {
+        "start": 2005.32,
+        "duration": 5.459,
+        "text": "know but the in this particular model"
+      },
+      {
+        "start": 2008.1,
+        "duration": 5.439,
+        "text": "the cool thing is I can just look in the"
+      },
+      {
+        "start": 2010.779,
+        "duration": 4.981,
+        "text": "vector and find the dimensions with the"
+      },
+      {
+        "start": 2013.539,
+        "duration": 4.681,
+        "text": "greatest magnitude and go pull that"
+      },
+      {
+        "start": 2015.76,
+        "duration": 5.159,
+        "text": "image in that classification right so"
+      },
+      {
+        "start": 2018.22,
+        "duration": 5.16,
+        "text": "that the you see it in the top K example"
+      },
+      {
+        "start": 2020.919,
+        "duration": 3.901,
+        "text": "that I did where I bring back this"
+      },
+      {
+        "start": 2023.38,
+        "duration": 3.84,
+        "text": "category this category this category"
+      },
+      {
+        "start": 2024.82,
+        "duration": 4.32,
+        "text": "it's not always that easy to look at a"
+      },
+      {
+        "start": 2027.22,
+        "duration": 3.059,
+        "text": "vector and actually figure out what it"
+      },
+      {
+        "start": 2029.14,
+        "duration": 2.82,
+        "text": "represents"
+      },
+      {
+        "start": 2030.279,
+        "duration": 3.361,
+        "text": "but here it's it's a pretty clear"
+      },
+      {
+        "start": 2031.96,
+        "duration": 3.839,
+        "text": "delineations"
+      },
+      {
+        "start": 2033.64,
+        "duration": 3.6,
+        "text": "um and you as I've mentioned earlier you"
+      },
+      {
+        "start": 2035.799,
+        "duration": 4.081,
+        "text": "could also do things like poke at those"
+      },
+      {
+        "start": 2037.24,
+        "duration": 5.88,
+        "text": "values to try to find other images that"
+      },
+      {
+        "start": 2039.88,
+        "duration": 6.299,
+        "text": "are more lemony or more grocery story or"
+      },
+      {
+        "start": 2043.12,
+        "duration": 5.58,
+        "text": "whatever it's not stable diffusion"
+      },
+      {
+        "start": 2046.179,
+        "duration": 5.0,
+        "text": "um but you could explore that space by"
+      },
+      {
+        "start": 2048.7,
+        "duration": 4.8,
+        "text": "playing with the vectors"
+      },
+      {
+        "start": 2051.179,
+        "duration": 4.541,
+        "text": "yeah that's"
+      },
+      {
+        "start": 2053.5,
+        "duration": 4.2,
+        "text": "um well my interesting so we're gonna"
+      },
+      {
+        "start": 2055.72,
+        "duration": 3.54,
+        "text": "have two two answers I I think one of"
+      },
+      {
+        "start": 2057.7,
+        "duration": 3.959,
+        "text": "the things that you could potentially do"
+      },
+      {
+        "start": 2059.26,
+        "duration": 4.98,
+        "text": "and we should probably"
+      },
+      {
+        "start": 2061.659,
+        "duration": 4.321,
+        "text": "um end this soon but uh you could also"
+      },
+      {
+        "start": 2064.24,
+        "duration": 4.919,
+        "text": "there's libraries out there that will"
+      },
+      {
+        "start": 2065.98,
+        "duration": 5.399,
+        "text": "contextualize a picture so that would be"
+      },
+      {
+        "start": 2069.159,
+        "duration": 3.96,
+        "text": "a Transformer that would say take a"
+      },
+      {
+        "start": 2071.379,
+        "duration": 3.96,
+        "text": "picture and then create a text"
+      },
+      {
+        "start": 2073.119,
+        "duration": 4.081,
+        "text": "description of it um those Transformers"
+      },
+      {
+        "start": 2075.339,
+        "duration": 4.381,
+        "text": "do exist and then you would take the"
+      },
+      {
+        "start": 2077.2,
+        "duration": 5.219,
+        "text": "text description and vectorize that by"
+      },
+      {
+        "start": 2079.72,
+        "duration": 4.199,
+        "text": "the way that's uh that's a multimodal"
+      },
+      {
+        "start": 2082.419,
+        "duration": 3.541,
+        "text": "embedding where you've embedded your"
+      },
+      {
+        "start": 2083.919,
+        "duration": 3.601,
+        "text": "images and your text in the same"
+      },
+      {
+        "start": 2085.96,
+        "duration": 3.54,
+        "text": "embedding space so that you can take an"
+      },
+      {
+        "start": 2087.52,
+        "duration": 4.98,
+        "text": "image and pull back text results very"
+      },
+      {
+        "start": 2089.5,
+        "duration": 5.099,
+        "text": "cool yeah it is very very cool"
+      },
+      {
+        "start": 2092.5,
+        "duration": 4.139,
+        "text": "um I think we're at the end here"
+      },
+      {
+        "start": 2094.599,
+        "duration": 3.361,
+        "text": "um yeah if you have any questions I"
+      },
+      {
+        "start": 2096.639,
+        "duration": 5.401,
+        "text": "should have put it on the slide it's"
+      },
+      {
+        "start": 2097.96,
+        "duration": 5.82,
+        "text": "matt.over Street at datastacks.com"
+      },
+      {
+        "start": 2102.04,
+        "duration": 3.42,
+        "text": "um happy to answer questions by email or"
+      },
+      {
+        "start": 2103.78,
+        "duration": 4.26,
+        "text": "reach out on LinkedIn or whatever"
+      },
+      {
+        "start": 2105.46,
+        "duration": 6.06,
+        "text": "yeah thanks a lot Matt for a very"
+      },
+      {
+        "start": 2108.04,
+        "duration": 5.039,
+        "text": "insightful uh Workshop thanks Patrick"
+      },
+      {
+        "start": 2111.52,
+        "duration": 2.94,
+        "text": "fun setting this up"
+      },
+      {
+        "start": 2113.079,
+        "duration": 3.78,
+        "text": "well I think this stuff is gonna happen"
+      },
+      {
+        "start": 2114.46,
+        "duration": 4.619,
+        "text": "here we'll see you soon next two weeks"
+      },
+      {
+        "start": 2116.859,
+        "duration": 4.461,
+        "text": "we're gonna be doing streaming we'll see"
+      },
+      {
+        "start": 2119.079,
+        "duration": 2.241,
+        "text": "you there"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T17:53:46.069918+00:00"
+}

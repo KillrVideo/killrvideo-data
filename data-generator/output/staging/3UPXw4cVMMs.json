@@ -1,0 +1,1801 @@
+{
+  "video_id": "3UPXw4cVMMs",
+  "title": "Cassandra 4.0 - New Default Vnode Configuration",
+  "description": "Alexander Dejanovski explains the purpose of virtual nodes (vnodes) in Apache Cassandra, the benefits and drawbacks, and why the default number of vnodes per node is changing from 256 to 16 in Cassandra 4.0.",
+  "published_at": "2020-09-02T14:50:51Z",
+  "thumbnail": "https://i.ytimg.com/vi/3UPXw4cVMMs/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=3UPXw4cVMMs",
+  "transcript": {
+    "available": true,
+    "language": "English (auto-generated)",
+    "language_code": "en",
+    "is_generated": true,
+    "text": "okay um so a little bit quickly about myself uh i'm alex from open source consulting uh previously at tlp and i'm going to be talking about v nodes and especially the discussions we've had lately on the dave milling list about the new default in cassandra 4. uh so uh just for vocabulary uh we usually use v note as a synonym for token or token range so if i talk about tokens token ranges or v-notes it's the same thing so a long time ago and still now in some large installs cassandra was deployed without v-nodes and the ownership of tokens in the ring was fairly simple so one node owns a single token range and that token range is replicated on the rf uh minus one next nodes in the ring so you have one of data's uh image here that shows this uh so token ownership is defined in the cassandra yaml so you specify the number of tokens and the initial token in the case where you're using a single token so without v nodes uh what is good and bad in running a cluster without vnodes because that's still widely done especially on large clusters so what's good is you get a perfect balance because you set the the tokens uh manually or they are computed by and you have some automation to uh get a perfect balance it gives you kind of fast repairs although we'll see in the back that there are some drawbacks you get decent secondary index performance you have a predictable replication pattern and availability so you know that every contiguous three nodes share some replicas and it reduces the odds of data and availability so you can lose more notes as you have less nodes sharing tokens although once you and that's going to be in the bad so i'll just wait until i get there so the bad is that you have to compute the tokens or you need some automation to compute it for you scaling is tough so you either have to double the size of the cluster each time you want to add nodes or you'll need to move all data around to rebalance the cluster when it comes to repair you have a lot of over streaming because you'll have one repair session per node so per token range and that creates an effect that is called over streaming well you will repair uh tokens that didn't need to be repaired and uh that's because of uh the merkle tree resolution i won't get into uh too much specifics here so you have more unavailability in tokens when you have nodes down uh so you have less odds of an availability but if you have some that'll impact more data in the cluster and bootstraps were said to be taking longer because they involve only rf minus one nodes in the cluster so uh then came v-notes uh in cassandra 1.2 i think uh it was a contribution from a company called kunu which was bought by um by apple lately so here you have more than one token per node and those token ranges will spread across the token ring so here you have three nodes with different colors and you see that they all own little bits of the ring and they are all interleaved so uh to start a cluster with v nodes you're gonna set the number of tokens if you don't have too many tokens you can set manually uh the the tokens in initial token but let's say that uh usually we let cassandra uh pick the tokens by itself so the tokens are totally randomly computed during bootstrap so we're gonna have a random pick of 256 tokens when the node first starts and then it joins the cluster so the bad with v-notes is repairs take longer because repair has to be split by token range because two token ranges owned by the same node might be replicated on different nodes so if we try to repair everything at once we might end up repairing the whole cluster in just one go so it's per token range uh repairs can generate lots of tiny asset stables you have bad secondary index performance because if you don't specify a partition key in your secondary index query then it's gonna have to run the query once per v node you have unpredictable replication uh and an availability because in a cluster with 256 v notes per node then all nodes are sharing tokens with all nodes so if two nodes go down you have partial unavailability uh that is mitigated by rex but i will leave that aside as well uh and if you use a low number of v notes per node then you'll get imbalances in token ownership so the good thing uh automation so tokens are computed by cassandra so you don't need to build automation or compute tokens you're free to scale as you wish so you can add one node and still have a balanced cluster or you can double the size and it's pretty much the same you don't have repair over streaming but uh yeah so nowhere streaming that's fixed by v-notes and you have kind of faster bootstraps because it involves all the nodes in the cluster so some say that it was faster before some say it's faster after honestly i don't know and unavailability impacts less tokens so why was uh the number 256 picked by default because statistically it was the number of v nodes where any cluster of any size was always balanced and if you try to use higher numbers then you didn't get an improvement on balance so if you want to go lower and say use 16 v notes so this is an extract of a neutral status output from a customer we got last week uh they lowered to 16b nodes and you have some nodes with 2.6 terabytes of data on disk and others with 700 gigs so that's pretty massive uh a pretty massive imbalance so in cassandra 3.0 was added a new token allegation algorithm which was contributed by data stacks to use that algorithm you have to define a key space in a cassandra yama that will be used to optimize the balance when picking the tokens and that key space must be replicated as all of your other key spaces so let's say the use is to have a replication factor of three then you'll have to use a key space that has that replication factor free so that the algorithm can kick in so instead of picking tokens randomly it will split all the existing token ranges right in the middle and then select the best candidates out of these so there's there are some heuristics in there it's not going to try all the combinations but it does let's say good enough job so it allows to lower the number of v-nodes but it's best effort and you have no magic here so if you use a very low number of venus so here's an example of four a four node cluster with four v nodes pitch if you add node e it can only split for existing token ranges so you're still gonna have like uh node b which seems to own uh more data than the others so you can't go too low with your number of v nodes and uh it only fixes balance by adding nodes okay if you remove some nodes then you might get back to some imbalanced clusters yeah removing nodes can break the balance so uh the good about the algo it allows to num lower the number of venos because there's some overhead as we've seen in repairs and other parts of cassandra and you balance a cluster by adding notes what's less good it's disabled by default and people just uh about it all the time so they spin up the cluster with a low number of enos because they've read in some blog posts that it's good but they didn't enable uh the algorithm it requires to have an existing replicated ski space which sounds silly when you're spinning up a new cluster or a new dc because you have to spin up some nodes then create the key space replicate it and then spin up the rest of the cluster so that that's not very ops friendly uh so yeah removing nodes can create imbalances uh the first rf nodes will still be random uh nodes so that there their tokens will be uh picked randomly uh the algorithm only kicks in once you've reached our f number of nodes uh and imbalances yeah are still possible so there's this assumption that the algorithm just works magically and uh creates perfectly balanced uh clusters all the time it's not the case i've as we've seen before so uh in cassandra 4 there's going to be an improvement which is that you don't have to specify key space you just need to specify a replication factor for which you want the balance to be improved so that's good we're striking uh there requires to have an existing replicated key space so that's one last thing to worry about there's been a discussion recently on picking a new default for cassandra four so netflix and apple are pushing for four v-notes because uh there was this paper from netflix that showed that if you have 256 vinos then you could get 2. 98 outages per century per century but with four v nodes it's going to be 0.35 that's an improvement sure uh so yeah they have all graphs showing that per century you're gonna get less outages so datastax apparently recommends eight which could be for the ac i'm not sure and apparently allegedly we recommended four in one of our blog posts which we did not it was just used as an example although we had uh one consultant that was very keen on pushing for which he still does at apple uh so before the community dive into uh picking four uh we ran some benchmarks uh to see how balanced our clusters in cassandra 4.0 using the new uh setting and you can see that when using four tokens we you can have widely uh while imbalances still so this shows that at the minimum we had some nodes with somewhere around 60 ownership and up to 100 and to get to a good balance with four tokens you had to reach uh 12 notes at least in the cluster with eight tokens it got better but still you had to go to around eight to nine notes uh to get a good balance and 16 tokens were showing good improvements around 6 and 7 nodes so these are the raw results of uh the benchmarks and remember the three c's so community community is made of a lot of small clusters so we cannot decently pick a default that will create imbalances in clusters smaller than 12 nodes because you have a lot of those out there so uh we came to an agreement it seems that it's going to be lowered to 16 and then the algorithm will be enabled by default i'm almost done so we've crossed the disable by default that's going to be fixed in 4-0 and balances are still possible and we need to keep that in mind and that's it for me",
+    "segments": [
+      {
+        "start": 4.16,
+        "duration": 4.479,
+        "text": "okay"
+      },
+      {
+        "start": 4.799,
+        "duration": 7.041,
+        "text": "um so a little bit quickly about myself"
+      },
+      {
+        "start": 8.639,
+        "duration": 6.241,
+        "text": "uh i'm alex from open source consulting"
+      },
+      {
+        "start": 11.84,
+        "duration": 4.64,
+        "text": "uh previously at tlp"
+      },
+      {
+        "start": 14.88,
+        "duration": 3.2,
+        "text": "and i'm going to be talking about v"
+      },
+      {
+        "start": 16.48,
+        "duration": 3.84,
+        "text": "nodes and especially the"
+      },
+      {
+        "start": 18.08,
+        "duration": 3.359,
+        "text": "discussions we've had lately on the dave"
+      },
+      {
+        "start": 20.32,
+        "duration": 5.6,
+        "text": "milling list"
+      },
+      {
+        "start": 21.439,
+        "duration": 9.121,
+        "text": "about the new default in cassandra 4."
+      },
+      {
+        "start": 25.92,
+        "duration": 7.92,
+        "text": "uh so uh just for vocabulary uh"
+      },
+      {
+        "start": 30.56,
+        "duration": 6.08,
+        "text": "we usually use v note as"
+      },
+      {
+        "start": 33.84,
+        "duration": 4.8,
+        "text": "a synonym for token or token range so if"
+      },
+      {
+        "start": 36.64,
+        "duration": 4.239,
+        "text": "i talk about tokens token ranges or"
+      },
+      {
+        "start": 38.64,
+        "duration": 5.439,
+        "text": "v-notes it's the same thing"
+      },
+      {
+        "start": 40.879,
+        "duration": 6.0,
+        "text": "so a long time ago and still now in"
+      },
+      {
+        "start": 44.079,
+        "duration": 3.521,
+        "text": "some large installs cassandra was"
+      },
+      {
+        "start": 46.879,
+        "duration": 4.16,
+        "text": "deployed"
+      },
+      {
+        "start": 47.6,
+        "duration": 5.92,
+        "text": "without v-nodes and the"
+      },
+      {
+        "start": 51.039,
+        "duration": 3.52,
+        "text": "ownership of tokens in the ring was"
+      },
+      {
+        "start": 53.52,
+        "duration": 5.359,
+        "text": "fairly"
+      },
+      {
+        "start": 54.559,
+        "duration": 4.961,
+        "text": "simple so one node owns a single token"
+      },
+      {
+        "start": 58.879,
+        "duration": 3.121,
+        "text": "range"
+      },
+      {
+        "start": 59.52,
+        "duration": 3.519,
+        "text": "and that token range is replicated on"
+      },
+      {
+        "start": 62.0,
+        "duration": 4.32,
+        "text": "the"
+      },
+      {
+        "start": 63.039,
+        "duration": 7.041,
+        "text": "rf uh minus one next"
+      },
+      {
+        "start": 66.32,
+        "duration": 7.28,
+        "text": "nodes in the ring so you have"
+      },
+      {
+        "start": 70.08,
+        "duration": 7.44,
+        "text": "one of data's uh"
+      },
+      {
+        "start": 73.6,
+        "duration": 5.76,
+        "text": "image here that shows this uh so token"
+      },
+      {
+        "start": 77.52,
+        "duration": 5.279,
+        "text": "ownership is defined in the cassandra"
+      },
+      {
+        "start": 79.36,
+        "duration": 6.56,
+        "text": "yaml so you specify the number of tokens"
+      },
+      {
+        "start": 82.799,
+        "duration": 5.841,
+        "text": "and the initial token in the case where"
+      },
+      {
+        "start": 85.92,
+        "duration": 6.72,
+        "text": "you're using a single token so without v"
+      },
+      {
+        "start": 88.64,
+        "duration": 6.96,
+        "text": "nodes uh what is good"
+      },
+      {
+        "start": 92.64,
+        "duration": 4.56,
+        "text": "and bad in running a cluster without"
+      },
+      {
+        "start": 95.6,
+        "duration": 4.159,
+        "text": "vnodes because that's"
+      },
+      {
+        "start": 97.2,
+        "duration": 3.599,
+        "text": "still widely done especially on large"
+      },
+      {
+        "start": 99.759,
+        "duration": 2.72,
+        "text": "clusters"
+      },
+      {
+        "start": 100.799,
+        "duration": 3.121,
+        "text": "so what's good is you get a perfect"
+      },
+      {
+        "start": 102.479,
+        "duration": 4.721,
+        "text": "balance because you set"
+      },
+      {
+        "start": 103.92,
+        "duration": 5.44,
+        "text": "the the tokens uh manually"
+      },
+      {
+        "start": 107.2,
+        "duration": 3.52,
+        "text": "or they are computed by and you have"
+      },
+      {
+        "start": 109.36,
+        "duration": 4.719,
+        "text": "some automation to"
+      },
+      {
+        "start": 110.72,
+        "duration": 5.759,
+        "text": "uh get a perfect balance it gives you"
+      },
+      {
+        "start": 114.079,
+        "duration": 3.841,
+        "text": "kind of fast repairs although we'll see"
+      },
+      {
+        "start": 116.479,
+        "duration": 3.041,
+        "text": "in the back that there are some"
+      },
+      {
+        "start": 117.92,
+        "duration": 4.559,
+        "text": "drawbacks"
+      },
+      {
+        "start": 119.52,
+        "duration": 5.36,
+        "text": "you get decent secondary index"
+      },
+      {
+        "start": 122.479,
+        "duration": 5.681,
+        "text": "performance"
+      },
+      {
+        "start": 124.88,
+        "duration": 3.92,
+        "text": "you have a predictable replication"
+      },
+      {
+        "start": 128.16,
+        "duration": 4.24,
+        "text": "pattern"
+      },
+      {
+        "start": 128.8,
+        "duration": 6.0,
+        "text": "and availability so you know that every"
+      },
+      {
+        "start": 132.4,
+        "duration": 3.52,
+        "text": "contiguous three nodes share some"
+      },
+      {
+        "start": 134.8,
+        "duration": 3.36,
+        "text": "replicas"
+      },
+      {
+        "start": 135.92,
+        "duration": 4.88,
+        "text": "and it reduces the odds of data and"
+      },
+      {
+        "start": 138.16,
+        "duration": 6.0,
+        "text": "availability so you can lose more notes"
+      },
+      {
+        "start": 140.8,
+        "duration": 6.799,
+        "text": "as you have less nodes sharing"
+      },
+      {
+        "start": 144.16,
+        "duration": 5.68,
+        "text": "tokens although once you and that's"
+      },
+      {
+        "start": 147.599,
+        "duration": 5.761,
+        "text": "going to be in the bad so i'll just wait"
+      },
+      {
+        "start": 149.84,
+        "duration": 4.8,
+        "text": "until i get there so the bad is that you"
+      },
+      {
+        "start": 153.36,
+        "duration": 3.36,
+        "text": "have to compute the tokens"
+      },
+      {
+        "start": 154.64,
+        "duration": 4.959,
+        "text": "or you need some automation to compute"
+      },
+      {
+        "start": 156.72,
+        "duration": 2.879,
+        "text": "it for you"
+      },
+      {
+        "start": 159.84,
+        "duration": 4.72,
+        "text": "scaling is tough so you either have to"
+      },
+      {
+        "start": 162.56,
+        "duration": 4.24,
+        "text": "double the size of the cluster"
+      },
+      {
+        "start": 164.56,
+        "duration": 3.36,
+        "text": "each time you want to add nodes or"
+      },
+      {
+        "start": 166.8,
+        "duration": 6.159,
+        "text": "you'll need to move"
+      },
+      {
+        "start": 167.92,
+        "duration": 5.039,
+        "text": "all data around to rebalance the cluster"
+      },
+      {
+        "start": 173.04,
+        "duration": 3.76,
+        "text": "when it comes to repair you have a lot"
+      },
+      {
+        "start": 174.64,
+        "duration": 6.0,
+        "text": "of over streaming because you'll have"
+      },
+      {
+        "start": 176.8,
+        "duration": 7.28,
+        "text": "one repair session per node"
+      },
+      {
+        "start": 180.64,
+        "duration": 5.12,
+        "text": "so per token range and that creates an"
+      },
+      {
+        "start": 184.08,
+        "duration": 2.4,
+        "text": "effect that is called over streaming"
+      },
+      {
+        "start": 185.76,
+        "duration": 3.28,
+        "text": "well"
+      },
+      {
+        "start": 186.48,
+        "duration": 4.16,
+        "text": "you will repair uh tokens that didn't"
+      },
+      {
+        "start": 189.04,
+        "duration": 4.64,
+        "text": "need to be repaired"
+      },
+      {
+        "start": 190.64,
+        "duration": 3.44,
+        "text": "and uh that's because of uh the merkle"
+      },
+      {
+        "start": 193.68,
+        "duration": 3.44,
+        "text": "tree"
+      },
+      {
+        "start": 194.08,
+        "duration": 6.96,
+        "text": "resolution i won't get into uh"
+      },
+      {
+        "start": 197.12,
+        "duration": 7.36,
+        "text": "too much specifics here so you have more"
+      },
+      {
+        "start": 201.04,
+        "duration": 6.559,
+        "text": "unavailability in tokens"
+      },
+      {
+        "start": 204.48,
+        "duration": 5.52,
+        "text": "when you have nodes down uh"
+      },
+      {
+        "start": 207.599,
+        "duration": 3.761,
+        "text": "so you have less odds of an availability"
+      },
+      {
+        "start": 210.0,
+        "duration": 5.12,
+        "text": "but if you have some"
+      },
+      {
+        "start": 211.36,
+        "duration": 7.36,
+        "text": "that'll impact more data in the cluster"
+      },
+      {
+        "start": 215.12,
+        "duration": 6.88,
+        "text": "and bootstraps were said to be taking"
+      },
+      {
+        "start": 218.72,
+        "duration": 8.0,
+        "text": "longer because they involve only"
+      },
+      {
+        "start": 222.0,
+        "duration": 8.239,
+        "text": "rf minus one nodes in the cluster"
+      },
+      {
+        "start": 226.72,
+        "duration": 6.719,
+        "text": "so uh then came v-notes uh in cassandra"
+      },
+      {
+        "start": 230.239,
+        "duration": 4.56,
+        "text": "1.2 i think uh it was a contribution"
+      },
+      {
+        "start": 233.439,
+        "duration": 4.8,
+        "text": "from a company called"
+      },
+      {
+        "start": 234.799,
+        "duration": 4.16,
+        "text": "kunu which was bought by um by apple"
+      },
+      {
+        "start": 238.239,
+        "duration": 3.841,
+        "text": "lately"
+      },
+      {
+        "start": 238.959,
+        "duration": 6.56,
+        "text": "so here you have more"
+      },
+      {
+        "start": 242.08,
+        "duration": 6.239,
+        "text": "than one token per node"
+      },
+      {
+        "start": 245.519,
+        "duration": 4.401,
+        "text": "and those token ranges will spread"
+      },
+      {
+        "start": 248.319,
+        "duration": 3.761,
+        "text": "across"
+      },
+      {
+        "start": 249.92,
+        "duration": 4.879,
+        "text": "the token ring so here you have three"
+      },
+      {
+        "start": 252.08,
+        "duration": 6.32,
+        "text": "nodes with different colors and you see"
+      },
+      {
+        "start": 254.799,
+        "duration": 7.12,
+        "text": "that they all own little bits"
+      },
+      {
+        "start": 258.4,
+        "duration": 6.48,
+        "text": "of the ring and they are all interleaved"
+      },
+      {
+        "start": 261.919,
+        "duration": 5.761,
+        "text": "so uh to start a cluster with v nodes"
+      },
+      {
+        "start": 264.88,
+        "duration": 4.48,
+        "text": "you're gonna set the number of tokens"
+      },
+      {
+        "start": 267.68,
+        "duration": 3.519,
+        "text": "if you don't have too many tokens you"
+      },
+      {
+        "start": 269.36,
+        "duration": 5.279,
+        "text": "can set manually"
+      },
+      {
+        "start": 271.199,
+        "duration": 6.081,
+        "text": "uh the the tokens in initial token"
+      },
+      {
+        "start": 274.639,
+        "duration": 3.84,
+        "text": "but let's say that uh usually we let"
+      },
+      {
+        "start": 277.28,
+        "duration": 4.8,
+        "text": "cassandra"
+      },
+      {
+        "start": 278.479,
+        "duration": 7.121,
+        "text": "uh pick the tokens by itself"
+      },
+      {
+        "start": 282.08,
+        "duration": 6.32,
+        "text": "so the tokens are totally randomly"
+      },
+      {
+        "start": 285.6,
+        "duration": 3.44,
+        "text": "computed during bootstrap so we're gonna"
+      },
+      {
+        "start": 288.4,
+        "duration": 4.239,
+        "text": "have"
+      },
+      {
+        "start": 289.04,
+        "duration": 6.64,
+        "text": "a random pick of 256 tokens"
+      },
+      {
+        "start": 292.639,
+        "duration": 6.961,
+        "text": "when the node first starts and then"
+      },
+      {
+        "start": 295.68,
+        "duration": 7.04,
+        "text": "it joins the cluster"
+      },
+      {
+        "start": 299.6,
+        "duration": 3.68,
+        "text": "so the bad with v-notes is repairs take"
+      },
+      {
+        "start": 302.72,
+        "duration": 3.36,
+        "text": "longer"
+      },
+      {
+        "start": 303.28,
+        "duration": 3.52,
+        "text": "because repair has to be split by token"
+      },
+      {
+        "start": 306.08,
+        "duration": 4.16,
+        "text": "range"
+      },
+      {
+        "start": 306.8,
+        "duration": 4.399,
+        "text": "because two token ranges owned by the"
+      },
+      {
+        "start": 310.24,
+        "duration": 3.12,
+        "text": "same node"
+      },
+      {
+        "start": 311.199,
+        "duration": 3.201,
+        "text": "might be replicated on different nodes"
+      },
+      {
+        "start": 313.36,
+        "duration": 3.52,
+        "text": "so"
+      },
+      {
+        "start": 314.4,
+        "duration": 4.16,
+        "text": "if we try to repair everything at once"
+      },
+      {
+        "start": 316.88,
+        "duration": 2.4,
+        "text": "we might end up repairing the whole"
+      },
+      {
+        "start": 318.56,
+        "duration": 4.639,
+        "text": "cluster"
+      },
+      {
+        "start": 319.28,
+        "duration": 6.56,
+        "text": "in just one go so it's per token range"
+      },
+      {
+        "start": 323.199,
+        "duration": 3.681,
+        "text": "uh repairs can generate lots of tiny"
+      },
+      {
+        "start": 325.84,
+        "duration": 3.919,
+        "text": "asset stables"
+      },
+      {
+        "start": 326.88,
+        "duration": 3.599,
+        "text": "you have bad secondary index performance"
+      },
+      {
+        "start": 329.759,
+        "duration": 2.88,
+        "text": "because"
+      },
+      {
+        "start": 330.479,
+        "duration": 4.321,
+        "text": "if you don't specify a partition key in"
+      },
+      {
+        "start": 332.639,
+        "duration": 4.961,
+        "text": "your secondary index query"
+      },
+      {
+        "start": 334.8,
+        "duration": 5.36,
+        "text": "then it's gonna have to run the query"
+      },
+      {
+        "start": 337.6,
+        "duration": 5.36,
+        "text": "once per v node"
+      },
+      {
+        "start": 340.16,
+        "duration": 3.12,
+        "text": "you have unpredictable replication uh"
+      },
+      {
+        "start": 342.96,
+        "duration": 3.92,
+        "text": "and"
+      },
+      {
+        "start": 343.28,
+        "duration": 6.8,
+        "text": "an availability because in a"
+      },
+      {
+        "start": 346.88,
+        "duration": 6.4,
+        "text": "cluster with 256 v notes per node"
+      },
+      {
+        "start": 350.08,
+        "duration": 6.559,
+        "text": "then all nodes are sharing tokens with"
+      },
+      {
+        "start": 353.28,
+        "duration": 7.28,
+        "text": "all nodes so if two nodes go down"
+      },
+      {
+        "start": 356.639,
+        "duration": 6.641,
+        "text": "you have partial unavailability uh that"
+      },
+      {
+        "start": 360.56,
+        "duration": 4.0,
+        "text": "is mitigated by rex but i will leave"
+      },
+      {
+        "start": 363.28,
+        "duration": 4.56,
+        "text": "that aside"
+      },
+      {
+        "start": 364.56,
+        "duration": 5.6,
+        "text": "as well uh and if you use"
+      },
+      {
+        "start": 367.84,
+        "duration": 4.0,
+        "text": "a low number of v notes per node then"
+      },
+      {
+        "start": 370.16,
+        "duration": 4.879,
+        "text": "you'll get imbalances"
+      },
+      {
+        "start": 371.84,
+        "duration": 5.84,
+        "text": "in token ownership so the good thing"
+      },
+      {
+        "start": 375.039,
+        "duration": 4.401,
+        "text": "uh automation so tokens are computed by"
+      },
+      {
+        "start": 377.68,
+        "duration": 2.48,
+        "text": "cassandra so you don't need to build"
+      },
+      {
+        "start": 379.44,
+        "duration": 4.72,
+        "text": "automation"
+      },
+      {
+        "start": 380.16,
+        "duration": 6.4,
+        "text": "or compute tokens you're free to scale"
+      },
+      {
+        "start": 384.16,
+        "duration": 4.879,
+        "text": "as you wish so you can add one node and"
+      },
+      {
+        "start": 386.56,
+        "duration": 4.8,
+        "text": "still have a balanced cluster"
+      },
+      {
+        "start": 389.039,
+        "duration": 4.321,
+        "text": "or you can double the size and it's"
+      },
+      {
+        "start": 391.36,
+        "duration": 5.52,
+        "text": "pretty much the same"
+      },
+      {
+        "start": 393.36,
+        "duration": 6.559,
+        "text": "you don't have repair over streaming"
+      },
+      {
+        "start": 396.88,
+        "duration": 3.92,
+        "text": "but uh yeah so nowhere streaming that's"
+      },
+      {
+        "start": 399.919,
+        "duration": 3.84,
+        "text": "fixed by"
+      },
+      {
+        "start": 400.8,
+        "duration": 4.399,
+        "text": "v-notes and you have kind of faster"
+      },
+      {
+        "start": 403.759,
+        "duration": 4.641,
+        "text": "bootstraps because"
+      },
+      {
+        "start": 405.199,
+        "duration": 3.521,
+        "text": "it involves all the nodes in the cluster"
+      },
+      {
+        "start": 408.4,
+        "duration": 3.919,
+        "text": "so"
+      },
+      {
+        "start": 408.72,
+        "duration": 4.56,
+        "text": "some say that it was faster before some"
+      },
+      {
+        "start": 412.319,
+        "duration": 4.241,
+        "text": "say it's faster"
+      },
+      {
+        "start": 413.28,
+        "duration": 7.52,
+        "text": "after honestly i don't know"
+      },
+      {
+        "start": 416.56,
+        "duration": 9.199,
+        "text": "and unavailability impacts less tokens"
+      },
+      {
+        "start": 420.8,
+        "duration": 6.08,
+        "text": "so why was uh the number 256 picked by"
+      },
+      {
+        "start": 425.759,
+        "duration": 3.761,
+        "text": "default"
+      },
+      {
+        "start": 426.88,
+        "duration": 4.08,
+        "text": "because statistically it was the number"
+      },
+      {
+        "start": 429.52,
+        "duration": 4.32,
+        "text": "of v nodes where"
+      },
+      {
+        "start": 430.96,
+        "duration": 4.32,
+        "text": "any cluster of any size was always"
+      },
+      {
+        "start": 433.84,
+        "duration": 4.24,
+        "text": "balanced"
+      },
+      {
+        "start": 435.28,
+        "duration": 4.24,
+        "text": "and if you try to use higher numbers"
+      },
+      {
+        "start": 438.08,
+        "duration": 5.04,
+        "text": "then you didn't get an"
+      },
+      {
+        "start": 439.52,
+        "duration": 7.2,
+        "text": "improvement on balance"
+      },
+      {
+        "start": 443.12,
+        "duration": 4.799,
+        "text": "so if you want to go lower and say use"
+      },
+      {
+        "start": 446.72,
+        "duration": 4.56,
+        "text": "16 v notes"
+      },
+      {
+        "start": 447.919,
+        "duration": 4.56,
+        "text": "so this is an extract of a neutral"
+      },
+      {
+        "start": 451.28,
+        "duration": 3.759,
+        "text": "status"
+      },
+      {
+        "start": 452.479,
+        "duration": 3.041,
+        "text": "output from a customer we got last week"
+      },
+      {
+        "start": 455.039,
+        "duration": 3.681,
+        "text": "uh"
+      },
+      {
+        "start": 455.52,
+        "duration": 7.119,
+        "text": "they lowered to 16b nodes and"
+      },
+      {
+        "start": 458.72,
+        "duration": 6.96,
+        "text": "you have some nodes with 2.6 terabytes"
+      },
+      {
+        "start": 462.639,
+        "duration": 3.361,
+        "text": "of data on disk and others with 700 gigs"
+      },
+      {
+        "start": 465.68,
+        "duration": 3.44,
+        "text": "so"
+      },
+      {
+        "start": 466.0,
+        "duration": 5.599,
+        "text": "that's pretty massive uh a pretty"
+      },
+      {
+        "start": 469.12,
+        "duration": 5.6,
+        "text": "massive imbalance"
+      },
+      {
+        "start": 471.599,
+        "duration": 6.641,
+        "text": "so in cassandra 3.0 was"
+      },
+      {
+        "start": 474.72,
+        "duration": 6.319,
+        "text": "added a new token allegation"
+      },
+      {
+        "start": 478.24,
+        "duration": 5.2,
+        "text": "algorithm which was contributed by data"
+      },
+      {
+        "start": 481.039,
+        "duration": 2.401,
+        "text": "stacks"
+      },
+      {
+        "start": 483.52,
+        "duration": 6.88,
+        "text": "to use that algorithm you have to"
+      },
+      {
+        "start": 487.36,
+        "duration": 5.04,
+        "text": "define a key space in a cassandra yama"
+      },
+      {
+        "start": 490.4,
+        "duration": 5.44,
+        "text": "that will be used"
+      },
+      {
+        "start": 492.4,
+        "duration": 6.4,
+        "text": "to optimize the balance"
+      },
+      {
+        "start": 495.84,
+        "duration": 5.12,
+        "text": "when picking the tokens and that key"
+      },
+      {
+        "start": 498.8,
+        "duration": 5.28,
+        "text": "space must be replicated"
+      },
+      {
+        "start": 500.96,
+        "duration": 3.76,
+        "text": "as all of your other key spaces so let's"
+      },
+      {
+        "start": 504.08,
+        "duration": 3.36,
+        "text": "say"
+      },
+      {
+        "start": 504.72,
+        "duration": 4.8,
+        "text": "the use is to have a replication factor"
+      },
+      {
+        "start": 507.44,
+        "duration": 4.24,
+        "text": "of three then you'll have to use"
+      },
+      {
+        "start": 509.52,
+        "duration": 3.999,
+        "text": "a key space that has that replication"
+      },
+      {
+        "start": 511.68,
+        "duration": 6.08,
+        "text": "factor free so that the"
+      },
+      {
+        "start": 513.519,
+        "duration": 7.281,
+        "text": "algorithm can kick in so instead of"
+      },
+      {
+        "start": 517.76,
+        "duration": 5.92,
+        "text": "picking tokens randomly it will"
+      },
+      {
+        "start": 520.8,
+        "duration": 4.159,
+        "text": "split all the existing token ranges"
+      },
+      {
+        "start": 523.68,
+        "duration": 3.92,
+        "text": "right in the middle"
+      },
+      {
+        "start": 524.959,
+        "duration": 5.121,
+        "text": "and then select the best candidates out"
+      },
+      {
+        "start": 527.6,
+        "duration": 2.48,
+        "text": "of these"
+      },
+      {
+        "start": 530.8,
+        "duration": 4.96,
+        "text": "so there's there are some heuristics"
+      },
+      {
+        "start": 533.839,
+        "duration": 3.601,
+        "text": "in there it's not going to try all the"
+      },
+      {
+        "start": 535.76,
+        "duration": 6.72,
+        "text": "combinations"
+      },
+      {
+        "start": 537.44,
+        "duration": 5.04,
+        "text": "but it does let's say good enough job"
+      },
+      {
+        "start": 544.0,
+        "duration": 4.16,
+        "text": "so it allows to lower the number of"
+      },
+      {
+        "start": 546.839,
+        "duration": 3.401,
+        "text": "v-nodes"
+      },
+      {
+        "start": 548.16,
+        "duration": 4.56,
+        "text": "but it's best effort and you have no"
+      },
+      {
+        "start": 550.24,
+        "duration": 6.56,
+        "text": "magic here"
+      },
+      {
+        "start": 552.72,
+        "duration": 5.92,
+        "text": "so if you use a very low number of venus"
+      },
+      {
+        "start": 556.8,
+        "duration": 4.56,
+        "text": "so here's an example of four"
+      },
+      {
+        "start": 558.64,
+        "duration": 3.36,
+        "text": "a four node cluster with four v nodes"
+      },
+      {
+        "start": 561.36,
+        "duration": 3.919,
+        "text": "pitch"
+      },
+      {
+        "start": 562.0,
+        "duration": 5.6,
+        "text": "if you add node e it can only split"
+      },
+      {
+        "start": 565.279,
+        "duration": 3.521,
+        "text": "for existing token ranges so you're"
+      },
+      {
+        "start": 567.6,
+        "duration": 4.4,
+        "text": "still gonna have"
+      },
+      {
+        "start": 568.8,
+        "duration": 6.32,
+        "text": "like uh node b which"
+      },
+      {
+        "start": 572.0,
+        "duration": 6.72,
+        "text": "seems to own uh more data"
+      },
+      {
+        "start": 575.12,
+        "duration": 6.719,
+        "text": "than the others so you can't go too low"
+      },
+      {
+        "start": 578.72,
+        "duration": 5.76,
+        "text": "with your number of v nodes"
+      },
+      {
+        "start": 581.839,
+        "duration": 3.201,
+        "text": "and uh it only fixes balance by adding"
+      },
+      {
+        "start": 584.48,
+        "duration": 2.72,
+        "text": "nodes"
+      },
+      {
+        "start": 585.04,
+        "duration": 3.44,
+        "text": "okay if you remove some nodes then you"
+      },
+      {
+        "start": 587.2,
+        "duration": 5.36,
+        "text": "might get back"
+      },
+      {
+        "start": 588.48,
+        "duration": 5.76,
+        "text": "to some imbalanced clusters"
+      },
+      {
+        "start": 592.56,
+        "duration": 3.68,
+        "text": "yeah removing nodes can break the"
+      },
+      {
+        "start": 594.24,
+        "duration": 5.52,
+        "text": "balance so"
+      },
+      {
+        "start": 596.24,
+        "duration": 4.0,
+        "text": "uh the good about the algo it allows to"
+      },
+      {
+        "start": 599.76,
+        "duration": 2.079,
+        "text": "num"
+      },
+      {
+        "start": 600.24,
+        "duration": 4.159,
+        "text": "lower the number of venos because"
+      },
+      {
+        "start": 601.839,
+        "duration": 3.201,
+        "text": "there's some overhead as we've seen in"
+      },
+      {
+        "start": 604.399,
+        "duration": 3.68,
+        "text": "repairs"
+      },
+      {
+        "start": 605.04,
+        "duration": 5.12,
+        "text": "and other parts of cassandra"
+      },
+      {
+        "start": 608.079,
+        "duration": 3.281,
+        "text": "and you balance a cluster by adding"
+      },
+      {
+        "start": 610.16,
+        "duration": 3.44,
+        "text": "notes"
+      },
+      {
+        "start": 611.36,
+        "duration": 3.68,
+        "text": "what's less good it's disabled by"
+      },
+      {
+        "start": 613.6,
+        "duration": 4.56,
+        "text": "default"
+      },
+      {
+        "start": 615.04,
+        "duration": 5.52,
+        "text": "and people just uh"
+      },
+      {
+        "start": 618.16,
+        "duration": 4.32,
+        "text": "about it all the time so they spin up"
+      },
+      {
+        "start": 620.56,
+        "duration": 3.44,
+        "text": "the cluster with a low number of enos"
+      },
+      {
+        "start": 622.48,
+        "duration": 2.479,
+        "text": "because they've read in some blog posts"
+      },
+      {
+        "start": 624.0,
+        "duration": 4.32,
+        "text": "that it's good"
+      },
+      {
+        "start": 624.959,
+        "duration": 5.12,
+        "text": "but they didn't enable uh the algorithm"
+      },
+      {
+        "start": 628.32,
+        "duration": 3.28,
+        "text": "it requires to have an existing"
+      },
+      {
+        "start": 630.079,
+        "duration": 4.241,
+        "text": "replicated ski space"
+      },
+      {
+        "start": 631.6,
+        "duration": 4.479,
+        "text": "which sounds silly when you're spinning"
+      },
+      {
+        "start": 634.32,
+        "duration": 5.759,
+        "text": "up a new cluster"
+      },
+      {
+        "start": 636.079,
+        "duration": 6.32,
+        "text": "or a new dc because you have to spin up"
+      },
+      {
+        "start": 640.079,
+        "duration": 3.281,
+        "text": "some nodes then create the key space"
+      },
+      {
+        "start": 642.399,
+        "duration": 3.361,
+        "text": "replicate it"
+      },
+      {
+        "start": 643.36,
+        "duration": 3.68,
+        "text": "and then spin up the rest of the cluster"
+      },
+      {
+        "start": 645.76,
+        "duration": 4.48,
+        "text": "so that"
+      },
+      {
+        "start": 647.04,
+        "duration": 5.44,
+        "text": "that's not very ops friendly uh so yeah"
+      },
+      {
+        "start": 650.24,
+        "duration": 5.92,
+        "text": "removing nodes can create imbalances"
+      },
+      {
+        "start": 652.48,
+        "duration": 6.72,
+        "text": "uh the first rf nodes will still be"
+      },
+      {
+        "start": 656.16,
+        "duration": 3.919,
+        "text": "random uh nodes so that there their"
+      },
+      {
+        "start": 659.2,
+        "duration": 3.92,
+        "text": "tokens"
+      },
+      {
+        "start": 660.079,
+        "duration": 5.921,
+        "text": "will be uh picked randomly uh"
+      },
+      {
+        "start": 663.12,
+        "duration": 3.68,
+        "text": "the algorithm only kicks in once you've"
+      },
+      {
+        "start": 666.0,
+        "duration": 3.839,
+        "text": "reached"
+      },
+      {
+        "start": 666.8,
+        "duration": 5.12,
+        "text": "our f number of nodes"
+      },
+      {
+        "start": 669.839,
+        "duration": 4.081,
+        "text": "uh and imbalances yeah are still"
+      },
+      {
+        "start": 671.92,
+        "duration": 2.56,
+        "text": "possible so there's this assumption that"
+      },
+      {
+        "start": 673.92,
+        "duration": 3.68,
+        "text": "the"
+      },
+      {
+        "start": 674.48,
+        "duration": 6.16,
+        "text": "algorithm just works magically and"
+      },
+      {
+        "start": 677.6,
+        "duration": 4.64,
+        "text": "uh creates perfectly balanced uh"
+      },
+      {
+        "start": 680.64,
+        "duration": 3.68,
+        "text": "clusters all the time"
+      },
+      {
+        "start": 682.24,
+        "duration": 3.76,
+        "text": "it's not the case i've as we've seen"
+      },
+      {
+        "start": 684.32,
+        "duration": 4.24,
+        "text": "before"
+      },
+      {
+        "start": 686.0,
+        "duration": 4.24,
+        "text": "so uh in cassandra 4 there's going to be"
+      },
+      {
+        "start": 688.56,
+        "duration": 4.32,
+        "text": "an improvement"
+      },
+      {
+        "start": 690.24,
+        "duration": 3.279,
+        "text": "which is that you don't have to specify"
+      },
+      {
+        "start": 692.88,
+        "duration": 2.959,
+        "text": "key space"
+      },
+      {
+        "start": 693.519,
+        "duration": 3.121,
+        "text": "you just need to specify a replication"
+      },
+      {
+        "start": 695.839,
+        "duration": 5.0,
+        "text": "factor"
+      },
+      {
+        "start": 696.64,
+        "duration": 6.8,
+        "text": "for which you want the balance to be"
+      },
+      {
+        "start": 700.839,
+        "duration": 6.601,
+        "text": "improved"
+      },
+      {
+        "start": 703.44,
+        "duration": 6.24,
+        "text": "so that's good we're striking uh there"
+      },
+      {
+        "start": 707.44,
+        "duration": 4.32,
+        "text": "requires to have an existing replicated"
+      },
+      {
+        "start": 709.68,
+        "duration": 4.24,
+        "text": "key space so that's one last thing to"
+      },
+      {
+        "start": 711.76,
+        "duration": 4.16,
+        "text": "worry about"
+      },
+      {
+        "start": 713.92,
+        "duration": 3.359,
+        "text": "there's been a discussion recently on"
+      },
+      {
+        "start": 715.92,
+        "duration": 5.44,
+        "text": "picking a new default for"
+      },
+      {
+        "start": 717.279,
+        "duration": 7.36,
+        "text": "cassandra four so netflix and apple"
+      },
+      {
+        "start": 721.36,
+        "duration": 5.599,
+        "text": "are pushing for four v-notes because uh"
+      },
+      {
+        "start": 724.639,
+        "duration": 5.2,
+        "text": "there was this paper from netflix"
+      },
+      {
+        "start": 726.959,
+        "duration": 3.361,
+        "text": "that showed that if you have 256 vinos"
+      },
+      {
+        "start": 729.839,
+        "duration": 3.601,
+        "text": "then"
+      },
+      {
+        "start": 730.32,
+        "duration": 6.48,
+        "text": "you could get 2. 98"
+      },
+      {
+        "start": 733.44,
+        "duration": 5.399,
+        "text": "outages per century per century"
+      },
+      {
+        "start": 736.8,
+        "duration": 5.039,
+        "text": "but with four v nodes it's going to be"
+      },
+      {
+        "start": 738.839,
+        "duration": 3.0,
+        "text": "0.35"
+      },
+      {
+        "start": 741.92,
+        "duration": 5.84,
+        "text": "that's an improvement sure uh"
+      },
+      {
+        "start": 745.12,
+        "duration": 3.04,
+        "text": "so yeah they have all graphs showing"
+      },
+      {
+        "start": 747.76,
+        "duration": 2.4,
+        "text": "that"
+      },
+      {
+        "start": 748.16,
+        "duration": 3.2,
+        "text": "per century you're gonna get less"
+      },
+      {
+        "start": 750.16,
+        "duration": 4.72,
+        "text": "outages"
+      },
+      {
+        "start": 751.36,
+        "duration": 7.279,
+        "text": "so datastax apparently recommends eight"
+      },
+      {
+        "start": 754.88,
+        "duration": 6.56,
+        "text": "which could be for the ac i'm not sure"
+      },
+      {
+        "start": 758.639,
+        "duration": 3.521,
+        "text": "and apparently allegedly we recommended"
+      },
+      {
+        "start": 761.44,
+        "duration": 3.36,
+        "text": "four"
+      },
+      {
+        "start": 762.16,
+        "duration": 4.32,
+        "text": "in one of our blog posts which we did"
+      },
+      {
+        "start": 764.8,
+        "duration": 4.4,
+        "text": "not it was just used"
+      },
+      {
+        "start": 766.48,
+        "duration": 5.2,
+        "text": "as an example although we had uh one"
+      },
+      {
+        "start": 769.2,
+        "duration": 3.04,
+        "text": "consultant that was very keen on pushing"
+      },
+      {
+        "start": 771.68,
+        "duration": 3.36,
+        "text": "for"
+      },
+      {
+        "start": 772.24,
+        "duration": 4.0,
+        "text": "which he still does at apple uh so"
+      },
+      {
+        "start": 775.04,
+        "duration": 4.56,
+        "text": "before"
+      },
+      {
+        "start": 776.24,
+        "duration": 7.68,
+        "text": "the community dive into uh"
+      },
+      {
+        "start": 779.6,
+        "duration": 7.76,
+        "text": "picking four uh we ran some benchmarks"
+      },
+      {
+        "start": 783.92,
+        "duration": 6.719,
+        "text": "uh to see how balanced our clusters"
+      },
+      {
+        "start": 787.36,
+        "duration": 6.479,
+        "text": "in cassandra 4.0 using the new uh"
+      },
+      {
+        "start": 790.639,
+        "duration": 6.401,
+        "text": "setting and you can see that"
+      },
+      {
+        "start": 793.839,
+        "duration": 6.8,
+        "text": "when using four tokens we you can have"
+      },
+      {
+        "start": 797.04,
+        "duration": 6.239,
+        "text": "widely uh while imbalances"
+      },
+      {
+        "start": 800.639,
+        "duration": 4.561,
+        "text": "still so this shows that at the minimum"
+      },
+      {
+        "start": 803.279,
+        "duration": 5.041,
+        "text": "we had some nodes with"
+      },
+      {
+        "start": 805.2,
+        "duration": 7.28,
+        "text": "somewhere around 60 ownership"
+      },
+      {
+        "start": 808.32,
+        "duration": 7.28,
+        "text": "and up to 100 and to get to"
+      },
+      {
+        "start": 812.48,
+        "duration": 6.24,
+        "text": "a good balance with four tokens"
+      },
+      {
+        "start": 815.6,
+        "duration": 4.64,
+        "text": "you had to reach uh 12 notes at least in"
+      },
+      {
+        "start": 818.72,
+        "duration": 3.919,
+        "text": "the cluster"
+      },
+      {
+        "start": 820.24,
+        "duration": 3.36,
+        "text": "with eight tokens it got better but"
+      },
+      {
+        "start": 822.639,
+        "duration": 4.241,
+        "text": "still you"
+      },
+      {
+        "start": 823.6,
+        "duration": 6.239,
+        "text": "had to go to around eight to nine notes"
+      },
+      {
+        "start": 826.88,
+        "duration": 4.16,
+        "text": "uh to get a good balance and 16 tokens"
+      },
+      {
+        "start": 829.839,
+        "duration": 4.24,
+        "text": "were showing"
+      },
+      {
+        "start": 831.04,
+        "duration": 7.84,
+        "text": "good improvements around 6 and"
+      },
+      {
+        "start": 834.079,
+        "duration": 7.681,
+        "text": "7 nodes so"
+      },
+      {
+        "start": 838.88,
+        "duration": 4.24,
+        "text": "these are the raw results of uh the"
+      },
+      {
+        "start": 841.76,
+        "duration": 4.8,
+        "text": "benchmarks"
+      },
+      {
+        "start": 843.12,
+        "duration": 5.839,
+        "text": "and remember the three c's so community"
+      },
+      {
+        "start": 846.56,
+        "duration": 3.279,
+        "text": "community is made of a lot of small"
+      },
+      {
+        "start": 848.959,
+        "duration": 4.641,
+        "text": "clusters"
+      },
+      {
+        "start": 849.839,
+        "duration": 7.12,
+        "text": "so we cannot decently pick a default"
+      },
+      {
+        "start": 853.6,
+        "duration": 5.52,
+        "text": "that will create imbalances in clusters"
+      },
+      {
+        "start": 856.959,
+        "duration": 5.281,
+        "text": "smaller than 12 nodes because"
+      },
+      {
+        "start": 859.12,
+        "duration": 6.24,
+        "text": "you have a lot of those out there so"
+      },
+      {
+        "start": 862.24,
+        "duration": 5.36,
+        "text": "uh we came to an agreement it seems that"
+      },
+      {
+        "start": 865.36,
+        "duration": 5.52,
+        "text": "it's going to be lowered to 16"
+      },
+      {
+        "start": 867.6,
+        "duration": 6.32,
+        "text": "and then the algorithm will be enabled"
+      },
+      {
+        "start": 870.88,
+        "duration": 6.24,
+        "text": "by default i'm almost done"
+      },
+      {
+        "start": 873.92,
+        "duration": 5.2,
+        "text": "so we've crossed the disable by default"
+      },
+      {
+        "start": 877.12,
+        "duration": 4.56,
+        "text": "that's going to be fixed in 4-0 and"
+      },
+      {
+        "start": 879.12,
+        "duration": 5.519,
+        "text": "balances are still possible"
+      },
+      {
+        "start": 881.68,
+        "duration": 10.64,
+        "text": "and we need to keep that in mind and"
+      },
+      {
+        "start": 884.639,
+        "duration": 7.681,
+        "text": "that's it for me"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-15T22:19:21.991418+00:00"
+}

@@ -1,6 +1,7 @@
 """CSV writer with DSBulk-optimized formatting"""
 
 import csv
+import json
 import os
 from typing import List, Dict, Any
 from datetime import datetime, date
@@ -43,7 +44,16 @@ class CSVWriter:
             # Get all columns from schema
             columns = list(schema.keys())
 
-            writer = csv.DictWriter(csvfile, fieldnames=columns, extrasaction='ignore')
+            # Use backslash escaping instead of quote doubling for DSBulk compatibility
+            # QUOTE_ALL ensures fields like ["cassandra"] get quoted even without commas
+            writer = csv.DictWriter(
+                csvfile,
+                fieldnames=columns,
+                extrasaction='ignore',
+                doublequote=False,
+                escapechar='\\',
+                quoting=csv.QUOTE_ALL
+            )
             writer.writeheader()
 
             for row in data:
@@ -95,37 +105,29 @@ class CSVWriter:
         if col_type == 'boolean':
             return 'true' if value else 'false'
 
-        # Set formatting: {"item1","item2","item3"}
+        # Set formatting: ["item1","item2","item3"] (JSON array format for DSBulk)
         if col_type.startswith('set<'):
             if isinstance(value, (set, list)):
                 if not value:
-                    return '{}'
-                # Escape quotes in items
-                items = ['"{}"'.format(str(item).replace('"', '""')) for item in value]
-                return '{' + ','.join(items) + '}'
-            return '{}'
+                    return '[]'
+                # JSON array format - DSBulk expects JSON, not CQL set literals
+                return json.dumps(list(value))
+            return '[]'
 
-        # Map formatting: {"key1":value1,"key2":value2}
+        # Map formatting: {"key1":value1,"key2":value2} (JSON object format for DSBulk)
         if col_type.startswith('map<'):
             if isinstance(value, dict):
                 if not value:
                     return '{}'
-
-                # Determine if values are strings (need quotes) or numbers
-                if 'text' in col_type or 'str' in col_type:
-                    # Map with string values
-                    items = ['"{}":{}'.format(k, v) for k, v in value.items()]
-                else:
-                    # Map with numeric values
-                    items = ['"{}":{}'.format(k, v) for k, v in value.items()]
-                return '{' + ','.join(items) + '}'
+                # JSON object format - DSBulk expects valid JSON
+                return json.dumps(value)
             return '{}'
 
-        # Vector formatting: [0.1, 0.2, 0.3, ...]
+        # Vector formatting: [0.1, 0.2, 0.3, ...] with spaces (DSBulk requirement)
         if col_type.startswith('vector<'):
             if isinstance(value, (list, tuple)):
-                # Format as JSON array for DSBulk
-                return '[' + ','.join(str(float(v)) for v in value) + ']'
+                # Format with spaces after commas per DSBulk docs: [8, 2.3, 58]
+                return '[' + ', '.join(str(float(v)) for v in value) + ']'
             return ''
 
         # Counter (just a number)
@@ -140,8 +142,16 @@ class CSVWriter:
         if col_type == 'int':
             return str(int(value))
 
-        # Text (default)
-        return str(value)
+        # Text (default) - normalize for DSBulk compatibility
+        text = str(value)
+        # Replace newlines and tabs with spaces to avoid CSV parsing issues
+        text = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+        # Remove embedded quotes which cause DSBulk parsing issues
+        text = text.replace('"', "'")
+        # Collapse multiple spaces
+        while '  ' in text:
+            text = text.replace('  ', ' ')
+        return text.strip()
 
     def write_all_tables(self, all_data: Dict[str, List[Dict]], schemas: Dict[str, Dict[str, str]]):
         """

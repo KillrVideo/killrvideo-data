@@ -1,0 +1,673 @@
+{
+  "video_id": "69sHSF0iUqg",
+  "title": "DS201.19 Compaction | Foundations of Apache Cassandra",
+  "description": "#DataStaxAcademy #DS201\nDS201.19 COMPACTION\nIn this unit you will learn about compaction, a process Apache Cassandra uses to remove all the stale data from the pre-existing SSTables.\n\nLEARN FOR FREE at https://academy.datastax.com -- access all the FREE complete courses, tutorials, and hands-on exercises.\n\nASK QUESTIONS at https://community.datastax.com -- where experts from DataStax & the Apache Cassandra community share their expertise everyday.",
+  "published_at": "2020-08-11T02:10:54Z",
+  "thumbnail": "https://i.ytimg.com/vi/69sHSF0iUqg/maxresdefault.jpg",
+  "channel_title": "DataStax Developers",
+  "channel_id": "UCAIQY251avaMv7bBv5PCo-A",
+  "tags": [
+    "cassandra",
+    "datastax",
+    "tutorial",
+    "apache_cassandra"
+  ],
+  "url": "https://www.youtube.com/watch?v=69sHSF0iUqg",
+  "transcript": {
+    "available": true,
+    "language": "Chinese",
+    "language_code": "zh",
+    "is_generated": false,
+    "text": "DS201.19：压实(Compaction) 显然 当一个节点写入很多的数据时\n会产生一些SSTable 当用来替代过时数据的新数据被写入之后\n我们就会有很多多余或过时的数据 Apache Cassandra使用压实(Compation)操作\n来移除已有的SSTable中所有的过时数据 这是一个SSTable 可以看到这里有\n布隆过滤器(Bloom Filter)、键缓存(Key Cache) 还有分区概要(Partition Summary)\n分区索引(Partition Index)以及SSTable 每个SSTable都有像这样的一组的数据结构 压实的过程就是将众多SSTable\n合并为一个SSTable的过程 让我们先看看Apache Cassandra是如何\n将两个来自不同SSTable的分区压实在一起的 左边的分区的键分别为1、2、3、4、5 右边分区的键是1、2、3、5、6\n但是没有 4 在每条数据的右边的括号里\n有这条数据被写入数据库的时间戳 Apache Cassandra储存了每条数据的每个值\n被写入时的时间戳 因此Apache Cassandra可以知道哪一个值是最新的 我们注意到左边分区中所有数据的时间戳\n都要比右边分区的早 这是因为左边的SSTable的写入时间比右边早 当我们压实这两个分区时 需要注意到这点 比如左边SSTable的第一行是Johnny\n时间戳为92 在右边相对应的键值同为1的Johnny\n其时间戳却是181 因为181比92大 右边的Johnny是最新的数据 当你真正从表格中读取数据时 Apache Cassandra会返回右边的Johnny\n因为它的时间戳比左边的更新 让我们看看第二条记录 右边的Betsy看上去用X表示了\n实际上它是一个墓碑(Tombstone) 这是标志着此条数据被删除了 当你删除一条数据时 Apache Cassandra实际上会写入一条新数据 我们将这个新数据称为“墓碑” 基本上它就像是在说：“呦~这条数据已经死掉了。“ 我们注意到右边墓碑的时间戳\n比右边Betsy的时间戳要更晚 即右边的176大于左边的49 这个地方可能会让人有些迷惑 在cassandra.yaml文件中有个\n叫gc_grace_seconds的参数 它的默认值是10天 如果一个墓碑的存活时间超过了10天\n默认情况下这个墓碑就会被彻底删除 如果墓碑的存活时间还不到10天 我们会将其保留在SSTable中\n以防同时进行的修复(repair)功能会错误地将数据恢复 我们在另一个视频中会具体展开解释这些 在这个例子中 墓碑的存活时间已经超过了10天 因此Apache Cassandra同时移除了\n右边的墓碑和左边过时的数据Betsy 左边的第三条数据是Nicholi 他出于某些原因想要将他的名字改为Norman\n这个新名字已经被写入到了右边的分区中 左边的Nicholi的时间戳是85 85这个时间戳要比右边的时间戳148小 因此当Apache Cassandra从这两个文件中进行数据读取时 Cassandra会返回右边的Norman\n因为它的时间戳比左边的Nicholi更新一些 另外我们还得移除旧的数据 即左边的Nicholi 下一条记录是Sue Sue喜欢她的名字 因此她并没有更新她的名字 因此在右边SSTable中并没有与之相对应的记录 因此压实这条数据十分容易\n只需要将其复制到新的SSTable文件中即可 接着是Sam 他在左边的SSTable中\n但在右边对应的是一个墓碑 这个墓碑的存活时间小于gc_grace_seconds 这意味着它要至少在SSTable中待够10天 因此Apache Cassandra会将这个墓碑\n写入新的SSTable文件中 最后一条数据 Henrie 右边的数据实际上就是Henrie的原始数据 因为Henrie并没有存在于左边的SSTable中 因此压实Henrie的方法很简单 将它写入新的SSTable\n并删除所有旧的SSTable就搞定了 我们已经不需要这些SSTable了 因为我们现在有了一个包括了\n所有需要保留数据的新SSTable 既然我们已经知道了如何合并两个分区 那我们现在来看看怎么合并两个SSTable吧 记得 SSTable就是由需要我们合并的所有分区组成的 让我们来看看一个例子 上面的SSTable中有分区键令牌值为7、13、18等等的分区 下面SSTable中有分区键令牌值为3、7、18等等的分区 我们需要将这两个SSTable合并为一个新的SSTable 还记得吧？SSTable是不可变的(immutable)\n所以我们不能改变它 我们只能读取现有的SSTable \n然后创建一个含有所有最新数据的SSTable 最后再删除所有旧的SSTable 下面的是新的SSTable Apache Cassandra按照对应的令牌值将数据排序 并将这些分区储存在SSTable文件里的 我们从分区键令牌值为3的分区开始 Cassandra只要将这个分区的数据\n复制到新的SSTable中就搞定啦 接下来让我们分别从两个SSTable中拿出分区键令牌值为7的分区 我们需要将这两部分数据合并 看看这会发生什么 实际上合并后的分区会比原来要小 我打赌你肯定觉得它会变得更大\n因为上面的两个分区都很大 也许这让你有些出乎意料 分区3合并后并没有缩小\n但两个分区7合并之后的分区反而比分区3更小 现在请暂停视频思考一下为什么会这样 然后再开始视频 我们会一起对此进行探讨 如果你还记得 在之前的例子中\n我们有将两个数据合并到一起 在分区3的情况里并没有任何过时的数据\n因此合并之后还会保持原样不变 然而当我们要合并\n来自两个不同SSTable的分区7的数据的时候 发现这两个分区中都有很多过时数据和墓碑 这是为什么合并后的分区7变得这么小 这里我们需要知道的关键点是 合并后的分区中只会存储有用的且最新的数据 剩下所有不需要的部分全部会被移除 因此如果你知道之前的SSTable中有很多过时数据 那新的SSTable事实上会比之前几个SSTable还要小 分区13是下一个被合并的分区 它有很多墓碑 并且有很多墓碑会被移除 因为它们已经过了gc_grace_seconds的时限 接着是分区18 它们合并之后也变小了\n这也是因为有大量的过时数据 之后是分区21 因为其中没有经历任何的删改 \n因此它在合并之后与之前保持一致 再然后是分区36 因为它有过时墓碑\n所以合并之后也变小了 接着是两个分区58 它们合并之后的分区长度\n比两个SSTable分区长度之和要小 不过合并后的分区仍然比原来的任何的一个都要大\n因为并不是所有的数据都是过时的 接着是分区84 它有的全部都是过了gc_grace_seconds时限的墓碑\n那就让我们通过压实操作将它全部移除吧 现在我们有了一个新的SSTable\n那我们就可以删除所有旧的SSTable了 这样我们可以为以后的数据写入腾出更多的磁盘空间 这样就算是都搞定啦 减少SSTable数量也会提高读取效率 因为我们不需要先浏览并提取大量的过时数据\n然后再比较并合并出最新的数据 前面我已经展示了Apache Cassandra\n是如何将两个SSTable合并的 但是事实上在硬盘上会有更多需要压实的SSTable 然而将所有SSTable压实成\n一个巨大的SSTable是不现实的 因为这会让你的节点深陷可怕的泥潭动弹不得 所以Apache Cassandra会选择\n哪些SSTable需要合并在一起 这也就是你的压实策略(Compaction Strategy) 我们一般会考虑三种主要的Compaction Strategy 默认的压实策略是SizeTiered\n基本来说它会将多个大小相近的SSTable合并在一起 在你写入很多的数据的时候\n即当你有大量写入的工作负载(Write-Heavy Workload)时 这个压实策略是很适合的 如果你是有大量读取的工作负载(Read-Heavy Workload)\n即读取的次数比写入的次数多很多 你也许会想要使用的压实策略是Leveled\n因为这种策略针对读取进行了优化 如果你正要注入时间序列数据\n或你的数据将会按时间顺序写入 那请考虑使用TimeWindow作为压实策略 我们会在另一个课程中详细介绍这些压实策略 这句话有点儿绕口 尤其是对于我来说 那现在让我们做一些关于压实的练习吧",
+    "segments": [
+      {
+        "start": 0.996,
+        "duration": 5.567,
+        "text": "DS201.19：压实(Compaction)"
+      },
+      {
+        "start": 6.563,
+        "duration": 5.284,
+        "text": "显然 当一个节点写入很多的数据时\n会产生一些SSTable"
+      },
+      {
+        "start": 11.847,
+        "duration": 7.028,
+        "text": "当用来替代过时数据的新数据被写入之后\n我们就会有很多多余或过时的数据"
+      },
+      {
+        "start": 18.875,
+        "duration": 7.899,
+        "text": "Apache Cassandra使用压实(Compation)操作\n来移除已有的SSTable中所有的过时数据"
+      },
+      {
+        "start": 26.774,
+        "duration": 1.864,
+        "text": "这是一个SSTable"
+      },
+      {
+        "start": 28.638,
+        "duration": 2.211,
+        "text": "可以看到这里有\n布隆过滤器(Bloom Filter)、键缓存(Key Cache)"
+      },
+      {
+        "start": 30.849,
+        "duration": 3.508,
+        "text": "还有分区概要(Partition Summary)\n分区索引(Partition Index)以及SSTable"
+      },
+      {
+        "start": 34.357,
+        "duration": 5.643,
+        "text": "每个SSTable都有像这样的一组的数据结构"
+      },
+      {
+        "start": 40.0,
+        "duration": 4.466,
+        "text": "压实的过程就是将众多SSTable\n合并为一个SSTable的过程"
+      },
+      {
+        "start": 44.466,
+        "duration": 7.556,
+        "text": "让我们先看看Apache Cassandra是如何\n将两个来自不同SSTable的分区压实在一起的"
+      },
+      {
+        "start": 52.022,
+        "duration": 5.122,
+        "text": "左边的分区的键分别为1、2、3、4、5"
+      },
+      {
+        "start": 57.144,
+        "duration": 4.83,
+        "text": "右边分区的键是1、2、3、5、6\n但是没有 4"
+      },
+      {
+        "start": 61.974,
+        "duration": 4.916,
+        "text": "在每条数据的右边的括号里\n有这条数据被写入数据库的时间戳"
+      },
+      {
+        "start": 66.89,
+        "duration": 5.149,
+        "text": "Apache Cassandra储存了每条数据的每个值\n被写入时的时间戳"
+      },
+      {
+        "start": 72.039,
+        "duration": 4.272,
+        "text": "因此Apache Cassandra可以知道哪一个值是最新的"
+      },
+      {
+        "start": 76.311,
+        "duration": 7.077,
+        "text": "我们注意到左边分区中所有数据的时间戳\n都要比右边分区的早"
+      },
+      {
+        "start": 83.388,
+        "duration": 6.708,
+        "text": "这是因为左边的SSTable的写入时间比右边早"
+      },
+      {
+        "start": 90.096,
+        "duration": 4.237,
+        "text": "当我们压实这两个分区时 需要注意到这点"
+      },
+      {
+        "start": 94.333,
+        "duration": 4.5,
+        "text": "比如左边SSTable的第一行是Johnny\n时间戳为92"
+      },
+      {
+        "start": 98.833,
+        "duration": 8.14,
+        "text": "在右边相对应的键值同为1的Johnny\n其时间戳却是181"
+      },
+      {
+        "start": 106.973,
+        "duration": 5.318,
+        "text": "因为181比92大 右边的Johnny是最新的数据"
+      },
+      {
+        "start": 112.291,
+        "duration": 3.266,
+        "text": "当你真正从表格中读取数据时"
+      },
+      {
+        "start": 115.557,
+        "duration": 6.802,
+        "text": "Apache Cassandra会返回右边的Johnny\n因为它的时间戳比左边的更新"
+      },
+      {
+        "start": 122.359,
+        "duration": 2.115,
+        "text": "让我们看看第二条记录"
+      },
+      {
+        "start": 124.474,
+        "duration": 5.368,
+        "text": "右边的Betsy看上去用X表示了\n实际上它是一个墓碑(Tombstone)"
+      },
+      {
+        "start": 129.842,
+        "duration": 2.154,
+        "text": "这是标志着此条数据被删除了"
+      },
+      {
+        "start": 131.996,
+        "duration": 1.299,
+        "text": "当你删除一条数据时"
+      },
+      {
+        "start": 133.295,
+        "duration": 2.571,
+        "text": "Apache Cassandra实际上会写入一条新数据"
+      },
+      {
+        "start": 135.866,
+        "duration": 3.038,
+        "text": "我们将这个新数据称为“墓碑”"
+      },
+      {
+        "start": 138.904,
+        "duration": 3.638,
+        "text": "基本上它就像是在说：“呦~这条数据已经死掉了。“"
+      },
+      {
+        "start": 142.542,
+        "duration": 5.725,
+        "text": "我们注意到右边墓碑的时间戳\n比右边Betsy的时间戳要更晚"
+      },
+      {
+        "start": 148.267,
+        "duration": 3.233,
+        "text": "即右边的176大于左边的49"
+      },
+      {
+        "start": 151.5,
+        "duration": 2.412,
+        "text": "这个地方可能会让人有些迷惑"
+      },
+      {
+        "start": 153.912,
+        "duration": 4.823,
+        "text": "在cassandra.yaml文件中有个\n叫gc_grace_seconds的参数"
+      },
+      {
+        "start": 158.735,
+        "duration": 2.395,
+        "text": "它的默认值是10天"
+      },
+      {
+        "start": 161.13,
+        "duration": 6.854,
+        "text": "如果一个墓碑的存活时间超过了10天\n默认情况下这个墓碑就会被彻底删除"
+      },
+      {
+        "start": 167.984,
+        "duration": 2.558,
+        "text": "如果墓碑的存活时间还不到10天"
+      },
+      {
+        "start": 170.542,
+        "duration": 5.79,
+        "text": "我们会将其保留在SSTable中\n以防同时进行的修复(repair)功能会错误地将数据恢复"
+      },
+      {
+        "start": 176.332,
+        "duration": 1.87,
+        "text": "我们在另一个视频中会具体展开解释这些"
+      },
+      {
+        "start": 178.202,
+        "duration": 4.178,
+        "text": "在这个例子中 墓碑的存活时间已经超过了10天"
+      },
+      {
+        "start": 182.38,
+        "duration": 6.568,
+        "text": "因此Apache Cassandra同时移除了\n右边的墓碑和左边过时的数据Betsy"
+      },
+      {
+        "start": 188.948,
+        "duration": 2.819,
+        "text": "左边的第三条数据是Nicholi"
+      },
+      {
+        "start": 191.767,
+        "duration": 4.093,
+        "text": "他出于某些原因想要将他的名字改为Norman\n这个新名字已经被写入到了右边的分区中"
+      },
+      {
+        "start": 195.86,
+        "duration": 3.634,
+        "text": "左边的Nicholi的时间戳是85"
+      },
+      {
+        "start": 199.494,
+        "duration": 4.089,
+        "text": "85这个时间戳要比右边的时间戳148小"
+      },
+      {
+        "start": 203.583,
+        "duration": 2.687,
+        "text": "因此当Apache Cassandra从这两个文件中进行数据读取时"
+      },
+      {
+        "start": 206.27,
+        "duration": 6.737,
+        "text": "Cassandra会返回右边的Norman\n因为它的时间戳比左边的Nicholi更新一些"
+      },
+      {
+        "start": 213.007,
+        "duration": 3.056,
+        "text": "另外我们还得移除旧的数据 即左边的Nicholi"
+      },
+      {
+        "start": 216.063,
+        "duration": 1.57,
+        "text": "下一条记录是Sue"
+      },
+      {
+        "start": 217.633,
+        "duration": 4.03,
+        "text": "Sue喜欢她的名字 因此她并没有更新她的名字"
+      },
+      {
+        "start": 221.663,
+        "duration": 3.602,
+        "text": "因此在右边SSTable中并没有与之相对应的记录"
+      },
+      {
+        "start": 225.265,
+        "duration": 5.761,
+        "text": "因此压实这条数据十分容易\n只需要将其复制到新的SSTable文件中即可"
+      },
+      {
+        "start": 231.026,
+        "duration": 5.719,
+        "text": "接着是Sam 他在左边的SSTable中\n但在右边对应的是一个墓碑"
+      },
+      {
+        "start": 236.745,
+        "duration": 3.624,
+        "text": "这个墓碑的存活时间小于gc_grace_seconds"
+      },
+      {
+        "start": 240.369,
+        "duration": 3.895,
+        "text": "这意味着它要至少在SSTable中待够10天"
+      },
+      {
+        "start": 244.264,
+        "duration": 4.834,
+        "text": "因此Apache Cassandra会将这个墓碑\n写入新的SSTable文件中"
+      },
+      {
+        "start": 249.117,
+        "duration": 2.343,
+        "text": "最后一条数据 Henrie"
+      },
+      {
+        "start": 251.46,
+        "duration": 2.182,
+        "text": "右边的数据实际上就是Henrie的原始数据"
+      },
+      {
+        "start": 253.642,
+        "duration": 2.927,
+        "text": "因为Henrie并没有存在于左边的SSTable中"
+      },
+      {
+        "start": 256.569,
+        "duration": 2.304,
+        "text": "因此压实Henrie的方法很简单"
+      },
+      {
+        "start": 258.873,
+        "duration": 5.256,
+        "text": "将它写入新的SSTable\n并删除所有旧的SSTable就搞定了"
+      },
+      {
+        "start": 264.129,
+        "duration": 1.365,
+        "text": "我们已经不需要这些SSTable了"
+      },
+      {
+        "start": 265.494,
+        "duration": 4.279,
+        "text": "因为我们现在有了一个包括了\n所有需要保留数据的新SSTable"
+      },
+      {
+        "start": 269.773,
+        "duration": 3.075,
+        "text": "既然我们已经知道了如何合并两个分区"
+      },
+      {
+        "start": 272.848,
+        "duration": 3.67,
+        "text": "那我们现在来看看怎么合并两个SSTable吧"
+      },
+      {
+        "start": 276.518,
+        "duration": 3.941,
+        "text": "记得 SSTable就是由需要我们合并的所有分区组成的"
+      },
+      {
+        "start": 280.459,
+        "duration": 2.0,
+        "text": "让我们来看看一个例子"
+      },
+      {
+        "start": 282.459,
+        "duration": 5.826,
+        "text": "上面的SSTable中有分区键令牌值为7、13、18等等的分区"
+      },
+      {
+        "start": 288.285,
+        "duration": 6.006,
+        "text": "下面SSTable中有分区键令牌值为3、7、18等等的分区"
+      },
+      {
+        "start": 294.291,
+        "duration": 4.642,
+        "text": "我们需要将这两个SSTable合并为一个新的SSTable"
+      },
+      {
+        "start": 298.933,
+        "duration": 3.355,
+        "text": "还记得吧？SSTable是不可变的(immutable)\n所以我们不能改变它"
+      },
+      {
+        "start": 302.288,
+        "duration": 5.487,
+        "text": "我们只能读取现有的SSTable \n然后创建一个含有所有最新数据的SSTable"
+      },
+      {
+        "start": 307.775,
+        "duration": 1.77,
+        "text": "最后再删除所有旧的SSTable"
+      },
+      {
+        "start": 309.545,
+        "duration": 2.074,
+        "text": "下面的是新的SSTable"
+      },
+      {
+        "start": 311.619,
+        "duration": 5.016,
+        "text": "Apache Cassandra按照对应的令牌值将数据排序"
+      },
+      {
+        "start": 316.635,
+        "duration": 2.34,
+        "text": "并将这些分区储存在SSTable文件里的"
+      },
+      {
+        "start": 318.975,
+        "duration": 2.895,
+        "text": "我们从分区键令牌值为3的分区开始"
+      },
+      {
+        "start": 321.87,
+        "duration": 4.473,
+        "text": "Cassandra只要将这个分区的数据\n复制到新的SSTable中就搞定啦"
+      },
+      {
+        "start": 326.343,
+        "duration": 3.002,
+        "text": "接下来让我们分别从两个SSTable中拿出分区键令牌值为7的分区"
+      },
+      {
+        "start": 329.345,
+        "duration": 2.803,
+        "text": "我们需要将这两部分数据合并"
+      },
+      {
+        "start": 332.148,
+        "duration": 1.174,
+        "text": "看看这会发生什么"
+      },
+      {
+        "start": 333.322,
+        "duration": 2.0,
+        "text": "实际上合并后的分区会比原来要小"
+      },
+      {
+        "start": 335.322,
+        "duration": 4.842,
+        "text": "我打赌你肯定觉得它会变得更大\n因为上面的两个分区都很大"
+      },
+      {
+        "start": 340.164,
+        "duration": 2.674,
+        "text": "也许这让你有些出乎意料"
+      },
+      {
+        "start": 342.838,
+        "duration": 7.162,
+        "text": "分区3合并后并没有缩小\n但两个分区7合并之后的分区反而比分区3更小"
+      },
+      {
+        "start": 350.0,
+        "duration": 4.539,
+        "text": "现在请暂停视频思考一下为什么会这样"
+      },
+      {
+        "start": 354.539,
+        "duration": 2.0,
+        "text": "然后再开始视频 我们会一起对此进行探讨"
+      },
+      {
+        "start": 356.539,
+        "duration": 5.092,
+        "text": "如果你还记得 在之前的例子中\n我们有将两个数据合并到一起"
+      },
+      {
+        "start": 361.631,
+        "duration": 5.619,
+        "text": "在分区3的情况里并没有任何过时的数据\n因此合并之后还会保持原样不变"
+      },
+      {
+        "start": 367.25,
+        "duration": 5.232,
+        "text": "然而当我们要合并\n来自两个不同SSTable的分区7的数据的时候"
+      },
+      {
+        "start": 372.482,
+        "duration": 4.957,
+        "text": "发现这两个分区中都有很多过时数据和墓碑"
+      },
+      {
+        "start": 377.439,
+        "duration": 2.115,
+        "text": "这是为什么合并后的分区7变得这么小"
+      },
+      {
+        "start": 379.554,
+        "duration": 2.018,
+        "text": "这里我们需要知道的关键点是"
+      },
+      {
+        "start": 381.572,
+        "duration": 5.61,
+        "text": "合并后的分区中只会存储有用的且最新的数据"
+      },
+      {
+        "start": 387.182,
+        "duration": 1.445,
+        "text": "剩下所有不需要的部分全部会被移除"
+      },
+      {
+        "start": 388.627,
+        "duration": 4.832,
+        "text": "因此如果你知道之前的SSTable中有很多过时数据"
+      },
+      {
+        "start": 393.459,
+        "duration": 2.833,
+        "text": "那新的SSTable事实上会比之前几个SSTable还要小"
+      },
+      {
+        "start": 396.292,
+        "duration": 2.013,
+        "text": "分区13是下一个被合并的分区"
+      },
+      {
+        "start": 398.305,
+        "duration": 3.058,
+        "text": "它有很多墓碑 并且有很多墓碑会被移除"
+      },
+      {
+        "start": 401.363,
+        "duration": 3.56,
+        "text": "因为它们已经过了gc_grace_seconds的时限"
+      },
+      {
+        "start": 404.923,
+        "duration": 4.892,
+        "text": "接着是分区18 它们合并之后也变小了\n这也是因为有大量的过时数据"
+      },
+      {
+        "start": 409.815,
+        "duration": 7.144,
+        "text": "之后是分区21 因为其中没有经历任何的删改 \n因此它在合并之后与之前保持一致"
+      },
+      {
+        "start": 416.959,
+        "duration": 5.981,
+        "text": "再然后是分区36 因为它有过时墓碑\n所以合并之后也变小了"
+      },
+      {
+        "start": 422.94,
+        "duration": 7.06,
+        "text": "接着是两个分区58 它们合并之后的分区长度\n比两个SSTable分区长度之和要小"
+      },
+      {
+        "start": 430.0,
+        "duration": 4.268,
+        "text": "不过合并后的分区仍然比原来的任何的一个都要大\n因为并不是所有的数据都是过时的"
+      },
+      {
+        "start": 434.268,
+        "duration": 2.053,
+        "text": "接着是分区84"
+      },
+      {
+        "start": 436.321,
+        "duration": 4.65,
+        "text": "它有的全部都是过了gc_grace_seconds时限的墓碑\n那就让我们通过压实操作将它全部移除吧"
+      },
+      {
+        "start": 440.971,
+        "duration": 3.914,
+        "text": "现在我们有了一个新的SSTable\n那我们就可以删除所有旧的SSTable了"
+      },
+      {
+        "start": 444.885,
+        "duration": 2.533,
+        "text": "这样我们可以为以后的数据写入腾出更多的磁盘空间"
+      },
+      {
+        "start": 447.418,
+        "duration": 1.374,
+        "text": "这样就算是都搞定啦"
+      },
+      {
+        "start": 448.792,
+        "duration": 3.292,
+        "text": "减少SSTable数量也会提高读取效率"
+      },
+      {
+        "start": 452.084,
+        "duration": 4.875,
+        "text": "因为我们不需要先浏览并提取大量的过时数据\n然后再比较并合并出最新的数据"
+      },
+      {
+        "start": 457.0,
+        "duration": 4.182,
+        "text": "前面我已经展示了Apache Cassandra\n是如何将两个SSTable合并的"
+      },
+      {
+        "start": 461.182,
+        "duration": 3.818,
+        "text": "但是事实上在硬盘上会有更多需要压实的SSTable"
+      },
+      {
+        "start": 465.0,
+        "duration": 6.15,
+        "text": "然而将所有SSTable压实成\n一个巨大的SSTable是不现实的"
+      },
+      {
+        "start": 471.15,
+        "duration": 2.758,
+        "text": "因为这会让你的节点深陷可怕的泥潭动弹不得"
+      },
+      {
+        "start": 473.908,
+        "duration": 6.647,
+        "text": "所以Apache Cassandra会选择\n哪些SSTable需要合并在一起"
+      },
+      {
+        "start": 480.555,
+        "duration": 2.697,
+        "text": "这也就是你的压实策略(Compaction Strategy)"
+      },
+      {
+        "start": 483.252,
+        "duration": 3.038,
+        "text": "我们一般会考虑三种主要的Compaction Strategy"
+      },
+      {
+        "start": 486.29,
+        "duration": 7.694,
+        "text": "默认的压实策略是SizeTiered\n基本来说它会将多个大小相近的SSTable合并在一起"
+      },
+      {
+        "start": 493.984,
+        "duration": 2.442,
+        "text": "在你写入很多的数据的时候\n即当你有大量写入的工作负载(Write-Heavy Workload)时"
+      },
+      {
+        "start": 496.426,
+        "duration": 2.055,
+        "text": "这个压实策略是很适合的"
+      },
+      {
+        "start": 498.481,
+        "duration": 4.431,
+        "text": "如果你是有大量读取的工作负载(Read-Heavy Workload)\n即读取的次数比写入的次数多很多"
+      },
+      {
+        "start": 502.912,
+        "duration": 5.175,
+        "text": "你也许会想要使用的压实策略是Leveled\n因为这种策略针对读取进行了优化"
+      },
+      {
+        "start": 508.087,
+        "duration": 5.008,
+        "text": "如果你正要注入时间序列数据\n或你的数据将会按时间顺序写入"
+      },
+      {
+        "start": 513.095,
+        "duration": 2.319,
+        "text": "那请考虑使用TimeWindow作为压实策略"
+      },
+      {
+        "start": 515.414,
+        "duration": 5.066,
+        "text": "我们会在另一个课程中详细介绍这些压实策略"
+      },
+      {
+        "start": 520.48,
+        "duration": 2.816,
+        "text": "这句话有点儿绕口 尤其是对于我来说"
+      },
+      {
+        "start": 523.296,
+        "duration": 2.288,
+        "text": "那现在让我们做一些关于压实的练习吧"
+      }
+    ],
+    "error": null,
+    "error_type": null
+  },
+  "collected_at": "2025-12-16T01:51:38.213222+00:00"
+}
