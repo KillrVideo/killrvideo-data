@@ -212,8 +212,6 @@ def load_user_credentials(session):
 
 def load_videos(session):
     """Load videos_cleaned.csv or videos.csv."""
-    #csv_file = DATA_DIR / "videos_cleaned.csv"
-    #if not csv_file.exists():
     csv_file = DATA_DIR / "videos.csv"
 
     logger.info(f"csv_file: {csv_file}")
@@ -365,7 +363,7 @@ https://docs.datastax.com/en/astra-serverless/docs/manage/dsbulk.html
         """)
         return
 
-    table = sys.argv[1]
+    table = sys.argv[1] if len(sys.argv) > 1 else None
 
     try:
         session, cluster = get_session()

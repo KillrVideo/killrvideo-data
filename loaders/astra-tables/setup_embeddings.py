@@ -198,6 +198,7 @@ def main():
             return 1
 
 
+
         print()
 
     # Verify schema compatibility

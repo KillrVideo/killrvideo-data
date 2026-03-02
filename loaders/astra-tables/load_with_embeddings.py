@@ -20,17 +20,16 @@ Usage:
 
 import argparse
 import csv
-from curses import raw
 import json
 import sys
 import time
 import yaml
 import pickle
+from decimal import Decimal
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from uuid import UUID
-from decimal import Decimal
 
 try:
     from cassandra.cluster import Cluster, ExecutionProfile, EXEC_PROFILE_DEFAULT
@@ -271,10 +270,9 @@ class AstraTableLoader:
             embedding = self.embedder.generate_embedding(text)
 
             # Reduce to target dimensions
-            #reduced = self.embedder.reduce_dimensions(embedding, target_dimensions)
+            reduced = self.embedder.reduce_dimensions(embedding, target_dimensions)
 
-            #return reduced.flatten().tolist()
-            return embedding
+            return reduced.flatten().tolist()
 
         except Exception as e:
             log_warning(f"Failed to generate embedding: {e}")
@@ -389,8 +387,8 @@ class AstraTableLoader:
         rows_failed = 0
         embeddings_generated = 0
 
-        #try:
-        with open(csv_path, 'r', encoding='utf-8') as f:
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 columns = list(reader.fieldnames)
 
@@ -414,7 +412,7 @@ class AstraTableLoader:
                 batch = []
 
                 for row in reader:
-                    #try:
+                    try:
                         parsed_values = []
                         text_for_embedding = None
 
@@ -441,12 +439,10 @@ class AstraTableLoader:
 
                                 # Generate embedding
                                 if text_for_embedding:
-                                    #print("Got here")
                                     embedding = self.generate_embedding_for_text(
                                         text_for_embedding,
                                         vector_mappings[table_name]['dimensions']
                                     )
-                                    #print("Got here2")
                                     parsed_values.append(embedding)
                                     if embedding is not None:
                                         embeddings_generated += 1
@@ -463,11 +459,9 @@ class AstraTableLoader:
                                 # numeric
                                 value = row.get(col, '')
                                 if '.' in value:
-                                    #float
                                     raw_value = float(Decimal(value))
                                     parsed_values.append(raw_value)
                                 else:
-                                    #integer
                                     raw_value = int(value)
                                     parsed_values.append(raw_value)
                             elif row.get(col, '').startswith("[") and row.get(col, '').endswith("]"):
@@ -502,9 +496,9 @@ class AstraTableLoader:
                                     status += f" ({embeddings_generated} embeddings)"
                                 print(status + "...", end='\r')
 
-                    #except Exception as e:
-                    #    log_warning(f"Failed to process row: {e}")
-                    #    rows_failed += 1
+                    except Exception as e:
+                        log_warning(f"Failed to process row: {e}")
+                        rows_failed += 1
 
                 # Execute remaining batch
                 if batch:
@@ -522,9 +516,9 @@ class AstraTableLoader:
 
                 return rows_loaded, rows_failed
 
-        #except Exception as e:
-        #    log_error(f"Failed to load {table_name}: {e}")
-        #    return rows_loaded, rows_failed
+        except Exception as e:
+            log_error(f"Failed to load {table_name}: {e}")
+            return rows_loaded, rows_failed
 
     def load_counter_table(self, table_name: str, csv_path: Path, update_query: str) -> tuple[int, int]:
         """Load counter table (same as before)"""
